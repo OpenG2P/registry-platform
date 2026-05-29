@@ -1,0 +1,55 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+.env.local
+*.tsbuildinfo
+.vscode
+
+
+# Logs
+logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+# Dependency directories
+# Environment variables
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+
+# Task files
+# tasks.json
+# tasks/ 
+.cursor/mcp.json
+.cursor/rules/cursor_rules.mdc
+.cursor/rules/self_improve.mdc
+.cursor/rules/taskmaster/dev_workflow.mdc
+.cursor/rules/taskmaster/taskmaster.mdc
+.taskmaster/
+# .taskmaster/config.json
+# .taskmaster/state.json
+# .taskmaster/docs/prd.txt
+# .taskmaster/templates/example_prd.txt
+# .taskmaster/tasks/task_001.txt
+# .taskmaster/tasks/task_002.txt
+# .taskmaster/tasks/task_003.txt
+# .taskmaster/tasks/task_004.txt
+# .taskmaster/tasks/task_005.txt
+# .taskmaster/tasks/task_006.txt
+# .taskmaster/tasks/task_007.txt
+# .taskmaster/tasks/task_008.txt
+# .taskmaster/tasks/task_009.txt
+# .taskmaster/tasks/task_010.txt
+# .taskmaster/tasks/task_011.txt
+# .taskmaster/tasks/task_012.txt
+# .taskmaster/tasks/tasks.json
+# .env.example
+# .taskmaster/tasks/task_013.txt

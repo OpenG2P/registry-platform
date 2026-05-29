@@ -1,0 +1,1 @@
+from .g2p_ingest_controller import G2PIngestController

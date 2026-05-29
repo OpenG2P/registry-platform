@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Section JSON Builder - UI Mockup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .mockup-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        
+        .close-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #e74c3c;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        
+        .main-content {
+            display: flex;
+            height: 900px;
+        }
+        
+        .left-panel {
+            width: 50%;
+            border-right: 2px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .right-panel {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+            font-weight: 600;
+            font-size: 16px;
+            color: #2c3e50;
+        }
+        
+        .json-editor {
+            flex: 1;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .json-line {
+            margin: 2px 0;
+        }
+        
+        .json-key {
+            color: #9cdcfe;
+        }
+        
+        .json-string {
+            color: #ce9178;
+        }
+        
+        .json-number {
+            color: #569cd6;
+        }
+        
+        .json-bracket {
+            color: #d4d4d4;
+        }
+        
+        .line-number {
+            color: #858585;
+            display: inline-block;
+            width: 30px;
+            text-align: right;
+            margin-right: 15px;
+        }
+        
+        .validation-status {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #ddd;
+        }
+        
+        .status-valid {
+            color: #28a745;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #28a745;
+        }
+        
+        .visual-builder {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .builder-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .tree-view {
+            width: 45%;
+            border-right: 1px solid #ddd;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .tree-view h3 {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        .tree-item {
+            margin: 5px 0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+        
+        .tree-item:hover {
+            background: rgba(33, 150, 243, 0.1);
+        }
+        
+        .tree-item.selected {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+        }
+        
+        .tree-item.section {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            font-weight: 600;
+        }
+        
+        .tree-item.panel {
+            background: #fff3e0;
+            border: 1px solid #ff9800;
+            margin-left: 20px;
+        }
+        
+        .tree-item.widget {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            margin-left: 40px;
+        }
+        
+        .tree-item-icon {
+            margin-right: 8px;
+        }
+        
+        .tree-item-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .tree-item-actions button {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .add-buttons {
+            padding: 15px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn-primary {
+            background: #2196f3;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .properties-panel {
+            width: 55%;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .properties-panel h3 {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+        
+        .selected-item-header {
+            background: #2196f3;
+            color: white;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .form-label.required::after {
+            content: " *";
+            color: #e74c3c;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+        }
+        
+        .form-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            background: white;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 30px;
+        }
+        
+        .form-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-checkbox input {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+            color: white;
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn-warning {
+            background: #ff9800;
+            color: white;
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="mockup-container">
+        <div class="header">
+            <h1>Section JSON Builder</h1>
+            <div class="close-btn">×</div>
+        </div>
+        
+        <div class="main-content">
+            <!-- Left Panel: JSON Editor -->
+            <div class="left-panel">
+                <div class="panel-header">JSON Editor</div>
+                <div class="json-editor">
+                    <div class="json-line">
+                        <span class="line-number">1</span>
+                        <span class="json-bracket">{</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">2</span>
+                        <span class="json-key">  "section-id"</span><span class="json-bracket">:</span> <span class="json-string">"main-content"</span><span class="json-bracket">,</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">3</span>
+                        <span class="json-key">  "section-title"</span><span class="json-bracket">:</span> <span class="json-string">"Personal Information"</span><span class="json-bracket">,</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">4</span>
+                        <span class="json-key">  "section-editable"</span><span class="json-bracket">:</span> <span class="json-number">true</span><span class="json-bracket">,</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">5</span>
+                        <span class="json-key">  "panels"</span><span class="json-bracket">:</span> <span class="json-bracket">[</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">6</span>
+                        <span class="json-bracket">    {</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">7</span>
+                        <span class="json-key">      "panel-id"</span><span class="json-bracket">:</span> <span class="json-string">"personal-details"</span><span class="json-bracket">,</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">8</span>
+                        <span class="json-key">      "panel-orientation"</span><span class="json-bracket">:</span> <span class="json-string">"horizontal"</span><span class="json-bracket">,</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">9</span>
+                        <span class="json-key">      "widgets"</span><span class="json-bracket">:</span> <span class="json-bracket">[</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">10</span>
+                        <span class="json-bracket">        {</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">11</span>
+                        <span class="json-key">          "widget"</span><span class="json-bracket">:</span> <span class="json-string">"text"</span><span class="json-bracket">,</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">12</span>
+                        <span class="json-key">          "widget-id"</span><span class="json-bracket">:</span> <span class="json-string">"name"</span><span class="json-bracket">,</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">13</span>
+                        <span class="json-key">          "widget-label"</span><span class="json-bracket">:</span> <span class="json-string">"Full Name"</span><span class="json-bracket">,</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">14</span>
+                        <span class="json-key">          "widget-data-path"</span><span class="json-bracket">:</span> <span class="json-string">"person.name"</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">15</span>
+                        <span class="json-bracket">        }</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">16</span>
+                        <span class="json-bracket">      ]</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">17</span>
+                        <span class="json-bracket">    }</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">18</span>
+                        <span class="json-bracket">  ]</span>
+                    </div>
+                    <div class="json-line">
+                        <span class="line-number">19</span>
+                        <span class="json-bracket">}</span>
+                    </div>
+                </div>
+                <div class="validation-status">
+                    <div class="status-valid">
+                        <div class="status-icon"></div>
+                        <span>Valid JSON Schema - All properties are valid</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Panel: Visual Builder -->
+            <div class="right-panel">
+                <div class="panel-header">Visual Builder</div>
+                <div class="visual-builder">
+                    <div class="builder-content">
+                        <!-- Tree View -->
+                        <div class="tree-view">
+                            <h3>Section Structure</h3>
+                            <div class="tree-item section selected">
+                                <span class="tree-item-icon">📁</span>
+                                Section: main-content
+                                <div class="tree-item-actions">
+                                    <button style="background: #2196f3; color: white;">⚙</button>
+                                </div>
+                            </div>
+                            <div class="tree-item panel">
+                                <span class="tree-item-icon">📦</span>
+                                Panel: personal-details
+                                <div class="tree-item-actions">
+                                    <button style="background: #ff9800; color: white;">⚙</button>
+                                </div>
+                            </div>
+                            <div class="tree-item widget">
+                                <span class="tree-item-icon">🔧</span>
+                                Widget: name (text)
+                                <div class="tree-item-actions">
+                                    <button style="background: #4caf50; color: white;">⚙</button>
+                                </div>
+                            </div>
+                            <div class="tree-item widget">
+                                <span class="tree-item-icon">🔧</span>
+                                Widget: email (text)
+                                <div class="tree-item-actions">
+                                    <button style="background: #4caf50; color: white;">⚙</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Properties Panel -->
+                        <div class="properties-panel">
+                            <h3>Properties</h3>
+                            <div class="selected-item-header">
+                                Panel: personal-details
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label required">Panel ID</label>
+                                <input type="text" class="form-input" value="personal-details">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Orientation</label>
+                                <select class="form-select">
+                                    <option value="horizontal" selected>horizontal</option>
+                                    <option value="vertical">vertical</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Column Span</label>
+                                <input type="number" class="form-input" value="1" min="1">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Widget Type</label>
+                                <select class="form-select">
+                                    <option value="text" selected>text</option>
+                                    <option value="number">number</option>
+                                    <option value="date">date</option>
+                                    <option value="select">select</option>
+                                    <option value="boolean">boolean</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Widget Label</label>
+                                <input type="text" class="form-input" placeholder="Enter label...">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">Data Path</label>
+                                <input type="text" class="form-input" placeholder="person.name">
+                            </div>
+                            
+                            <div class="form-group">
+                                <div class="form-checkbox">
+                                    <input type="checkbox" id="required">
+                                    <label for="required">Required</label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <div class="form-checkbox">
+                                    <input type="checkbox" id="readonly">
+                                    <label for="readonly">Readonly</label>
+                                </div>
+                            </div>
+                            
+                            <div class="action-buttons">
+                                <button class="btn-danger">Delete</button>
+                                <button class="btn-warning">Duplicate</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="add-buttons">
+                        <button class="btn btn-primary">+ Add Panel</button>
+                        <button class="btn btn-success">+ Add Widget</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
