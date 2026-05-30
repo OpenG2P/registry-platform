@@ -1,0 +1,67 @@
+name: Build & Push Staff Portal UI Docker
+
+# Builds and pushes openg2p/openg2p-registry-staff-portal-ui.
+#
+# The image tag is derived from the branch name (e.g. develop -> :develop),
+# so there is no spec/develop.txt file to maintain — same convention as the
+# other OpenG2P repos.
+#
+# Triggers:
+#   - push: only when the Staff Portal UI source (or this workflow) changes.
+#   - workflow_dispatch: manual trigger.
+on:
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - '**'
+    paths:
+      - 'ui/staff-portal-ui/**'
+      - '.github/workflows/docker-staff-portal-ui.yml'
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: openg2p/openg2p-registry-staff-portal-ui
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.docker_hub_actor }}
+          password: ${{ secrets.docker_hub_token }}
+
+      - name: Derive image tag from branch
+        id: meta
+        shell: bash
+        run: |
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ui/staff-portal-ui
+          file: ui/staff-portal-ui/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
+          labels: |
+            org.opencontainers.image.created=${{ steps.meta.outputs.created }}
+            org.opencontainers.image.authors=${{ github.repository_owner }}
+            org.opencontainers.image.source=${{ github.repository }}@${{ github.sha }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.tag }}
+            org.opencontainers.image.vendor=${{ github.repository_owner }}
+            org.opencontainers.image.title=openg2p-registry-staff-portal-ui
+            org.opencontainers.image.description=OpenG2P Registry Staff Portal UI
