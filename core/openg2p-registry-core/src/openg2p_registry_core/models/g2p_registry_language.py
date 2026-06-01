@@ -32,7 +32,11 @@ class G2PRegistryLanguage(BaseORMModel):
         nullable=False,
         default=False
     )
-    language_translation: Mapped[dict] = mapped_column(
+    core_translation: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=True
+    )
+    domain_translation: Mapped[dict] = mapped_column(
         JSON,
         nullable=True
     )
