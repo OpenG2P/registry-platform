@@ -3,6 +3,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
+import { useInactivityLogout } from '@/shared/hooks/useInactivityLogout';
+import {
+    AUTH_BROADCAST_CHANNEL,
+    LOGOUT_EVENT_STORAGE_KEY,
+} from '@/shared/constants/session';
 
 interface AuthContextType {
     isLoggedIn: boolean;
@@ -13,7 +18,26 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function InactivityLogoutGuard({
+    children,
+    logout,
+    sessionIdleTimeoutMs,
+}: {
+    children: ReactNode;
+    logout: () => void;
+    sessionIdleTimeoutMs: number;
+}) {
+    useInactivityLogout(logout, sessionIdleTimeoutMs, true);
+    return <>{children}</>;
+}
+
+export function AuthProvider({
+    children,
+    sessionIdleTimeoutMs,
+}: {
+    children: ReactNode;
+    sessionIdleTimeoutMs: number;
+}) {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [user, setUser] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -23,6 +47,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = useCallback(() => {
         setIsLoggedIn(false);
         setUser(null);
+
+        const ts = Date.now();
+        try {
+            localStorage.setItem(LOGOUT_EVENT_STORAGE_KEY, String(ts));
+            const channel = new BroadcastChannel(AUTH_BROADCAST_CHANNEL);
+            channel.postMessage({ type: 'logout', ts });
+            channel.close();
+        } catch {
+            // Other tabs fall back to the storage event listener.
+        }
+
         window.location.href = '/api/logout';
     }, []);
 
@@ -207,7 +242,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return (
         <AuthContext.Provider value={{ isLoggedIn, user, logout, handleUnauthorized }}>
-            {children}
+            <InactivityLogoutGuard logout={logout} sessionIdleTimeoutMs={sessionIdleTimeoutMs}>
+                {children}
+            </InactivityLogoutGuard>
         </AuthContext.Provider>
     );
 }

@@ -85,7 +85,7 @@ export default async function RootLayout({
             </head>
             <body className={`${roboto.className} antialiased`}>
                 <NextIntlClientProvider messages={messages}>
-                    <GlobalContextProvider>
+                    <GlobalContextProvider sessionIdleTimeoutMs={config.sessionIdleTimeoutMs}>
                         <RuntimeConfigProvider initialConfig={config}>
                             <Header />
                             <div className="pt-17.5">

@@ -5,9 +5,15 @@ import { NotificationContextProvider, useNotificationContext } from "@/context/N
 import { AuthProvider } from "@/context/Authcontext";
 import { RbacProvider } from "@/context/RbacContext";
 
-export const GlobalContextProvider = ({ children }: { children: ReactNode }) => {
+export const GlobalContextProvider = ({
+    children,
+    sessionIdleTimeoutMs,
+}: {
+    children: ReactNode;
+    sessionIdleTimeoutMs: number;
+}) => {
     return (
-        <AuthProvider>
+        <AuthProvider sessionIdleTimeoutMs={sessionIdleTimeoutMs}>
             <RbacProvider>
                 <NotificationContextProvider>
                     {children}

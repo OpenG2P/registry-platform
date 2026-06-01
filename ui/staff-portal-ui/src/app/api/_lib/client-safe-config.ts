@@ -4,6 +4,7 @@ import { createBackendRequest } from "./backend-request";
 import { requireAuthFromCookies } from "./requireAuth";
 
 import { Branding, ClientSafeConfigShape, LanguageConfig } from "./client-safe-config.types";
+import { parseSessionIdleTimeoutMs } from "@/shared/constants/session";
 
 class ClientSafeConfig {
     private config: ClientSafeConfigShape;
@@ -14,6 +15,7 @@ class ClientSafeConfig {
             verifyServiceUrl: process.env.VERIFY_SERVICE_URL ?? "",
             vpClientId: process.env.VP_CLIENT_ID ?? "",
             pageSize: parseInt(process.env.PAGE_SIZE ?? "10"),
+            sessionIdleTimeoutMs: parseSessionIdleTimeoutMs(process.env.SESSION_IDLE_TIMEOUT_MS),
             registryName: "",
             registryLogo: "",
             registry_theme_id: "",
