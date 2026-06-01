@@ -1,4 +1,4 @@
-name: NPM Publish UI Widget
+name: Npm publish(dev) UI-Widget
 
 # Publishes @openg2p/registry-widgets to npm with dist-tag "next" via npm trusted
 # publishing (OIDC). No long-lived NPM_TOKEN is required for publish.
