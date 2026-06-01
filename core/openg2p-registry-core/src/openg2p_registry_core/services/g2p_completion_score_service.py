@@ -120,7 +120,7 @@ class G2PCompletionScoreService(BaseService):
     ) -> None:
         """
         Enqueue completion score computations for all records created by an intake form submission.
-        Mirrors enqueue_score_computations_for_submissions() in G2PScoreComputeService.
+        Mirrors enqueue_score_computations_for_intake_submission() in G2PScoreComputeService.
         """
         _logger.info(
             f"enqueue_completion_score_computations_for_submissions called for submission_id: {submission_id}, "

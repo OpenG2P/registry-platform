@@ -99,6 +99,7 @@ from .outgestion_pipeline import (
 )
 
 from .g2p_register_score_definition import G2PRegisterScoreDefinition
+from .g2p_register_score_contributing_attribute import G2PRegisterScoreContributingAttribute
 from .g2p_score_compute_queue import G2PScoreComputeQueue
 from .g2p_register_score import G2PRegisterScore
 from .g2p_register_score_history import G2PRegisterScoreHistory

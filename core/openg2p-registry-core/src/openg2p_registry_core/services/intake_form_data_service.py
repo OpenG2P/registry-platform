@@ -47,6 +47,7 @@ from ..schemas import (
     SubmissionResponsePayload,
     IntakeFormSubmissionsSummaryData
 )
+from .g2p_verification_service import G2PRegisterVerificationService
 
 _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 _DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
@@ -470,6 +471,19 @@ class G2PIntakeFormDataService(BaseService):
                 self._invalid_request(
                     f"Submission '{submission_id}' is already in approval_status '{submission.approval_status}'"
                 )
+
+            # Validate verifications
+            if submission.number_of_verifications_required > 0:
+                verification_service = G2PRegisterVerificationService.get_component()   
+                _, number_of_verifications_done = await verification_service.get_verifications(
+                        change_request_id=None,
+                        submission_id=submission.submission_id
+                    )
+                if number_of_verifications_done < submission.number_of_verifications_required:
+                    raise G2PRegistryException(
+                        code=G2PRegistryErrorCodes.INTAKE_FORM_VERIFICATIONS_PENDING.value[1],
+                        message=G2PRegistryErrorCodes.INTAKE_FORM_VERIFICATIONS_PENDING.value[0]
+                    )
 
             now = datetime.now()
             submission.approval_status = ApprovalStatusEnum.APPROVED.value
