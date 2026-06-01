@@ -1009,7 +1009,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LanguageOperationResponse"
+                  "$ref": "#/components/schemas/RegistryLanguageResponse"
                 }
               }
             }
@@ -1090,7 +1090,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LanguageOperationResponse"
+                  "$ref": "#/components/schemas/RegistryLanguageResponse"
                 }
               }
             }
@@ -1171,7 +1171,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LanguageOperationResponse"
+                  "$ref": "#/components/schemas/RegistryLanguageResponse"
                 }
               }
             }
@@ -16548,7 +16548,7 @@
             "title": "Is Default",
             "default": false
           },
-          "language_translation": {
+          "core_translation": {
             "anyOf": [
               {
                 "additionalProperties": true,
@@ -16558,7 +16558,19 @@
                 "type": "null"
               }
             ],
-            "title": "Language Translation"
+            "title": "Core Translation"
+          },
+          "domain_translation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Translation"
           }
         },
         "type": "object",
@@ -29276,7 +29288,7 @@
             "title": "Is Default",
             "default": false
           },
-          "language_translation": {
+          "core_translation": {
             "anyOf": [
               {
                 "additionalProperties": true,
@@ -29286,7 +29298,19 @@
                 "type": "null"
               }
             ],
-            "title": "Language Translation"
+            "title": "Core Translation"
+          },
+          "domain_translation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Translation"
           }
         },
         "type": "object",
@@ -32048,7 +32072,7 @@
             ],
             "title": "Is Default"
           },
-          "language_translation": {
+          "core_translation": {
             "anyOf": [
               {
                 "additionalProperties": true,
@@ -32058,7 +32082,19 @@
                 "type": "null"
               }
             ],
-            "title": "Language Translation"
+            "title": "Core Translation"
+          },
+          "domain_translation": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain Translation"
           }
         },
         "type": "object",
