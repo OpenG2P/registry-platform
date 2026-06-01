@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import Dict, Optional
 
-from fastapi import Response
+from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
 from openg2p_fastapi_common.controller import BaseController
@@ -58,17 +58,17 @@ class InputMechanismDataController(BaseController):
     @require_permissions({"intakeSubmission:edit"})
     async def enqueue_import_file(
         self,
-        request: EnqueueImportFileRequest,
+        request: Request,
+        enqueue_import_file_request: EnqueueImportFileRequest,
     ) -> EnqueueImportFileResponse:
-        payload = request.request_body.request_payload
-        row = await self.input_mechanism_data_service.enqueue_import_file(
-            document_store_id=payload.document_store_id,
-            data_model_id=payload.data_model_id,
-            register_id=payload.register_id,
-            intake_form_id=payload.intake_form_id,
-            queued_by=payload.queued_by,
+        import_file_process_queue = await self.input_mechanism_data_service.enqueue_import_file(
+            document_store_id=enqueue_import_file_request.request_body.request_payload.document_store_id,
+            data_model_id=enqueue_import_file_request.request_body.request_payload.data_model_id,
+            register_id=enqueue_import_file_request.request_body.request_payload.register_id,
+            intake_form_id=enqueue_import_file_request.request_body.request_payload.intake_form_id,
+            queued_by=getattr(request.state.auth, "name", "Unknown"),
         )
-        resp = EnqueueImportFileResponse(
+        response = EnqueueImportFileResponse(
             response_header=G2PResponseHeader(
                 request_id=request.request_header.request_id if request else "",
                 response_status=G2PResponseStatus.SUCCESS,
@@ -77,10 +77,10 @@ class InputMechanismDataController(BaseController):
                 response_timestamp=datetime.now(),
             ),
             response_body=EnqueueImportFileResponseBody(
-                response_payload=EnqueueImportFileData(import_file_id=row.import_file_id)
+                response_payload=EnqueueImportFileData(import_file_id=import_file_process_queue.import_file_id)
             ),
         )
-        return resp
+        return response
 
     @require_permissions({"intakeSubmission:edit"})
     async def ingest_data(

@@ -75,6 +75,7 @@ from openg2p_registry_core.schemas import (
     FileUrlData, FileUrlResponse, FileUrlResponseBody,
     DeleteFileData, DeleteFileResponse, DeleteFileResponseBody,
     VcConfigurationResponse, VcConfigurationResponseBody, VcConfigurationData,
+    ImportFileConfigurationResponse, ImportFileConfigurationResponseBody, ImportFileConfigurationData,
     G2PInputMechanismResponse, G2PInputMechanismResponseBody, G2PInputMechanismData,
     AllowedParentsData, AllowedParentsDataResponse, AllowedParentsDataResponseBody,
     G2PRegisterSectionData, G2PRegisterUITabData, G2PRegisterUITabSectionData,
@@ -398,8 +399,9 @@ class RequestResponseHelper(BaseService):
 
     def construct_vc_configuration_data_success_response(
         self,
-        vc_configuration_data: VcConfigurationData,
-        g2p_request: G2PRequest = None
+        vc_configuration_data: List[VcConfigurationData],
+        g2p_request: G2PRequest = None,
+        pagination_response: Optional[G2PPaginationResponse] = None,
     ) -> VcConfigurationResponse:
         """Construct success response for vc configuration endpoints."""
         request_id = g2p_request.request_header.request_id if g2p_request else ""
@@ -413,7 +415,8 @@ class RequestResponseHelper(BaseService):
         )
 
         response_body: VcConfigurationResponseBody = VcConfigurationResponseBody(
-            response_payload=vc_configuration_data
+            pagination_response=pagination_response,
+            response_payload=vc_configuration_data,
         )
 
         response: VcConfigurationResponse = VcConfigurationResponse(
@@ -421,6 +424,33 @@ class RequestResponseHelper(BaseService):
             response_body=response_body
         )
         return response
+
+    def construct_import_file_configuration_data_success_response(
+        self,
+        import_file_configuration_data: List[ImportFileConfigurationData],
+        g2p_request: G2PRequest = None,
+        pagination_response: Optional[G2PPaginationResponse] = None,
+    ) -> ImportFileConfigurationResponse:
+        """Construct success response for import file configuration endpoints."""
+        request_id = g2p_request.request_header.request_id if g2p_request else ""
+
+        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
+            request_id=request_id,
+            response_status=G2PResponseStatus.SUCCESS,
+            response_error_code="",
+            response_error_message="",
+            response_timestamp=datetime.now(),
+        )
+
+        response_body = ImportFileConfigurationResponseBody(
+            pagination_response=pagination_response,
+            response_payload=import_file_configuration_data,
+        )
+
+        return ImportFileConfigurationResponse(
+            response_header=g2p_response_header,
+            response_body=response_body,
+        )
     
     def construct_input_mechanisms_success_response(
         self,
