@@ -1,124 +1,94 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
+import Image from 'next/image';
+import { Upload } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-toastify';
-import Image from 'next/image';
-import { Upload, Download } from 'lucide-react';
-import { readAndValidateJson } from '../utils/language.helpers';
 import { useFetch } from '@/shared/hooks';
-import { BaseModal, InputField, CheckboxField } from '../../shared/components';
+import { BaseModal, InputField } from '../../shared/components';
+import { readAndValidateJson, type TranslationMap } from '../utils/language.helpers';
 
 interface AddLanguageModalProps {
-    isOpen: boolean;
     onClose: () => void;
-    onSuccess?: (data: any) => void;
+    onSuccess: () => Promise<void>;
 }
 
-export default function AddLanguageModal({
-    isOpen,
-    onClose,
-    onSuccess
-}: AddLanguageModalProps) {
+export default function AddLanguageModal({ onClose, onSuccess }: AddLanguageModalProps) {
     const t = useTranslations();
     const { execute: saveLanguage } = useFetch();
 
     const [language_code, setLanguageCode] = useState('');
     const [language_label, setLanguageLabel] = useState('');
-    const [isDefault, setIsDefault] = useState(false);
     const [language_flag_base64, setLanguageFlagBase64] = useState('');
     const [flagFileName, setFlagFileName] = useState('');
-    const [language_translation, setLanguageTranslation] = useState<any>(null);
-    const [fileName, setFileName] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [core_translation, setCoreTranslation] = useState<TranslationMap>({});
+    const [domain_translation, setDomainTranslation] = useState<TranslationMap>({});
+    const [coreFileName, setCoreFileName] = useState('');
+    const [domainFileName, setDomainFileName] = useState('');
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const flagInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        if (isOpen) {
-            setLanguageCode('');
-            setLanguageLabel('');
-            setIsDefault(false);
-            setLanguageFlagBase64('');
-            setLanguageTranslation(null);
-            setFileName('');
-        }
-    }, [isOpen]);
-
-    if (!isOpen) return null;
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFlagUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
-        try {
-            const json = await readAndValidateJson(file);
-            setLanguageTranslation(json);
-            setFileName(file.name);
-        } catch (error: any) {
-            toast.error(error.message);
-            if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-    };
-
-    const handleFlagChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
         setFlagFileName(file.name);
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = event => {
             setLanguageFlagBase64(event.target?.result as string);
         };
         reader.readAsDataURL(file);
     };
 
-    const handleDownloadJson = () => {
-        if (!language_translation) return;
-        const blob = new Blob([JSON.stringify(language_translation, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${language_code || 'locale'}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    const handleCoreUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            const json = await readAndValidateJson(file);
+            setCoreTranslation(json);
+            setCoreFileName(file.name);
+        } catch (error: any) {
+            toast.error(error.message || t('something_went_wrong'));
+        }
+    };
+
+    const handleDomainUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            const json = await readAndValidateJson(file, { allowEmpty: true });
+            setDomainTranslation(json);
+            setDomainFileName(file.name);
+        } catch (error: any) {
+            toast.error(error.message || t('something_went_wrong'));
+        }
     };
 
     const handleSave = async () => {
-        if (!language_code || !language_label || !language_translation) {
+        if (!language_code || !language_label || !language_flag_base64) {
             toast.warn(t('fill_required_fields'));
             return;
         }
 
-        setLoading(true);
-        const payload = {
-            language_code,
-            language_label,
-            language_flag_base64,
-            is_default: isDefault,
-            language_translation
-        };
-
         try {
             const result = await saveLanguage('/api/configuration/registry/language/create-language', {
                 method: 'POST',
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    language_code,
+                    language_label,
+                    language_flag_base64,
+                    core_translation,
+                    domain_translation,
+                }),
             });
 
             if (result) {
                 toast.success(t('language_created_success'));
-                if (onSuccess) onSuccess(result);
+                await onSuccess();
                 onClose();
             } else {
                 toast.error(t('save_failed'));
             }
-        } catch (error) {
+        } catch {
             toast.error(t('error_occurred'));
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -128,99 +98,76 @@ export default function AddLanguageModal({
             onClose={onClose}
             primaryActionLabel={t('save')}
             onPrimaryAction={handleSave}
-            maxWidth='max-w-3xl'
+            maxWidth="max-w-3xl"
         >
-            <div className="flex flex-col gap-6 w-full">
-                <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <InputField
-                        label={t('language_code')}
+                        label={`${t('language_code')} *`}
                         value={language_code}
                         onChange={setLanguageCode}
-                        placeholder={t('language_code_placeholder')}
                     />
                     <InputField
-                        label={t('language_label')}
+                        label={`${t('language_label')} *`}
                         value={language_label}
                         onChange={setLanguageLabel}
-                        placeholder={t('language_label_placeholder')}
                     />
                 </div>
 
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-neutral-first/60">{t('language_flag')}</label>
-                    <div className="flex items-center gap-4">
-                        <div className="w-1/2 h-10 px-4 rounded-[10px] border border-neutral-first/10 bg-neutral-first/5 flex items-center overflow-hidden">
-                            {language_flag_base64 ? (
-                                <div className="flex items-center gap-2 overflow-hidden">
-                                    <div className="w-8 h-5 relative rounded border overflow-hidden shrink-0">
-                                        <Image src={language_flag_base64} alt="flag" fill className="object-cover" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-2 min-w-0">
+                        <label className="text-sm font-semibold text-neutral-first">{`${t('language_flag')} *`}</label>
+                        <div className="flex flex-col gap-3 min-w-0">
+                            <div className="h-10 w-full px-4 rounded-[10px] border border-primary-second flex items-center gap-3 min-w-0">
+                                {language_flag_base64 && (
+                                    <div className="w-10 h-6 relative rounded-[6px] border border-secondary-second overflow-hidden shrink-0 bg-neutral-second">
+                                        <Image src={language_flag_base64} alt={t('flag_image')} fill className="object-cover" />
                                     </div>
-                                    <span className="text-sm text-neutral-first/60 truncate">
-                                        {flagFileName || t('flag_image')}
-                                    </span>
-                                </div>
-                            ) : (
-                                <span className="text-sm text-neutral-first/40">{t('no_file_selected')}</span>
-                            )}
+                                )}
+                                <span className="text-sm text-neutral-first/50 truncate">
+                                    {flagFileName || (language_flag_base64 ? t('flag_image') : t('no_flag_uploaded'))}
+                                </span>
+                            </div>
+                            <label className="h-10 w-full px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                                <Upload size={16} />
+                                {t('upload_flag')}
+                                <input type="file" onChange={handleFlagUpload} className="hidden" accept="image/*" />
+                            </label>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => flagInputRef.current?.click()}
-                            className="h-10 px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center gap-2"
-                        >
-                            <Upload size={18} />
-                            {t('upload_flag')}
-                        </button>
-                        <input
-                            type="file"
-                            ref={flagInputRef}
-                            onChange={handleFlagChange}
-                            className="hidden"
-                            accept="image/*"
-                        />
+                    </div>
+
+                    <div className="flex flex-col gap-2 min-w-0">
+                        <label className="text-sm font-semibold text-neutral-first">{t('core_translation')}</label>
+                        <div className="flex flex-col gap-3 min-w-0">
+                            <div className="h-10 w-full px-4 rounded-[10px] border border-primary-second flex items-center min-w-0">
+                                <span className="text-sm text-neutral-first/50 truncate">
+                                    {coreFileName || `${t('no_file_selected')}`}
+                                </span>
+                            </div>
+                            <label className="h-10 w-full px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                                <Upload size={16} />
+                                {t('upload_translation')}
+                                <input type="file" onChange={handleCoreUpload} className="hidden" accept=".json,application/json" />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 min-w-0">
+                        <label className="text-sm font-semibold text-neutral-first">{t('domain_translation')}</label>
+                        <div className="flex flex-col gap-3 min-w-0">
+                            <div className="h-10 w-full px-4 rounded-[10px] border border-primary-second flex items-center min-w-0">
+                                <span className="text-sm text-neutral-first/50 truncate">
+                                    {domainFileName || `${t('no_file_selected')}`}
+                                </span>
+                            </div>
+                            <label className="h-10 w-full px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                                <Upload size={16} />
+                                {t('upload_translation')}
+                                <input type="file" onChange={handleDomainUpload} className="hidden" accept=".json,application/json" />
+                            </label>
+                        </div>
                     </div>
                 </div>
-
-                <div className="flex flex-col gap-2">
-                    <label className="text-sm font-semibold text-neutral-first/60">{t('translation_file')} (.json)</label>
-                    <div className="flex items-center gap-4">
-                        <div className="w-1/2 h-10 px-4 rounded-[10px] border border-neutral-first/10 bg-neutral-first/5 flex items-center overflow-hidden">
-                            <span className="text-sm text-neutral-first/60 truncate">
-                                {fileName || t('no_file_selected')}
-                            </span>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handleDownloadJson}
-                            disabled={!language_translation}
-                            className="h-10 px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Download size={18} />
-                            {t('download')}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="h-10 px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center gap-2"
-                        >
-                            <Upload size={18} />
-                            {t('upload')}
-                        </button>
-                        <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            className="hidden"
-                            accept=".json"
-                        />
-                    </div>
-                </div>
-
-                <CheckboxField
-                    label={t('set_as_default_language')}
-                    checked={isDefault}
-                    onChange={setIsDefault}
-                />
             </div>
         </BaseModal>
     );

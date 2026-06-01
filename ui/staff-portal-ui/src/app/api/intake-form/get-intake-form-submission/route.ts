@@ -8,9 +8,9 @@ export async function POST(request: NextRequest) {
         buildPayload: (body) => ({
             pagination_request: undefined,
             request_payload: {
-                submission_id: body.submission_id,
-                register_id: body.register_id,
+                submission_id: body.submission_id
             },
         }),
+        transformResponse: (responseBody) => responseBody?.response_payload,
     });
 }

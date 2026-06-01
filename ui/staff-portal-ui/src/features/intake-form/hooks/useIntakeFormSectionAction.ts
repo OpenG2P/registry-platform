@@ -69,7 +69,7 @@ export const useIntakeFormSectionAction = ({
             });
 
             if (saveResult?.error) {
-                toast.error(t('toast_operation_failed'));
+                toast.error(t('toast_intake_form_submission_finalize_failed'));
                 return;
             }
 
@@ -158,12 +158,12 @@ export const useIntakeFormSectionAction = ({
                 body: JSON.stringify(savePayload)
             });
 
-            if (!saveResult) {
-                toast.error(t('toast_operation_failed'));
+            if (!saveResult || saveResult.error) {
+                toast.error(t('toast_intake_form_submission_save_failed'));
                 return;
             }
 
-            if (saveResult && saveResult.submission_id) {
+            if (saveResult.submission_id) {
                 setActiveSubmissionId(saveResult.submission_id);
             }
 

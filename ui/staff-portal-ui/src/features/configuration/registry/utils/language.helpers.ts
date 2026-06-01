@@ -1,9 +1,36 @@
-/**
- * Helper to read a JSON file and validate its content.
- * @param file The file to read.
- * @returns A promise that resolves to the parsed JSON object.
- */
-export const readAndValidateJson = (file: File): Promise<any> => {
+import type { Language } from '../types';
+import type { LanguageConfig } from '@/app/api/_lib/client-safe-config.types';
+
+export type TranslationValue =
+    | string
+    | number
+    | boolean
+    | TranslationValue[]
+    | { [key: string]: TranslationValue };
+
+export type TranslationMap = Record<string, TranslationValue>;
+
+export function toTranslationMap(input: unknown): TranslationMap {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+        return {};
+    }
+    return { ...(input as TranslationMap) };
+}
+
+/** Merges core_translation then domain_translation (domain wins on duplicate keys). */
+export function getLanguageMessages(
+    language?: Pick<LanguageConfig, 'core_translation' | 'domain_translation'> | null
+): TranslationMap {
+    const core = toTranslationMap(language?.core_translation);
+    const domain = toTranslationMap(language?.domain_translation);
+    return { ...core, ...domain };
+}
+
+
+export const readAndValidateJson = (
+    file: File,
+    options?: { allowEmpty?: boolean }
+): Promise<TranslationMap> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -11,13 +38,18 @@ export const readAndValidateJson = (file: File): Promise<any> => {
                 const content = event.target?.result as string;
                 const json = JSON.parse(content);
                 
-                // Basic validation: must be an object
-                if (typeof json !== 'object' || json === null) {
-                    reject(new Error('Invalid JSON: Must be an object'));
+                if (typeof json !== 'object' || json === null || Array.isArray(json)) {
+                    reject(new Error('Invalid JSON: Must be a JSON object'));
                     return;
                 }
-                
-                resolve(json);
+
+                const map = toTranslationMap(json);
+                if (Object.keys(map).length === 0 && !options?.allowEmpty) {
+                    reject(new Error('Invalid JSON: Must contain at least one valid key/value pair'));
+                    return;
+                }
+
+                resolve(map);
             } catch (error) {
                 reject(new Error('Invalid JSON file'));
             }
@@ -28,4 +60,3 @@ export const readAndValidateJson = (file: File): Promise<any> => {
         reader.readAsText(file);
     });
 };
-

@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "react-toastify";
+import { useRouter } from "@/i18n/navigation";
 import { useFetch } from "@/shared/hooks/useFetch";
 import type { ChangeRequest } from "@/features/change-request/types/change-request";
 import { ChangeRequestDocument } from "../components/ChangeRequestHeader";
 import { useTranslations } from "next-intl";
+import { isRecordAccessDeniedError } from "@/shared/utils/isRecordAccessDeniedError";
 
 type PopupType = "approve" | "reject-input" | "reject" | null;
 
 export function useChangeRequestManager(changeId: string) {
     const t = useTranslations();
+    const router = useRouter();
     const [details, setDetails] = useState<ChangeRequest | null>(null);
     const [documents, setDocuments] = useState<ChangeRequestDocument[]>([]);
 
@@ -46,10 +49,15 @@ export function useChangeRequestManager(changeId: string) {
     const { execute: executeApprove } = useFetch();
     const { execute: executeReject } = useFetch();
 
+    // Redirect to record access denied page if the record is access denied
     useEffect(() => {
+        if (detailsData && isRecordAccessDeniedError(detailsData)) {
+            router.replace("/record-access-denied");
+            return;
+        }
         if (detailsData) setDetails(detailsData);
         setLoadingDetails(detailsLoading);
-    }, [detailsData, detailsLoading]);
+    }, [detailsData, detailsLoading, router]);
 
     useEffect(() => {
         if (documentsData?.documents) setDocuments(documentsData.documents);
@@ -61,6 +69,11 @@ export function useChangeRequestManager(changeId: string) {
             | ChangeRequest
             | { error?: string }
             | null;
+        // Redirect to record access denied page if the record is access denied
+        if (result && isRecordAccessDeniedError(result)) {
+            router.replace("/record-access-denied");
+            return;
+        }
         if (result && typeof result === "object" && !("error" in result && result.error)) {
             setDetails(result as ChangeRequest);
         }

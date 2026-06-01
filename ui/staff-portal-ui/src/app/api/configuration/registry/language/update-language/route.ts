@@ -18,8 +18,9 @@ export async function POST(request: NextRequest) {
 				language_code: body.language_code,
 				language_label: body.language_label,
 				language_flag_base64: body.language_flag_base64,
-				is_default: body.is_default ?? false,
-				language_translation: body.language_translation,
+				is_default: body.is_default ?? undefined,
+				core_translation: body.core_translation,
+				domain_translation: body.domain_translation,
 			},
 		}),
 	});
