@@ -126,7 +126,7 @@ def _populate_record_name(target):
 class G2PPerson(BaseORMModel):
     __abstract__ = True
 
-    foundational_id: Mapped[str] = mapped_column(String, nullable=True, unique=True, index=True)
+    foundational_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     first_name: Mapped[str] = mapped_column(String, nullable=True)
     middle_name: Mapped[str] = mapped_column(String, nullable=True)
     last_name: Mapped[str] = mapped_column(String, nullable=True)

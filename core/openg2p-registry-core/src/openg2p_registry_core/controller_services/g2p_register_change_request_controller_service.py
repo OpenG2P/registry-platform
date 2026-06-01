@@ -1,11 +1,10 @@
 import logging
-import importlib
 from openg2p_fastapi_common.schemas import G2PPaginationResponse
 from openg2p_fastapi_common.service import BaseService
 
 from openg2p_registry_core.models import G2PRegisterChangeRequest
 
-from ..services import G2PRegisterChangeRequestService, G2PRegisterDomainService, G2PRegisterVerificationService
+from ..services import G2PRegisterChangeRequestService, G2PRegisterVerificationService
 from ..schemas.change_request import (
     ChangeRequestRequest, ChangeRequestRequestPayload, ChangeRequestResponsePayload,
     NumberOfPendingChangeRequestsData, NumberOfCrossRegisterChangesData,
@@ -37,12 +36,6 @@ class G2PRegisterChangerequestControllerService(BaseService):
         service = G2PRegisterChangeRequestService.get_component()
         change_request_request_payload: ChangeRequestRequestPayload = change_request_request.request_body.request_payload
         created_by = change_request_request_payload.created_by or change_request_request.request_header.sender_app_mnemonic
-
-        module = importlib.import_module("openg2p_registry_extensions.register_domain.factory")
-        domain_factory_class_name = "G2PRegisterDomainFactory"
-        g2p_registry_domain_factory = getattr(module, domain_factory_class_name).get_component()
-        domain_service: G2PRegisterDomainService = g2p_registry_domain_factory.get_domain_service(change_request_request_payload.register_mnemonic)
-        await domain_service.validate_domain_attributes(change_request_request_payload)
 
         g2p_register_change_request: G2PRegisterChangeRequest = await service.create_change_request(
             change_request_request_payload=change_request_request_payload,

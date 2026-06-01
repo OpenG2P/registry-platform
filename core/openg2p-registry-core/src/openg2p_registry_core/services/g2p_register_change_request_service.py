@@ -107,6 +107,10 @@ class G2PRegisterChangeRequestService(BaseService):
                 register_section,
                 section_register_definition,
             )
+            await self._validate_domain_attributes(
+                self._records_from_change_request_payload(change_request_request_payload),
+                section_register_definition.register_mnemonic,
+            )
 
             # Extract internal_record_id from change_payload if present
             # Note: For new record creation, internal_record_id may be a new UUID that doesn't exist yet
@@ -1960,6 +1964,22 @@ class G2PRegisterChangeRequestService(BaseService):
     # =============================================================================
     # Registry Configuration Methods
     # =============================================================================
+
+    @staticmethod
+    def _records_from_change_request_payload(payload: ChangeRequestRequestPayload) -> list[dict]:
+        return [
+            item.model_dump() if hasattr(item, "model_dump") else dict(item)
+            for item in (payload.change_payload or [])
+        ]
+
+    async def _validate_domain_attributes(
+        self,
+        records: list[dict],
+        section_register_mnemonic: str,
+    ) -> None:
+        domain_service = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)
+        if domain_service:
+            await domain_service.validate_domain_attributes(records)
 
     def _get_required_domain_service(self, register_mnemonic: str) -> G2PRegisterDomainService:
         domain_service = self._get_domain_service_by_register_mnemonic(register_mnemonic)

@@ -100,6 +100,13 @@ class G2PIntakeFormDataService(BaseService):
         _section = await self._get_section_or_error(section_id, session)
         intake_class = await self._resolve_intake_form_class(section_register_id, session)
 
+        section_register_definition = await self._get_register_definition(section_register_id, session)
+        module = importlib.import_module("openg2p_registry_extensions.register_domain.factory")
+        domain_factory = getattr(module, "G2PRegisterDomainFactory").get_component()
+        domain_service = domain_factory.get_domain_service(section_register_definition.register_mnemonic)
+        if domain_service:
+            await domain_service.validate_domain_attributes(section_payload or [])
+
         existing_rows = await self._get_intake_rows(intake_class, submission.submission_id, session)
         incoming_ids = await self._upsert_intake_rows(
             intake_class,
