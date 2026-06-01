@@ -300,79 +300,18 @@ class G2PRegisterChangeRequestService(BaseService):
         session,
         approved_by: str | None = None,
     ) -> G2PRegisterChangeRequest:
-        """Apply terminal AWE approval using the same section-specific paths as register workflows."""
+        """Apply terminal AWE approval using the same path as the staff-portal approve API."""
         change_request = await self.validate_change_request_exists(change_request_id, session)
         if change_request.approval_status == ApprovalStatusEnum.APPROVED.value:
             return change_request
 
-        register_section = await self.validate_change_request_section(change_request, session)
-        section_register_definition = await self.validate_register_definition(
-            register_section.section_register_id, session
+        change_request = await self._approve_change_request_core(
+            change_request_id=change_request_id,
+            session=session,
+            skip_verification=True,
+            approved_by=approved_by,
         )
-        section_register_purpose = section_register_definition.register_purpose
-        is_primary_section = bool(getattr(register_section, "is_primary_section", False))
-        approval_kwargs = {
-            "skip_verification": True,
-            "skip_sequence_check": False,
-            "approved_by": approved_by,
-        }
-        used_consolidated_core_flow = False
-
-        if section_register_purpose in {
-            RegisterPurposeEnum.TABLE.value,
-            RegisterPurposeEnum.CORE_TABLE.value,
-        } or register_section.is_core_section:
-            change_request = await self._approve_change_request_core(
-                change_request_id=change_request_id,
-                session=session,
-                **approval_kwargs,
-            )
-            used_consolidated_core_flow = True
-        elif (
-            is_primary_section
-            and register_section.section_register_id == register_section.register_id
-        ):
-            change_request, _ = await self.approve_primary_master_section_change_request(
-                change_request_id,
-                session,
-                **approval_kwargs,
-            )
-        elif register_section.section_register_id == register_section.register_id:
-            change_request = await self.approve_non_primary_master_section_change_request(
-                change_request_id,
-                session,
-                **approval_kwargs,
-            )
-        elif (
-            section_register_purpose == RegisterPurposeEnum.PROGRAM_REGISTER.value
-            or register_section.section_register_id != change_request.register_id
-        ):
-            change_request = await self.approve_child_section_change_request(
-                change_request_id,
-                change_request.internal_record_id,
-                session,
-                **approval_kwargs,
-            )
-        else:
-            change_request = await self._approve_change_request_core(
-                change_request_id=change_request_id,
-                session=session,
-                **approval_kwargs,
-            )
-            used_consolidated_core_flow = True
-
-        if not used_consolidated_core_flow:
-            completion_score_service = (
-                G2PCompletionScoreService.get_component() or G2PCompletionScoreService()
-            )
-            await completion_score_service.enqueue_completion_score_computations(
-                register_id=register_section.register_id,
-                internal_record_id=change_request.internal_record_id,
-                session=session,
-                change_request_id=change_request.change_request_id,
-                section_id=change_request.section_id,
-            )
-
+        await self._fanout_outgest_for_change_request(change_request, session)
         score_service = G2PScoreComputeService.get_component()
         await score_service.enqueue_score_computations(
             change_request=change_request,
