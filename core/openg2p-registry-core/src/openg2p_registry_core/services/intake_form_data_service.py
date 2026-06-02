@@ -605,32 +605,17 @@ class G2PIntakeFormDataService(BaseService):
 
     async def get_intake_form_submission(
         self,
-        submission_id: str,
-        section_register_id: str,
-        register_id: str,
-        section_id: str,
+        submission_id: str
     ) -> SubmissionResponsePayload:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             submission = await self._get_submission_or_error(submission_id, session)
-            if submission.register_id != register_id:
-                self._invalid_request(
-                    f"Submission '{submission_id}' does not belong to register '{register_id}'"
-                )
-            section = await self._get_section_or_error(section_id, session)
-            intake_class = await self._resolve_intake_form_class(section_register_id, session)
-            rows = await self._get_intake_rows_list(intake_class, submission_id, session)
-            section_payload = SectionPayloadResponseItem(
-                section_id=section.section_id,
-                section_register_id=section_register_id,
-                is_list=section.is_list,
-                records=[self._serialize_model(row, {"submission_id"}) for row in rows],
-                documents=None,
-            )
+            section_payloads = await self._build_section_payloads(submission, session)
+
             return self._build_submission_response_payload(
                 submission,
-                [section_payload],
-                self._extract_record_name([section_payload]),
+                section_payloads,
+                self._extract_record_name(section_payloads),
             )
 
     async def get_submission_payload(self, submission_id: str) -> SubmissionResponsePayload:
