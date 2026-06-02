@@ -28,9 +28,10 @@ class G2PScoreDefinitionControllerService(BaseService):
     ) -> Tuple[GetScoreDefinitionsResponsePayload, G2PPaginationResponse]:
         _logger.info("Getting score definitions (header only)")
         payload = get_score_definitions_request.request_body.request_payload
+        pagination = get_score_definitions_request.request_body.pagination_request
         register_id = payload.register_id
-        page_number = payload.page_number
-        page_size = payload.page_size
+        page_number = pagination.current_page
+        page_size = pagination.page_size
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -44,7 +45,7 @@ class G2PScoreDefinitionControllerService(BaseService):
 
         pagination = G2PPaginationResponse(
             number_of_items=total,
-            number_of_pages=self._number_of_pages(total_items=total, page_size=page_size),
+            number_of_pages=self._number_of_pages(total, page_size),
         )
         return (
             GetScoreDefinitionsResponsePayload(score_definitions=score_definitions_data),
@@ -104,7 +105,7 @@ class G2PScoreDefinitionControllerService(BaseService):
 
         return DeleteScoreDefinitionResponsePayload(score_definition_id=deleted_id)
 
-    def _number_of_pages(*, total_items: int, page_size: int) -> int:
+    def _number_of_pages(self, total_items: int, page_size: int) -> int:
         if total_items <= 0:
             return 0
         if page_size <= 0:

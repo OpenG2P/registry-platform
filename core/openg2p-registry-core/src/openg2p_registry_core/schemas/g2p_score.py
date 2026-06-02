@@ -102,20 +102,13 @@ class ScoreDefinitionData(BaseModel):
 
 
 class GetScoreDefinitionsRequestPayload(BaseModel):
-    """Payload for getting score definitions for a register (paginated)."""
-
+    """Payload for getting score definitions for a register."""
+    
     register_id: str = Field(..., description="Register definition ID")
-    page_number: int = Field(1, ge=1, description="1-based page index")
-    page_size: int = Field(
-        50,
-        ge=1,
-        le=500,
-        description="Maximum definitions per page (capped server-side)",
-    )
 
 
 class GetScoreDefinitionsResponsePayload(BaseModel):
-    """Response payload for getting score definitions (pagination in response_body.pagination_response)."""
+    """Response payload for getting score definitions."""
 
     score_definitions: List[ScoreDefinitionData] = Field(..., description="Score definitions on this page")
 
@@ -158,16 +151,9 @@ class DeleteScoreDefinitionResponsePayload(BaseModel):
 
 
 class GetAllScoreContributingAttributesRequestPayload(BaseModel):
-    """Payload for listing contributing attributes for a score definition (paginated)."""
+    """Payload for listing contributing attributes for a score definition."""
 
     score_definition_id: str = Field(..., description="Score definition ID")
-    page_number: int = Field(1, ge=1, description="1-based page index")
-    page_size: int = Field(
-        50,
-        ge=1,
-        le=500,
-        description="Maximum rows per page (capped server-side)",
-    )
 
 
 class GetAllScoreContributingAttributesResponsePayload(BaseModel):
