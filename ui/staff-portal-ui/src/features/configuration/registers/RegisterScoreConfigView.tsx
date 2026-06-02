@@ -7,7 +7,7 @@ import { useRouter } from '@/i18n/navigation';
 import { useScoreDefinitions } from '../shared/hooks/useScoreDefinitions';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { CONFIGURATION_TABS_ACTIONS } from '../shared/utils/configurationTabs.actions';
+import { CONFIGURATION_SCORES_ACTIONS } from '../shared/utils/configurationScores.actions';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, EditButton } from '../shared/components';
 import AddScoreModal from './AddScoreModal';
@@ -129,10 +129,10 @@ export default function RegisterScoreConfigView({
                 }
                 actions={(item) => (
                     <div className="flex gap-4">
-                        <Can action={CONFIGURATION_TABS_ACTIONS.edit}>
+                        <Can action={CONFIGURATION_SCORES_ACTIONS.edit}>
                             <EditButton label={t('edit')} onClick={() => handleEdit(item)} />
                         </Can>
-                        <Can action={CONFIGURATION_TABS_ACTIONS.delete}>
+                        <Can action={CONFIGURATION_SCORES_ACTIONS.edit}>
                             <DeleteButton label={t('remove')} onClick={() => handleDelete(item.score_definition_id)} />
                         </Can>
                     </div>

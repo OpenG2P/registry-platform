@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { useScoreContributingAttributes } from '../shared/hooks/useScoreContributingAttributes';
+import { useRegisterFields } from '../shared/hooks/useRegisterFields';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { CONFIGURATION_TABS_ACTIONS } from '../shared/utils/configurationTabs.actions';
+import { CONFIGURATION_SCORES_ACTIONS } from '../shared/utils/configurationScores.actions';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, EditButton } from '../shared/components';
 import AddScoreContributingAttributeModal from './AddScoreContributingAttributeModal';
@@ -29,10 +30,14 @@ export default function ScoreContributingAttributesView({
     onDataLoaded,
 }: ScoreContributingAttributesViewProps) {
     const t = useTranslations();
-    const { scoreDefinitionId } = useParams<{ scoreDefinitionId: string }>();
+    const { scoreDefinitionId, registerId } = useParams<{
+        scoreDefinitionId: string;
+        registerId: string;
+    }>();
 
     const { contributingAttributes, loading, refresh, pagination } =
         useScoreContributingAttributes(scoreDefinitionId, page, pageSize);
+    const { fields: registerFields } = useRegisterFields(registerId);
 
     useEffect(() => {
         if (pagination && onDataLoaded) {
@@ -105,6 +110,9 @@ export default function ScoreContributingAttributesView({
         {
             key: 'attribute_name',
             label: t('attribute_name'),
+            render: (item: ScoreContributingAttribute) =>
+                registerFields.find((field) => field.field_name === item.attribute_name)?.field_name ??
+                item.attribute_name,
         },
        
         {
@@ -128,7 +136,7 @@ export default function ScoreContributingAttributesView({
                 rowKey={(item) => item.contributing_attribute_id}
                 actions={(item) => (
                     <div className="flex gap-4">
-                        <Can action={CONFIGURATION_TABS_ACTIONS.edit}>
+                        <Can action={CONFIGURATION_SCORES_ACTIONS.edit}>
                             <EditButton
                                 label={t('edit')}
                                 onClick={() => {
@@ -137,7 +145,7 @@ export default function ScoreContributingAttributesView({
                                 }}
                             />
                         </Can>
-                        <Can action={CONFIGURATION_TABS_ACTIONS.delete}>
+                        <Can action={CONFIGURATION_SCORES_ACTIONS.edit}>
                             <DeleteButton
                                 label={t('remove')}
                                 onClick={() => handleDelete(item.contributing_attribute_id)}

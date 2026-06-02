@@ -24,6 +24,7 @@ import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { usePagination } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { CONFIGURATION_TABS_ACTIONS } from '@/features/configuration/shared/utils/configurationTabs.actions';
+import { CONFIGURATION_SCORES_ACTIONS } from '@/features/configuration/shared/utils/configurationScores.actions';
 import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/configuration/shared/utils/configurationRegisters.actions';
 import { useTranslations } from 'next-intl';
 import RegisterSectionConfigView from '@/features/configuration/registers/RegisterSectionConfigView';
@@ -91,7 +92,8 @@ const RegisterConfigurationPage = () => {
 
     const { can } = useRbac();
     const canEdit = can(CONFIGURATION_REGISTERS_ACTIONS.edit);
-    const canCreate = can(CONFIGURATION_TABS_ACTIONS.create);
+    const canCreateTabs = can(CONFIGURATION_TABS_ACTIONS.create);
+    const canCreateScores = can(CONFIGURATION_SCORES_ACTIONS.create);
 
     const { registers, loading, refresh } = useAllRegister(1, 100);
     const registerDetails = getRegisterDetails(registerId, registers);
@@ -191,7 +193,8 @@ const RegisterConfigurationPage = () => {
                             showPagination={!!activePaginatedTab}
 
                             showAddNewButton={
-                                canCreate &&
+                                ((activeTab === 'scores' && canCreateScores) ||
+                                (activeTab !== 'scores' && canCreateTabs)) &&
                                 (activeTab === 'tabs' ||
                                     activeTab === 'sections' ||
                                     activeTab === 'scores' ||
