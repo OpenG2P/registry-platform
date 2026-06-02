@@ -228,8 +228,12 @@ export interface WidgetOptions {
   condition?: WidgetCondition;
   minDate?: string;
   maxDate?: string;
+  minDateField?: string;
+  maxDateField?: string;
+  minDateMessage?: string;
+  maxDateMessage?: string;
   showCalendar?: boolean;
-  [key: string]: any; // Allow widget-specific options
+  [key: string]: any; 
 }
 
 /**
