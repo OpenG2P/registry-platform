@@ -39,6 +39,7 @@ from .controller_services import (
     G2PRegistrantAuthenticationControllerService,
     G2PAwePolicyConfigurationControllerService,
     G2PAweProxyControllerService,
+    G2PDataPolicyControllerService,
 )
 from .helpers import AweHelper, MinioClient, PatternMatcher, TemplateHelper
 from .models import (
@@ -102,6 +103,7 @@ from .models import (
     DeduplicationIntakeFormIntakeFormResult,
     G2PRegistrantAuthenticationProvider,
     G2PRegistrantAuthentication,
+    G2PRegistryDataPolicy,
 )
 from .services import (
     G2PDataModelService,
@@ -132,6 +134,7 @@ from .services import (
     G2PAwePolicyConfigurationService,
     G2PAweIntegrationService,
     G2PAweWebhookService,
+    G2PDataPolicyService,
     InputMechanismMetadataService,
     InputMechanismDataService,
     ImportFileConfigurationService,
@@ -195,6 +198,7 @@ class Initializer(BaseInitializer):
         G2PAwePolicyConfigurationService()
         G2PAweIntegrationService()
         G2PAweWebhookService()
+        G2PDataPolicyService()
 
         # Controller Services
         G2PDataModelControllerService()
@@ -228,6 +232,7 @@ class Initializer(BaseInitializer):
         G2PRegistrantAuthenticationControllerService()
         G2PAwePolicyConfigurationControllerService()
         G2PAweProxyControllerService()
+        G2PDataPolicyControllerService()
 
     def migrate_database(self, args):
         super().migrate_database(args)
@@ -244,6 +249,7 @@ class Initializer(BaseInitializer):
             await G2PRegisterUITab.create_migrate()
             await G2PRegisterUITabSection.create_migrate()
             await G2PRegisterSchema.create_migrate()
+            await G2PRegistryDataPolicy.create_migrate()
             await G2PRegisterSection.create_migrate()
             await G2PRegisterDefinition.create_migrate()
             await G2PRegisterVerification.create_migrate()

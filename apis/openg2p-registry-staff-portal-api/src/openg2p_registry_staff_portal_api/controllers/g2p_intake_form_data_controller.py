@@ -1,11 +1,12 @@
 import logging
 
-from fastapi import Request
+from fastapi import Depends, Request
 from iam_core.user_auth.helpers import require_permissions
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_fastapi_common.schemas import G2PPaginationResponse, G2PResponse
 from openg2p_registry_core.controller_services import G2PIntakeFormDataControllerService
 from openg2p_registry_core.helpers.auth_token import bearer_from_request, requester_sub_from_request
+from openg2p_registry_core.services.intake_form_data_service import G2PIntakeFormDataService
 from openg2p_registry_core.schemas import (
     ApproveRejectSubmissionRequest,
     SaveIntakeFormSubmissionRequest,
@@ -33,6 +34,7 @@ from openg2p_registry_core.schemas import (
 )
 
 from ..config import Settings
+from ..dependencies import get_data_policy_mnemonics
 from ..helpers import RequestResponseHelper
 
 _config = Settings.get_config()
@@ -229,10 +231,12 @@ class G2PIntakeFormDataController(BaseController):
     async def get_intake_form_submission(
         self,
         g2p_request: GetSubmissionRequest,
+        data_policy_mnemonics: list[str] = Depends(get_data_policy_mnemonics),
     ) -> SubmissionResponse:
         try:
             payload: SubmissionResponsePayload = await self.service.get_intake_form_submission(
-                g2p_request
+                g2p_request,
+                data_policy_mnemonics=data_policy_mnemonics,
             )
             return self.helper.construct_success_response(
                 SubmissionResponseBody(response_payload=payload),

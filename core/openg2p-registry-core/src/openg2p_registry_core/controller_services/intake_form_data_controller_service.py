@@ -85,10 +85,12 @@ class G2PIntakeFormDataControllerService(BaseService):
     async def get_intake_form_submission(
         self,
         request: GetSubmissionRequest,
+        data_policy_mnemonics: list[str] | None = None,
     ) -> SubmissionResponsePayload:
         payload = request.request_body.request_payload
         return await G2PIntakeFormDataService.get_component().get_intake_form_submission(
-            payload.submission_id
+            payload.submission_id,
+            data_policy_mnemonics=data_policy_mnemonics,
         )
 
     async def get_tab_records(

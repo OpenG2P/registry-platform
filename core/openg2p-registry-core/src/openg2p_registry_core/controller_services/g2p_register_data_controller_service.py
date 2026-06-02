@@ -62,12 +62,20 @@ class G2PRegisterDataControllerService(BaseService):
         changes_for_date_data: list[VersionsForDateData] = await g2p_register_service.get_versions_for_a_date(register_id, internal_record_id, tab_id, truncated_created_date)
         return changes_for_date_data
 
-    async def get_subject_record(self, get_subject_record_request: GetSubjectRecordRequest) -> RecordData:
+    async def get_subject_record(
+        self,
+        get_subject_record_request: GetSubjectRecordRequest,
+        data_policy_mnemonics: list[str] | None = None,
+    ) -> RecordData:
         subject_register_id = get_subject_record_request.request_body.request_payload.subject_register_id
         subject_record_id = get_subject_record_request.request_body.request_payload.subject_record_id
         _logger.info(f"Getting subject record for subject_register_id: {subject_register_id}, subject_record_id: {subject_record_id} through controller service")
         g2p_register_service = G2PRegisterService.get_component()
-        record_data: RecordData = await g2p_register_service.get_record(subject_register_id, subject_record_id)
+        record_data: RecordData = await g2p_register_service.get_record(
+            subject_register_id,
+            subject_record_id,
+            data_policy_mnemonics=data_policy_mnemonics,
+        )
         return record_data
 
     async def get_deduplication_register_results(self, get_deduplication_register_results_request: GetDeduplicationRegisterResultsRequest) -> tuple[list[DeduplicationRegisterResultData], int, int]:
@@ -114,7 +122,8 @@ class G2PRegisterDataControllerService(BaseService):
 
     async def get_section_records(
         self,
-        get_section_records_request: GetSectionRecordsRequest
+        get_section_records_request: GetSectionRecordsRequest,
+        data_policy_mnemonics: list[str] | None = None,
     ) -> list[RecordData]:
         """
         Get records from a related register that are linked to a subject record.
@@ -132,13 +141,17 @@ class G2PRegisterDataControllerService(BaseService):
         )
         g2p_register_hierarchical_service = G2PRegisterHierarchicalService.get_component()
         section_records: list[RecordData] = await g2p_register_hierarchical_service.get_section_records(
-            subject_register_id, subject_record_id, section_register_id
+            subject_register_id,
+            subject_record_id,
+            section_register_id,
+            data_policy_mnemonics=data_policy_mnemonics,
         )
         return section_records
 
     async def get_tab_records(
         self,
-        get_register_tab_records_request: GetRegisterTabRecordsRequest
+        get_register_tab_records_request: GetRegisterTabRecordsRequest,
+        data_policy_mnemonics: list[str] | None = None,
     ) -> list[RegisterTabRecordData]:
         """
         Get all records for a tab, grouped by unique section_register_id.
@@ -155,7 +168,10 @@ class G2PRegisterDataControllerService(BaseService):
         )
         g2p_register_hierarchical_service = G2PRegisterHierarchicalService.get_component()
         tab_records: list[RegisterTabRecordData] = await g2p_register_hierarchical_service.get_tab_records(
-            subject_register_id, subject_record_id, tab_id
+            subject_register_id,
+            subject_record_id,
+            tab_id,
+            data_policy_mnemonics=data_policy_mnemonics,
         )
         return tab_records
 

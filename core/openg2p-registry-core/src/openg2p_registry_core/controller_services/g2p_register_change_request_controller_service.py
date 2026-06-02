@@ -121,11 +121,17 @@ class G2PRegisterChangerequestControllerService(BaseService):
         pagination_response = self._build_pagination_response(total_items, pagination.page_size)
         return change_requests_list, pagination_response
 
-    async def get_change_request(self, get_change_request_request: GetChangeRequestRequest) -> ChangeRequestData:
+    async def get_change_request(
+        self,
+        get_change_request_request: GetChangeRequestRequest,
+        data_policy_mnemonics: list[str] | None = None,
+    ) -> ChangeRequestData:
         change_request_id = get_change_request_request.request_body.request_payload.change_request_id
         _logger.info(f"Getting change request for change_request_id: {change_request_id} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
-        change_request_data: ChangeRequestData = await service.get_change_request(change_request_id)
+        change_request_data: ChangeRequestData = await service.get_change_request(
+            change_request_id, data_policy_mnemonics=data_policy_mnemonics
+        )
         return change_request_data
 
     async def check_change_request_sequence(

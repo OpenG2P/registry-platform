@@ -28,3 +28,4 @@ from .g2p_registrant_authentication_controller import G2PRegistrantAuthenticatio
 from .g2p_awe_policy_configuration_controller import G2PAwePolicyConfigurationController
 from .g2p_awe_webhook_controller import G2PAWEWebhookController
 from .g2p_awe_proxy_controller import G2PAweProxyController
+from .g2p_data_policy_controller import G2PDataPolicyController

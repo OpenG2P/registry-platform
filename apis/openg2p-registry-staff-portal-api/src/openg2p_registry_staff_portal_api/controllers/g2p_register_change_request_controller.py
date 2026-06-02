@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import Request
+from fastapi import Depends, Request
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_fastapi_common.schemas import G2PResponse
 
@@ -31,6 +31,7 @@ from openg2p_registry_core.schemas.change_request import (
 )
 from iam_core.user_auth.helpers import require_permissions
 
+from ..dependencies import get_data_policy_mnemonics
 from ..helpers import RequestResponseHelper
 from ..config import Settings
 
@@ -229,9 +230,16 @@ class G2PRegisterChangerequestController(BaseController):
             return error_response
 
     @require_permissions({"changeRequest:view"})
-    async def get_change_request(self, get_change_request_request: GetChangeRequestRequest) -> ChangeRequestDataResponse:
+    async def get_change_request(
+        self,
+        get_change_request_request: GetChangeRequestRequest,
+        data_policy_mnemonics: list[str] = Depends(get_data_policy_mnemonics),
+    ) -> ChangeRequestDataResponse:
         try:
-            change_request_data: ChangeRequestData = await self.g2p_register_change_request_controller_service.get_change_request(get_change_request_request)
+            change_request_data: ChangeRequestData = await self.g2p_register_change_request_controller_service.get_change_request(
+                get_change_request_request,
+                data_policy_mnemonics=data_policy_mnemonics,
+            )
             response_body = ChangeRequestDataResponseBody(response_payload=change_request_data)
             return self.helper.construct_success_response(response_body, get_change_request_request)
         except Exception as error_exception:
