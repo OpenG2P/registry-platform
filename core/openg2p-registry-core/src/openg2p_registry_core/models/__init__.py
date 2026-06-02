@@ -10,6 +10,7 @@ from .enum import (
     PipelineActionEnum,
     ProcessStatusEnum,
     RecordStatusEnum,
+    RegistryDataPolicyTypeEnum,
     RegisterPurposeEnum,
     ShapeTypeEnum,
     InputMechanismTypeEnum,
@@ -66,6 +67,7 @@ from .g2p_registry_configuration import G2PRegistryConfiguration
 from .g2p_registry_theme import G2PRegistryTheme, G2PRegistryThemeValue, RegistryThemeAttributeNameEnum
 from .g2p_registry_language import G2PRegistryLanguage
 from .g2p_register_schema import G2PRegisterSchema
+from .g2p_registry_data_policy import G2PRegistryDataPolicy
 from .g2p_register_sections import G2PRegisterSection, G2PRegisterSectionDocument
 from .g2p_register_tab import G2PRegisterUITab, G2PRegisterUITabSection
 from .g2p_register_verifications import G2PRegisterVerification
