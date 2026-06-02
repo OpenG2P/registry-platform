@@ -28,7 +28,7 @@ class InputMechanismDataService(BaseService):
         """
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            row = ImportFileProcessQueue(
+            import_file_process_queue = ImportFileProcessQueue(
                 document_store_id=document_store_id,
                 data_model_id=data_model_id,
                 register_id=register_id,
@@ -38,13 +38,13 @@ class InputMechanismDataService(BaseService):
                 intake_form_ingestion_status=ProcessStatusEnum.PENDING.value,
                 intake_form_ingestion_attempts=0,
             )
-            session.add(row)
+            session.add(import_file_process_queue)
             await session.commit()
-            await session.refresh(row)
+            await session.refresh(import_file_process_queue)
             _logger.info(
                 "Enqueued import file document_store_id=%s import_file_id=%s",
                 document_store_id,
-                row.import_file_id,
+                import_file_process_queue.import_file_id,
             )
-            return row
+            return import_file_process_queue
 

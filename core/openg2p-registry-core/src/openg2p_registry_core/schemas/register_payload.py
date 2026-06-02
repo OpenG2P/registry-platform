@@ -755,6 +755,26 @@ class RegisterSchemaData(BaseModel):
         from_attributes: bool = True
 
 
+class RegisterFieldMetadata(BaseModel):
+    """One column mapped on the register SQLAlchemy ORM model (`G2PRegister*`)."""
+
+    field_name: str
+    data_type: str
+    required: bool = False
+    nullable: bool = True
+
+
+class RegisterFieldsData(BaseModel):
+    """All ORM columns for a register definition (model + mixin table mapping)."""
+
+    register_id: str
+    register_mnemonic: str
+    fields: List[RegisterFieldMetadata]
+
+    class Config:
+        from_attributes: bool = True
+
+
 class RegisterSectionData(BaseModel):
     """Section data for a register representing UI schema for a section."""
     section_register_id: str
@@ -960,6 +980,10 @@ class GetDeduplicationChangerequestResultsRequestPayload(BaseModel):
 
 
 class GetRegisterSchemaRequestPayload(BaseModel):
+    register_id: str
+
+
+class GetRegisterFieldsRequestPayload(BaseModel):
     register_id: str
 
 

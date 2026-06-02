@@ -6,6 +6,7 @@ from datetime import datetime, date
 from fastapi_cache.decorator import cache
 
 from openg2p_fastapi_common.service import BaseService
+from openg2p_fastapi_common.schemas import G2PPaginationRequest
 from openg2p_fastapi_common.context import dbengine
 
 from openg2p_registry_core.schemas import ChangeRequestRequestPayload
@@ -18,6 +19,7 @@ from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
 from .g2p_completion_score_service import G2PCompletionScoreService
 
 from ..helpers import MinioClient
+from ..helpers.register_field_metadata import iter_register_orm_field_metadata
 
 from ..cache import metadata_key_builder
 
@@ -41,7 +43,7 @@ from ..schemas import (
     VerificationData, VerificationsData, AddVerificationPayload,
     DeduplicationRegisterResultsData, DeduplicationChangerequestResultsData,
     DeduplicationRegisterResultData, DeduplicationChangerequestResultData,
-    RegisterSchemaData, RegisterSectionData, RegisterSectionUISchemaData, DisplayField,
+    RegisterSchemaData, RegisterFieldsData, RegisterSectionData, RegisterSectionUISchemaData, DisplayField,
     UploadedDocumentData, UploadDocumentsResponseData,
     RegistryConfigurationData, RegistryThemeData, RegistryThemeValueData, ThemeAttributeValueInput, ThemeOperationData,
     RegistryLanguageData, LanguageOperationData,
@@ -1834,6 +1836,46 @@ class G2PRegisterService(BaseService):
             # Fetch register schema
             register_schema_data: RegisterSchemaData = await self._fetch_register_schema(register_id, session)
             return register_schema_data
+
+    async def get_register_fields(
+        self,
+        register_id: str,
+        current_page: int = 1,
+        page_size: int = 10,
+        sort_by: str = None,
+        filter_by: dict = None,
+    ) -> tuple[RegisterFieldsData, int, int]:
+        """
+        List mapped DB columns for a register ORM model.
+
+        Optional `sort_by`: sort key (field_name | data_type | required | nullable), reverse with "-" prefix or " desc"
+        Optional `filter_by`: filter by substring on field_name or data_type (case-insensitive)
+        Optional `current_page`, `page_size`: page slice when pagination is set
+        When `pagination` is omitted, all fields are returned and number_of_pages is 1 if any items exist.
+        """
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            register_definition: G2PRegisterDefinition = await self.validate_register_definition(
+                register_id, session
+            )
+            orm_class = self._get_register_implementation_class(
+                register_definition.register_mnemonic, register_definition.register_purpose
+            )
+            fields_list = list(iter_register_orm_field_metadata(orm_class))
+
+            # if sort_by:
+            #     fields_list.sort(key=lambda f: getattr(f, sort_by), reverse=sort_by.startswith("-"))
+
+            total_items = len(fields_list)
+            number_of_pages = (total_items + page_size - 1) // page_size if total_items else 0
+            offset = (current_page - 1) * page_size
+
+            data = RegisterFieldsData(
+                register_id=register_id,
+                register_mnemonic=register_definition.register_mnemonic,
+                fields=fields_list,
+            )
+            return data, total_items, number_of_pages
 
     async def get_register_sections(self, register_id: str) -> list[RegisterSectionData]:
         """

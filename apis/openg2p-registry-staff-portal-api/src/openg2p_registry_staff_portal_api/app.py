@@ -19,7 +19,7 @@ from .controllers import (
     G2PDocumentController, G2PAttributeController, G2PIngestionDataController,
     G2POutgestionDataController,
     G2PTemplateFileController,
-    G2PRegisterVCConfigurationController, G2PRegistryConfigurationController,
+    G2PRegistryConfigurationController,
     G2PRegistryThemeController,
     G2PRegistryLanguageController,
     InputMechanismMetadataController,
@@ -28,8 +28,10 @@ from .controllers import (
     G2PIntakeFormDataController,
     G2PIntakeFormMetadataController,
     G2PChangeRequestCoreController,
-    G2PScoreController,
     G2PCompletionScoreController,
+    G2PScoreController,
+    G2PScoreDefinitionController,
+    G2PScoreContributingAttributeController,
     G2PRegistrantAuthenticationController,
     G2PAwePolicyConfigurationController,
     G2PAWEWebhookController,
@@ -50,7 +52,6 @@ class Initializer(BaseInitializer):
         G2PRegisterMetadataController().post_init()
         G2PRegisterTabMetadataController().post_init()
         G2PRegisterSectionMetadataController().post_init()
-        G2PRegisterVCConfigurationController().post_init()
         G2PRegisterDataController().post_init()
         G2PRegisterChangerequestController().post_init()
         G2PIngestionConfigurationController().post_init()
@@ -68,6 +69,8 @@ class Initializer(BaseInitializer):
         G2PIntakeFormMetadataController().post_init()
         G2PChangeRequestCoreController().post_init()
         G2PScoreController().post_init()
+        G2PScoreDefinitionController().post_init()
+        G2PScoreContributingAttributeController().post_init()
         G2PCompletionScoreController().post_init()
         G2PRegistrantAuthenticationController().post_init()
         G2PAwePolicyConfigurationController().post_init()

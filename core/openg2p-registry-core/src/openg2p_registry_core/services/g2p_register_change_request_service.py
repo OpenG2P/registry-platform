@@ -107,6 +107,10 @@ class G2PRegisterChangeRequestService(BaseService):
                 register_section,
                 section_register_definition,
             )
+            await self._validate_domain_attributes(
+                self._records_from_change_request_payload(change_request_request_payload),
+                section_register_definition.register_mnemonic,
+            )
 
             # Extract internal_record_id from change_payload if present
             # Note: For new record creation, internal_record_id may be a new UUID that doesn't exist yet
@@ -233,14 +237,6 @@ class G2PRegisterChangeRequestService(BaseService):
                 approved_by=approved_by,
             )
             await self._fanout_outgest_for_change_request(change_request, session)
-            # Enqueue score computations for the change request
-            _logger.debug(f"Enqueuing score computations for change_request_id: {change_request_id}")
-            g2p_score_compute_service = G2PScoreComputeService.get_component()
-            await g2p_score_compute_service.enqueue_score_computations(
-                change_request=change_request,
-                session=session,
-            )
-            _logger.debug(f"Finished enqueuing score computations for change_request_id: {change_request_id}")
             
             _logger.info("Approved change request: %s", change_request_id)
             await session.commit()
@@ -292,6 +288,16 @@ class G2PRegisterChangeRequestService(BaseService):
             section_id=change_request.section_id,
         )
 
+        # Enqueue score computations for the change request
+        _logger.debug(f"Enqueuing score computations for change_request_id: {change_request_id}")
+        g2p_score_compute_service = G2PScoreComputeService.get_component()
+        await g2p_score_compute_service.enqueue_score_computations_for_change_request(
+            change_request=change_request,
+            session=session,
+        )
+        _logger.debug(f"Finished enqueuing score computations for change_request_id: {change_request_id}")
+            
+
         return change_request
 
     async def approve_change_request_from_awe_webhook(
@@ -300,81 +306,20 @@ class G2PRegisterChangeRequestService(BaseService):
         session,
         approved_by: str | None = None,
     ) -> G2PRegisterChangeRequest:
-        """Apply terminal AWE approval using the same section-specific paths as register workflows."""
+        """Apply terminal AWE approval using the same path as the staff-portal approve API."""
         change_request = await self.validate_change_request_exists(change_request_id, session)
         if change_request.approval_status == ApprovalStatusEnum.APPROVED.value:
             return change_request
 
-        register_section = await self.validate_change_request_section(change_request, session)
-        section_register_definition = await self.validate_register_definition(
-            register_section.section_register_id, session
+        change_request = await self._approve_change_request_core(
+            change_request_id=change_request_id,
+            session=session,
+            skip_verification=True,
+            approved_by=approved_by,
         )
-        section_register_purpose = section_register_definition.register_purpose
-        is_primary_section = bool(getattr(register_section, "is_primary_section", False))
-        approval_kwargs = {
-            "skip_verification": True,
-            "skip_sequence_check": False,
-            "approved_by": approved_by,
-        }
-        used_consolidated_core_flow = False
-
-        if section_register_purpose in {
-            RegisterPurposeEnum.TABLE.value,
-            RegisterPurposeEnum.CORE_TABLE.value,
-        } or register_section.is_core_section:
-            change_request = await self._approve_change_request_core(
-                change_request_id=change_request_id,
-                session=session,
-                **approval_kwargs,
-            )
-            used_consolidated_core_flow = True
-        elif (
-            is_primary_section
-            and register_section.section_register_id == register_section.register_id
-        ):
-            change_request, _ = await self.approve_primary_master_section_change_request(
-                change_request_id,
-                session,
-                **approval_kwargs,
-            )
-        elif register_section.section_register_id == register_section.register_id:
-            change_request = await self.approve_non_primary_master_section_change_request(
-                change_request_id,
-                session,
-                **approval_kwargs,
-            )
-        elif (
-            section_register_purpose == RegisterPurposeEnum.PROGRAM_REGISTER.value
-            or register_section.section_register_id != change_request.register_id
-        ):
-            change_request = await self.approve_child_section_change_request(
-                change_request_id,
-                change_request.internal_record_id,
-                session,
-                **approval_kwargs,
-            )
-        else:
-            change_request = await self._approve_change_request_core(
-                change_request_id=change_request_id,
-                session=session,
-                **approval_kwargs,
-            )
-            used_consolidated_core_flow = True
-
-        if not used_consolidated_core_flow:
-            completion_score_service = (
-                G2PCompletionScoreService.get_component() or G2PCompletionScoreService()
-            )
-            await completion_score_service.enqueue_completion_score_computations(
-                register_id=register_section.register_id,
-                internal_record_id=change_request.internal_record_id,
-                session=session,
-                change_request_id=change_request.change_request_id,
-                section_id=change_request.section_id,
-            )
-
+        await self._fanout_outgest_for_change_request(change_request, session)
         score_service = G2PScoreComputeService.get_component()
-        await score_service.enqueue_score_computations(
+        await score_service.enqueue_score_computations_for_change_request(
             change_request=change_request,
             session=session,
         )
@@ -2021,6 +1966,22 @@ class G2PRegisterChangeRequestService(BaseService):
     # =============================================================================
     # Registry Configuration Methods
     # =============================================================================
+
+    @staticmethod
+    def _records_from_change_request_payload(payload: ChangeRequestRequestPayload) -> list[dict]:
+        return [
+            item.model_dump() if hasattr(item, "model_dump") else dict(item)
+            for item in (payload.change_payload or [])
+        ]
+
+    async def _validate_domain_attributes(
+        self,
+        records: list[dict],
+        section_register_mnemonic: str,
+    ) -> None:
+        domain_service = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)
+        if domain_service:
+            await domain_service.validate_domain_attributes(records)
 
     def _get_required_domain_service(self, register_mnemonic: str) -> G2PRegisterDomainService:
         domain_service = self._get_domain_service_by_register_mnemonic(register_mnemonic)

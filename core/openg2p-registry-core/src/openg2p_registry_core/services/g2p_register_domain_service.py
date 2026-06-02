@@ -10,7 +10,6 @@ from difflib import SequenceMatcher
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
 
-from openg2p_registry_core.schemas import ChangeRequestRequestPayload
 from openg2p_registry_core.schemas import DeduplicationFieldConfig
 from sqlalchemy.orm import Session
 from sqlalchemy import func, insert, select, or_
@@ -60,7 +59,7 @@ class G2PRegisterDomainService(BaseService):
     def construct_search_text(self, payload: dict, extra: list[str] = None) -> str:
         raise NotImplementedError("Register Domain Service should be overridden by the domain service implementation")
 
-    async def validate_domain_attributes(self, change_request_request_payload: ChangeRequestRequestPayload):
+    async def validate_domain_attributes(self, records: list[dict]):
         raise NotImplementedError("Register Domain Service should be overridden by the domain service implementation")
 
     async def pre_approve(self, change_request: G2PRegisterChangeRequest, session: AsyncSession):

@@ -35,6 +35,7 @@ from .register_payload import (
     GetDeduplicationRegisterResultsRequestPayload,
     GetDeduplicationChangerequestResultsRequestPayload,
     GetRegisterSchemaRequestPayload,
+    GetRegisterFieldsRequestPayload,
     GetRegisterSectionsRequestPayload,
     GetRegisterTabSectionsRequestPayload,
     GetRegisterTabsRequestPayload,
@@ -469,6 +470,14 @@ class GetRegisterSchemaRequestBody(G2PRequestBody):
 
 class GetRegisterSchemaRequest(G2PRequest):
     request_body: GetRegisterSchemaRequestBody
+
+
+class GetRegisterFieldsRequestBody(G2PRequestBody):
+    request_payload: GetRegisterFieldsRequestPayload
+
+
+class GetRegisterFieldsRequest(G2PRequest):
+    request_body: GetRegisterFieldsRequestBody
 
 
 # =============================================================================

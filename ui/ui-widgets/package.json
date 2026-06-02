@@ -1,6 +1,6 @@
 {
   "name": "@openg2p/registry-widgets",
-  "version": "1.1.0-dev.13",
+  "version": "1.1.0-dev.14",
   "type": "module",
   "description": "Complete React widget library with generic form widgets, data binding, validation, and conditional logic",
   "main": "dist/index.js",
@@ -33,6 +33,11 @@
   ],
   "author": "",
   "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenG2P/registry-platform.git",
+    "directory": "ui/ui-widgets"
+  },
   "peerDependencies": {
     "@reduxjs/toolkit": "^2.11.2",
     "i18next": "^25.6.2",
