@@ -175,10 +175,24 @@ class G2PRegisterChangeRequestService(BaseService):
             change_requests_list, total_items = await self._fetch_change_requests(subject_register_id, subject_record_id, tab_id, current_page, page_size, sort_by, filter_by, session)
             return change_requests_list, total_items
 
-    async def get_change_request(self, change_request_id: str) -> ChangeRequestData:
+    async def get_change_request(
+        self,
+        change_request_id: str,
+        data_policy_mnemonics: list[str] | None = None,
+    ) -> ChangeRequestData:
         """Get a single change request by ID"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
+            if data_policy_mnemonics:
+                from .g2p_data_policy_service import G2PDataPolicyService
+
+                cr = await self.validate_change_request_exists(change_request_id, session)
+                await G2PDataPolicyService.get_component().ensure_record_access(
+                    register_id=cr.register_id,
+                    internal_record_id=cr.internal_record_id,
+                    policy_mnemonics=data_policy_mnemonics,
+                    session=session,
+                )
             change_request_data: ChangeRequestData = await self._fetch_change_request(change_request_id, session)
             await session.commit()
             return change_request_data

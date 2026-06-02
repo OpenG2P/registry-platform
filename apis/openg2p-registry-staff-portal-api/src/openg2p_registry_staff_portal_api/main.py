@@ -11,8 +11,8 @@ from openg2p_registry_extensions.app import Initializer as ExtensionsInitializer
 
 from iam_core.user_auth.app import Initializer as IAMInitializer
 from iam_core.user_auth.middleware import AuthMiddleware
-
 from openg2p_registry_staff_portal_api.audit_middleware import AuditMiddleware
+from openg2p_registry_staff_portal_api.data_policy_middleware import DataPolicyMiddleware
 
 
 IAMInitializer()
@@ -24,6 +24,13 @@ PingInitializer()
 _config = Settings.get_config()
 
 app = initializer.return_app()
+
+# Middleware order (last added = outermost on inbound):
+# Audit -> Auth -> DataPolicy -> app
+app.add_middleware(
+    DataPolicyMiddleware,
+    client_id=_config.keycloak_client_id,
+)
 app.add_middleware(
     AuthMiddleware,
     client_id=_config.keycloak_client_id,

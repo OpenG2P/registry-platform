@@ -41,6 +41,11 @@ class ChangeActionEnum(StrEnum):
     NO_CHANGE = "NO_CHANGE"
 
 
+class RegistryDataPolicyTypeEnum(StrEnum):
+    ALLOW = "ALLOW"
+    DISALLOW = "DISALLOW"
+
+
 class GenderEnum(StrEnum):
     MALE = "MALE"
     FEMALE = "FEMALE"
