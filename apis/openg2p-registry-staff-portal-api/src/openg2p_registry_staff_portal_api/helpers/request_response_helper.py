@@ -41,6 +41,7 @@ from openg2p_registry_core.schemas import (
     DataModelResponseBody, DataModelsResponseBody, SubscriptionActivityLogsResponseBody,
     OutgoingTopicResponseBody, OutgoingTopicsResponseBody, OutgoingTemplateResponseBody, OutgoingTemplatesResponseBody,
     RegisterSchemaData, RegisterSchemaDataResponse, RegisterSchemaDataResponseBody,
+    RegisterFieldsData, RegisterFieldsDataResponse, RegisterFieldsDataResponseBody,
     RegisterSectionData, RegisterSectionsDataResponse, RegisterSectionsDataResponseBody,
     RegisterSectionDataResponse, RegisterSectionDataResponseBody,
     RegisterSectionUISchemaData, RegisterSectionUISchemaDataResponse, RegisterSectionUISchemaDataResponseBody,
@@ -1256,6 +1257,36 @@ class RequestResponseHelper(BaseService):
             response_body=response_body
         )
         return register_schema_response
+
+    def construct_register_fields_success_response(
+        self,
+        register_fields_data: RegisterFieldsData,
+        g2p_request: G2PRequest = None,
+        number_of_items: int = None,
+        number_of_pages: int = None,
+    ) -> RegisterFieldsDataResponse:
+        """Construct success response for get_register_fields endpoint."""
+        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
+            request_id=g2p_request.request_header.request_id if g2p_request else "",
+            response_status=G2PResponseStatus.SUCCESS,
+            response_error_code="",
+            response_error_message="",
+            response_timestamp=datetime.now(),
+        )
+        pagination_response = None
+        if number_of_items is not None and number_of_pages is not None:
+            pagination_response = G2PPaginationResponse(
+                number_of_items=number_of_items,
+                number_of_pages=number_of_pages,
+            )
+        response_body: RegisterFieldsDataResponseBody = RegisterFieldsDataResponseBody(
+            response_payload=register_fields_data,
+            pagination_response=pagination_response,
+        )
+        return RegisterFieldsDataResponse(
+            response_header=g2p_response_header,
+            response_body=response_body,
+        )
 
     def construct_register_data_success_response(self, register_data: RegisterData, g2p_request: G2PRequest = None) -> RegisterDataResponse:
         """Construct success response for create_register endpoint."""

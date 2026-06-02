@@ -5,14 +5,14 @@ from ..services import G2PRegisterService
 from ..schemas import (
     RegisterData, AllRegistersRegisterData, ChildRegisterData, RegisterUITabData,
     GetAllRegistersRequest, GetDashboardRegistersRequest, GetChildRegistersRequest, GetMasterRegisterRequest,
-    GetRegisterSchemaRequest, GetRegisterSectionsRequest, GetRegisterTabSectionsRequest, GetRegisterTabsRequest,
+    GetRegisterSchemaRequest, GetRegisterFieldsRequest, GetRegisterSectionsRequest, GetRegisterTabSectionsRequest, GetRegisterTabsRequest,
     AddRegisterTabRequest, DeleteRegisterTabRequest, EditRegisterTabRequest,
     AddRegisterSectionRequest, DeleteRegisterSectionRequest, GetRegisterSectionUISchemaRequest,
     UpdateRegisterSectionRequest, UpdateRegisterSectionUISchemaRequest,
     CreateRegisterRequest, EditRegisterRequest, DeleteRegisterRequest, UpdateRegisterSchemaRequest,
     UpdateDedupIsEnabledRequest, UpdateDedupThresholdScoreRequest,
     UpdateDeduplicationSchemaRequest, UpdateSearchResultSchemaRequest,
-    RegisterSchemaData, RegisterSectionData, RegisterSectionUISchemaData
+    RegisterSchemaData, RegisterFieldsData, RegisterSectionData, RegisterSectionUISchemaData
 )
 
 _logger = logging.getLogger('g2p-register-metadata-controller-service')
@@ -75,6 +75,30 @@ class G2PRegisterMetadataControllerService(BaseService):
         g2p_register_service = G2PRegisterService.get_component()
         register_schema_data: RegisterSchemaData = await g2p_register_service.get_register_schema(register_id)
         return register_schema_data
+
+    async def get_register_fields(
+        self, get_register_fields_request: GetRegisterFieldsRequest
+    ) -> tuple[RegisterFieldsData, int, int]:
+        """Field names and types from the SQLAlchemy ORM model for the given register_id."""
+        body = get_register_fields_request.request_body
+        payload = body.request_payload
+        register_id = payload.register_id
+        
+        # Extract pagination parameters from request
+        pagination = get_register_fields_request.request_body.pagination_request
+        current_page = pagination.current_page if pagination else 1
+        page_size = pagination.page_size if pagination else 10
+        sort_by = pagination.sort_by if pagination else None
+        filter_by = pagination.filter_by if pagination else None
+
+        g2p_register_service = G2PRegisterService.get_component()
+        return await g2p_register_service.get_register_fields(
+            register_id, 
+            current_page=current_page, 
+            page_size=page_size, 
+            sort_by=sort_by,
+            filter_by=filter_by
+        )
 
     async def get_register_sections(self, get_register_sections_request: GetRegisterSectionsRequest) -> list[RegisterSectionData]:
         """

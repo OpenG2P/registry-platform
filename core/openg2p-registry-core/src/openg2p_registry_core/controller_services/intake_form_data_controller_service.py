@@ -88,10 +88,7 @@ class G2PIntakeFormDataControllerService(BaseService):
     ) -> SubmissionResponsePayload:
         payload = request.request_body.request_payload
         return await G2PIntakeFormDataService.get_component().get_intake_form_submission(
-            payload.submission_id,
-            payload.section_register_id,
-            payload.register_id,
-            payload.section_id,
+            payload.submission_id
         )
 
     async def get_tab_records(

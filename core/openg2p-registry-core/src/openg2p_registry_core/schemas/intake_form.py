@@ -116,9 +116,6 @@ class ApproveRejectSubmissionRequestPayload(BaseModel):
 
 class GetSubmissionRequestPayload(BaseModel):
     submission_id: str
-    section_register_id: str
-    register_id: str
-    section_id: str
 
 
 class SearchInSubmissionRequestPayload(BaseModel):
