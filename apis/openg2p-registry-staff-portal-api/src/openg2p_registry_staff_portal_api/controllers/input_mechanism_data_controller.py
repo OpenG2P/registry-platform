@@ -70,7 +70,7 @@ class InputMechanismDataController(BaseController):
         )
         response = EnqueueImportFileResponse(
             response_header=G2PResponseHeader(
-                request_id=request.request_header.request_id if request else "",
+                request_id=enqueue_import_file_request.request_header.request_id,
                 response_status=G2PResponseStatus.SUCCESS,
                 response_error_code="",
                 response_error_message="",

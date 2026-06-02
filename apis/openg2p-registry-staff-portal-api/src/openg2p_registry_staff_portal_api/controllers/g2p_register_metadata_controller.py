@@ -8,7 +8,7 @@ from openg2p_registry_core.schemas import (
     ChildRegistersResponse, ChildRegisterData,
     GetChildRegistersRequest, GetMasterRegisterRequest,
     GetAllRegistersRequest,
-    GetRegisterSchemaRequest, GetRegisterSectionsRequest, GetRegisterTabSectionsRequest, GetRegisterTabsRequest,
+    GetRegisterSchemaRequest, GetRegisterFieldsRequest, GetRegisterSectionsRequest, GetRegisterTabSectionsRequest, GetRegisterTabsRequest,
     AddRegisterTabRequest, DeleteRegisterTabRequest, EditRegisterTabRequest,
     AddRegisterSectionRequest, DeleteRegisterSectionRequest, GetRegisterSectionUISchemaRequest,
     UpdateRegisterSectionRequest, UpdateRegisterSectionUISchemaRequest,
@@ -16,6 +16,7 @@ from openg2p_registry_core.schemas import (
     UpdateDedupIsEnabledRequest, UpdateDedupThresholdScoreRequest,
     UpdateDeduplicationSchemaRequest, UpdateSearchResultSchemaRequest,
     RegisterSchemaDataResponse, RegisterSchemaData,
+    RegisterFieldsDataResponse,
     RegisterSectionsDataResponse, RegisterSectionData, RegisterSectionDataResponse,
     RegisterSectionUISchemaData, RegisterSectionUISchemaDataResponse,
     RegisterDataResponse, RegisterUITabData, RegisterTabsDataResponse,
@@ -87,6 +88,14 @@ class G2PRegisterMetadataController(BaseController):
             "/get_master_register",
             self.get_master_register,
             responses={200: {"model": RegisterDataResponse}},
+            methods=["POST"],
+        )
+
+        # Register field endpoints
+        self.router.add_api_route(
+            "/get_register_fields",
+            self.get_register_fields,
+            responses={200: {"model": RegisterFieldsDataResponse}},
             methods=["POST"],
         )
 
@@ -284,6 +293,25 @@ class G2PRegisterMetadataController(BaseController):
             _logger.error(f"Error in get_register_schema: {str(error_exception)}")
             error_response: RegisterSchemaDataResponse = self.helper.construct_error_response(error_exception, get_register_schema_request)
             return error_response
+
+    @require_permissions({"registerDefinition:view"})
+    async def get_register_fields(
+        self, get_register_fields_request: GetRegisterFieldsRequest
+    ) -> RegisterFieldsDataResponse:
+        """Return DB-mapped column names and types from the register ORM model."""
+        try:
+            register_fields_data, total_items, number_of_pages = await self.g2p_register_metadata_controller_service.get_register_fields(
+                get_register_fields_request
+            )
+            return self.helper.construct_register_fields_success_response(
+                register_fields_data=register_fields_data,
+                g2p_request=get_register_fields_request,
+                number_of_items=total_items,
+                number_of_pages=number_of_pages,
+            )
+        except Exception as error_exception:
+            _logger.error(f"Error in get_register_fields: {str(error_exception)}")
+            return self.helper.construct_error_response(error_exception, get_register_fields_request)
 
     @require_permissions({"registerSection:view"})
     async def get_register_sections(self, get_register_sections_request: GetRegisterSectionsRequest) -> RegisterSectionsDataResponse:
