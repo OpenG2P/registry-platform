@@ -7,6 +7,14 @@ import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { formatValue } from '../utils/formatting';
 import { getValueByPath, setValueByPath } from '../utils/pathUtils';
+import {
+  getMinDate,
+  getMaxDate,
+  validateDateConstraints,
+  resolveDateBoundFromFieldValue,
+  mergeMinDateBounds,
+  mergeMaxDateBounds,
+} from '../utils/dateInput';
 import { setValue, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 
@@ -161,32 +169,125 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
 interface TableCellDateProps {
   config: BaseWidgetConfig;
   value: any;
+  rowValues?: Record<string, any>;
   onValueChange: (value: any) => void;
 }
 
-const TableCellDate = ({ config, value, onValueChange }: TableCellDateProps) => {
+const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDateProps) => {
+  const { translateConfig } = useWidgetTranslation();
   const isReadonly = config['widget-readonly'] || false;
   const placeholder = config['widget-data-placeholder'] || '';
+  const optionsConfig = config['widget-data-options'];
+  const formatConfig = config['widget-data-format'];
+  const dateConstraint = formatConfig?.dateConstraint || 'any';
+  const minDate = optionsConfig?.minDate;
+  const maxDate = optionsConfig?.maxDate;
+  const minDateField = optionsConfig?.minDateField as string | undefined;
+  const maxDateField = optionsConfig?.maxDateField as string | undefined;
+  const minDateMessage = optionsConfig?.minDateMessage
+    ? translateConfig(optionsConfig.minDateMessage)
+    : undefined;
+  const maxDateMessage = optionsConfig?.maxDateMessage
+    ? translateConfig(optionsConfig.maxDateMessage)
+    : undefined;
+
+  const [constraintError, setConstraintError] = useState<string | null>(null);
+
+  const resolveSiblingDate = (fieldRef: string | undefined): string | undefined => {
+    if (!fieldRef || !rowValues) {
+      return undefined;
+    }
+    const raw = getValueByPath(rowValues, fieldRef) ?? rowValues[fieldRef];
+    return resolveDateBoundFromFieldValue(raw);
+  };
+
+  const fieldMinDate = useMemo(
+    () => resolveSiblingDate(minDateField),
+    [minDateField, rowValues]
+  );
+  const fieldMaxDate = useMemo(
+    () => resolveSiblingDate(maxDateField),
+    [maxDateField, rowValues]
+  );
+
+  const effectiveMinDate = useMemo(() => {
+    const staticMin = getMinDate(dateConstraint, minDate);
+    return mergeMinDateBounds(staticMin, fieldMinDate);
+  }, [dateConstraint, minDate, fieldMinDate]);
+
+  const effectiveMaxDate = useMemo(() => {
+    const staticMax = getMaxDate(dateConstraint, maxDate);
+    return mergeMaxDateBounds(staticMax, fieldMaxDate);
+  }, [dateConstraint, maxDate, fieldMaxDate]);
+
+  const constraintMessages = useMemo(
+    () => ({ minDateMessage, maxDateMessage }),
+    [minDateMessage, maxDateMessage]
+  );
 
   // input type="date" requires YYYY-MM-DD format
   const displayValue = value && typeof value === 'string' ? value.split('T')[0] : '';
 
+  useEffect(() => {
+    if (!displayValue) {
+      setConstraintError(null);
+      return;
+    }
+    const error = validateDateConstraints(
+      displayValue,
+      effectiveMinDate,
+      effectiveMaxDate,
+      dateConstraint,
+      constraintMessages
+    );
+    setConstraintError(error);
+  }, [displayValue, effectiveMinDate, effectiveMaxDate, dateConstraint, constraintMessages]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = e.target.value;
+    onValueChange(nextValue);
+    if (!nextValue) {
+      setConstraintError(null);
+      return;
+    }
+    const error = validateDateConstraints(
+      nextValue,
+      effectiveMinDate,
+      effectiveMaxDate,
+      dateConstraint,
+      constraintMessages
+    );
+    setConstraintError(error);
+  };
+
+  const hasError = Boolean(constraintError);
+
   return (
-    <input
-      type="date"
-      value={displayValue}
-      onChange={(e) => onValueChange(e.target.value)}
-      disabled={isReadonly}
-      placeholder={placeholder}
-      className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
-        isReadonly ? 'cursor-not-allowed' : ''
-      } table-cell-input`}
-      style={{
-        borderRadius: '10px',
-        borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
-        backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
-      }}
-    />
+    <div className="w-full">
+      <input
+        type="date"
+        value={displayValue}
+        onChange={handleChange}
+        disabled={isReadonly}
+        placeholder={placeholder}
+        min={effectiveMinDate}
+        max={effectiveMaxDate}
+        title={constraintError || translateConfig(config['widget-data-tooltip'])}
+        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+          isReadonly ? 'cursor-not-allowed' : ''
+        } ${hasError ? 'border-red-500' : ''} table-cell-input`}
+        style={{
+          borderRadius: '10px',
+          borderColor: hasError
+            ? 'var(--owt-color-error, #B91C1C)'
+            : 'var(--owt-widget-input-border, #C4C4C4)',
+          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+        }}
+      />
+      {hasError && (
+        <p className="text-red-500 text-xs mt-0.5 leading-tight">{constraintError}</p>
+      )}
+    </div>
   );
 };
 
@@ -645,11 +746,25 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     }
   }, [isAdding, newRowData, columns, widgetConfig, rows.length, dispatch]);
 
+  const getRowValuesForEdit = useCallback(
+    (rowIndex: number): Record<string, any> => {
+      if (editingState && editingState.rowIndex === rowIndex) {
+        return editingState.currentValue ?? {};
+      }
+      if (isAdding && rowIndex === rows.length && newRowData) {
+        return newRowData;
+      }
+      return rows[rowIndex] ?? {};
+    },
+    [editingState, isAdding, rows, newRowData]
+  );
+
   // Lightweight cell renderer for table cells (no labels, compact)
   const renderTableCell = useCallback((rowIndex: number, column: any, cellValue: any, isReadonly: boolean) => {
     const columnKey = column['column-key'];
     const widgetType = column.widget || 'text';
     const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
+    const rowValues = getRowValuesForEdit(rowIndex);
     
     // Use lightweight cell config (no label, minimal styling)
     const cellConfig: BaseWidgetConfig = {
@@ -686,6 +801,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       return <TableCellDate
         config={cellConfig}
         value={cellValue}
+        rowValues={rowValues}
         onValueChange={(newValue) => updateCellValue(columnKey, newValue, rowIndex)}
       />;
     }
@@ -704,7 +820,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         />
       </div>
     );
-  }, [widgetConfig, updateCellValue]);
+  }, [widgetConfig, updateCellValue, getRowValuesForEdit]);
 
   // Render cell content (widget in edit mode, formatted value in view mode)
   const renderCell = useCallback((rowIndex: number, column: any, row: any) => {

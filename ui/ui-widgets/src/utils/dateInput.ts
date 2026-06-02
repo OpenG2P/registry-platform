@@ -143,6 +143,51 @@ export const parseDateFromFormat = (dateString: string, format: string): Date | 
 };
 
 /**
+ * Resolve a stored date value (ISO or parseable string) to YYYY-MM-DD for comparisons.
+ */
+export const resolveDateBoundFromFieldValue = (
+  fieldValue: unknown
+): string | undefined => {
+  if (fieldValue == null || fieldValue === '') {
+    return undefined;
+  }
+  const iso = formatDateToISO(fieldValue as Date | string);
+  return iso || undefined;
+};
+
+/**
+ * Pick the stricter (later) minimum when combining static and field-based bounds.
+ */
+export const mergeMinDateBounds = (
+  boundA: string | undefined,
+  boundB: string | undefined
+): string | undefined => {
+  if (!boundA) {
+    return boundB;
+  }
+  if (!boundB) {
+    return boundA;
+  }
+  return boundA > boundB ? boundA : boundB;
+};
+
+/**
+ * Pick the stricter (earlier) maximum when combining static and field-based bounds.
+ */
+export const mergeMaxDateBounds = (
+  boundA: string | undefined,
+  boundB: string | undefined
+): string | undefined => {
+  if (!boundA) {
+    return boundB;
+  }
+  if (!boundB) {
+    return boundA;
+  }
+  return boundA < boundB ? boundA : boundB;
+};
+
+/**
  * Get min date based on constraint type
  */
 export const getMinDate = (
@@ -201,11 +246,17 @@ export const getMaxDate = (
 /**
  * Validate date constraints
  */
+export interface DateConstraintMessages {
+  minDateMessage?: string;
+  maxDateMessage?: string;
+}
+
 export const validateDateConstraints = (
   date: Date | string | null | undefined,
   minDate: string | undefined,
   maxDate: string | undefined,
-  constraint: string | undefined
+  constraint: string | undefined,
+  messages?: DateConstraintMessages
 ): string | null => {
   if (!date) return null;
   
@@ -226,16 +277,13 @@ export const validateDateConstraints = (
     }
   }
   
-  // Check minDate
-  const effectiveMinDate = getMinDate(constraint, minDate);
-  if (effectiveMinDate && dateISO < effectiveMinDate) {
-    return `Date must be on or after ${effectiveMinDate}`;
+  // minDate / maxDate are effective bounds (static + field-based), resolved by the caller
+  if (minDate && dateISO < minDate) {
+    return messages?.minDateMessage ?? `Date must be on or after ${minDate}`;
   }
-  
-  // Check maxDate
-  const effectiveMaxDate = getMaxDate(constraint, maxDate);
-  if (effectiveMaxDate && dateISO > effectiveMaxDate) {
-    return `Date must be on or before ${effectiveMaxDate}`;
+
+  if (maxDate && dateISO > maxDate) {
+    return messages?.maxDateMessage ?? `Date must be on or before ${maxDate}`;
   }
   
   return null;
