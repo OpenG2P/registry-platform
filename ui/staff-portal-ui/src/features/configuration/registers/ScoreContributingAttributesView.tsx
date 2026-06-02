@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { useScoreContributingAttributes } from '../shared/hooks/useScoreContributingAttributes';
@@ -12,7 +12,17 @@ import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, EditButton } from '../shared/components';
 import AddScoreContributingAttributeModal from './AddScoreContributingAttributeModal';
 import EditScoreContributingAttributeModal from './EditScoreContributingAttributeModal';
+import type { RegisterField } from '../shared/hooks/useRegisterFields';
 import type { ScoreContributingAttribute } from '../shared/types/registers';
+
+function formatRegisterFieldLabel(field: RegisterField) {
+    return `${field.field_name} (${field.data_type})`;
+}
+
+function getAttributeFieldLabel(attributeName: string, registerFields: RegisterField[]) {
+    const field = registerFields.find((f) => f.field_name === attributeName);
+    return field ? formatRegisterFieldLabel(field) : attributeName;
+}
 
 interface ScoreContributingAttributesViewProps {
     isModalOpen: boolean;
@@ -37,7 +47,16 @@ export default function ScoreContributingAttributesView({
 
     const { contributingAttributes, loading, refresh, pagination } =
         useScoreContributingAttributes(scoreDefinitionId, page, pageSize);
-    const { fields: registerFields } = useRegisterFields(registerId);
+    const { fields: registerFields, loading: fieldsLoading } = useRegisterFields(registerId);
+
+    const fieldOptions = useMemo(
+        () =>
+            registerFields.map((field) => ({
+                label: formatRegisterFieldLabel(field),
+                value: field.field_name,
+            })),
+        [registerFields],
+    );
 
     useEffect(() => {
         if (pagination && onDataLoaded) {
@@ -105,14 +124,12 @@ export default function ScoreContributingAttributesView({
             },
         );
     };
-
     const columns = [
         {
             key: 'attribute_name',
             label: t('attribute_name'),
             render: (item: ScoreContributingAttribute) =>
-                registerFields.find((field) => field.field_name === item.attribute_name)?.field_name ??
-                item.attribute_name,
+                getAttributeFieldLabel(item.attribute_name, registerFields),
         },
        
         {
@@ -161,6 +178,8 @@ export default function ScoreContributingAttributesView({
                     onClose={onCloseModal}
                     onSuccess={refresh}
                     scoreDefinitionId={scoreDefinitionId}
+                    fieldOptions={fieldOptions}
+                    fieldsLoading={fieldsLoading}
                 />
             )}
 
@@ -174,6 +193,8 @@ export default function ScoreContributingAttributesView({
                     }}
                     onSuccess={refresh}
                     initialData={selected}
+                    fieldOptions={fieldOptions}
+                    fieldsLoading={fieldsLoading}
                 />
             )}
         </>
