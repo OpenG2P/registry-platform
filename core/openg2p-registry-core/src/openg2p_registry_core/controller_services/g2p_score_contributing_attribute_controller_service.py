@@ -28,20 +28,23 @@ class G2PScoreContributingAttributeControllerService(BaseService):
     ) -> Tuple[GetAllScoreContributingAttributesResponsePayload, G2PPaginationResponse]:
         _logger.info("Listing score contributing attributes for definition (paginated)")
         payload = request.request_body.request_payload
+        pagination = request.request_body.pagination_request
+        page_number = pagination.current_page
+        page_size = pagination.page_size
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             rows, total = await g2p_score_compute_service.get_score_contributing_attributes_for_definition(
                 score_definition_id=payload.score_definition_id,
-                page_number=payload.page_number,
-                page_size=payload.page_size,
+                page_number=page_number,
+                page_size=page_size,
                 session=session,
             )
 
         pagination = G2PPaginationResponse(
             number_of_items=total,
-            number_of_pages=self._number_of_pages(total_items=total, page_size=p.page_size),
+            number_of_pages=self._number_of_pages(total, page_size),
         )
         return (
             GetAllScoreContributingAttributesResponsePayload(contributing_attributes=rows),
@@ -110,7 +113,7 @@ class G2PScoreContributingAttributeControllerService(BaseService):
 
         return DeleteScoreContributingAttributeResponsePayload(contributing_attribute_id=deleted_id)
 
-    def _number_of_pages(*, total_items: int, page_size: int) -> int:
+    def _number_of_pages(self, total_items: int, page_size: int) -> int:
         if total_items <= 0:
             return 0
         if page_size <= 0:
