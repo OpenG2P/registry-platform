@@ -237,14 +237,6 @@ class G2PRegisterChangeRequestService(BaseService):
                 approved_by=approved_by,
             )
             await self._fanout_outgest_for_change_request(change_request, session)
-            # Enqueue score computations for the change request
-            _logger.debug(f"Enqueuing score computations for change_request_id: {change_request_id}")
-            g2p_score_compute_service = G2PScoreComputeService.get_component()
-            await g2p_score_compute_service.enqueue_score_computations(
-                change_request=change_request,
-                session=session,
-            )
-            _logger.debug(f"Finished enqueuing score computations for change_request_id: {change_request_id}")
             
             _logger.info("Approved change request: %s", change_request_id)
             await session.commit()
@@ -296,6 +288,16 @@ class G2PRegisterChangeRequestService(BaseService):
             section_id=change_request.section_id,
         )
 
+        # Enqueue score computations for the change request
+        _logger.debug(f"Enqueuing score computations for change_request_id: {change_request_id}")
+        g2p_score_compute_service = G2PScoreComputeService.get_component()
+        await g2p_score_compute_service.enqueue_score_computations_for_change_request(
+            change_request=change_request,
+            session=session,
+        )
+        _logger.debug(f"Finished enqueuing score computations for change_request_id: {change_request_id}")
+            
+
         return change_request
 
     async def approve_change_request_from_awe_webhook(
@@ -317,7 +319,7 @@ class G2PRegisterChangeRequestService(BaseService):
         )
         await self._fanout_outgest_for_change_request(change_request, session)
         score_service = G2PScoreComputeService.get_component()
-        await score_service.enqueue_score_computations(
+        await score_service.enqueue_score_computations_for_change_request(
             change_request=change_request,
             session=session,
         )

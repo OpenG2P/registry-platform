@@ -59,44 +59,72 @@ class GetScoreHistoryResponsePayload(BaseModel):
     history: List[ScoreHistoryData] = Field(..., description="List of historical scores")
 
 
-class GetScoresRequestBody(G2PRequestBody):
-    request_payload: GetScoresRequestPayload
-
-
-class GetScoresRequest(G2PRequest):
-    request_body: GetScoresRequestBody
-
-
 # =============================================================================
 # Score Definitions (metadata CRUD)
 # =============================================================================
 
 
+class ScoreContributingAttributeInput(BaseModel):
+    """Contributing attribute row for create/update."""
+
+    attribute_name: str = Field(..., description="Register field path or column name (e.g. headship_type)")
+    attribute_computation_required: bool = Field(
+        False, description="Whether a lookup/computation step is required for this attribute"
+    )
+    attribute_computation_value: Optional[dict[str, Any]] = Field(
+        None,
+        description='Optional map of raw values to contributions, e.g. {"CHILD_HEADED": 0.2}',
+    )
+    attribute_weightage: float = Field(..., description="Weightage for this attribute in the score")
+
+
+class ScoreContributingAttributeData(BaseModel):
+    """Persisted contributing attribute metadata."""
+
+    contributing_attribute_id: str = Field(..., description="Contributing attribute row ID")
+    attribute_name: str = Field(..., description="Register field path or column name")
+    attribute_computation_required: bool = Field(
+        ..., description="Whether a lookup/computation step is required for this attribute"
+    )
+    attribute_computation_value: Optional[dict[str, Any]] = Field(
+        None, description="Value lookup / computation map (JSON)"
+    )
+    attribute_weightage: float = Field(..., description="Weightage for this attribute")
+
+
 class ScoreDefinitionData(BaseModel):
-    """Score definition metadata."""
+    """Score definition header (use score-contributing-attribute APIs for attribute rows)."""
+
     score_definition_id: str = Field(..., description="Score definition ID")
+    register_mnemonic: str = Field(..., description="Register mnemonic this score applies to")
     score_type: str = Field(..., description="Type of score")
-    contributing_attributes: List[str] = Field(..., description="List of contributing attribute paths")
-    score_config: Optional[dict[str, Any]] = Field(None, description="Score configuration parameters")
     is_enabled: bool = Field(..., description="Whether the score definition is enabled")
 
 
 class GetScoreDefinitionsRequestPayload(BaseModel):
-    """Payload for getting score definitions for a register."""
-    register_id: str = Field(..., description="Register ID")
+    """Payload for getting score definitions for a register (paginated)."""
+
+    register_id: str = Field(..., description="Register definition ID")
+    page_number: int = Field(1, ge=1, description="1-based page index")
+    page_size: int = Field(
+        50,
+        ge=1,
+        le=500,
+        description="Maximum definitions per page (capped server-side)",
+    )
 
 
 class GetScoreDefinitionsResponsePayload(BaseModel):
-    """Response payload for getting score definitions."""
-    score_definitions: List[ScoreDefinitionData] = Field(..., description="List of score definitions")
+    """Response payload for getting score definitions (pagination in response_body.pagination_response)."""
+
+    score_definitions: List[ScoreDefinitionData] = Field(..., description="Score definitions on this page")
 
 
 class CreateScoreDefinitionRequestPayload(BaseModel):
-    """Payload for creating a new score definition."""
-    register_id: str = Field(..., description="Register ID")
+    """Payload for creating a new score definition (header only)."""
+
+    register_id: str = Field(..., description="Register definition ID")
     score_type: str = Field(..., description="Type of score")
-    contributing_attributes: List[str] = Field(..., description="List of contributing attribute paths")
-    score_config: Optional[dict[str, Any]] = Field(None, description="Score configuration parameters")
 
 
 class CreateScoreDefinitionResponsePayload(BaseModel):
@@ -105,16 +133,97 @@ class CreateScoreDefinitionResponsePayload(BaseModel):
 
 
 class UpdateScoreDefinitionRequestPayload(BaseModel):
-    """Payload for updating an existing score definition."""
+    """Payload for updating an existing score definition (header only)."""
+
     score_definition_id: str = Field(..., description="Score definition ID")
-    contributing_attributes: Optional[List[str]] = Field(None, description="List of contributing attribute paths")
-    score_config: Optional[dict[str, Any]] = Field(None, description="Score configuration parameters")
     is_enabled: Optional[bool] = Field(None, description="Whether the score definition is enabled")
 
 
 class UpdateScoreDefinitionResponsePayload(BaseModel):
     """Response payload for updating a score definition."""
     score_definition: ScoreDefinitionData = Field(..., description="Updated score definition")
+
+
+class DeleteScoreDefinitionRequestPayload(BaseModel):
+    score_definition_id: str = Field(..., description="Score definition ID to delete")
+
+
+class DeleteScoreDefinitionResponsePayload(BaseModel):
+    score_definition_id: str = Field(..., description="ID of the deleted score definition")
+
+
+# =============================================================================
+# Score contributing attributes (separate from definition header CRUD)
+# =============================================================================
+
+
+class GetAllScoreContributingAttributesRequestPayload(BaseModel):
+    """Payload for listing contributing attributes for a score definition (paginated)."""
+
+    score_definition_id: str = Field(..., description="Score definition ID")
+    page_number: int = Field(1, ge=1, description="1-based page index")
+    page_size: int = Field(
+        50,
+        ge=1,
+        le=500,
+        description="Maximum rows per page (capped server-side)",
+    )
+
+
+class GetAllScoreContributingAttributesResponsePayload(BaseModel):
+    """List page only; pagination totals are in response_body.pagination_response."""
+
+    contributing_attributes: List[ScoreContributingAttributeData] = Field(
+        ...,
+        description="Contributing attribute rows on this page",
+    )
+
+
+class CreateScoreContributingAttributeRequestPayload(BaseModel):
+    """Create payload: score definition id plus attribute fields at the root."""
+
+    score_definition_id: str = Field(..., description="Score definition ID")
+    attribute_name: str = Field(..., description="Register field path or column name (e.g. headship_type)")
+    attribute_computation_required: bool = Field(
+        False, description="Whether a lookup/computation step is required for this attribute"
+    )
+    attribute_computation_value: Optional[dict[str, Any]] = Field(
+        None,
+        description='Optional map of raw values to contributions, e.g. {"CHILD_HEADED": 0.2}',
+    )
+    attribute_weightage: float = Field(..., description="Weightage for this attribute in the score")
+
+
+class CreateScoreContributingAttributeResponsePayload(BaseModel):
+    contributing_attribute: ScoreContributingAttributeData = Field(
+        ..., description="Created contributing attribute row"
+    )
+
+
+class UpdateScoreContributingAttributeRequestPayload(BaseModel):
+    contributing_attribute_id: str = Field(..., description="Contributing attribute row ID")
+    attribute_name: Optional[str] = Field(None, description="Register field path or column name")
+    attribute_computation_required: Optional[bool] = Field(
+        None, description="Whether a lookup/computation step is required for this attribute"
+    )
+    attribute_computation_value: Optional[dict[str, Any]] = Field(
+        None, description="Value lookup / computation map (JSON)"
+    )
+    attribute_weightage: Optional[float] = Field(None, description="Weightage for this attribute in the score")
+
+
+class UpdateScoreContributingAttributeResponsePayload(BaseModel):
+    contributing_attribute: ScoreContributingAttributeData = Field(
+        ..., description="Updated contributing attribute row"
+    )
+
+
+class DeleteScoreContributingAttributeRequestPayload(BaseModel):
+    contributing_attribute_id: str = Field(..., description="Contributing attribute row ID to delete")
+
+
+class DeleteScoreContributingAttributeResponsePayload(BaseModel):
+    contributing_attribute_id: str = Field(..., description="ID of the deleted row")
 
 
 # =============================================================================
@@ -172,6 +281,46 @@ class UpdateScoreDefinitionRequest(G2PRequest):
     request_body: UpdateScoreDefinitionRequestBody
 
 
+class DeleteScoreDefinitionRequestBody(G2PRequestBody):
+    request_payload: DeleteScoreDefinitionRequestPayload
+
+
+class DeleteScoreDefinitionRequest(G2PRequest):
+    request_body: DeleteScoreDefinitionRequestBody
+
+
+class GetAllScoreContributingAttributesRequestBody(G2PRequestBody):
+    request_payload: GetAllScoreContributingAttributesRequestPayload
+
+
+class GetAllScoreContributingAttributesRequest(G2PRequest):
+    request_body: GetAllScoreContributingAttributesRequestBody
+
+
+class CreateScoreContributingAttributeRequestBody(G2PRequestBody):
+    request_payload: CreateScoreContributingAttributeRequestPayload
+
+
+class CreateScoreContributingAttributeRequest(G2PRequest):
+    request_body: CreateScoreContributingAttributeRequestBody
+
+
+class UpdateScoreContributingAttributeRequestBody(G2PRequestBody):
+    request_payload: UpdateScoreContributingAttributeRequestPayload
+
+
+class UpdateScoreContributingAttributeRequest(G2PRequest):
+    request_body: UpdateScoreContributingAttributeRequestBody
+
+
+class DeleteScoreContributingAttributeRequestBody(G2PRequestBody):
+    request_payload: DeleteScoreContributingAttributeRequestPayload
+
+
+class DeleteScoreContributingAttributeRequest(G2PRequest):
+    request_body: DeleteScoreContributingAttributeRequestBody
+
+
 # =============================================================================
 # Response Wrappers (staff portal style)
 # =============================================================================
@@ -216,3 +365,42 @@ class UpdateScoreDefinitionResponseBody(G2PResponseBody):
 class UpdateScoreDefinitionResponse(G2PResponse):
     response_body: Optional[UpdateScoreDefinitionResponseBody] = None
 
+
+class DeleteScoreDefinitionResponseBody(G2PResponseBody):
+    response_payload: Optional[DeleteScoreDefinitionResponsePayload] = None
+
+
+class DeleteScoreDefinitionResponse(G2PResponse):
+    response_body: Optional[DeleteScoreDefinitionResponseBody] = None
+
+
+class GetAllScoreContributingAttributesResponseBody(G2PResponseBody):
+    response_payload: Optional[GetAllScoreContributingAttributesResponsePayload] = None
+
+
+class GetAllScoreContributingAttributesResponse(G2PResponse):
+    response_body: Optional[GetAllScoreContributingAttributesResponseBody] = None
+
+
+class CreateScoreContributingAttributeResponseBody(G2PResponseBody):
+    response_payload: Optional[CreateScoreContributingAttributeResponsePayload] = None
+
+
+class CreateScoreContributingAttributeResponse(G2PResponse):
+    response_body: Optional[CreateScoreContributingAttributeResponseBody] = None
+
+
+class UpdateScoreContributingAttributeResponseBody(G2PResponseBody):
+    response_payload: Optional[UpdateScoreContributingAttributeResponsePayload] = None
+
+
+class UpdateScoreContributingAttributeResponse(G2PResponse):
+    response_body: Optional[UpdateScoreContributingAttributeResponseBody] = None
+
+
+class DeleteScoreContributingAttributeResponseBody(G2PResponseBody):
+    response_payload: Optional[DeleteScoreContributingAttributeResponsePayload] = None
+
+
+class DeleteScoreContributingAttributeResponse(G2PResponse):
+    response_body: Optional[DeleteScoreContributingAttributeResponseBody] = None

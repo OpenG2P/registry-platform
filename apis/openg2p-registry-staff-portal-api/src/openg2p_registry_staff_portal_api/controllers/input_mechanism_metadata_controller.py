@@ -17,7 +17,6 @@ from openg2p_registry_core.schemas import (
     ImportFileConfigurationRequest,
     ImportFileConfigurationResponse,
     ImportFileConfigurationData,
-    ImportFileConfigurationResponseBody,
 )
 from iam_core.user_auth.helpers import require_permissions
 
@@ -35,7 +34,6 @@ class InputMechanismMetadataController(BaseController):
         self.router.tags += ["/input-mechanism-metadata"]
         self.router.prefix = "/input-mechanism-metadata"
 
-        # Core still exposes input mechanisms via this controller service
         self.input_mechanism_metadata_controller_service = (
             InputMechanismMetadataControllerService.get_component()
         )
@@ -55,15 +53,63 @@ class InputMechanismMetadataController(BaseController):
         )
 
         self.router.add_api_route(
-            "/get_vc_configuration",
-            self.get_vc_configuration,
+            "/get_all_vc_configurations",
+            self.get_all_vc_configurations,
+            responses={200: {"model": VcConfigurationResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/get_vc_configuration_for_register",
+            self.get_vc_configuration_for_register,
+            responses={200: {"model": VcConfigurationResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/create_vc_configuration",
+            self.create_vc_configuration,
+            responses={200: {"model": VcConfigurationResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/update_vc_configuration",
+            self.update_vc_configuration,
+            responses={200: {"model": VcConfigurationResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/delete_vc_configuration",
+            self.delete_vc_configuration,
             responses={200: {"model": VcConfigurationResponse}},
             methods=["POST"],
         )
 
         self.router.add_api_route(
-            "/get_import_file_configuration",
-            self.get_import_file_configuration,
+            "/get_all_import_file_configurations",
+            self.get_all_import_file_configurations,
+            responses={200: {"model": ImportFileConfigurationResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/get_import_file_configuration_for_register",
+            self.get_import_file_configuration_for_register,
+            responses={200: {"model": ImportFileConfigurationResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/create_import_file_configuration",
+            self.create_import_file_configuration,
+            responses={200: {"model": ImportFileConfigurationResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/update_import_file_configuration",
+            self.update_import_file_configuration,
+            responses={200: {"model": ImportFileConfigurationResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/delete_import_file_configuration",
+            self.delete_import_file_configuration,
             responses={200: {"model": ImportFileConfigurationResponse}},
             methods=["POST"],
         )
@@ -71,30 +117,84 @@ class InputMechanismMetadataController(BaseController):
     @require_permissions({"intakeSubmission:edit"})
     async def get_all_input_mechanisms(
         self,
-        request: G2PInputMechanismRequest,
+        input_mechanism_request: G2PInputMechanismRequest,
     ) -> G2PInputMechanismResponse:
-        _logger.debug("Get G2P Input Mechanisms Request: %s", request)
+        _logger.debug("Get G2P Input Mechanisms Request: %s", input_mechanism_request)
         try:
             input_mechanisms: List[G2PInputMechanismData] = (
                 await self.input_mechanism_metadata_controller_service.get_all_input_mechanisms(
-                    request
+                    input_mechanism_request
                 )
             )
             _logger.debug("Input mechanisms: %s", input_mechanisms)
 
-            return self.helper.construct_input_mechanisms_success_response(input_mechanisms, request)
+            return self.helper.construct_input_mechanisms_success_response(
+                input_mechanisms, input_mechanism_request
+            )
         except Exception as e:
             _logger.error("Error getting input mechanisms: %s", str(e), exc_info=True)
-            return self.helper.construct_error_response(e, request)
+            return self.helper.construct_error_response(e, input_mechanism_request)
 
     @require_permissions({"intakeSubmission:edit"})
-    async def get_vc_configuration(
+    async def get_all_vc_configurations(
+        self,
+        vc_configuration_request: VcConfigurationRequest,
+    ) -> VcConfigurationResponse:
+        try:
+            vc_configuration_data, pagination_response = (
+                await self.vc_configuration_controller_service.get_all_vc_configurations(
+                    vc_configuration_request
+                )
+            )
+            return self.helper.construct_vc_configuration_data_success_response(
+                vc_configuration_data=vc_configuration_data,
+                g2p_request=vc_configuration_request,
+                pagination_response=pagination_response,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in get_all_vc_configurations: %s",
+                str(error_exception),
+                exc_info=True,
+            )
+            return self.helper.construct_error_response(
+                error_exception, vc_configuration_request
+            )
+
+    @require_permissions({"intakeSubmission:edit"})
+    async def get_vc_configuration_for_register(
+        self,
+        vc_configuration_request: VcConfigurationRequest,
+    ) -> VcConfigurationResponse:
+        try:
+            vc_configuration_data, pagination_response = (
+                await self.vc_configuration_controller_service.get_vc_configuration_for_register(
+                    vc_configuration_request
+                )
+            )
+            return self.helper.construct_vc_configuration_data_success_response(
+                vc_configuration_data=vc_configuration_data,
+                g2p_request=vc_configuration_request,
+                pagination_response=pagination_response,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in get_vc_configuration_for_register: %s",
+                str(error_exception),
+                exc_info=True,
+            )
+            return self.helper.construct_error_response(
+                error_exception, vc_configuration_request
+            )
+
+    @require_permissions({"intakeSubmission:edit"})
+    async def create_vc_configuration(
         self,
         vc_configuration_request: VcConfigurationRequest,
     ) -> VcConfigurationResponse:
         try:
             vc_configuration_data: List[VcConfigurationData] = (
-                await self.vc_configuration_controller_service.get_vc_configuration_for_register(
+                await self.vc_configuration_controller_service.create_vc_configuration(
                     vc_configuration_request
                 )
             )
@@ -104,7 +204,7 @@ class InputMechanismMetadataController(BaseController):
             )
         except Exception as error_exception:
             _logger.error(
-                "Error in get_vc_configuration: %s",
+                "Error in create_vc_configuration: %s",
                 str(error_exception),
                 exc_info=True,
             )
@@ -113,28 +213,168 @@ class InputMechanismMetadataController(BaseController):
             )
 
     @require_permissions({"intakeSubmission:edit"})
-    async def get_import_file_configuration(
+    async def update_vc_configuration(
         self,
-        request: ImportFileConfigurationRequest,
-    ) -> ImportFileConfigurationResponse:
+        vc_configuration_request: VcConfigurationRequest,
+    ) -> VcConfigurationResponse:
         try:
-            import_file_configuration_data: List[ImportFileConfigurationData] = (
-                await self.import_file_configuration_controller_service.get_import_file_configuration(
-                    request
+            vc_configuration_data: List[VcConfigurationData] = (
+                await self.vc_configuration_controller_service.edit_descriptor_schema(
+                    vc_configuration_request
                 )
             )
-            return ImportFileConfigurationResponse(
-                response_header=self.helper.construct_success_response(
-                    response_body=ImportFileConfigurationResponseBody(response_payload=import_file_configuration_data),
-                    request=request,
-                ).response_header,
-                response_body=ImportFileConfigurationResponseBody(response_payload=import_file_configuration_data),
+            return self.helper.construct_vc_configuration_data_success_response(
+                vc_configuration_data=vc_configuration_data,
+                g2p_request=vc_configuration_request,
             )
         except Exception as error_exception:
             _logger.error(
-                "Error in get_import_file_configuration: %s",
+                "Error in update_vc_configuration: %s",
                 str(error_exception),
                 exc_info=True,
             )
-            return self.helper.construct_error_response(error_exception, request)
+            return self.helper.construct_error_response(
+                error_exception, vc_configuration_request
+            )
 
+    @require_permissions({"intakeSubmission:edit"})
+    async def delete_vc_configuration(
+        self,
+        vc_configuration_request: VcConfigurationRequest,
+    ) -> VcConfigurationResponse:
+        try:
+            vc_configuration_data: List[VcConfigurationData] = (
+                await self.vc_configuration_controller_service.delete_vc_configuration(
+                    vc_configuration_request
+                )
+            )
+            return self.helper.construct_vc_configuration_data_success_response(
+                vc_configuration_data=vc_configuration_data,
+                g2p_request=vc_configuration_request,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in delete_vc_configuration: %s",
+                str(error_exception),
+                exc_info=True,
+            )
+            return self.helper.construct_error_response(
+                error_exception, vc_configuration_request
+            )
+
+    @require_permissions({"intakeSubmission:edit"})
+    async def get_all_import_file_configurations(
+        self,
+        import_file_configuration_request: ImportFileConfigurationRequest,
+    ) -> ImportFileConfigurationResponse:
+        try:
+            import_file_configuration_data, pagination_response = (
+                await self.import_file_configuration_controller_service.get_all_import_file_configurations(
+                    import_file_configuration_request
+                )
+            )
+            return self.helper.construct_import_file_configuration_data_success_response(
+                import_file_configuration_data=import_file_configuration_data,
+                g2p_request=import_file_configuration_request,
+                pagination_response=pagination_response,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in get_all_import_file_configurations: %s",
+                str(error_exception),
+                exc_info=True,
+            )
+            return self.helper.construct_error_response(error_exception, import_file_configuration_request)
+
+    @require_permissions({"intakeSubmission:edit"})
+    async def get_import_file_configuration_for_register(
+        self,
+        import_file_configuration_request: ImportFileConfigurationRequest,
+    ) -> ImportFileConfigurationResponse:
+        try:
+            import_file_configuration_data, pagination_response = (
+                await self.import_file_configuration_controller_service.get_import_file_configuration_for_register(
+                    import_file_configuration_request
+                )
+            )
+            return self.helper.construct_import_file_configuration_data_success_response(
+                import_file_configuration_data=import_file_configuration_data,
+                g2p_request=import_file_configuration_request,
+                pagination_response=pagination_response,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in get_import_file_configuration_for_register: %s",
+                str(error_exception),
+                exc_info=True,
+            )
+            return self.helper.construct_error_response(error_exception, import_file_configuration_request)
+
+    # @require_permissions({"intakeSubmission:edit"})
+    async def create_import_file_configuration(
+        self,
+        import_file_configuration_request: ImportFileConfigurationRequest,
+    ) -> ImportFileConfigurationResponse:
+        try:
+            import_file_configuration_data: List[ImportFileConfigurationData] = (
+                await self.import_file_configuration_controller_service.create_import_file_configuration(
+                    import_file_configuration_request
+                )
+            )
+            return self.helper.construct_import_file_configuration_data_success_response(
+                import_file_configuration_data=import_file_configuration_data,
+                g2p_request=import_file_configuration_request,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in create_import_file_configuration: %s",
+                str(error_exception),
+                exc_info=True,
+            )
+            return self.helper.construct_error_response(error_exception, import_file_configuration_request)
+
+    @require_permissions({"intakeSubmission:edit"})
+    async def update_import_file_configuration(
+        self,
+        import_file_configuration_request: ImportFileConfigurationRequest,
+    ) -> ImportFileConfigurationResponse:
+        try:
+            import_file_configuration_data: List[ImportFileConfigurationData] = (
+                await self.import_file_configuration_controller_service.update_import_file_configuration(
+                    import_file_configuration_request
+                )
+            )
+            return self.helper.construct_import_file_configuration_data_success_response(
+                import_file_configuration_data=import_file_configuration_data,
+                g2p_request=import_file_configuration_request,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in update_import_file_configuration: %s",
+                str(error_exception),
+                exc_info=True,
+            )
+            return self.helper.construct_error_response(error_exception, import_file_configuration_request)
+
+    @require_permissions({"intakeSubmission:edit"})
+    async def delete_import_file_configuration(
+        self,
+        import_file_configuration_request: ImportFileConfigurationRequest,
+    ) -> ImportFileConfigurationResponse:
+        try:
+            import_file_configuration_data: List[ImportFileConfigurationData] = (
+                await self.import_file_configuration_controller_service.delete_import_file_configuration(
+                    import_file_configuration_request
+                )
+            )
+            return self.helper.construct_import_file_configuration_data_success_response(
+                import_file_configuration_data=import_file_configuration_data,
+                g2p_request=import_file_configuration_request,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in delete_import_file_configuration: %s",
+                str(error_exception),
+                exc_info=True,
+            )
+            return self.helper.construct_error_response(error_exception, import_file_configuration_request)
