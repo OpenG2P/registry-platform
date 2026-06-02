@@ -25,7 +25,8 @@ class G2PRegisterHierarchicalService(BaseService):
         self,
         subject_register_id: str,
         subject_record_id: str,
-        section_register_id: str
+        section_register_id: str,
+        data_policy_mnemonics: list[str] | None = None,
     ) -> list[RecordData]:
         """
         Get records from section_register that are linked to subject_record.
@@ -64,9 +65,16 @@ class G2PRegisterHierarchicalService(BaseService):
 
             # If same register, return the subject record directly
             if subject_register_id == section_register_id:
-                return await self._get_same_register_record(
-                    subject_register, subject_record_id, session
-                )
+                if data_policy_mnemonics:
+                    from .g2p_data_policy_service import G2PDataPolicyService
+
+                    await G2PDataPolicyService.get_component().ensure_record_access(
+                        register_id=subject_register_id,
+                        internal_record_id=subject_record_id,
+                        policy_mnemonics=data_policy_mnemonics,
+                        session=session,
+                    )
+                return await self._get_same_register_record(subject_register, subject_record_id, session)
 
             # Build hierarchy path and determine direction
             path: list[G2PRegisterDefinition] = []
@@ -518,7 +526,8 @@ class G2PRegisterHierarchicalService(BaseService):
         self,
         subject_register_id: str,
         subject_record_id: str,
-        tab_id: str
+        tab_id: str,
+        data_policy_mnemonics: list[str] | None = None,
     ) -> list[RegisterTabRecordData]:
         """
         Get all records for a tab, grouped by unique section_register_id.
@@ -584,7 +593,8 @@ class G2PRegisterHierarchicalService(BaseService):
                 records: list[RecordData] = await self.get_section_records(
                     subject_register_id=subject_register_id,
                     subject_record_id=subject_record_id,
-                    section_register_id=section_register_id
+                    section_register_id=section_register_id,
+                    data_policy_mnemonics=data_policy_mnemonics,
                 )
                 ideal_score = sum(s.section_weightage or 0.0 for s in group_sections)
                 actual_score = sum(score_by_section.get(s.section_id, 0.0) for s in group_sections)
@@ -740,7 +750,10 @@ class G2PRegisterHierarchicalService(BaseService):
             # 4. Get parent records linked to the subject using existing hierarchy traversal
             try:
                 parent_records: list[RecordData] = await self.get_section_records(
-                    subject_register_id, subject_record_id, parent_register_id
+                    subject_register_id,
+                    subject_record_id,
+                    parent_register_id,
+                    data_policy_mnemonics=None,
                 )
             except Exception:
                 _logger.warning(

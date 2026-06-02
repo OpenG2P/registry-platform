@@ -201,60 +201,115 @@ class G2PIntakeFormDataService(BaseService):
     async def _build_intake_search_filters(
         self,
         register_id: str,
-        intake_class,
         search_text: str | None,
         filter_by: dict | None,
         session,
-    ) -> list:
-        filters = []
+    ) -> tuple[list, bool, object | None]:
+        filters = [G2PIntakeFormSubmission.register_id == register_id]
+        needs_payload_join = False
+        intake_class = await self._resolve_intake_form_class(register_id, session)
+
         if search_text:
-            filters.append(intake_class.search_text.ilike(f"%{search_text}%"))
+            needs_payload_join = True
+            filters.append(G2PIntakeFormSubmissionPayload.search_text.ilike(f"%{search_text}%"))
+
         if filter_by:
             filter_schema = await self._get_filter_schema(register_id, session)
             try:
                 filters.extend(FilterBuilder(filter_schema).build_conditions(filter_by, intake_class))
             except ValueError as validation_error:
                 self._invalid_request(str(validation_error))
-        return filters
+
+        return filters, needs_payload_join, intake_class
 
     async def _get_filter_schema(self, register_id: str, session) -> list[dict]:
         register_schema = await session.get(G2PRegisterSchema, register_id)
         return register_schema.filter_schema if register_schema and register_schema.filter_schema else []
 
-    async def _count_distinct_submission_matches(self, intake_class, filters: list, session) -> int:
-        query = select(func.count(func.distinct(intake_class.submission_id))).select_from(intake_class)
+    def _apply_submission_search_joins(
+        self,
+        query,
+        needs_payload_join: bool,
+        intake_class,
+        *,
+        intake_join_required: bool,
+    ):
+        if needs_payload_join:
+            query = query.join(
+                G2PIntakeFormSubmissionPayload,
+                G2PIntakeFormSubmission.submission_id == G2PIntakeFormSubmissionPayload.submission_id,
+            )
+        if intake_class is not None:
+            join_condition = G2PIntakeFormSubmission.submission_id == intake_class.submission_id
+            if intake_join_required:
+                query = query.join(intake_class, join_condition)
+            else:
+                query = query.outerjoin(intake_class, join_condition)
+        return query
+
+    async def _count_submission_matches(
+        self,
+        filters: list,
+        needs_payload_join: bool,
+        intake_class,
+        intake_join_required: bool,
+        session,
+    ) -> int:
+        query = select(func.count(func.distinct(G2PIntakeFormSubmission.submission_id))).select_from(
+            G2PIntakeFormSubmission
+        )
+        query = self._apply_submission_search_joins(
+            query,
+            needs_payload_join,
+            intake_class,
+            intake_join_required=intake_join_required,
+        )
         if filters:
             query = query.where(*filters)
         return (await session.execute(query)).scalar_one()
 
     async def _get_submission_search_matches(
         self,
-        intake_class,
+        register_id: str,
         filters: list,
+        needs_payload_join: bool,
+        intake_class,
+        intake_join_required: bool,
         current_page: int,
         page_size: int,
         sort_by: str | None,
         session,
     ) -> list[tuple[str, str | None]]:
+        parent_intake_class = intake_class or await self._resolve_intake_form_class(register_id, session)
         query = select(
-            intake_class.submission_id,
-            func.min(intake_class.record_name).label("record_name"),
-        ).select_from(intake_class)
+            G2PIntakeFormSubmission.submission_id,
+            func.min(parent_intake_class.record_name).label("record_name"),
+        ).select_from(G2PIntakeFormSubmission)
+        query = self._apply_submission_search_joins(
+            query,
+            needs_payload_join,
+            parent_intake_class,
+            intake_join_required=intake_join_required,
+        )
         if filters:
             query = query.where(*filters)
-        query = query.group_by(intake_class.submission_id)
-        query = self._apply_intake_search_sort(query, intake_class, sort_by)
+        query = query.group_by(G2PIntakeFormSubmission.submission_id)
+        query = self._apply_intake_search_sort(query, parent_intake_class, sort_by)
         query = self._apply_pagination(query, current_page, page_size)
         return [(row.submission_id, row.record_name) for row in (await session.execute(query)).all()]
 
     def _apply_intake_search_sort(self, query, intake_class, sort_by: str | None):
         if not sort_by:
-            return query.order_by(func.max(intake_class.created_at).desc())
+            return query.order_by(func.max(G2PIntakeFormSubmission.last_updated_at).desc().nullslast())
         sort_field = sort_by.lstrip("-")
-        if not hasattr(intake_class, sort_field):
-            return query.order_by(intake_class.submission_id.asc())
-        sort_column = func.min(getattr(intake_class, sort_field))
-        return query.order_by(sort_column.desc() if sort_by.startswith("-") else sort_column.asc())
+        descending = sort_by.startswith("-")
+        if hasattr(G2PIntakeFormSubmission, sort_field):
+            sort_column = func.max(getattr(G2PIntakeFormSubmission, sort_field))
+        elif intake_class is not None and hasattr(intake_class, sort_field):
+            sort_column = func.min(getattr(intake_class, sort_field))
+        else:
+            return query.order_by(G2PIntakeFormSubmission.submission_id.asc())
+        return query.order_by(sort_column.desc() if descending else sort_column.asc())
 
     async def _build_submission_search_payloads(
         self,
@@ -605,20 +660,92 @@ class G2PIntakeFormDataService(BaseService):
 
     async def get_intake_form_submission(
         self,
-        submission_id: str
+        submission_id: str,
+        data_policy_mnemonics: list[str] | None = None,
     ) -> SubmissionResponsePayload:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             submission = await self._get_submission_or_error(submission_id, session)
-            section_payloads = await self._build_section_payloads(submission, session)
+
+            sections = await self._build_section_payloads(submission, session)
+
+            if data_policy_mnemonics:
+                await self._ensure_submission_primary_section_policy_access(
+                    submission,
+                    sections,
+                    data_policy_mnemonics,
+                    session,
+                )
 
             return self._build_submission_response_payload(
                 submission,
-                section_payloads,
-                self._extract_record_name(section_payloads),
+                sections,
+                self._extract_record_name(sections),
             )
 
-    async def get_submission_payload(self, submission_id: str) -> SubmissionResponsePayload:
+    async def _ensure_submission_primary_section_policy_access(
+        self,
+        submission: G2PIntakeFormSubmission,
+        sections: list[SectionPayloadResponseItem],
+        data_policy_mnemonics: list[str],
+        session,
+    ) -> None:
+        """
+        Enforce data policy only on the section whose section_register_id matches
+        the submission register_id. Deny the whole submission when intake rows for
+        that section fail the merged policy; otherwise return the submission unchanged.
+        """
+        from .g2p_data_policy_service import G2PDataPolicyService
+
+        merged_policy = await G2PDataPolicyService.get_component().resolve_merged_policy_filter(
+            submission.register_id,
+            data_policy_mnemonics,
+            session=session,
+        )
+        if not merged_policy:
+            return
+
+        for section_payload in sections:
+            if submission.register_id != section_payload.section_register_id:
+                continue
+            if not section_payload.records:
+                continue
+
+            intake_class = await self._resolve_intake_form_class(
+                section_payload.section_register_id, session
+            )
+            policy_condition = FilterBuilder([]).build_merged_data_policy_condition(
+                merged_policy, intake_class
+            )
+            if policy_condition is None:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[1],
+                    message=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[0],
+                )
+
+            allowed_count = (
+                await session.execute(
+                    select(func.count()).select_from(intake_class).where(
+                        *self._submission_section_filters(
+                            intake_class,
+                            submission.submission_id,
+                            section_payload.section_id,
+                        ),
+                        policy_condition,
+                    )
+                )
+            ).scalar_one()
+            if (allowed_count or 0) == 0:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[1],
+                    message=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[0],
+                )
+            return
+
+    async def get_submission_payload(
+        self,
+        submission_id: str,
+    ) -> SubmissionResponsePayload:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             submission = await self._get_submission_or_error(submission_id, session)
@@ -648,18 +775,31 @@ class G2PIntakeFormDataService(BaseService):
     ) -> tuple[list[SubmissionResponsePayload], int]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            intake_class = await self._resolve_intake_form_class(register_id, session)
-            filter_conditions = await self._build_intake_search_filters(
-                register_id,
-                intake_class,
-                search_text,
-                filter_by,
+            filter_conditions, needs_payload_join, filter_intake_class = (
+                await self._build_intake_search_filters(
+                    register_id,
+                    search_text,
+                    filter_by,
+                    session,
+                )
+            )
+            intake_join_required = bool(filter_by)
+            parent_intake_class = filter_intake_class or await self._resolve_intake_form_class(
+                register_id, session
+            )
+            total_items = await self._count_submission_matches(
+                filter_conditions,
+                needs_payload_join,
+                parent_intake_class if intake_join_required else None,
+                intake_join_required,
                 session,
             )
-            total_items = await self._count_distinct_submission_matches(intake_class, filter_conditions, session)
             matches = await self._get_submission_search_matches(
-                intake_class,
+                register_id,
                 filter_conditions,
+                needs_payload_join,
+                parent_intake_class,
+                intake_join_required,
                 current_page,
                 page_size,
                 sort_by,
@@ -674,7 +814,7 @@ class G2PIntakeFormDataService(BaseService):
             )
             return (
                 await self._build_submission_search_payloads(
-                    matches, intake_class, display_fields_sorted, session
+                    matches, parent_intake_class, display_fields_sorted, session
                 ),
                 total_items,
             )

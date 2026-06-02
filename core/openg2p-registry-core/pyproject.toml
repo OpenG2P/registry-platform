@@ -24,7 +24,8 @@ dependencies = [
   "uuid",
   "fastapi-cache2",
   "cryptography",
-  "redis"
+  "redis",
+  "httpx",
 ]
 dynamic = ["version"]
 

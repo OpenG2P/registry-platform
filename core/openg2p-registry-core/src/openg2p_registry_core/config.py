@@ -58,3 +58,12 @@ class Settings(IamSettings):
     # Inbound AWE webhook (terminal decision callbacks)
     awe_callback_hmac_secret: str | None = None
     awe_webhook_timestamp_tolerance_seconds: int = 300
+    
+    # Keycloak Admin API — publish data policies as DP_<mnemonic> client roles (tactical 1.2.0)
+    keycloak_admin_url: str | None = "https://keycloak.dev.openg2p.org"
+    keycloak_admin_client_id: str | None = "openg2p-staff-portal"
+    keycloak_admin_client_secret: str | None = "client-secret"
+    keycloak_admin_realm: str = "staff"
+    keycloak_data_policy_role_sync_enabled: bool = True
+
+    keycloak_client_id: str = "registry-staff-portal"

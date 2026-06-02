@@ -1677,15 +1677,25 @@ class G2PRegisterService(BaseService):
             return results
 
 
-
-
-
-
-
-    async def get_record(self, register_id: str, internal_record_id: str) -> RecordData:
+    async def get_record(
+        self,
+        register_id: str,
+        internal_record_id: str,
+        data_policy_mnemonics: list[str] | None = None,
+    ) -> RecordData:
         """Get a single register record by internal_record_id"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
+            if data_policy_mnemonics:
+                from .g2p_data_policy_service import G2PDataPolicyService
+
+                await G2PDataPolicyService.get_component().ensure_record_access(
+                    register_id=register_id,
+                    internal_record_id=internal_record_id,
+                    policy_mnemonics=data_policy_mnemonics,
+                    session=session,
+                )
+
             # Validate register exists
             g2p_register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
 
@@ -1746,6 +1756,56 @@ class G2PRegisterService(BaseService):
             )
 
             return record_data
+
+    async def ensure_record_allowed_by_data_policies(
+        self,
+        *,
+        register_id: str,
+        internal_record_id: str,
+        data_policy_merged: dict,
+        session,
+    ) -> None:
+        """
+        Detail-view authorization helper.
+
+        Raises RECORD_ACCESS_DENIED when the register row does not satisfy merged ALLOW policy.
+        """
+        # Validate register exists
+        g2p_register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
+
+        # Get the implementation class for this register
+        try:
+            module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+            register_class_prefix: str = "G2PRegister"
+            implementation_class_name: str = f"{register_class_prefix}{g2p_register_definition.register_mnemonic}"
+            implementation_class = getattr(module, implementation_class_name)
+        except (AttributeError, ModuleNotFoundError) as error:
+            _logger.error(f"Could not find register class for mnemonic {g2p_register_definition.register_mnemonic}: {str(error)}")
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[1],
+                message=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[0]
+            )
+        policy_condition = FilterBuilder([]).build_merged_data_policy_condition(
+            data_policy_merged,
+            implementation_class,
+        )
+        if policy_condition is None:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[1],
+                message=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[0],
+            )
+
+        count_result = await session.execute(
+            select(func.count()).select_from(implementation_class).where(
+                implementation_class.internal_record_id == internal_record_id,
+                policy_condition,
+            )
+        )
+        if (count_result.scalar_one() or 0) == 0:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[1],
+                message=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[0],
+            )
 
 
 

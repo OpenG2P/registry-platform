@@ -1,7 +1,10 @@
 import logging
+
+from fastapi import Depends
 from openg2p_fastapi_common.controller import BaseController
 
 from openg2p_registry_core.controller_services import G2PRegisterDataControllerService
+from ..dependencies import get_data_policy_mnemonics
 from openg2p_registry_core.schemas import (
     GetNumberOfVersionsRequest,
     GetRecordHistoryRequest,
@@ -266,7 +269,8 @@ class G2PRegisterDataController(BaseController):
     @require_permissions({"register:view"})
     async def get_section_records(
         self,
-        get_section_records_request: GetSectionRecordsRequest
+        get_section_records_request: GetSectionRecordsRequest,
+        data_policy_mnemonics: list[str] = Depends(get_data_policy_mnemonics),
     ) -> SectionRecordsDataResponse:
         """
         Get records from a section register that are linked to a subject record.
@@ -275,7 +279,8 @@ class G2PRegisterDataController(BaseController):
         """
         try:
             section_records: list[RecordData] = await self.g2p_register_data_controller_service.get_section_records(
-                get_section_records_request
+                get_section_records_request,
+                data_policy_mnemonics=data_policy_mnemonics,
             )
             section_records_response: SectionRecordsDataResponse = self.helper.construct_section_records_success_response(
                 section_records=section_records, g2p_request=get_section_records_request
@@ -291,7 +296,8 @@ class G2PRegisterDataController(BaseController):
     @require_permissions({"register:view"})
     async def get_tab_records(
         self,
-        get_register_tab_records_request: GetRegisterTabRecordsRequest
+        get_register_tab_records_request: GetRegisterTabRecordsRequest,
+        data_policy_mnemonics: list[str] = Depends(get_data_policy_mnemonics),
     ) -> RegisterTabRecordsDataResponse:
         """
         Get all records for a tab, grouped by unique section_register_id.
@@ -299,7 +305,8 @@ class G2PRegisterDataController(BaseController):
         """
         try:
             tab_records: list[RegisterTabRecordData] = await self.g2p_register_data_controller_service.get_tab_records(
-                get_register_tab_records_request
+                get_register_tab_records_request,
+                data_policy_mnemonics=data_policy_mnemonics,
             )
             tab_records_response: RegisterTabRecordsDataResponse = self.helper.construct_register_tab_records_success_response(
                 tab_records=tab_records, g2p_request=get_register_tab_records_request
