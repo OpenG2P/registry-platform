@@ -9,7 +9,7 @@ import { useRouter } from '@/i18n/navigation';
 import { TopBar } from '@/components/shared';
 import { useFetch } from '@/shared/hooks';
 import { useAllRegister } from '@/features/configuration/shared';
-import { useRegisterRecordFields } from '@/features/configuration/shared/hooks/useRegisterRecordFields';
+import { useRegisterFields } from '@/features/configuration/shared/hooks/useRegisterFields';
 import {
     CustomDropdown,
     InputField,
@@ -46,7 +46,7 @@ export default function NewDataPolicyPage() {
     const [saving, setSaving] = useState(false);
 
     const lockRegister = Boolean(initialRegisterId);
-    const { fields, loading: fieldsLoading } = useRegisterRecordFields(registerId);
+    const { fields, loading: fieldsLoading } = useRegisterFields(registerId);
 
     useEffect(() => {
         setRegisterId(initialRegisterId);

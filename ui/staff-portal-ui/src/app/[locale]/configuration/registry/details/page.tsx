@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { TopBar } from '@/components/shared';
 import Image from 'next/image';
+import { ArrowRight, ImageIcon, Palette, Languages, SquarePen } from 'lucide-react';
 import { useFetch } from '@/shared/hooks/useFetch';
 import { convertImageToBase64 } from '@/features/configuration/shared';
 import { toast } from 'react-toastify';
@@ -12,7 +13,9 @@ import { useTranslations } from 'next-intl';
 import { useTheme } from '@/features/configuration/registry/hooks/useTheme';
 import { useLang } from '@/features/configuration/registry/hooks/useLang';
 import EditRegistry from '@/features/configuration/registry/components/EditRegistry';
-import { useRouter, usePathname } from '@/i18n/navigation';
+import { Link, useRouter, usePathname } from '@/i18n/navigation';
+
+const BLANK_LOGO = '/images/config/blank_image.png';
 
 const RegistryConfigurationPage = () => {
 	const t = useTranslations();
@@ -23,51 +26,74 @@ const RegistryConfigurationPage = () => {
 	const [isEditing, setIsEditing] = useState(false);
 	const [configurationId, setConfigurationId] = useState<string | null>(null);
 	const [registryName, setRegistryName] = useState(t('registry_name'));
-	const [image, setImage] = useState('/images/config/blank_image.png');
+	const [image, setImage] = useState(BLANK_LOGO);
 	const [themeId, setThemeId] = useState<string | null>(null);
 	const [languageId, setLanguageId] = useState<string | null>(null);
 
-	const { data: registryData } = useFetch({ url: '/api/configuration/registry/get' });
+	const { data: registryData, loading: registryLoading } = useFetch({ url: '/api/configuration/registry/get' });
 	const { execute: saveRegistry } = useFetch();
 
+	const resolvedThemeId = registryData?.registry_theme_id ?? themeId;
+	const resolvedLanguageId = registryData?.registry_language_id ?? languageId;
+	const resolvedLogo = registryData?.registry_logo || image;
+	const resolvedName = registryData?.registry_name || registryName;
 
-	// Update local state when we enter edit mode
+	const selectedTheme = useMemo(
+		() => themes.find(th => th.theme_id === resolvedThemeId),
+		[themes, resolvedThemeId]
+	);
+
+	const selectedLanguage = useMemo(
+		() => languages.find(lang => lang.language_id === resolvedLanguageId),
+		[languages, resolvedLanguageId]
+	);
+
+	const hasCustomLogo = Boolean(resolvedLogo && resolvedLogo !== BLANK_LOGO);
+	const isLoading = registryLoading || themesLoading || languagesLoading;
+
 	const startEditing = () => {
 		if (registryData) {
 			setConfigurationId(registryData.configuration_id);
 			setRegistryName(registryData.registry_name || t('registry_name'));
-			setImage(registryData.registry_logo || '/images/config/blank_image.png');
+			setImage(registryData.registry_logo || BLANK_LOGO);
 			setThemeId(registryData.registry_theme_id || null);
 			setLanguageId(registryData.registry_language_id || null);
 		}
 		setIsEditing(true);
 	};
 
-	const handleSave = async (newName: string, newImage: string, newThemeId: string | null, newLanguageId: string | null) => {
+	const handleSave = async (
+		newName: string,
+		newImage: string,
+		newThemeId: string | null,
+		newLanguageId: string | null
+	) => {
 		const base64Logo = await convertImageToBase64(newImage);
 
-		const endpoint = configurationId || registryData?.configuration_id
-			? '/api/configuration/registry/update'
-			: '/api/configuration/registry/create';
+		const endpoint =
+			configurationId || registryData?.configuration_id
+				? '/api/configuration/registry/update'
+				: '/api/configuration/registry/create';
 
-		const payload = configurationId || registryData?.configuration_id
-			? {
-				configuration_id: configurationId || registryData?.configuration_id,
-				registry_name: newName,
-				registry_logo: base64Logo,
-				registry_theme_id: newThemeId,
-				registry_language_id: newLanguageId
-			}
-			: {
-				registry_name: newName,
-				registry_logo: base64Logo,
-				registry_theme_id: newThemeId,
-				registry_language_id: newLanguageId
-			};
+		const payload =
+			configurationId || registryData?.configuration_id
+				? {
+						configuration_id: configurationId || registryData?.configuration_id,
+						registry_name: newName,
+						registry_logo: base64Logo,
+						registry_theme_id: newThemeId,
+						registry_language_id: newLanguageId,
+					}
+				: {
+						registry_name: newName,
+						registry_logo: base64Logo,
+						registry_theme_id: newThemeId,
+						registry_language_id: newLanguageId,
+					};
 
 		const result = await saveRegistry(endpoint, {
 			method: 'POST',
-			body: JSON.stringify(payload)
+			body: JSON.stringify(payload),
 		});
 
 		if (result?.configuration_id) {
@@ -78,9 +104,9 @@ const RegistryConfigurationPage = () => {
 			setLanguageId(newLanguageId);
 			setIsEditing(false);
 			toast.success(t('toast_registry_config_saved'));
-			
+
 			const newLangObj = languages.find(l => l.language_id === newLanguageId);
-			if (newLangObj && newLangObj.language_code) {
+			if (newLangObj?.language_code) {
 				router.replace(pathname, { locale: newLangObj.language_code });
 				router.refresh();
 			} else {
@@ -100,77 +126,135 @@ const RegistryConfigurationPage = () => {
 				showAddNewButton={false}
 			/>
 
-			<div className="mx-7.5">
-				<div className="w-full max-w-xl">
-					{isEditing ? (
-						<EditRegistry
-							initialName={registryName}
-							initialImage={image}
-							initialThemeId={registryData?.registry_theme_id || themeId}
-							initialLanguageId={registryData?.registry_language_id || languageId}
-							themes={themes}
-							themesLoading={themesLoading}
-							languages={languages}
-							languagesLoading={languagesLoading}
-							onSave={handleSave}
-							onCancel={() => setIsEditing(false)}
-						/>
-					) : (
-						<div className="bg-neutral-second rounded-[10px] p-12">
-							<div className="flex flex-col gap-8">
-								<div className='flex flex-col items-start gap-3'>
-									<span className='text-neutral-first text-[16px] font-normal tracking-normal m-0 opacity-60'>{t('registry_logo')}</span>
-									<div className="w-25 h-25 relative shrink-0 rounded overflow-hidden flex items-center justify-center border border-secondary-second/30 p-2">
+			<div className="mx-7.5 pb-10 max-w-4xl">
+				{isLoading ? (
+					<div className="bg-neutral-second rounded-[10px] p-12 flex justify-center shadow-sm border border-secondary-second/40">
+						<Image src="/images/common/loading.gif" alt="Loading" width={48} height={48} />
+					</div>
+				) : isEditing ? (
+					<EditRegistry
+						embedded
+						initialName={registryName}
+						initialImage={image}
+						initialThemeId={registryData?.registry_theme_id || themeId}
+						initialLanguageId={registryData?.registry_language_id || languageId}
+						themes={themes}
+						themesLoading={themesLoading}
+						languages={languages}
+						languagesLoading={languagesLoading}
+						onSave={handleSave}
+						onCancel={() => setIsEditing(false)}
+					/>
+				) : (
+					<div className="relative bg-neutral-second rounded-[10px] p-8  border border-secondary-second/40 flex flex-col gap-8">
+						<Can action={CONFIGURATION_REGISTRY_ACTIONS.edit}>
+							<button
+								type="button"
+								onClick={startEditing}
+								className="absolute top-6 right-6 z-10 bg-neutral-second px-4 py-2 rounded-[10px] border border-secondary-second shadow-sm flex items-center gap-2 text-sm font-semibold text-neutral-first whitespace-nowrap"
+							>
+								<SquarePen size={18} strokeWidth={2} />
+								<span>{t('edit_registry_details')}</span>
+							</button>
+						</Can>
+
+						<div className="flex flex-col md:flex-row md:items-center gap-4 pb-6 border-b border-secondary-second pr-4 md:pr-56">
+							<div className="flex flex-col md:flex-row md:items-center gap-6 min-w-0">
+								<div className="w-30 h-30 relative shrink-0 rounded-[10px] overflow-hidden flex items-center justify-center border border-secondary-second/40 bg-secondary-first/30 p-3">
+									{hasCustomLogo ? (
 										<Image
-											src={registryData?.registry_logo || image}
+											src={resolvedLogo}
 											alt={t('registry_logo_alt')}
-											width={100}
-											height={100}
+											width={120}
+											height={120}
 											className="object-contain w-full h-full"
 											unoptimized
 										/>
-									</div>
+									) : (
+										<div className="flex flex-col items-center justify-center text-neutral-first/40 gap-1">
+											<ImageIcon size={40} strokeWidth={1.5} />
+											<span className="text-xs">{t('no_file_selected')}</span>
+										</div>
+									)}
 								</div>
-
-								<div className='flex flex-col items-start gap-2'>
-									<span className='text-neutral-first text-[16px] font-normal tracking-normal m-0 opacity-60'>{t('registry_name')}</span>
-									<span className="text-primary-second text-xl m-0 font-semibold">
-										{registryData?.registry_name || registryName}
-									</span>
+								<div className="flex flex-col gap-2 min-w-0">
+									<span className="text-sm text-neutral-first/60">{t('registry_name')}</span>
+									<h2 className="text-[26px] font-bold text-primary-second m-0 truncate">
+										{resolvedName}
+									</h2>
 								</div>
-
-								<div className='flex flex-col items-start gap-2'>
-									<span className='text-neutral-first text-[16px] font-normal tracking-normal m-0 opacity-60'>{t('registry_theme')}</span>
-									<span className="text-primary-second text-xl m-0 font-semibold capitalize">
-										{themes.find(th => th.theme_id === (registryData?.registry_theme_id || themeId))?.theme_mnemonic || ''}
-									</span>
-								</div>
-
-								<div className='flex flex-col items-start gap-2'>
-									<span className='text-neutral-first text-[16px] font-normal tracking-normal m-0 opacity-60'>{t('registry_language')}</span>
-									<span className="text-primary-second text-xl m-0 font-semibold capitalize">
-										{languages.find(l => l.language_id === (registryData?.registry_language_id || languageId))?.language_label || ''}
-									</span>
-								</div>
-
-								<Can action={CONFIGURATION_REGISTRY_ACTIONS.edit}>
-									<div className="pt-4">
-										<button
-											onClick={startEditing}
-											className='h-9 px-6 bg-neutral-first text-neutral-second rounded-[10px] flex items-center justify-center cursor-pointer hover:bg-neutral-first/90 transition-all active:scale-95 text-sm font-semibold'
-										>
-											{t('common.edit')}
-										</button>
-									</div>
-								</Can>
 							</div>
 						</div>
-					)}
-				</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+							<div className="rounded-[10px] border border-secondary-second p-5 flex flex-col h-full bg-secondary-first/20">
+								<div className="flex items-center gap-3">
+									<div className="w-10 h-10 rounded-[10px] bg-primary-first/15 flex items-center justify-center text-primary-second shrink-0">
+										<Palette size={18} />
+									</div>
+									<div className="flex flex-col min-w-0">
+										<span className="text-sm text-neutral-first/60">{t('registry_theme')}</span>
+										<span className="text-base font-semibold text-neutral-first truncate">
+											{selectedTheme?.theme_mnemonic || t('no_items_found')}
+										</span>
+									</div>
+								</div>
+								<div className="mt-auto pt-3 flex flex-row items-center gap-3 min-h-10">
+									{selectedTheme?.is_factory_shipped && (
+										<span className="text-xs font-medium text-neutral-first/50 w-fit px-2 py-0.5 rounded-full bg-secondary-second shrink-0">
+											Factory
+										</span>
+									)}
+									<Link
+										href="/configuration/registry/themes"
+										className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-primary-second hover:underline shrink-0"
+									>
+										{t('registry_themes')}
+										<ArrowRight size={14} />
+									</Link>
+								</div>
+							</div>
+
+							<div className="rounded-[10px] border border-secondary-second p-5 flex flex-col h-full bg-secondary-first/20">
+								<div className="flex items-center gap-3">
+									{selectedLanguage?.language_flag_base64 ? (
+										<div className="w-10 h-7 relative rounded-sm overflow-hidden shrink-0 border">
+											<Image
+												src={selectedLanguage.language_flag_base64}
+												alt={selectedLanguage.language_label}
+												fill
+												className="object-cover"
+											/>
+										</div>
+									) : (
+										<div className="w-10 h-10 rounded-[10px] bg-primary-first/15 flex items-center justify-center text-primary-second shrink-0">
+											<Languages size={18} />
+										</div>
+									)}
+									<div className="flex flex-col min-w-0">
+										<span className="text-sm text-neutral-first/60">{t('registry_language')}</span>
+										<span className="text-base font-semibold text-neutral-first truncate">
+											{selectedLanguage?.language_label || t('no_items_found')}
+										</span>
+									</div>
+								</div>
+								<div className="mt-auto pt-3 flex flex-row items-center gap-3 min-h-10">
+									<Link
+										href="/configuration/registry/languages"
+										className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-primary-second hover:underline shrink-0"
+									>
+										{t('registry_languages')}
+										<ArrowRight size={14} />
+									</Link>
+								</div>
+							</div>
+
+						</div>
+					</div>
+				)}
 			</div>
 		</>
 	);
 };
 
 export default RegistryConfigurationPage;
-

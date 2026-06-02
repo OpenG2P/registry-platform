@@ -1237,7 +1237,8 @@ class RegistryLanguageData(BaseModel):
     language_label: str
     language_flag_base64: Optional[str] = None
     is_default: bool = False
-    language_translation: Optional[dict] = None
+    core_translation: Optional[dict] = None
+    domain_translation: Optional[dict] = None
 
     class Config:
         from_attributes: bool = True
@@ -1251,7 +1252,8 @@ class CreateLanguageRequestPayload(BaseModel):
     language_label: str
     language_flag_base64: Optional[str] = None
     is_default: bool = False
-    language_translation: Optional[dict] = None
+    core_translation: Optional[dict] = None
+    domain_translation: Optional[dict] = None
 
 
 class UpdateLanguageRequestPayload(BaseModel):
@@ -1260,7 +1262,8 @@ class UpdateLanguageRequestPayload(BaseModel):
     language_label: Optional[str] = None
     language_flag_base64: Optional[str] = None
     is_default: Optional[bool] = None
-    language_translation: Optional[dict] = None
+    core_translation: Optional[dict] = None
+    domain_translation: Optional[dict] = None
 
 
 class RemoveLanguageRequestPayload(BaseModel):

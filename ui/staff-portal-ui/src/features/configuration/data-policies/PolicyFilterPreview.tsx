@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import type { RegisterRecordField } from '@/features/configuration/shared/hooks/useRegisterRecordFields';
+import type { RegisterField } from '@/features/configuration/shared/hooks/useRegisterFields';
 import {
     buildFilterPreviewLines,
     serializeFilterExpression,
@@ -14,7 +14,7 @@ type PreviewTab = 'summary' | 'json';
 
 interface PolicyFilterPreviewProps {
     root: FilterRootState;
-    fields: RegisterRecordField[];
+    fields: RegisterField[];
 }
 
 export default function PolicyFilterPreview({ root, fields }: PolicyFilterPreviewProps) {

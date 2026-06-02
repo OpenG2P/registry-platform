@@ -34,6 +34,8 @@ export default function AddScoreModal({ isOpen, onClose, onSuccess }: AddScoreMo
             }),
         });
 
+        console.log(result,"result of score create")
+
 
         if (result?.score_definition_id) {
             toast.success(t('toast_score_created'));

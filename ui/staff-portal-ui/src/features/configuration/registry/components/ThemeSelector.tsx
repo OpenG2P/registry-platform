@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import Image from 'next/image';
 import { useClickOutside } from '@/shared/hooks';
@@ -25,7 +25,14 @@ export default function ThemeSelector({
 
     useClickOutside(ref, () => setIsOpen(false), isOpen);
 
-    const selectedTheme = themes.find(t => t.theme_id === selectedThemeId);
+    const selectedTheme = themes.find(theme => theme.theme_id === selectedThemeId);
+
+    const displayValue = (() => {
+        if (themesLoading) return 'Loading...';
+        if (selectedTheme?.theme_mnemonic) return selectedTheme.theme_mnemonic;
+        if (selectedThemeId && themes.length > 0) return t('no_items_found');
+        return t('theme_config_select_theme');
+    })();
 
     const handleSelect = (id: string) => {
         onSelectTheme(id);
@@ -38,8 +45,10 @@ export default function ThemeSelector({
                 onClick={() => !themesLoading && setIsOpen(!isOpen)}
                 className={`flex items-center justify-between gap-2.5 px-4 py-2 bg-neutral-second border border-primary-second rounded-[10px] cursor-pointer truncate ${isOpen ? 'border-b-transparent rounded-b-none' : ''}`}
             >
-                <span className="text-[16px] font-medium text-neutral-first truncate">
-                    {themesLoading ? 'Loading...' : selectedTheme?.theme_mnemonic || t('theme_config_select_theme')}
+                <span
+                    className={`text-[16px] font-medium truncate ${selectedTheme ? 'text-neutral-first' : 'text-neutral-first/50'}`}
+                >
+                    {displayValue}
                 </span>
 
                 <Image
@@ -52,7 +61,7 @@ export default function ThemeSelector({
             </div>
 
             {isOpen && (
-                <div className="absolute z-50 top-full left-0 bg-neutral-second rounded-b-[10px] shadow-xl border border-primary-second border-t-0 min-w-full overflow-auto">
+                <div className="absolute z-[100] top-full left-0 bg-neutral-second rounded-b-[10px] shadow-xl border border-primary-second border-t-0 min-w-full max-h-60 overflow-y-auto">
                     {themes.length === 0 && !themesLoading ? (
                         <div className="px-4 py-2 text-[16px] text-secondary-third">
                             {t('theme_config_no_themes')}

@@ -1,17 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
+import { CustomDropdown } from '../shared/components';
 import type { ScoreContributingAttribute } from '../shared/types/registers';
+
+interface FieldOption {
+    label: string;
+    value: string;
+}
 
 interface EditScoreContributingAttributeModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
     initialData: ScoreContributingAttribute | null;
+    fieldOptions: FieldOption[];
+    fieldsLoading?: boolean;
 }
 
 function parseComputationJson(raw: string): Record<string, unknown> | null {
@@ -37,6 +45,8 @@ export default function EditScoreContributingAttributeModal({
     onClose,
     onSuccess,
     initialData,
+    fieldOptions,
+    fieldsLoading,
 }: EditScoreContributingAttributeModalProps) {
     const t = useTranslations();
     const { execute: updateAttr } = useFetch();
@@ -45,6 +55,13 @@ export default function EditScoreContributingAttributeModal({
     const [attributeWeightage, setAttributeWeightage] = useState('0');
     const [computationRequired, setComputationRequired] = useState(false);
     const [computationValueJson, setComputationValueJson] = useState('{}');
+
+    const dropdownOptions = useMemo(() => {
+        if (!attributeName || fieldOptions.some((option) => option.value === attributeName)) {
+            return fieldOptions;
+        }
+        return [{ label: attributeName, value: attributeName }, ...fieldOptions];
+    }, [attributeName, fieldOptions]);
 
     useEffect(() => {
         if (!isOpen || !initialData) return;
@@ -119,17 +136,16 @@ export default function EditScoreContributingAttributeModal({
                     </h2>
 
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-semibold text-neutral-first mb-1">
-                                {t('attribute_name')}
-                            </label>
-                            <input
-                                type="text"
-                                value={attributeName}
-                                onChange={(e) => setAttributeName(e.target.value)}
-                                className="w-full px-4 py-2 border border-primary-second rounded-lg outline-none outline-1 outline-primary-second transition-all text-neutral-first/70"
-                            />
-                        </div>
+                        <CustomDropdown
+                            label={t('attribute_name')}
+                            options={dropdownOptions}
+                            value={attributeName}
+                            onChange={setAttributeName}
+                            loading={fieldsLoading}
+                            placeholder={t('field')}
+                            searchable
+                            disabled={!fieldsLoading && dropdownOptions.length === 0}
+                        />
 
                         <div className="flex items-center gap-3">
                             <input

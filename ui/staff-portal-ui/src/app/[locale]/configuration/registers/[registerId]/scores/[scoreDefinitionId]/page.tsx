@@ -16,7 +16,7 @@ import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_TABS_ACTIONS } from '@/features/configuration/shared/utils/configurationTabs.actions';
+import { CONFIGURATION_SCORES_ACTIONS } from '@/features/configuration/shared/utils/configurationScores.actions';
 import { useTranslations } from 'next-intl';
 
 const ScoreDefinitionAttributesPage = () => {
@@ -35,8 +35,8 @@ const ScoreDefinitionAttributesPage = () => {
     const [paginationInfo, setPaginationInfo] = useState({ totalItems: 0, currentCount: 0 });
 
     const { can } = useRbac();
-    const canCreate = can(CONFIGURATION_TABS_ACTIONS.create);
-    const canEditScore = can(CONFIGURATION_TABS_ACTIONS.edit);
+    const canCreate = can(CONFIGURATION_SCORES_ACTIONS.create);
+    const canEditScore = can(CONFIGURATION_SCORES_ACTIONS.edit);
 
     const { registers, loading: registersLoading } = useAllRegister(1, 100);
     const { scoreDefinitions, loading: scoresLoading, refresh: refreshScores } = useScoreDefinitions(

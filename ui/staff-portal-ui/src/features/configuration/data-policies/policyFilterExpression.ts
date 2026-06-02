@@ -1,4 +1,4 @@
-import type { RegisterRecordField } from '@/features/configuration/shared/hooks/useRegisterRecordFields';
+import type { RegisterField } from '@/features/configuration/shared/hooks/useRegisterFields';
 
 export type GroupOperator = 'AND' | 'OR';
 
@@ -160,7 +160,7 @@ function parseMultiValues(raw: string, dataType: string): (string | number | boo
 
 function serializeCondition(
     node: FilterConditionState,
-    fields: RegisterRecordField[],
+    fields: RegisterField[],
 ): PolicyFilterExpression {
     const field = fields.find((f) => f.field_name === node.field_id);
     const dataType = field?.data_type ?? 'string';
@@ -190,7 +190,7 @@ function serializeCondition(
 
 function serializeGroup(
     node: FilterGroupState,
-    fields: RegisterRecordField[],
+    fields: RegisterField[],
 ): PolicyFilterExpression {
     return {
         type: 'GROUP',
@@ -205,7 +205,7 @@ function serializeGroup(
 
 export function serializeFilterExpression(
     root: FilterRootState,
-    fields: RegisterRecordField[],
+    fields: RegisterField[],
 ): PolicyFilterExpression {
     return serializeGroup(root, fields);
 }

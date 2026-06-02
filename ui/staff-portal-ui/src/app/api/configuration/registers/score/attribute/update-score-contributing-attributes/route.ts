@@ -4,7 +4,7 @@ import { proxyToBackend } from "@/app/api/_lib/backend-proxy";
 export async function POST(request: NextRequest) {
     return proxyToBackend({
         req: request,
-        targetEndpoint: "/register-data/update_score_contributing_attribute",
+        targetEndpoint: "/computation-score/update_score_contributing_attribute",
         buildPayload: (body) => ({
             pagination_request: undefined,
             request_payload: {

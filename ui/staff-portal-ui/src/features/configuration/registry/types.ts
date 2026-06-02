@@ -1,3 +1,5 @@
+import { TranslationMap } from "./utils/language.helpers";
+
 export interface ThemeAttribute {
     theme_value_id: string;
     theme_id: string;
@@ -46,5 +48,6 @@ export interface Language {
     language_label: string;
     language_flag_base64: string;
     is_default: boolean;
-    language_translation: Record<string, any>;
+    core_translation?: TranslationMap | null;
+    domain_translation?:TranslationMap | null;
 }
