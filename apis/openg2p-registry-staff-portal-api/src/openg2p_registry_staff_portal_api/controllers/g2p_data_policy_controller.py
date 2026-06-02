@@ -31,10 +31,10 @@ class G2PDataPolicyController(BaseController):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.router.tags += ["/register-metadata"]
+        self.router.tags += ["/data-policy"]
         self.controller_service = G2PDataPolicyControllerService.get_component()
         self.helper = RequestResponseHelper.get_component()
-        self.router.prefix = "/register-metadata"
+        self.router.prefix = "/data-policy"
 
         self.router.add_api_route(
             "/get_policies",

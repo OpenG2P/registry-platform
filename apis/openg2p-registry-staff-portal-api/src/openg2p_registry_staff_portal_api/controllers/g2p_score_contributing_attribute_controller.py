@@ -34,10 +34,10 @@ class G2PScoreContributingAttributeController(BaseController):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.router.tags += ["/register-data"]
+        self.router.tags += ["/computation-score"]
         self.controller_service = G2PScoreContributingAttributeControllerService.get_component()
         self.helper = RequestResponseHelper.get_component()
-        self.router.prefix = "/register-data"
+        self.router.prefix = "/computation-score"
 
         self.router.add_api_route(
             "/get_score_contributing_attributes",
