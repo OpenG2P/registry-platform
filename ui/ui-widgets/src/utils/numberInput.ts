@@ -279,3 +279,26 @@ export const getFormattedNumberLength = (
   );
   return formatted.length;
 };
+
+export const normalizeNumericDefault = (
+  defaultValue: unknown,
+  format: WidgetFormat | undefined
+): number | null | undefined => {
+  if (defaultValue === undefined) {
+    return undefined;
+  }
+  if (defaultValue === null || defaultValue === '') {
+    return null;
+  }
+
+  const numValue =
+    typeof defaultValue === 'number'
+      ? defaultValue
+      : parseNumber(String(defaultValue), format);
+
+  if (numValue === null || isNaN(numValue)) {
+    return undefined;
+  }
+
+  return applyDecimalPrecision(numValue, format);
+};
