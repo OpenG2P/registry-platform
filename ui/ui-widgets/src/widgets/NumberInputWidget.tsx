@@ -9,6 +9,7 @@ import {
   validateNumericValue,
   isAllowedKey,
   getFormattedNumberLength,
+  normalizeNumericDefault,
 } from '../utils/numberInput';
 
 /**
@@ -20,6 +21,7 @@ import {
  * - Value range validation (min/max)
  * - Regular expression validation with custom messages
  * - Maximum character limit
+ * - Default value (numeric, applied when field has no existing data)
  * - Numeric masking and formatting (thousand/decimal separators)
  * - Text alignment (right by default, configurable)
  * - Key input restrictions
@@ -47,6 +49,7 @@ import {
  *     "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
  *     "patternMessage": "Invalid number format"
  *   },
+ *   "widget-data-default": 0,
  *   "widget-required": true,
  *   "widget-data-placeholder": "Enter amount"
  * }
@@ -56,6 +59,20 @@ interface NumberInputWidgetProps {
 }
 
 export const NumberInputWidget = ({ config }: NumberInputWidgetProps) => {
+  const resolvedConfig = useMemo(() => {
+    const rawDefault = config['widget-data-default'];
+    if (rawDefault === undefined) {
+      return config;
+    }
+
+    const normalizedDefault = normalizeNumericDefault(rawDefault, config['widget-data-format']);
+    if (normalizedDefault === undefined || normalizedDefault === rawDefault) {
+      return config;
+    }
+
+    return { ...config, 'widget-data-default': normalizedDefault };
+  }, [config]);
+
   const {
     value,
     formattedValue,
@@ -65,7 +82,7 @@ export const NumberInputWidget = ({ config }: NumberInputWidgetProps) => {
     onChange,
     onBlur,
     config: widgetConfig,
-  } = useBaseWidget({ config });
+  } = useBaseWidget({ config: resolvedConfig });
 
   const { translate, translateConfig } = useWidgetTranslation();
 
