@@ -1,18 +1,13 @@
-name: Npm publish(dev) UI-Widget
+name: NPM Publish UI Widget
 
-# Publishes @openg2p/registry-widgets to npm with dist-tag "next" via npm trusted
-# publishing (OIDC). No long-lived NPM_TOKEN is required for publish.
+# Publishes @openg2p/registry-widgets via npm trusted publishing (OIDC).
 #
-# One-time setup on npmjs.com (package → Settings → Trusted publishing):
-#   - Provider: GitHub Actions
-#   - Repository: OpenG2P/registry-platform
-#   - Workflow filename: npm-publish-ui-widgets.yml  (exact match, case-sensitive)
+# Dev (automatic): push to develop → bump dev prerelease → publish --tag next
+# Release (manual): Run workflow → enter version (e.g. 1.1.0) → publish latest
 #
-# Requires npm CLI ≥ 11.5.1 and Node ≥ 22.14.0 (see npm trusted publishers docs).
-# Provenance attestations are generated automatically when publishing via OIDC.
-#
-# Install dev builds:
-#   npm install @openg2p/registry-widgets@next
+# npm trusted publisher (one per package):
+#   Repository: OpenG2P/registry-platform
+#   Workflow filename: npm-publish-ui-widgets.yml
 on:
   push:
     branches:
@@ -21,20 +16,25 @@ on:
       - 'ui/ui-widgets/**'
       - '.github/workflows/npm-publish-ui-widgets.yml'
   workflow_dispatch:
-
-concurrency:
-  group: npm-publish-ui-widgets
-  cancel-in-progress: false
+    inputs:
+      version:
+        description: 'Release version (semver, e.g. 1.1.0)'
+        required: true
+        type: string
 
 jobs:
-  publish:
+  publish-dev:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    concurrency:
+      group: npm-publish-ui-widgets-dev
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: ui/ui-widgets
     permissions:
-      id-token: write   # Required for npm trusted publishing (OIDC)
-      contents: write   # Version bump commit after publish
+      id-token: write
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,7 +62,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Publish to npm (dist-tag next, OIDC)
+      - name: Publish to npm (dist-tag next)
         run: npm publish --tag next --access public
 
       - name: Commit version bump
@@ -73,4 +73,73 @@ jobs:
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json
           git diff --staged --quiet && echo "No version files to commit" && exit 0
           git commit -m "chore(ui-widgets): bump version for npm next publish [skip ci]"
+          git push
+
+  publish-release:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: npm-publish-ui-widgets-release
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: ui/ui-widgets
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Validate version
+        working-directory: ${{ github.workspace }}
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version '$VERSION'. Use semver without prefix (e.g. 1.1.0)."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@11.5.1
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Set release version
+        run: npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Verify version is not already published
+        run: |
+          if npm view "@openg2p/registry-widgets@${{ inputs.version }}" version 2>/dev/null; then
+            echo "Version ${{ inputs.version }} is already published on npm."
+            exit 1
+          fi
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm (latest)
+        run: npm publish --access public
+
+      - name: Commit version bump
+        working-directory: ${{ github.workspace }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json
+          git diff --staged --quiet && echo "No version files to commit" && exit 0
+          git commit -m "chore(ui-widgets): release v${{ inputs.version }} [skip ci]"
           git push
