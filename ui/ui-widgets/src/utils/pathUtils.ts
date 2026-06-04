@@ -60,6 +60,32 @@ export const parseDataPath = (
 /**
  * Get value from widget state using data path
  */
+/**
+ * Resolve a widget-id reference in Redux values.
+ * Supports namespaced ids (e.g. "rv-section-0__region_code" when ref is "region_code").
+ */
+export const resolveWidgetIdValue = (
+  values: Record<string, any>,
+  ref: string
+): any => {
+  if (!ref) {
+    return undefined;
+  }
+  if (ref.includes('.')) {
+    return getValueByPath(values, ref);
+  }
+  if (Object.prototype.hasOwnProperty.call(values, ref)) {
+    return values[ref];
+  }
+  const suffix = `__${ref}`;
+  for (const [key, val] of Object.entries(values)) {
+    if (key.endsWith(suffix)) {
+      return val;
+    }
+  }
+  return undefined;
+};
+
 export const getWidgetValue = (
   values: Record<string, any>,
   dataPath: string | Record<string, string> | undefined,
@@ -68,10 +94,6 @@ export const getWidgetValue = (
   if (!dataPath) {
     // Fallback to widget-id if no data path
     return values[widgetId];
-  }
-  if(widgetId=="user-profile"){
-    console.log('values', values);
-    console.log('dataPath', dataPath);
   }
   if (typeof dataPath === 'string') {
     return getValueByPath(values, dataPath);
