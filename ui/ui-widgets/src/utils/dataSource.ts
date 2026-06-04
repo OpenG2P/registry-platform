@@ -1,5 +1,5 @@
 import { DataSource, DataSourceRequestHandler } from '../types';
-import { getValueByPath } from './pathUtils';
+import { getValueByPath, resolveWidgetIdValue } from './pathUtils';
 
 /**
  * Get static data source options
@@ -28,25 +28,10 @@ export const getApiDataSource = async (
     // dependsOn can be either a data path (e.g., "person.address") or a widget-id
     let depValue: any = null;
     if (dataSource.dependsOn) {
-      // First try as data path
-      depValue = getValueByPath(allValues, dataSource.dependsOn);
-
-      // If not found and doesn't contain dots, try as widget-id
-      if ((depValue === null || depValue === undefined) && !dataSource.dependsOn.includes('.')) {
-        depValue = allValues[dataSource.dependsOn];
-        
-        // Smart resolution: If not found at top level, try to find the dependency in the same nested object
-        // by looking for other keys in allValues that might contain the dependency.
-        // We look for objects that contain both the current widget's path (if we can guess it) and the dependency.
-        // But since we don't know the current widget's path here, we search for any object that has this dependency key.
-        if (depValue === null || depValue === undefined || depValue === '') {
-          for (const val of Object.values(allValues)) {
-            if (val && typeof val === 'object' && !Array.isArray(val) && dataSource.dependsOn in val) {
-              depValue = val[dataSource.dependsOn];
-              if (depValue !== null && depValue !== undefined && depValue !== '') break;
-            }
-          }
-        }
+      if (dataSource.dependsOn.includes('.')) {
+        depValue = getValueByPath(allValues, dataSource.dependsOn);
+      } else {
+        depValue = resolveWidgetIdValue(allValues, dataSource.dependsOn);
       }
 
       if (depValue === null || depValue === undefined || depValue === '') {

@@ -15,6 +15,7 @@ import {
 } from '../utils/dataSource';
 import { useWidgetEventBus } from './useWidgetEventBus';
 import { useWidgetContext } from '../components/WidgetProvider';
+import { resolveGeoWidgetLevelValue } from '../utils/geoHierarchy';
 
 export interface UseBaseWidgetOptions {
   config: BaseWidgetConfig;
@@ -126,6 +127,23 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   const currentValue = useMemo(() => {
     if (isLayoutWidget) {
       return undefined; // Layout widgets don't have values
+    }
+
+    const geoConfig = config['widget-geo-config'];
+    if (geoConfig) {
+      const value = resolveGeoWidgetLevelValue(
+        values,
+        widgetId,
+        config['widget-data-path'],
+        geoConfig
+      );
+      if (userHasSetValueRef.current) {
+        return value;
+      }
+      if (value === null) {
+        return null;
+      }
+      return value !== undefined ? value : config['widget-data-default'];
     }
 
     // Try to get value from widgetId first (this should have the actual selected value)
@@ -385,6 +403,15 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   // Track readonly state explicitly to detect changes
   // Use JSON.stringify to create a stable reference for the dependency array
   const isReadonly = config['widget-readonly'] ?? false;
+
+  // Leaving edit mode (Cancel): allow mirror/rehydration on next Edit
+  useEffect(() => {
+    if (config['widget-readonly']) {
+      userHasSetValueRef.current = false;
+      lastMirroredValueRef.current = null;
+      lastDispatchedValueRef.current = null;
+    }
+  }, [config['widget-readonly']]);
   const dataSource = config['widget-data-source'];
   const geoConfig = config['widget-geo-config'];
 
