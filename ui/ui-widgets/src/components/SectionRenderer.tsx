@@ -9,14 +9,14 @@ import { PanelRenderer } from './PanelRenderer';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { useWidgetTheme } from '../hooks/useWidgetTheme';
 import { themeToCSSVariables } from '../theme';
-import { getValueByPath, setValueByPath, setWidgetValue } from '../utils/pathUtils';
+import { getValueByPath, setWidgetValue } from '../utils/pathUtils';
 import { useWidgetContext } from './WidgetProvider';
 import { FileInputWidget } from '../widgets/FileInputWidget';
 import { SectionMode } from './SectionsContainer';
 import { namespaceSectionConfig } from '../utils/schemaNamespace';
 import { sectionValidate, collectWidgets } from '../utils/sectionValidate';
 import { extractTableRecordsFromSnapshot, isTableLikeWidget } from '../utils/extractTableRecordsFromSnapshot';
-import { downArrowIcon, personIcon, calendarIcon, rightArrowIcon, arrowUpIcon, arrowDownIcon, arrowLeftIcon, arrowRightIcon } from '../assets';
+import {personIcon, calendarIcon, rightArrowIcon, arrowUpIcon, arrowDownIcon, arrowLeftIcon, arrowRightIcon } from '../assets';
 
 /** Root class on readonly label/value rows; SectionRenderer scopes overflow/ellipsis rules here. */
 const READONLY_VALUE_ROW_ROOT_CLASSES = [
