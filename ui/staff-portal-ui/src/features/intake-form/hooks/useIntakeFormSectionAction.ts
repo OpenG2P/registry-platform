@@ -69,7 +69,7 @@ export const useIntakeFormSectionAction = ({
             });
 
             if (saveResult?.error) {
-                toast.error(t('toast_intake_form_submission_finalize_failed'));
+                toast.error(`${t('toast_intake_form_submission_finalize_failed')}: ${saveResult.error}`);
                 return;
             }
 
@@ -158,8 +158,8 @@ export const useIntakeFormSectionAction = ({
                 body: JSON.stringify(savePayload)
             });
 
-            if (!saveResult || saveResult.error) {
-                toast.error(t('toast_intake_form_submission_save_failed'));
+            if (saveResult.error) {
+                toast.error(`${t('toast_intake_form_submission_save_failed')}: ${saveResult.error}`);
                 return;
             }
 
