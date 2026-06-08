@@ -18,3 +18,6 @@ export * from './useAllVcImports';
 export * from './usePolicies';
 export * from './useRegisterFields';
 export * from './useAllAwePolicyConfigurations';
+export * from './useAllAttributes';
+export * from './useAttribute';
+export * from './useAttributeValues';
