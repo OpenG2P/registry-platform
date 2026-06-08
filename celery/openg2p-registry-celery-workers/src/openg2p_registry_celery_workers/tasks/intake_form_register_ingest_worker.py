@@ -310,6 +310,9 @@ def _convert_date_strings_to_objects(data_dict: dict, model_class) -> dict:
         column = mapper.columns[key]
         if isinstance(column.type, SQLDate):
             if isinstance(value, str):
+                if not value.strip():
+                    converted[key] = None
+                    continue
                 try:
                     converted[key] = datetime.strptime(value, "%Y-%m-%d").date()
                 except (TypeError, ValueError):
