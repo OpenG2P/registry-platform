@@ -1,6 +1,10 @@
+'use client';
+
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import {
   createWidgetStore,
@@ -50,6 +54,7 @@ export default function MultiSectionAccordionForms({
   const [formHandle, setFormHandle] = useState<SectionsFormHandle | null>(null);
   const [savedSections, setSavedSections] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"intake_forms" | "intake_possible_duplicates" | "register_possible_duplicates">("intake_forms");
+  const [showFormDetails, setShowFormDetails] = useState(false);
 
   const { results: intakeResults, loading: intakeLoading } = useIntakeDeduplication(submissionId || "", "intake-form");
   const { results: regResults, loading: regLoading } = useIntakeDeduplication(submissionId || "", "register");
@@ -144,8 +149,8 @@ export default function MultiSectionAccordionForms({
             </div>
           )}
 
-          <div className="flex gap-10">
-            <div className={`flex-1 flex flex-col gap-4 ${formDetailsCard || showActions ? 'max-w-[calc(100%-380px)]' : ''}`}>
+          <div className={`flex items-start ${formDetailsCard ? '-mr-7.5' : 'gap-4'}`}>
+            <div className={`flex-1 min-w-0 ${formDetailsCard ? 'pr-4' : ''}`}>
               <IntakeFormSections
                 sectionsConfig={sectionsConfig}
                 schemaData={schemaData}
@@ -160,14 +165,55 @@ export default function MultiSectionAccordionForms({
               />
             </div>
 
-            {(formDetailsCard || showActions) && (
-              <div className="shrink-0">
-                <FormDetailsCard
-                  title={intakeFormHeading}
-                  description={intakeFormDescription}
-                />
-
-              </div>
+            {formDetailsCard && (
+              <motion.div
+                className="shrink-0 self-start relative overflow-hidden"
+                initial={false}
+                animate={{
+                  width: showFormDetails ? 350 : 72,
+                }}
+                transition={{ type: 'spring', mass: 1, stiffness: 80, damping: 20 }}
+                style={{ minHeight: 72 }}
+              >
+                <motion.div
+                  className={`top-0 right-0 w-[350px] ${showFormDetails ? 'relative pointer-events-auto' : 'absolute pointer-events-none'}`}
+                  initial={false}
+                  animate={{
+                    opacity: showFormDetails ? 1 : 0,
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <FormDetailsCard
+                    description={intakeFormDescription}
+                    onClose={() => setShowFormDetails(false)}
+                  />
+                </motion.div>
+                <motion.div
+                  className={`absolute top-0 right-0 ${showFormDetails ? 'pointer-events-none' : 'pointer-events-auto'}`}
+                  initial={false}
+                  animate={{
+                    opacity: showFormDetails ? 0 : 1,
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowFormDetails(true)}
+                    className="w-[72px] h-[72px] bg-secondary-second rounded-l-[10px] rounded-r-none flex items-center justify-center hover:opacity-90 transition-opacity"
+                    aria-label={t('form_details')}
+                  >
+                    <span className="w-[48px] h-[48px] rounded-full bg-primary-first flex items-center justify-center">
+                      <Image
+                        src="/images/config/double_right_arrow.png"
+                        alt=""
+                        width={16}
+                        height={16}
+                        className="scale-x-[-1]"
+                      />
+                    </span>
+                  </button>
+                </motion.div>
+              </motion.div>
             )}
           </div>
         </div>
