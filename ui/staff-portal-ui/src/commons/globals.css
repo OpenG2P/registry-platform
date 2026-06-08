@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@config "../../tailwind.config.ts";
+@config "../../tailwind.config.mjs";
 @source "../../node_modules/@openg2p/registry-widgets/dist";
 
 @layer base {
