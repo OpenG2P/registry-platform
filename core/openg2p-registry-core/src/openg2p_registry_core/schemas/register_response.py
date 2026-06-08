@@ -17,7 +17,9 @@ from .register_payload import (
     RegistryThemeData, RegistryThemeValueData, ThemeOperationData,
     RegistryLanguageData, LanguageOperationData,
     RecordHistoryData, RecordHistoryListData, VersionDatesData, VersionForDateData, VersionsForDateData,
-    G2PAttributeValueData, AllowedParentsData,
+    AttributeData, AttributeValueData, AllowedParentsData,
+    CreateAttributeResponsePayload, UpdateAttributeResponsePayload, DeleteAttributeResponsePayload,
+    CreateAttributeValueResponsePayload, UpdateAttributeValueResponsePayload, DeleteAttributeValueResponsePayload,
     SubmissionResponsePayload, IntakeFormSubmissionsSummaryData, NumberOfPendingChangeRequestsForSubmissionData
 )
 from .file_payload import (
@@ -555,16 +557,88 @@ class EarliestPendingChangeRequestResponse(G2PResponse):
 
 
 # =============================================================================
-# G2P Attribute Response Schemas
+# Attribute Response Schemas
 # =============================================================================
 
-class GetG2PAttributeValuesResponseBody(G2PResponseBody):
-    response_payload: List[G2PAttributeValueData]
+class GetAttributesResponseBody(G2PResponseBody):
+    response_payload: List[AttributeData]
 
 
-class GetG2PAttributeValuesResponse(G2PResponse):
+class GetAttributesResponse(G2PResponse):
     response_header: G2PResponseHeader
-    response_body: GetG2PAttributeValuesResponseBody
+    response_body: GetAttributesResponseBody
+
+
+class GetAttributeResponseBody(G2PResponseBody):
+    response_payload: AttributeData
+
+
+class GetAttributeResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: GetAttributeResponseBody
+
+
+class CreateAttributeResponseBody(G2PResponseBody):
+    response_payload: CreateAttributeResponsePayload
+
+
+class CreateAttributeResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: CreateAttributeResponseBody
+
+
+class UpdateAttributeResponseBody(G2PResponseBody):
+    response_payload: UpdateAttributeResponsePayload
+
+
+class UpdateAttributeResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: UpdateAttributeResponseBody
+
+
+class DeleteAttributeResponseBody(G2PResponseBody):
+    response_payload: DeleteAttributeResponsePayload
+
+
+class DeleteAttributeResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: DeleteAttributeResponseBody
+
+
+class GetAttributeValuesResponseBody(G2PResponseBody):
+    response_payload: List[AttributeValueData]
+
+
+class GetAttributeValuesResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: GetAttributeValuesResponseBody
+
+
+class CreateAttributeValueResponseBody(G2PResponseBody):
+    response_payload: CreateAttributeValueResponsePayload
+
+
+class CreateAttributeValueResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: CreateAttributeValueResponseBody
+
+
+class UpdateAttributeValueResponseBody(G2PResponseBody):
+    response_payload: UpdateAttributeValueResponsePayload
+
+
+class UpdateAttributeValueResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: UpdateAttributeValueResponseBody
+
+
+class DeleteAttributeValueResponseBody(G2PResponseBody):
+    response_payload: DeleteAttributeValueResponsePayload
+
+
+class DeleteAttributeValueResponse(G2PResponse):
+    response_header: G2PResponseHeader
+    response_body: DeleteAttributeValueResponseBody
 
 
 # =============================================================================
