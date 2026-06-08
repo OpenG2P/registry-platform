@@ -833,6 +833,9 @@ class G2PRegisterChangeRequestService(BaseService):
                 if isinstance(column.type, SQLDate):
                     # If value is a string, try to convert it to a date object
                     if isinstance(value, str):
+                        if not value.strip():
+                            converted_dict[key] = None
+                            continue
                         try:
                             converted_dict[key] = datetime.strptime(value, '%Y-%m-%d').date()
                         except (ValueError, TypeError):
@@ -1097,6 +1100,8 @@ class G2PRegisterChangeRequestService(BaseService):
         column = mapper.columns[key]
         if isinstance(column.type, SQLDate):
             if isinstance(value, str):
+                if not value.strip():
+                    return None
                 try:
                     return datetime.strptime(value, "%Y-%m-%d").date()
                 except (ValueError, TypeError):
