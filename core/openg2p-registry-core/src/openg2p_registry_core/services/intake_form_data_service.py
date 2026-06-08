@@ -1558,6 +1558,8 @@ class G2PIntakeFormDataService(BaseService):
         column = mapper.columns[key]
         if isinstance(column.type, SQLDate):
             if isinstance(value, str):
+                if not value.strip():
+                    return None
                 try:
                     return datetime.strptime(value, "%Y-%m-%d").date()
                 except (TypeError, ValueError):
@@ -1575,6 +1577,9 @@ class G2PIntakeFormDataService(BaseService):
             column = mapper.columns[key]
             if isinstance(column.type, SQLDate):
                 if isinstance(value, str):
+                    if not value.strip():
+                        converted[key] = None
+                        continue
                     try:
                         converted[key] = datetime.strptime(value, "%Y-%m-%d").date()
                     except (TypeError, ValueError):
