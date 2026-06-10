@@ -337,7 +337,7 @@ class G2PRegisterHierarchicalService(BaseService):
                 value = value.isoformat()
 
             # Convert image field to record_image_url with presigned URL
-            if column_name == 'image' and value:
+            if column_name == 'record_image_storage_id' and value:
                 extra_fields['record_image_url'] = minio_client.get_url(object_name=value)
             else:
                 extra_fields[column_name] = value
