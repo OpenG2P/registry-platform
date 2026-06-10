@@ -1215,8 +1215,8 @@ class G2PRegisterService(BaseService):
 
             # Generate presigned URL for record image if it exists
             record_image_url = None
-            if hasattr(result, 'image') and result.image:
-                record_image_url = minio_client.get_url(object_name=result.image)
+            if hasattr(result, 'record_image_storage_id') and result.record_image_storage_id:
+                record_image_url = minio_client.get_url(object_name=result.record_image_storage_id)
 
             # Create SearchResultData object
             search_result_data: SearchResultData = SearchResultData(
@@ -1744,7 +1744,7 @@ class G2PRegisterService(BaseService):
                     value = value.isoformat()
 
                 # Convert image field to record_image_url with presigned URL
-                if column_name == 'image' and value:
+                if column_name == 'record_image_storage_id' and value:
                     extra_fields['record_image_url'] = minio_client.get_url(object_name=value)
                 else:
                     # Add to extra_fields if not a base field
