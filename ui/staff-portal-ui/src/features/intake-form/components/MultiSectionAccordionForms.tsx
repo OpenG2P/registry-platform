@@ -2,7 +2,6 @@
 
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
@@ -18,7 +17,7 @@ import DeduplicationCardForIntake from './DeduplicationCardForIntake';
 import IntakeFormSections from './IntakeFormSections';
 import IntakeFormDeduplicationTabs from './IntakeFormDeduplicationTabs';
 
-export type SectionStatus = 'Saved' | 'Draft' | null;
+export type SectionStatus = 'Saved' | null;
 
 export interface AccordionFormsProps {
   formDetailsCard?: boolean;
@@ -26,7 +25,7 @@ export interface AccordionFormsProps {
   form_name?: string;
   form_description?: string;
   schemaData?: any;
-  onAction?: (sectionChanges?: SectionChanges, type?: 'submit' | 'draft', section?: IntakeFormSection) => void;
+  onAction?: (sectionChanges?: SectionChanges, type?: 'submit' | 'save', section?: IntakeFormSection) => Promise<boolean>;
   onCancel?: () => void;
   showActions?: boolean;
   submissionId?: string;
@@ -44,11 +43,9 @@ export default function MultiSectionAccordionForms({
   onCancel,
   showActions = true,
   submissionId,
-  registerType,
 }: AccordionFormsProps) {
 
   const t = useTranslations();
-  const router = useRouter();
   const widgetStore = useMemo(() => createWidgetStore(), []);
 
   const [formHandle, setFormHandle] = useState<SectionsFormHandle | null>(null);
@@ -89,12 +86,17 @@ export default function MultiSectionAccordionForms({
 
 
   const handleSectionSave = useCallback(
+    
     async (sectionChanges: SectionChanges) => {
       const section = sections.find((section) => section?.section_ui_schema?.['section-id'] === sectionChanges.section_id);
-      if (section && !savedSections.includes(section.section_id)) {
-        setSavedSections((prev) => [...prev, section.section_id]);
+      const success = await onAction?.(sectionChanges, 'save', section);
+      if (success) {
+        if (section && !savedSections.includes(section.section_id)) {
+          setSavedSections((prev) => [...prev, section.section_id]);
+        }
+      } else {
+        throw new Error('Section save failed');
       }
-      onAction?.(sectionChanges, 'draft', section);
     },
     [sections, onAction, savedSections]
   )
@@ -116,9 +118,6 @@ export default function MultiSectionAccordionForms({
     window.location.reload();
   };
 
-  const handleDraftSave = () => {
-    router.push(`/intake-form/${registerType}`)
-  }
 
   return (
     <div className="mx-auto pt-0 pb-6 flex flex-col">
@@ -159,7 +158,6 @@ export default function MultiSectionAccordionForms({
                 onFormReady={(handle: SectionsFormHandle) => setFormHandle(handle)}
                 onCancel={handleCancel}
                 onSubmit={handleSubmit}
-                onDraftSave={handleDraftSave}
                 isSubmitDisabled={formHandle === null || !allSectionsSaved}
                 widgetStore={widgetStore}
               />
@@ -199,18 +197,18 @@ export default function MultiSectionAccordionForms({
                   <button
                     type="button"
                     onClick={() => setShowFormDetails(true)}
-                    className="w-[72px] h-[72px] bg-secondary-second rounded-l-[10px] rounded-r-none flex items-center justify-center hover:opacity-90 transition-opacity"
+                    className="w-[72px] h-[72px] bg-secondary-second  rounded-l-[10px] rounded-r-none flex items-center justify-center focus:outline-none isolate"
                     aria-label={t('form_details')}
                   >
-                    <span className="w-[48px] h-[48px] rounded-full bg-primary-first flex items-center justify-center">
+                    <span className="w-[34px] h-[34px] rounded-full bg-primary-second/100 flex items-center justify-center"> 
                       <Image
-                        src="/images/config/double_right_arrow.png"
-                        alt=""
-                        width={16}
-                        height={16}
-                        className="scale-x-[-1]"
-                      />
-                    </span>
+                      src="/images/config/double_right_arrow.png"
+                      alt=""
+                      width={16}
+                      height={16}
+                      className="scale-x-[-1]"
+                    /> </span>
+                   
                   </button>
                 </motion.div>
               </motion.div>

@@ -21,7 +21,7 @@ export default function FormDetailsCard({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="shrink-0 w-[48px] h-[48px] rounded-full bg-primary-first flex items-center justify-center hover:opacity-90 transition-opacity"
+                    className="shrink-0 w-[34px] h-[34px] rounded-full bg-primary-second flex items-center justify-center hover:opacity-90 transition-opacity"
                     aria-label={t('close')}
                 >
                     <Image
@@ -29,6 +29,7 @@ export default function FormDetailsCard({
                         alt=""
                         width={16}
                         height={16}
+                        className="scale-x-[-1]"
                     />
                 </button>
             </div>
