@@ -131,7 +131,7 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
     <div className="table-cell-field w-full">
       <select
         value={value || ''}
-        onChange={(e) => onValueChange(e.target.value)}
+        onChange={(e) => onValueChange(e.target.value === '' ? undefined : e.target.value)}
         disabled={isReadonly || loading}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
           isReadonly || loading ? 'cursor-not-allowed' : ''
