@@ -1,4 +1,6 @@
 import dummyProfile from './dummy_profile.png';
+import searchIcon from './search_icon.png';
+import closeIcon from './close.png';
 import fileIcon from './file_icon.png';
 import uploadIcon from './upload_icon.png';
 import closeSign from './close_sign.png';
@@ -34,4 +36,6 @@ export {
     previewIcon,
     maximizeIcon,
     minimizeIcon,
+    searchIcon,
+    closeIcon,
 };

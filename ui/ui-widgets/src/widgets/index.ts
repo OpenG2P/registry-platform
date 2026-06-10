@@ -21,3 +21,4 @@ export { TextAreaWidget } from './TextAreaWidget';
 export { HeaderSectionWidget } from './HeaderSectionWidget';
 export { ScoresDisplayWidget } from './ScoresDisplayWidget';
 export { IdAuthenticationWidget } from './IdAuthenticationWidget';
+export { RegisterLookupWidget } from './RegisterLookupWidget';

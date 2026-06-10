@@ -258,13 +258,16 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       // This prevents data disappearance when switching to Edit mode and components 
       // incorrectly clear values before options load or if handler is temporarily missing.
       if (newValue === '' || newValue === null || newValue === undefined) {
-        if (loadingRef.current) {
-          console.warn(`[useBaseWidget] Ignoring empty value for ${widgetId} because data source is loading`);
-          return;
-        }
-        if (config['widget-data-source']?.type === 'api' && dataSourceOptionsRef.current.length === 0) {
-          console.warn(`[useBaseWidget] Ignoring empty value for ${widgetId} because API options are empty`);
-          return;
+        const allowEmptyClear = config.widget === 'register-lookup';
+        if (!allowEmptyClear) {
+          if (loadingRef.current) {
+            console.warn(`[useBaseWidget] Ignoring empty value for ${widgetId} because data source is loading`);
+            return;
+          }
+          if (config['widget-data-source']?.type === 'api' && dataSourceOptionsRef.current.length === 0) {
+            console.warn(`[useBaseWidget] Ignoring empty value for ${widgetId} because API options are empty`);
+            return;
+          }
         }
       }
 

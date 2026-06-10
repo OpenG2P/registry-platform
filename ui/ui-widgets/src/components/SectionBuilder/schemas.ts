@@ -342,6 +342,25 @@ const baseWidgetSchema = {
       minimum: 1,
       description: 'Number of columns to span',
     },
+    'widget-lookup-config': {
+      type: 'object' as const,
+      properties: {
+        search_placeholder: {
+          type: 'string' as const,
+          description: 'Placeholder text for the popup search input',
+        },
+        page_size: {
+          type: 'number' as const,
+          minimum: 1,
+          description: 'Number of records per page in search results',
+        },
+        action_label: {
+          type: 'string' as const,
+          description: 'Label for the empty-state search button (default: Select {widget-label})',
+        },
+      },
+      description: 'Register lookup widget configuration',
+    },
     'widget-item': {
       type: 'object' as const,
       description: 'Item template for array widgets',
