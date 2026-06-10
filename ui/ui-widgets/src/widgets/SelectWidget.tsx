@@ -73,7 +73,7 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
         <div className="flex-1 min-w-0">
           <select
             value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
             onBlur={onBlur}
             disabled={!isEnabled || loading || widgetConfig['widget-readonly']}
             className={`w-full sm:w-[180px] max-w-full h-[30px] px-3 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
