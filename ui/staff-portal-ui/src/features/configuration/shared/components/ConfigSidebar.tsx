@@ -37,7 +37,7 @@ const sidebarOptions: SidebarOption[] = [
     {
         id: 'attributes',
         label: 'attribute_values',
-        iconUrl: "/images/config/menu_data_models_03.png",
+        iconUrl: "/images/config/menu_attribute_value_configuratio.png",
         path: '/configuration/attributes'
     },
     {
