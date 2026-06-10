@@ -16,7 +16,6 @@ interface Props {
   onFormReady: (handle: any) => void;
   onCancel: () => void;
   onSubmit: () => void;
-  onDraftSave: () => void;
   isSubmitDisabled: boolean;
   widgetStore: any;
 }
@@ -29,7 +28,6 @@ export default function IntakeFormSections({
   onFormReady,
   onCancel,
   onSubmit,
-  onDraftSave,
   isSubmitDisabled,
   widgetStore,
 }: Props) {
@@ -59,13 +57,6 @@ export default function IntakeFormSections({
             >
               {t('cancel')}
             </button>
-            {/* <button
-              onClick={onDraftSave}
-              className="px-8 py-2.5 rounded-full bg-secondary-second text-neutral-first font-bold text-[14px] hover:bg-secondary-third transition-colors"
-            >
-              {t('save_draft')}
-            </button> */}
-
             <button
               onClick={onSubmit}
               className="px-8 py-2.5 rounded-full bg-neutral-first text-neutral-second font-bold text-[14px]

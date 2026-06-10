@@ -930,7 +930,7 @@ export const SectionRenderer = ({
         originalSection,
         currentSchemaData,
         dispatch,
-        true, // skipRequired: Next/Save does not enforce mandatory fields
+        false, // required fields must be filled before advancing to the next section
       );
       if (!isSectionValid) return;
 
