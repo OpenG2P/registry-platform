@@ -572,20 +572,36 @@ class G2PRegisterHierarchicalService(BaseService):
                 key = (section.section_register_id, section.is_list)
                 sections_by_reg_id.setdefault(key, []).append(section)
 
-            # Fetch all completion score rows for this subject record in one query
-            all_section_ids = [s.section_id for s in sections]
+            # Fetch register-level completion scores for this record
+            all_register_sections = (
+                await session.execute(
+                    select(G2PRegisterSection).where(
+                        G2PRegisterSection.register_id == subject_register_id,
+                    )
+                )
+            ).scalars().all()
+            ideal_score = sum(
+                s.section_weightage or 0.0
+                for s in all_register_sections
+                if s.section_register_id == subject_register_id or s.is_list
+            )
+
+            all_score_section_ids = [
+                s.section_id for s in all_register_sections
+                if s.section_register_id == subject_register_id or s.is_list
+            ]
             score_rows = (
                 await session.execute(
                     select(G2PRegisterSectionCompletionScore).where(
                         G2PRegisterSectionCompletionScore.register_id == subject_register_id,
                         G2PRegisterSectionCompletionScore.internal_record_id == subject_record_id,
-                        G2PRegisterSectionCompletionScore.section_id.in_(all_section_ids),
+                        G2PRegisterSectionCompletionScore.section_id.in_(all_score_section_ids),
                     )
                 )
             ).scalars().all()
-            score_by_section: dict[str, float] = {
-                r.section_id: (r.computed_section_completion_score or 0.0) for r in score_rows
-            }
+            actual_score = sum(
+                (r.computed_section_completion_score or 0.0) for r in score_rows
+            )
 
             # Fetch records for each unique section_register_id
             tab_records: list[RegisterTabRecordData] = []
@@ -596,15 +612,13 @@ class G2PRegisterHierarchicalService(BaseService):
                     section_register_id=section_register_id,
                     data_policy_mnemonics=data_policy_mnemonics,
                 )
-                ideal_score = sum(s.section_weightage or 0.0 for s in group_sections)
-                actual_score = sum(score_by_section.get(s.section_id, 0.0) for s in group_sections)
-                
+
                 # Add completion scores to each record
                 for record in records:
                     record.actual_score = actual_score
                     record.ideal_score = ideal_score
                     record.completion_score_required = completion_score_required
-                
+
                 tab_records.append(RegisterTabRecordData(
                     section_register_id=section_register_id,
                     is_list=is_list,
