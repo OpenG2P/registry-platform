@@ -98,7 +98,7 @@ export function RbacProvider({ children }: { children: ReactNode }) {
                         alt="Loading"
                         className="w-12 h-12"
                     />
-                    <p className="text-neutral-first/50 text-[20px]">{t('loading_admin')}</p>
+                    <p className="text-neutral-first/50 text-[20px]">{t('loading')}</p>
                 </div>
             </div>
         );
