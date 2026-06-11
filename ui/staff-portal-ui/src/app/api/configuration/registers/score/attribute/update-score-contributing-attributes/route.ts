@@ -6,7 +6,6 @@ export async function POST(request: NextRequest) {
         req: request,
         targetEndpoint: "/computation-score/update_score_contributing_attribute",
         buildPayload: (body) => ({
-            pagination_request: undefined,
             request_payload: {
                 contributing_attribute_id: body.contributing_attribute_id,
                 attribute_name: body.attribute_name,
@@ -14,8 +13,9 @@ export async function POST(request: NextRequest) {
                     body.attribute_computation_required ?? false,
                 attribute_computation_value:
                     body.attribute_computation_value ?? {},
-                attribute_weight:
-                    body.attribute_weight ?? body.attribute_weightage ?? 0,
+                attribute_weightage: Number(
+                    body.attribute_weightage ?? 0,
+                ),
             },
         }),
         transformResponse: (responseBody) =>

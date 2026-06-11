@@ -129,6 +129,13 @@ export async function proxyToBackend({
 			? transformResponse(responseBody)
 			: responseBody?.response_payload;
 
+		if (data === undefined) {
+			return NextResponse.json(
+				{ error: 'Empty response from backend' },
+				{ status: 500, headers: responseHeaders },
+			);
+		}
+
 		return NextResponse.json(data, { headers: responseHeaders });
 
 	} catch (e) {
