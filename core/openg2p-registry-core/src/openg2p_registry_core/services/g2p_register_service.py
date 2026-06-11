@@ -1215,8 +1215,8 @@ class G2PRegisterService(BaseService):
 
             # Generate presigned URL for record image if it exists
             record_image_url = None
-            if hasattr(result, 'image') and result.image:
-                record_image_url = minio_client.get_url(object_name=result.image)
+            if hasattr(result, 'record_image_storage_id') and result.record_image_storage_id:
+                record_image_url = minio_client.get_url(object_name=result.record_image_storage_id)
 
             # Create SearchResultData object
             search_result_data: SearchResultData = SearchResultData(
@@ -1744,7 +1744,7 @@ class G2PRegisterService(BaseService):
                     value = value.isoformat()
 
                 # Convert image field to record_image_url with presigned URL
-                if column_name == 'image' and value:
+                if column_name == 'record_image_storage_id' and value:
                     extra_fields['record_image_url'] = minio_client.get_url(object_name=value)
                 else:
                     # Add to extra_fields if not a base field
@@ -3239,7 +3239,8 @@ class G2PRegisterService(BaseService):
                     language_label=language.language_label,
                     language_flag_base64=language.language_flag_base64,
                     is_default=language.is_default,
-                    language_translation=language.language_translation,
+                    core_translation=language.core_translation,
+                    domain_translation=language.domain_translation,
                 )
                 for language in languages
             ]
@@ -3267,7 +3268,8 @@ class G2PRegisterService(BaseService):
                 language_label=language.language_label,
                 language_flag_base64=language.language_flag_base64,
                 is_default=language.is_default,
-                language_translation=language.language_translation,
+                core_translation=language.core_translation,
+                domain_translation=language.domain_translation,
             )
             return registry_language_data
 
@@ -3277,8 +3279,9 @@ class G2PRegisterService(BaseService):
         language_label: str,
         language_flag_base64: str = None,
         is_default: bool = False,
-        language_translation: dict = None
-    ) -> LanguageOperationData:
+        core_translation: dict = None,
+        domain_translation: dict = None,
+    ) -> RegistryLanguageData:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             existing_registry_language = await session.execute(
@@ -3303,12 +3306,21 @@ class G2PRegisterService(BaseService):
                 language_label=language_label,
                 language_flag_base64=language_flag_base64,
                 is_default=is_default,
-                language_translation=language_translation
+                core_translation=core_translation,
+                domain_translation=domain_translation,
             )
             session.add(language)
             await session.commit()
-            language_operation_data: LanguageOperationData =  LanguageOperationData(language_id=language.language_id, success=True)
-            return language_operation_data
+            await session.refresh(language)
+            return RegistryLanguageData(
+                language_id=language.language_id,
+                language_code=language.language_code,
+                language_label=language.language_label,
+                language_flag_base64=language.language_flag_base64,
+                is_default=language.is_default,
+                core_translation=language.core_translation,
+                domain_translation=language.domain_translation,
+            )
 
     async def update_language(
         self,
@@ -3317,8 +3329,9 @@ class G2PRegisterService(BaseService):
         language_label: str = None,
         language_flag_base64: str = None,
         is_default: bool = None,
-        language_translation: dict = None
-    ) -> LanguageOperationData:
+        core_translation: dict = None,
+        domain_translation: dict = None,
+    ) -> RegistryLanguageData:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             result = await session.execute(
@@ -3347,8 +3360,10 @@ class G2PRegisterService(BaseService):
                 language.language_label = language_label
             if language_flag_base64 is not None:
                 language.language_flag_base64 = language_flag_base64
-            if language_translation is not None:
-                language.language_translation = language_translation
+            if core_translation is not None:
+                language.core_translation = core_translation
+            if domain_translation is not None:
+                language.domain_translation = domain_translation
 
             if is_default is not None:
                 if is_default:
@@ -3364,10 +3379,18 @@ class G2PRegisterService(BaseService):
                 language.is_default = is_default
 
             await session.commit()
-            language_operation_data: LanguageOperationData = LanguageOperationData(language_id=language_id, success=True)
-            return language_operation_data
+            await session.refresh(language)
+            return RegistryLanguageData(
+                language_id=language.language_id,
+                language_code=language.language_code,
+                language_label=language.language_label,
+                language_flag_base64=language.language_flag_base64,
+                is_default=language.is_default,
+                core_translation=language.core_translation,
+                domain_translation=language.domain_translation,
+            )
 
-    async def remove_language(self, language_id: str) -> LanguageOperationData:
+    async def remove_language(self, language_id: str) -> RegistryLanguageData:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             result = await session.execute(
@@ -3380,10 +3403,18 @@ class G2PRegisterService(BaseService):
                     message=G2PRegistryErrorCodes.REGISTRY_LANGUAGE_NOT_FOUND.value[0]
                 )
 
+            registry_language_data = RegistryLanguageData(
+                language_id=language.language_id,
+                language_code=language.language_code,
+                language_label=language.language_label,
+                language_flag_base64=language.language_flag_base64,
+                is_default=language.is_default,
+                core_translation=language.core_translation,
+                domain_translation=language.domain_translation,
+            )
             await session.delete(language)
             await session.commit()
-            language_operation_data: LanguageOperationData = LanguageOperationData(language_id=language_id, success=True)
-            return language_operation_data
+            return registry_language_data
 
     async def get_total_pending_change_requests(self) -> int:
         """Get the total number of pending change requests across all registers"""

@@ -10,10 +10,11 @@
   },
   "dependencies": {
     "@novu/js": "^3.11.0",
-    "@openg2p/registry-widgets": "^1.1.0-dev.13",
+    "@openg2p/registry-widgets": "^1.1.0-dev.15",
     "@reduxjs/toolkit": "^2.11.2",
     "@sd-jwt/crypto-browser": "^0.15.0",
     "@sd-jwt/decode": "^0.15.0",
+    "framer-motion": "^12.40.0",
     "i": "^0.3.7",
     "i18next": "^25.6.2",
     "inji-sdk": "^0.16.0",

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { X } from 'lucide-react';
-import type { RegisterRecordField } from '@/features/configuration/shared/hooks/useRegisterRecordFields';
+import type { RegisterField } from '@/features/configuration/shared/hooks/useRegisterFields';
 import FilterSelect from './FilterSelect';
 import {
     type FilterConditionState,
@@ -22,7 +22,7 @@ import {
 
 interface PolicyFilterExpressionBuilderProps {
     root: FilterRootState;
-    fields: RegisterRecordField[];
+    fields: RegisterField[];
     fieldsLoading?: boolean;
     onChange: (root: FilterRootState) => void;
     disabled?: boolean;
@@ -37,7 +37,7 @@ function ConditionRow({
     disabled,
 }: {
     condition: FilterConditionState;
-    fields: RegisterRecordField[];
+    fields: RegisterField[];
     fieldsLoading?: boolean;
     onChange: (c: FilterConditionState) => void;
     onRemove: () => void;
@@ -131,7 +131,7 @@ function GroupEditor({
     disabled,
 }: {
     group: FilterGroupState;
-    fields: RegisterRecordField[];
+    fields: RegisterField[];
     fieldsLoading?: boolean;
     depth: number;
     onChange: (group: FilterGroupState) => void;

@@ -1,6 +1,9 @@
+'use client';
+
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import {
   createWidgetStore,
@@ -14,7 +17,7 @@ import DeduplicationCardForIntake from './DeduplicationCardForIntake';
 import IntakeFormSections from './IntakeFormSections';
 import IntakeFormDeduplicationTabs from './IntakeFormDeduplicationTabs';
 
-export type SectionStatus = 'Saved' | 'Draft' | null;
+export type SectionStatus = 'Saved' | null;
 
 export interface AccordionFormsProps {
   formDetailsCard?: boolean;
@@ -22,7 +25,7 @@ export interface AccordionFormsProps {
   form_name?: string;
   form_description?: string;
   schemaData?: any;
-  onAction?: (sectionChanges?: SectionChanges, type?: 'submit' | 'draft', section?: IntakeFormSection) => void;
+  onAction?: (sectionChanges?: SectionChanges, type?: 'submit' | 'save', section?: IntakeFormSection) => Promise<boolean>;
   onCancel?: () => void;
   showActions?: boolean;
   submissionId?: string;
@@ -40,16 +43,15 @@ export default function MultiSectionAccordionForms({
   onCancel,
   showActions = true,
   submissionId,
-  registerType,
 }: AccordionFormsProps) {
 
   const t = useTranslations();
-  const router = useRouter();
   const widgetStore = useMemo(() => createWidgetStore(), []);
 
   const [formHandle, setFormHandle] = useState<SectionsFormHandle | null>(null);
   const [savedSections, setSavedSections] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"intake_forms" | "intake_possible_duplicates" | "register_possible_duplicates">("intake_forms");
+  const [showFormDetails, setShowFormDetails] = useState(false);
 
   const { results: intakeResults, loading: intakeLoading } = useIntakeDeduplication(submissionId || "", "intake-form");
   const { results: regResults, loading: regLoading } = useIntakeDeduplication(submissionId || "", "register");
@@ -84,12 +86,17 @@ export default function MultiSectionAccordionForms({
 
 
   const handleSectionSave = useCallback(
+    
     async (sectionChanges: SectionChanges) => {
       const section = sections.find((section) => section?.section_ui_schema?.['section-id'] === sectionChanges.section_id);
-      if (section && !savedSections.includes(section.section_id)) {
-        setSavedSections((prev) => [...prev, section.section_id]);
+      const success = await onAction?.(sectionChanges, 'save', section);
+      if (success) {
+        if (section && !savedSections.includes(section.section_id)) {
+          setSavedSections((prev) => [...prev, section.section_id]);
+        }
+      } else {
+        throw new Error('Section save failed');
       }
-      onAction?.(sectionChanges, 'draft', section);
     },
     [sections, onAction, savedSections]
   )
@@ -111,9 +118,6 @@ export default function MultiSectionAccordionForms({
     window.location.reload();
   };
 
-  const handleDraftSave = () => {
-    router.push(`/intake-form/${registerType}`)
-  }
 
   return (
     <div className="mx-auto pt-0 pb-6 flex flex-col">
@@ -144,8 +148,8 @@ export default function MultiSectionAccordionForms({
             </div>
           )}
 
-          <div className="flex gap-10">
-            <div className={`flex-1 flex flex-col gap-4 ${formDetailsCard || showActions ? 'max-w-[calc(100%-380px)]' : ''}`}>
+          <div className={`flex items-start ${formDetailsCard ? '-mr-7.5' : 'gap-4'}`}>
+            <div className={`flex-1 min-w-0 ${formDetailsCard ? 'pr-4' : ''}`}>
               <IntakeFormSections
                 sectionsConfig={sectionsConfig}
                 schemaData={schemaData}
@@ -154,20 +158,60 @@ export default function MultiSectionAccordionForms({
                 onFormReady={(handle: SectionsFormHandle) => setFormHandle(handle)}
                 onCancel={handleCancel}
                 onSubmit={handleSubmit}
-                onDraftSave={handleDraftSave}
                 isSubmitDisabled={formHandle === null || !allSectionsSaved}
                 widgetStore={widgetStore}
               />
             </div>
 
-            {(formDetailsCard || showActions) && (
-              <div className="shrink-0">
-                <FormDetailsCard
-                  title={intakeFormHeading}
-                  description={intakeFormDescription}
-                />
-
-              </div>
+            {formDetailsCard && (
+              <motion.div
+                className="shrink-0 self-start relative overflow-hidden"
+                initial={false}
+                animate={{
+                  width: showFormDetails ? 350 : 72,
+                }}
+                transition={{ type: 'spring', mass: 1, stiffness: 80, damping: 20 }}
+                style={{ minHeight: 72 }}
+              >
+                <motion.div
+                  className={`top-0 right-0 w-[350px] ${showFormDetails ? 'relative pointer-events-auto' : 'absolute pointer-events-none'}`}
+                  initial={false}
+                  animate={{
+                    opacity: showFormDetails ? 1 : 0,
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <FormDetailsCard
+                    description={intakeFormDescription}
+                    onClose={() => setShowFormDetails(false)}
+                  />
+                </motion.div>
+                <motion.div
+                  className={`absolute top-0 right-0 ${showFormDetails ? 'pointer-events-none' : 'pointer-events-auto'}`}
+                  initial={false}
+                  animate={{
+                    opacity: showFormDetails ? 0 : 1,
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setShowFormDetails(true)}
+                    className="w-[72px] h-[72px] bg-secondary-second  rounded-l-[10px] rounded-r-none flex items-center justify-center focus:outline-none isolate"
+                    aria-label={t('form_details')}
+                  >
+                    <span className="w-[34px] h-[34px] rounded-full bg-primary-second/100 flex items-center justify-center"> 
+                      <Image
+                      src="/images/config/double_right_arrow.png"
+                      alt=""
+                      width={16}
+                      height={16}
+                      className="scale-x-[-1]"
+                    /> </span>
+                   
+                  </button>
+                </motion.div>
+              </motion.div>
             )}
           </div>
         </div>

@@ -35,6 +35,12 @@ const sidebarOptions: SidebarOption[] = [
         path: '/configuration/registers'
     },
     {
+        id: 'attributes',
+        label: 'attribute_values',
+        iconUrl: "/images/config/menu_attribute_value_configuratio.png",
+        path: '/configuration/attributes'
+    },
+    {
         id: 'intake-forms',
         label: 'intake_forms',
         iconUrl: "/images/config/menu_intake_forms.png",

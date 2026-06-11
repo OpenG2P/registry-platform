@@ -1,17 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { useScoreContributingAttributes } from '../shared/hooks/useScoreContributingAttributes';
+import { useRegisterFields } from '../shared/hooks/useRegisterFields';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { CONFIGURATION_TABS_ACTIONS } from '../shared/utils/configurationTabs.actions';
+import { CONFIGURATION_SCORES_ACTIONS } from '../shared/utils/configurationScores.actions';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, EditButton } from '../shared/components';
 import AddScoreContributingAttributeModal from './AddScoreContributingAttributeModal';
 import EditScoreContributingAttributeModal from './EditScoreContributingAttributeModal';
+import type { RegisterField } from '../shared/hooks/useRegisterFields';
 import type { ScoreContributingAttribute } from '../shared/types/registers';
+
+function formatRegisterFieldLabel(field: RegisterField) {
+    return `${field.field_name} (${field.data_type})`;
+}
+
+function getAttributeFieldLabel(attributeName: string, registerFields: RegisterField[]) {
+    const field = registerFields.find((f) => f.field_name === attributeName);
+    return field ? formatRegisterFieldLabel(field) : attributeName;
+}
 
 interface ScoreContributingAttributesViewProps {
     isModalOpen: boolean;
@@ -29,10 +40,23 @@ export default function ScoreContributingAttributesView({
     onDataLoaded,
 }: ScoreContributingAttributesViewProps) {
     const t = useTranslations();
-    const { scoreDefinitionId } = useParams<{ scoreDefinitionId: string }>();
+    const { scoreDefinitionId, registerId } = useParams<{
+        scoreDefinitionId: string;
+        registerId: string;
+    }>();
 
     const { contributingAttributes, loading, refresh, pagination } =
         useScoreContributingAttributes(scoreDefinitionId, page, pageSize);
+    const { fields: registerFields, loading: fieldsLoading } = useRegisterFields(registerId);
+
+    const fieldOptions = useMemo(
+        () =>
+            registerFields.map((field) => ({
+                label: formatRegisterFieldLabel(field),
+                value: field.field_name,
+            })),
+        [registerFields],
+    );
 
     useEffect(() => {
         if (pagination && onDataLoaded) {
@@ -100,11 +124,12 @@ export default function ScoreContributingAttributesView({
             },
         );
     };
-
     const columns = [
         {
             key: 'attribute_name',
             label: t('attribute_name'),
+            render: (item: ScoreContributingAttribute) =>
+                getAttributeFieldLabel(item.attribute_name, registerFields),
         },
        
         {
@@ -128,7 +153,7 @@ export default function ScoreContributingAttributesView({
                 rowKey={(item) => item.contributing_attribute_id}
                 actions={(item) => (
                     <div className="flex gap-4">
-                        <Can action={CONFIGURATION_TABS_ACTIONS.edit}>
+                        <Can action={CONFIGURATION_SCORES_ACTIONS.edit}>
                             <EditButton
                                 label={t('edit')}
                                 onClick={() => {
@@ -137,7 +162,7 @@ export default function ScoreContributingAttributesView({
                                 }}
                             />
                         </Can>
-                        <Can action={CONFIGURATION_TABS_ACTIONS.delete}>
+                        <Can action={CONFIGURATION_SCORES_ACTIONS.edit}>
                             <DeleteButton
                                 label={t('remove')}
                                 onClick={() => handleDelete(item.contributing_attribute_id)}
@@ -153,6 +178,8 @@ export default function ScoreContributingAttributesView({
                     onClose={onCloseModal}
                     onSuccess={refresh}
                     scoreDefinitionId={scoreDefinitionId}
+                    fieldOptions={fieldOptions}
+                    fieldsLoading={fieldsLoading}
                 />
             )}
 
@@ -166,6 +193,8 @@ export default function ScoreContributingAttributesView({
                     }}
                     onSuccess={refresh}
                     initialData={selected}
+                    fieldOptions={fieldOptions}
+                    fieldsLoading={fieldsLoading}
                 />
             )}
         </>

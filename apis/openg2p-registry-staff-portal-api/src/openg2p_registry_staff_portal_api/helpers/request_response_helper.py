@@ -68,7 +68,7 @@ from openg2p_registry_core.schemas import (
     EarliestPendingChangeRequestData, EarliestPendingChangeRequestResponse, EarliestPendingChangeRequestResponseBody,
     SectionDocumentsData, SectionDocumentsResponse, SectionDocumentsResponseBody,
     ChangeRequestDocumentsData, ChangeRequestDocumentsResponse, ChangeRequestDocumentsResponseBody,
-    GetG2PAttributeValuesResponse, GetG2PAttributeValuesResponseBody, GetIngestionSummaryDataRequest, GetIngestionSummaryDataRequestBody,
+    GetIngestionSummaryDataRequest, GetIngestionSummaryDataRequestBody,
     IngestionSummaryData, IngestionSummaryDataResponse, IngestionSummaryDataResponseBody,
     IngestionDataPayloadResponse, IngestionDataPayloadResponseBody,
     IngestionDataSearchResultsResponse, IngestionDataSearchResultsResponseBody, IngestionDataSearchResultData,
@@ -2104,37 +2104,6 @@ class RequestResponseHelper(BaseService):
             response_header=g2p_response_header,
             response_body=None
         )
-
-    # =========================================================================
-    # Attribute APIs Helper Methods
-    # =========================================================================
-
-    def construct_attribute_values_success_response(
-        self,
-        attribute_values: List,
-        g2p_request: G2PRequest = None
-    ) -> GetG2PAttributeValuesResponse:
-        """Construct success response for get_g2p_attribute_values endpoint."""
-
-        request_id = g2p_request.request_header.request_id if g2p_request else ""
-
-        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
-            request_id=request_id,
-            response_status=G2PResponseStatus.SUCCESS,
-            response_error_code="",
-            response_error_message="",
-            response_timestamp=datetime.now()
-        )
-
-        response_body: GetG2PAttributeValuesResponseBody = GetG2PAttributeValuesResponseBody(
-            response_payload=attribute_values
-        )
-
-        response: GetG2PAttributeValuesResponse = GetG2PAttributeValuesResponse(
-            response_header=g2p_response_header,
-            response_body=response_body
-        )
-        return response
 
     # =========================================================================
     # Allowed Parents For Child Section Helper Methods

@@ -5,12 +5,20 @@ import { X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
+import { CustomDropdown } from '../shared/components';
+
+interface FieldOption {
+    label: string;
+    value: string;
+}
 
 interface AddScoreContributingAttributeModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
     scoreDefinitionId: string;
+    fieldOptions: FieldOption[];
+    fieldsLoading?: boolean;
 }
 
 function parseComputationJson(raw: string): Record<string, unknown> | null {
@@ -32,6 +40,8 @@ export default function AddScoreContributingAttributeModal({
     onClose,
     onSuccess,
     scoreDefinitionId,
+    fieldOptions,
+    fieldsLoading,
 }: AddScoreContributingAttributeModalProps) {
     const t = useTranslations();
     const { execute: createAttr } = useFetch();
@@ -115,17 +125,16 @@ export default function AddScoreContributingAttributeModal({
                     </h2>
 
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-semibold text-neutral-first mb-1">
-                                {t('attribute_name')}
-                            </label>
-                            <input
-                                type="text"
-                                value={attributeName}
-                                onChange={(e) => setAttributeName(e.target.value)}
-                                className="w-full px-4 py-2 border border-primary-second rounded-lg outline-none outline-1 outline-primary-second transition-all text-neutral-first/70 placeholder:text-secondary-third"
-                            />
-                        </div>
+                        <CustomDropdown
+                            label={t('attribute_name')}
+                            options={fieldOptions}
+                            value={attributeName}
+                            onChange={setAttributeName}
+                            loading={fieldsLoading}
+                            placeholder={t('select')}
+                            searchable
+                            disabled={!fieldsLoading && fieldOptions.length === 0}
+                        />
 
                         <div className="flex items-center gap-3">
                             <input

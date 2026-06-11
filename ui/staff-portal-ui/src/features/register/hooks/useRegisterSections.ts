@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useRouter } from "@/i18n/navigation";
 import { useFetch } from "@/shared/hooks/useFetch";
+import { isRecordAccessDeniedError } from "@/shared/utils/isRecordAccessDeniedError";
 import { useRegister } from "@/context/RegisterContext";
 import { useRegisterTabs } from "@/context/RegisterTabsContext";
 import { useRegisterRecord } from "@/context/RegisterRecordContext";
@@ -13,6 +15,7 @@ import { useRbac } from "@/context/RbacContext";
 import { CHANGE_REQUEST_ACTIONS } from "@/features/change-request/utils/changeRequest.actions";
 
 export const useRegisterSections = (onChangeRequestCreated: () => void) => {
+    const router = useRouter();
     const { internalRecordId } = useRegisterRecord();
     const { activeTabId } = useRegisterTabs();
     const { currentRegister } = useRegister();
@@ -43,9 +46,20 @@ export const useRegisterSections = (onChangeRequestCreated: () => void) => {
             }),
         },
     });
+    // Redirect to record access denied page if the record is access denied
+    const isRecordAccessDenied =
+        tabSectionsData != null && isRecordAccessDeniedError(tabSectionsData);
+
+    useEffect(() => {
+        if (isRecordAccessDenied) {
+            router.replace("/record-access-denied");
+        }
+    }, [isRecordAccessDenied, router]);
 
     const sectionDataMap = useMemo(() => {
-        if (!tabSectionsData) return undefined;
+        if (!tabSectionsData || isRecordAccessDenied || !Array.isArray(tabSectionsData)) {
+            return undefined;
+        }
 
         const map: Record<
             string,
@@ -127,7 +141,7 @@ export const useRegisterSections = (onChangeRequestCreated: () => void) => {
         tabSections.length > 0 &&
         tabSections[0].tab_id !== activeTabId;
 
-    const isFetching = loadingSections || loadingData;
+    const isFetching = loadingSections || loadingData || isRecordAccessDenied;
 
     const canRenderContent = !!(
         tabSections &&

@@ -1237,7 +1237,8 @@ class RegistryLanguageData(BaseModel):
     language_label: str
     language_flag_base64: Optional[str] = None
     is_default: bool = False
-    language_translation: Optional[dict] = None
+    core_translation: Optional[dict] = None
+    domain_translation: Optional[dict] = None
 
     class Config:
         from_attributes: bool = True
@@ -1251,7 +1252,8 @@ class CreateLanguageRequestPayload(BaseModel):
     language_label: str
     language_flag_base64: Optional[str] = None
     is_default: bool = False
-    language_translation: Optional[dict] = None
+    core_translation: Optional[dict] = None
+    domain_translation: Optional[dict] = None
 
 
 class UpdateLanguageRequestPayload(BaseModel):
@@ -1260,7 +1262,8 @@ class UpdateLanguageRequestPayload(BaseModel):
     language_label: Optional[str] = None
     language_flag_base64: Optional[str] = None
     is_default: Optional[bool] = None
-    language_translation: Optional[dict] = None
+    core_translation: Optional[dict] = None
+    domain_translation: Optional[dict] = None
 
 
 class RemoveLanguageRequestPayload(BaseModel):
@@ -1273,10 +1276,17 @@ class LanguageOperationData(BaseModel):
 
 
 # =============================================================================
-# G2P Attribute Schemas
+# Attribute Schemas
 # =============================================================================
 
-class G2PAttributeValueData(BaseModel):
+class AttributeData(BaseModel):
+    attribute_id: str
+    attribute_code: str
+    attribute_display: str
+    is_hierarchical: bool
+
+
+class AttributeValueData(BaseModel):
     value_id: str
     attribute_id: str
     value_code: str
@@ -1285,9 +1295,78 @@ class G2PAttributeValueData(BaseModel):
     sort_order: int
 
 
-class GetG2PAttributeValuesRequestPayload(BaseModel):
+class GetAttributesRequestPayload(BaseModel):
+    pass
+
+
+class GetAttributeRequestPayload(BaseModel):
     attribute_id: str
+
+
+class CreateAttributeRequestPayload(BaseModel):
+    attribute_code: str
+    attribute_display: str
+    is_hierarchical: bool = False
+
+
+class UpdateAttributeRequestPayload(BaseModel):
+    attribute_id: str
+    attribute_code: Optional[str] = None
+    attribute_display: Optional[str] = None
+    is_hierarchical: Optional[bool] = None
+
+
+class DeleteAttributeRequestPayload(BaseModel):
+    attribute_id: str
+
+
+class GetAttributeValuesRequestPayload(BaseModel):
+    attribute_id: Optional[str] = None
     parent_value_id: Optional[str] = None
+
+
+class CreateAttributeValueRequestPayload(BaseModel):
+    attribute_id: str
+    value_code: str
+    value_display: str
+    parent_value_id: Optional[str] = None
+    sort_order: int = 0
+
+
+class UpdateAttributeValueRequestPayload(BaseModel):
+    value_id: str
+    value_code: Optional[str] = None
+    value_display: Optional[str] = None
+    parent_value_id: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
+class DeleteAttributeValueRequestPayload(BaseModel):
+    value_id: str
+
+
+class CreateAttributeResponsePayload(BaseModel):
+    attribute: AttributeData
+
+
+class UpdateAttributeResponsePayload(BaseModel):
+    attribute: AttributeData
+
+
+class DeleteAttributeResponsePayload(BaseModel):
+    attribute_id: str
+
+
+class CreateAttributeValueResponsePayload(BaseModel):
+    attribute_value: AttributeValueData
+
+
+class UpdateAttributeValueResponsePayload(BaseModel):
+    attribute_value: AttributeValueData
+
+
+class DeleteAttributeValueResponsePayload(BaseModel):
+    value_id: str
 
 
 # =============================================================================

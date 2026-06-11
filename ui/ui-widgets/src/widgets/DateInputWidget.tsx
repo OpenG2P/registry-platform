@@ -1,7 +1,10 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
+import { WidgetRootState } from '../store';
+import { getValueByPath } from '../utils/pathUtils';
 import {
   parseDate,
   formatDateToISO,
@@ -10,15 +13,19 @@ import {
   getMinDate,
   getMaxDate,
   validateDateConstraints,
+  resolveDateBoundFromFieldValue,
+  mergeMinDateBounds,
+  mergeMaxDateBounds,
 } from '../utils/dateInput';
 
 /**
  * Date input widget with advanced features
- * 
+ *
  * Features:
  * - Configurable date format (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, etc.)
  * - Default value (none / today)
  * - Date constraints (minDate, maxDate, any/past only/future only)
+ * - Relative bounds via minDateField / maxDateField (e.g. end date >= start date)
  * - Required vs optional
  * - Input method (date picker / manual / hybrid)
  * - Placeholder text
@@ -41,6 +48,10 @@ import {
  *   "widget-data-options": {
  *     "minDate": "1900-01-01",
  *     "maxDate": "today"
+ *     "minDateField": "register.start_date",
+ *     "minDateMessage": "Date of birth must be on or after 1900-01-01"
+ *     "maxDateField": "register.end_date",
+ *     "maxDateMessage": "Date of birth must be on or before today"
  *   },
  *   "widget-data-validation": {},
  *   "widget-required": true,
@@ -54,31 +65,83 @@ interface DateInputWidgetProps {
 export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
   const {
     value,
-    formattedValue,
     error,
     touched,
     isEnabled,
     onChange,
     onBlur,
+    setError,
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const formValues = useSelector((state: WidgetRootState) => state.widget.values);
+  const { translateConfig } = useWidgetTranslation();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const optionsConfig = widgetConfig['widget-data-options'];
   const dateFormat = formatConfig?.dateFormat || 'YYYY-MM-DD';
-  const inputMethod = formatConfig?.inputMethod || 'picker'; // Default to picker for better UX
+  const inputMethod = formatConfig?.inputMethod || 'picker';
   const dateConstraint = formatConfig?.dateConstraint || 'any';
   const minDate = optionsConfig?.minDate;
   const maxDate = optionsConfig?.maxDate;
+  const minDateField = optionsConfig?.minDateField as string | undefined;
+  const maxDateField = optionsConfig?.maxDateField as string | undefined;
+  const minDateMessage = optionsConfig?.minDateMessage
+    ? translateConfig(optionsConfig.minDateMessage)
+    : undefined;
+  const maxDateMessage = optionsConfig?.maxDateMessage
+    ? translateConfig(optionsConfig.maxDateMessage)
+    : undefined;
   const defaultToToday = widgetConfig['widget-data-default'] === 'today';
 
-  // Track manual input value (for manual/hybrid modes)
   const [manualInputValue, setManualInputValue] = useState<string>('');
   const [isFocused, setIsFocused] = useState<boolean>(false);
 
-  // Initialize default value to today if configured
+  const fieldMinDate = useMemo(() => {
+    if (!minDateField) {
+      return undefined;
+    }
+    return resolveDateBoundFromFieldValue(getValueByPath(formValues, minDateField));
+  }, [formValues, minDateField]);
+
+  const fieldMaxDate = useMemo(() => {
+    if (!maxDateField) {
+      return undefined;
+    }
+    return resolveDateBoundFromFieldValue(getValueByPath(formValues, maxDateField));
+  }, [formValues, maxDateField]);
+
+  const effectiveMinDate = useMemo(() => {
+    const staticMin = getMinDate(dateConstraint, minDate);
+    return mergeMinDateBounds(staticMin, fieldMinDate);
+  }, [dateConstraint, minDate, fieldMinDate]);
+
+  const effectiveMaxDate = useMemo(() => {
+    const staticMax = getMaxDate(dateConstraint, maxDate);
+    return mergeMaxDateBounds(staticMax, fieldMaxDate);
+  }, [dateConstraint, maxDate, fieldMaxDate]);
+
+  const constraintMessages = useMemo(
+    () => ({ minDateMessage, maxDateMessage }),
+    [minDateMessage, maxDateMessage]
+  );
+
+  const runDateConstraintValidation = useCallback(
+    (dateValue: string | Date | null | undefined): string | null => {
+      if (!dateValue) {
+        return null;
+      }
+      return validateDateConstraints(
+        dateValue,
+        effectiveMinDate,
+        effectiveMaxDate,
+        dateConstraint,
+        constraintMessages
+      );
+    },
+    [effectiveMinDate, effectiveMaxDate, dateConstraint, constraintMessages]
+  );
+
   useEffect(() => {
     if (defaultToToday && (value === null || value === undefined || value === '')) {
       const todayISO = formatDateToISO(new Date());
@@ -86,38 +149,36 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     }
   }, [defaultToToday, value, onChange]);
 
-  // Get effective min/max dates
-  const effectiveMinDate = useMemo(() => {
-    return getMinDate(dateConstraint, minDate);
-  }, [dateConstraint, minDate]);
+  // Re-validate when a relative bound field changes (e.g. start date set after end date)
+  useEffect(() => {
+    if (!value) {
+      return;
+    }
+    const constraintError = runDateConstraintValidation(value);
+    if (constraintError) {
+      setError([constraintError]);
+    }
+  }, [fieldMinDate, fieldMaxDate, value, runDateConstraintValidation, setError]);
 
-  const effectiveMaxDate = useMemo(() => {
-    return getMaxDate(dateConstraint, maxDate);
-  }, [dateConstraint, maxDate]);
-
-  // Convert ISO value to display format
   const getDisplayValue = useCallback((): string => {
-    // For picker mode, always use YYYY-MM-DD
     if (inputMethod === 'picker') {
       if (!value) return '';
       return formatDateToISO(value);
     }
-    
-    // For manual/hybrid modes, use custom format
+
     if (isFocused && manualInputValue) {
       return manualInputValue;
     }
-    
+
     if (!value) return '';
-    
+
     if (dateFormat === 'YYYY-MM-DD') {
       return formatDateToISO(value);
     }
-    
+
     return formatDateToString(value, dateFormat);
   }, [value, inputMethod, dateFormat, isFocused, manualInputValue]);
 
-  // Initialize manual input value
   useEffect(() => {
     if (!isFocused && value) {
       if (dateFormat === 'YYYY-MM-DD') {
@@ -128,72 +189,90 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     }
   }, [value, dateFormat, isFocused]);
 
-  // Handle input change
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value;
-    
-    if (inputMethod === 'picker') {
-      // Picker mode: input is always YYYY-MM-DD
-      if (inputValue) {
-        const date = parseDate(inputValue);
-        if (date) {
-          onChange(formatDateToISO(date));
+  const applyConstraintError = useCallback(
+    (dateValue: string) => {
+      const constraintError = runDateConstraintValidation(dateValue);
+      setError(constraintError ? [constraintError] : []);
+    },
+    [runDateConstraintValidation, setError]
+  );
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const inputValue = e.target.value;
+
+      if (inputMethod === 'picker') {
+        if (inputValue) {
+          const date = parseDate(inputValue);
+          if (date) {
+            const iso = formatDateToISO(date);
+            onChange(iso);
+            applyConstraintError(iso);
+          } else {
+            onChange('');
+            setError([]);
+          }
         } else {
           onChange('');
+          setError([]);
         }
       } else {
-        onChange('');
-      }
-    } else {
-      // Manual/hybrid mode: parse custom format
-      setManualInputValue(inputValue);
-      
-      if (inputValue) {
-        const date = parseDateFromFormat(inputValue, dateFormat);
-        if (date) {
-          // Validate constraints
-          const constraintError = validateDateConstraints(
-            date,
-            minDate,
-            maxDate,
-            dateConstraint
-          );
-          
-          if (!constraintError) {
-            onChange(formatDateToISO(date));
-          } else {
-            // Still update the value but validation will catch it
-            onChange(formatDateToISO(date));
-          }
-        }
-      } else {
-        onChange('');
-      }
-    }
-  }, [inputMethod, dateFormat, onChange, minDate, maxDate, dateConstraint]);
+        setManualInputValue(inputValue);
 
-  // Handle blur - validate and format
+        if (inputValue) {
+          const date = parseDateFromFormat(inputValue, dateFormat);
+          if (date) {
+            const iso = formatDateToISO(date);
+            onChange(iso);
+            applyConstraintError(iso);
+          }
+        } else {
+          onChange('');
+          setError([]);
+        }
+      }
+    },
+    [inputMethod, dateFormat, onChange, applyConstraintError, setError]
+  );
+
   const handleBlur = useCallback(() => {
     setIsFocused(false);
-    
+
     if (inputMethod !== 'picker' && manualInputValue) {
       const date = parseDateFromFormat(manualInputValue, dateFormat);
       if (date) {
-        // Format the value according to the format
         const formatted = formatDateToString(date, dateFormat);
         setManualInputValue(formatted);
-        onChange(formatDateToISO(date));
+        const iso = formatDateToISO(date);
+        onChange(iso);
+        applyConstraintError(iso);
       } else {
-        // Invalid date, clear it
         setManualInputValue('');
         onChange('');
+        setError([]);
       }
     }
-    
-    onBlur();
-  }, [inputMethod, manualInputValue, dateFormat, onChange, onBlur]);
 
-  // Handle focus
+    onBlur();
+
+    if (value) {
+      const constraintError = runDateConstraintValidation(value);
+      if (constraintError) {
+        setError([constraintError]);
+      }
+    }
+  }, [
+    inputMethod,
+    manualInputValue,
+    dateFormat,
+    onChange,
+    onBlur,
+    applyConstraintError,
+    value,
+    runDateConstraintValidation,
+    setError,
+  ]);
+
   const handleFocus = useCallback(() => {
     setIsFocused(true);
     if (value) {
@@ -205,21 +284,23 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     }
   }, [value, dateFormat]);
 
-  // Determine placeholder
   const placeholder = useMemo(() => {
-    const hasValue = getDisplayValue() && getDisplayValue().trim().length > 0;
+    const display = getDisplayValue();
+    const hasValue = display && display.trim().length > 0;
     const placeholderText = translateConfig(widgetConfig['widget-data-placeholder']);
-    return hasValue ? undefined : (placeholderText || dateFormat);
+    return hasValue ? undefined : placeholderText || dateFormat;
   }, [getDisplayValue, widgetConfig, translateConfig, dateFormat]);
 
-  // Determine input type
   const inputType = inputMethod === 'picker' ? 'date' : 'text';
 
-  // For readonly mode, render as display text
+  const showRequiredError =
+    widgetConfig['widget-required'] && (!value || value === '');
+  const showValidationError = touched && error.length > 0;
+
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     let displayValue = '';
-    
+
     if (value) {
       if (dateFormat === 'YYYY-MM-DD') {
         displayValue = formatDateToISO(value);
@@ -233,7 +314,11 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     return (
       <div className="mb-[10px] DateDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
-          <div className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+          <div
+            className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
+            style={{ fontFamily: 'Roboto, sans-serif' }}
+            title={label}
+          >
             {label}:
           </div>
         )}
@@ -241,11 +326,6 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
           <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
         </div>
       </div>
     );
@@ -254,11 +334,13 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
   return (
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-start">
-        <label className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
+        <label
+          className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          style={{ fontFamily: 'Roboto, sans-serif' }}
+          title={translateConfig(widgetConfig['widget-label'])}
+        >
           {translateConfig(widgetConfig['widget-label'])}
-          {widgetConfig['widget-required'] && (
-            <span className="text-red-500 ml-1">*</span>
-          )}
+          {widgetConfig['widget-required'] && <span className="text-red-500 ml-1">*</span>}
         </label>
         <div className="flex-1 min-w-0">
           <input
@@ -272,21 +354,14 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
             min={inputMethod === 'picker' ? effectiveMinDate : undefined}
             max={inputMethod === 'picker' ? effectiveMaxDate : undefined}
             className={`w-full sm:w-[180px] max-w-full h-[30px] px-3 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              (touched && error.length > 0) || (widgetConfig['widget-required'] && (!value || value === ''))
+              showValidationError || showRequiredError
                 ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
                 : 'border-gray-300'
             } ${!isEnabled || widgetConfig['widget-readonly'] ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
             style={{ borderRadius: '10px' }}
             title={translateConfig(widgetConfig['widget-data-tooltip'])}
           />
-          {touched && error.length > 0 && (
-            <p className="text-red-500 text-sm mt-1">{error[0]}</p>
-          )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          {showValidationError && <p className="text-red-500 text-sm mt-1">{error[0]}</p>}
         </div>
       </div>
     </div>

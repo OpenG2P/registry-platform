@@ -91,6 +91,9 @@ class G2PRegisterHistoryService(BaseService):
             column = mapper.columns[key]
             if isinstance(column.type, SQLDate):
                 if isinstance(value, str):
+                    if not value.strip():
+                        converted_dict[key] = None
+                        continue
                     try:
                         converted_dict[key] = datetime.strptime(value, "%Y-%m-%d").date()
                     except (ValueError, TypeError):

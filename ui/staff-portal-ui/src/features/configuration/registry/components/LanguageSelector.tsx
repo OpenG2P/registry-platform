@@ -27,6 +27,13 @@ export default function LanguageSelector({
 
     const selectedLanguage = languages.find(l => l.language_id === selectedLanguageId);
 
+    const displayValue = (() => {
+        if (languagesLoading) return 'Loading...';
+        if (selectedLanguage?.language_label) return selectedLanguage.language_label;
+        if (selectedLanguageId && languages.length > 0) return t('no_items_found');
+        return t('select_language');
+    })();
+
     const handleSelect = (id: string) => {
         onSelectLanguage(id);
         setIsOpen(false);
@@ -49,8 +56,15 @@ export default function LanguageSelector({
                             />
                         </div>
                     )}
-                    <span className="text-[16px] font-medium text-neutral-first truncate">
-                        {languagesLoading ? 'Loading...' : selectedLanguage?.language_label || t('select_language')}
+                    {!selectedLanguage?.language_flag_base64 && (
+                        <div className="w-6 h-4 rounded-sm shrink-0 border  flex items-center justify-center">
+                            <span className="text-[7px] text-neutral-first/40 leading-none">--</span>
+                        </div>
+                    )}
+                    <span
+                        className={`text-[16px] font-medium truncate ${selectedLanguage ? 'text-neutral-first' : 'text-neutral-first/50'}`}
+                    >
+                        {displayValue}
                     </span>
                 </div>
 
@@ -64,7 +78,7 @@ export default function LanguageSelector({
             </div>
 
             {isOpen && (
-                <div className="absolute z-50 top-full left-0 bg-neutral-second rounded-b-[10px] shadow-xl border border-primary-second border-t-0 min-w-full overflow-auto">
+                <div className="absolute z-[100] top-full left-0 bg-neutral-second rounded-b-[10px] shadow-xl border border-primary-second border-t-0 min-w-full max-h-60 overflow-y-auto">
                     {languages.length === 0 && !languagesLoading ? (
                         <div className="px-4 py-2 text-[16px] text-secondary-third">
                             {t('no_items_found')}
@@ -84,6 +98,11 @@ export default function LanguageSelector({
                                             fill
                                             className="object-cover"
                                         />
+                                    </div>
+                                )}
+                                {!lang.language_flag_base64 && (
+                                    <div className="w-6 h-4 rounded-sm shrink-0 border  flex items-center justify-center">
+                                        <span className="text-[7px] text-neutral-first/40 leading-none">--</span>
                                     </div>
                                 )}
                                 <span className="truncate">{lang.language_label}</span>

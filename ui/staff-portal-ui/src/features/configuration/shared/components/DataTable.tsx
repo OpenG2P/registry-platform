@@ -15,6 +15,7 @@ interface Props<T> {
     rowKey: (item: T) => string;
     actions?: (item: T) => React.ReactNode;
     onRowClick?: (item: T) => void;
+    embedded?: boolean;
 }
 
 export default function DataTable<T>({
@@ -23,12 +24,13 @@ export default function DataTable<T>({
     loading,
     rowKey,
     actions,
-    onRowClick
+    onRowClick,
+    embedded = false,
 }: Props<T>) {
     const gridCols = columns.length + (actions ? 1 : 0);
 
     return (
-        <div className="mx-7.5 bg-neutral-second rounded-[10px] p-4 overflow-hidden">
+        <div className={`${embedded ? 'mx-0' : 'mx-7.5'} bg-neutral-second rounded-[10px] p-4 overflow-hidden`}>
             <div
                 className="grid gap-4 pb-2 px-8"
                 style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}

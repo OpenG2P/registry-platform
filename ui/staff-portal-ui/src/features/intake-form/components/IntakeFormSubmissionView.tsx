@@ -1,20 +1,17 @@
 'use client';
 
 import { TopBar } from '@/components/shared';
-import { useIntakeSubmissions } from '@/features/intake-form/hooks/useIntakeSubmissions';
+import { useIntakeFormSubmission } from '@/features/intake-form/hooks/useIntakeFormSubmission';
 import { useIntakeFormDetails } from '@/features/intake-form/hooks/useIntakeFormDetails';
-import { useIntakeFormTabs } from '@/features/intake-form/hooks/useIntakeFormTabs';
-import { useIntakeFormTabRecords } from '@/features/intake-form/hooks/useIntakeFormTabRecords';
 import MultiSectionAccordionForms from '@/features/intake-form/components/MultiSectionAccordionForms';
 import SubmissionHeader from '@/features/intake-form/components/SubmissionHeader';
 import { IntakeApprovalCard } from '@/features/approval/components';
 import { parseAweCurrentStage } from '@/features/approval/utils/aweStatusSummary';
 import { REGISTRY_INTAKE_FORM_ARTIFACT } from '@/features/approval/constants';
 import { useTranslations } from 'next-intl';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useIntakeFormSectionAction } from '@/features/intake-form/hooks/useIntakeFormSectionAction';
 import { RegisterFlattenedRecord } from '@/features/register/types';
-import { useRegister } from '@/context/RegisterContext';
 import { useRbac } from '@/context/RbacContext';
 import { INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/intakeForm.actions';
 
@@ -35,21 +32,15 @@ export default function IntakeFormSubmissionView({
     breadcrumb,
 }: IntakeFormSubmissionViewProps) {
     const t = useTranslations();
-    const { currentRegister } = useRegister();
     const { can } = useRbac();
     const canCreate = can(INTAKE_FORM_ACTIONS.edit);
 
-    const registerId = currentRegister?.register_id;
-    const { submissions, loading: loadingSubmissions, refetch: refetchSubmissions } =
-        useIntakeSubmissions(registerId);
-
-    const refreshSubmissionView = useCallback(async () => {
-        await refetchSubmissions();
-    }, [refetchSubmissions]);
-
-    const submission = useMemo(() => {
-        return submissions?.find((s: { submission_id: string }) => s.submission_id === submissionId);
-    }, [submissions, submissionId]);
+    const {
+        submission,
+        section_payloads,
+        loading: loadingSubmission,
+        execute: refetchSubmission,
+    } = useIntakeFormSubmission(submissionId);
 
     const intakeApprovalArtifactContext = useMemo(() => {
         if (!submission?.submission_id) return null;
@@ -62,19 +53,14 @@ export default function IntakeFormSubmissionView({
         };
     }, [submission?.submission_id, submission?.awe_request_status_summary]);
 
+
+    console.log(submission, 'submission');
+
     const intakeFormId = submission?.form_id;
     const { sections, form_name, form_description, loading: loadingSections } =
         useIntakeFormDetails(intakeFormId);
 
-    const { tabs, loading: loadingTabs } = useIntakeFormTabs(intakeFormId);
-    const tabId = tabs[0]?.tab_id;
-
-    const { section_payloads, loading: loadingRecords } = useIntakeFormTabRecords(
-        submissionId,
-        tabId,
-    );
-
-    const loading = loadingSubmissions || loadingSections || loadingTabs || loadingRecords;
+    const loading = loadingSubmission || loadingSections;
     const isDraft = submission?.draft_status === 'DRAFT';
 
     const { handleAction, FormActionModals } = useIntakeFormSectionAction({
@@ -162,7 +148,9 @@ export default function IntakeFormSubmissionView({
                                     isPending={
                                         !isDraft && submission?.approval_status === 'PENDING'
                                     }
-                                    onRefresh={refreshSubmissionView}
+                                    onRefresh={async () => {
+                                        await refetchSubmission();
+                                    }}
                                 />
                             </div>
                         )}

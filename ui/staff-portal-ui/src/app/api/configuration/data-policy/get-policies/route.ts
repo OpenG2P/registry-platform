@@ -4,7 +4,7 @@ import { proxyToBackend } from '@/app/api/_lib/backend-proxy';
 export async function POST(request: NextRequest) {
     return proxyToBackend({
         req: request,
-        targetEndpoint: '/register-data/get_policies',
+        targetEndpoint: '/data-policy/get_policies',
         buildPayload: (body) => ({
             pagination_request: {
                 current_page: body.current_page ?? 1,

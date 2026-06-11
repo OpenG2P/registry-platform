@@ -69,7 +69,7 @@ export const useIntakeFormSectionAction = ({
             });
 
             if (saveResult?.error) {
-                toast.error(t('toast_operation_failed'));
+                toast.error(`${t('toast_intake_form_submission_finalize_failed')}: ${saveResult.error}`);
                 return;
             }
 
@@ -95,9 +95,9 @@ export const useIntakeFormSectionAction = ({
         }
     };
 
-    const performSave = async (change: SectionChanges, action: 'submit' | 'draft', actionSection?: IntakeFormSection) => {
+    const performSave = async (change: SectionChanges, action: 'submit' | 'save', actionSection?: IntakeFormSection): Promise<boolean> => {
         const activeSection = actionSection || section;
-        if (!activeSection || !registerId) return;
+        if (!activeSection || !registerId) return false;
 
 
         const files = change?.files ?? [];
@@ -133,7 +133,7 @@ export const useIntakeFormSectionAction = ({
                     autoClose: 6000,
                 });
                 console.error("File upload error:", error);
-                return;
+                return false;
             }
         }
 
@@ -158,17 +158,17 @@ export const useIntakeFormSectionAction = ({
                 body: JSON.stringify(savePayload)
             });
 
-            if (!saveResult) {
-                toast.error(t('toast_operation_failed'));
-                return;
+            if (saveResult.error) {
+                toast.error(`${t('toast_intake_form_submission_save_failed')}: ${saveResult.error}`);
+                return false;
             }
 
-            if (saveResult && saveResult.submission_id) {
+            if (saveResult.submission_id) {
                 setActiveSubmissionId(saveResult.submission_id);
             }
 
             // Extract and cache the internal_record_id for non-list sections from the response.
-            // This ensures that subsequent draft saves, or other sections belonging to the same register,
+            // This ensures that subsequent saves, or other sections belonging to the same register,
             // will reuse the existing internal_record_id rather than creating duplicate records for the same section_register_id.
             if (saveResult && saveResult.section_payloads) {
                 const currentSectionPayload = saveResult.section_payloads.find(
@@ -183,18 +183,16 @@ export const useIntakeFormSectionAction = ({
                 }
             }
 
-            if (action === 'draft') {
-                toast.success(t('draft_updated_successfully'));
+            if (action === 'save') {
+                toast.success(t('toast_section_saved_successfully'));
                 if (onSuccess) onSuccess();
-                return;
+                return true;
             }
 
             const handleSuccessClose = () => {
                 closeModal();
-                if (action === 'submit') {
-                    router.push(`/intake-form/${registerType}`);
-                }
                 if (onSuccess) onSuccess();
+                router.push(`/intake-form/${registerType}`);
             };
 
             setModalConfig({
@@ -208,12 +206,15 @@ export const useIntakeFormSectionAction = ({
                 onConfirm: handleSuccessClose
             });
 
+            return true;
+
         } catch (error) {
             toast.error(t('toast_form_save_error'));
+            return false;
         }
     };
 
-    const handleAction = async (sectionChanges?: SectionChanges, action: 'submit' | 'draft' = 'submit', actionSection?: IntakeFormSection) => {
+    const handleAction = async (sectionChanges?: SectionChanges, action: 'submit' | 'save' = 'submit', actionSection?: IntakeFormSection): Promise<boolean> => {
         const activeSection = actionSection || section;
 
         if (action === 'submit') {
@@ -234,9 +235,11 @@ export const useIntakeFormSectionAction = ({
                     }
                 }
             });
+            return true;
         } else if (sectionChanges && activeSection) {
-            await performSave(sectionChanges, 'draft', activeSection);
+            return await performSave(sectionChanges, 'save', activeSection);
         }
+        return false;
     };
 
     const FormActionModals = () => {

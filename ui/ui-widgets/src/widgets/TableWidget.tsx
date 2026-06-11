@@ -7,8 +7,107 @@ import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { formatValue } from '../utils/formatting';
 import { getValueByPath, setValueByPath } from '../utils/pathUtils';
+import {
+  getMinDate,
+  getMaxDate,
+  validateDateConstraints,
+  resolveDateBoundFromFieldValue,
+  mergeMinDateBounds,
+  mergeMaxDateBounds,
+} from '../utils/dateInput';
 import { setValue, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
+import { validateWidget } from '../utils/validation';
+
+type TranslateConfigFn = (
+  value: string | undefined | null,
+  fallback?: string
+) => string;
+
+const getDateColumnConstraintError = (
+  column: BaseWidgetConfig,
+  cellValue: unknown,
+  rowValues: Record<string, any>,
+  translateConfig: TranslateConfigFn
+): string | null => {
+  const displayValue =
+    cellValue && typeof cellValue === 'string' ? cellValue.split('T')[0] : '';
+  if (!displayValue) {
+    return null;
+  }
+
+  const optionsConfig = column['widget-data-options'];
+  const formatConfig = column['widget-data-format'];
+  const dateConstraint = formatConfig?.dateConstraint || 'any';
+  const minDate = optionsConfig?.minDate;
+  const maxDate = optionsConfig?.maxDate;
+  const minDateField = optionsConfig?.minDateField as string | undefined;
+  const maxDateField = optionsConfig?.maxDateField as string | undefined;
+  const minDateMessage = optionsConfig?.minDateMessage
+    ? translateConfig(optionsConfig.minDateMessage)
+    : undefined;
+  const maxDateMessage = optionsConfig?.maxDateMessage
+    ? translateConfig(optionsConfig.maxDateMessage)
+    : undefined;
+
+  const resolveSiblingDate = (fieldRef: string | undefined): string | undefined => {
+    if (!fieldRef) {
+      return undefined;
+    }
+    const raw = getValueByPath(rowValues, fieldRef) ?? rowValues[fieldRef];
+    return resolveDateBoundFromFieldValue(raw);
+  };
+
+  const effectiveMinDate = mergeMinDateBounds(
+    getMinDate(dateConstraint, minDate),
+    resolveSiblingDate(minDateField)
+  );
+  const effectiveMaxDate = mergeMaxDateBounds(
+    getMaxDate(dateConstraint, maxDate),
+    resolveSiblingDate(maxDateField)
+  );
+
+  return validateDateConstraints(
+    displayValue,
+    effectiveMinDate,
+    effectiveMaxDate,
+    dateConstraint,
+    { minDateMessage, maxDateMessage }
+  );
+};
+
+const isTableRowDataValid = (
+  rowData: Record<string, any>,
+  columns: any[],
+  tableReadonly: boolean,
+  translateConfig: TranslateConfigFn
+): boolean => {
+  for (const col of columns) {
+    if (tableReadonly || col['widget-readonly'] === true) {
+      continue;
+    }
+
+    const columnKey = col['column-key'];
+    const cellValue = rowData[columnKey];
+    const widgetErrors = validateWidget(
+      cellValue,
+      col['widget-data-validation'],
+      col['widget-required']
+    );
+    if (widgetErrors.length > 0) {
+      return false;
+    }
+
+    if ((col.widget || 'text') === 'date') {
+      const dateError = getDateColumnConstraintError(col, cellValue, rowData, translateConfig);
+      if (dateError) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+};
 
 // Lightweight table cell components (no labels, compact styling)
 
@@ -29,26 +128,31 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
   const isReadonly = config['widget-readonly'] || false;
 
   return (
-    <select
-      value={value || ''}
-      onChange={(e) => onValueChange(e.target.value)}
-      disabled={isReadonly || loading}
-      className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
-        isReadonly || loading ? 'cursor-not-allowed' : ''
-      } table-cell-input`}
-      style={{
-        borderRadius: '10px',
-        borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
-        backgroundColor: isReadonly || loading ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
-      }}
-    >
-      <option value="">{translate('common.select') || 'Select'}</option>
-      {dataSourceOptions.map((option: any) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <div className="table-cell-field w-full">
+      <select
+        value={value || ''}
+        onChange={(e) => onValueChange(e.target.value === '' ? undefined : e.target.value)}
+        disabled={isReadonly || loading}
+        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+          isReadonly || loading ? 'cursor-not-allowed' : ''
+        } table-cell-input`}
+        style={{
+          borderRadius: '10px',
+          borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
+          backgroundColor: isReadonly || loading ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+        }}
+      >
+        <option value="">{translate('common.select') || 'Select'}</option>
+        {dataSourceOptions.map((option: any) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <p className="table-cell-field-error" aria-hidden="true">
+        {'\u00a0'}
+      </p>
+    </div>
   );
 };
 
@@ -88,22 +192,27 @@ const TableCellText = ({ config, value, onValueChange }: TableCellTextProps) => 
   const displayValue = value !== null && value !== undefined ? String(value) : '';
 
   return (
-    <input
-      type="text"
-      value={displayValue}
-      onChange={(e) => onValueChange(e.target.value)}
-      disabled={isReadonly}
-      placeholder={placeholder}
-      maxLength={maxLength}
-      className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
-        isReadonly ? 'cursor-not-allowed' : ''
-      } table-cell-input`}
-      style={{
-        borderRadius: '10px',
-        borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
-        backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
-      }}
-    />
+    <div className="table-cell-field w-full">
+      <input
+        type="text"
+        value={displayValue}
+        onChange={(e) => onValueChange(e.target.value)}
+        disabled={isReadonly}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+          isReadonly ? 'cursor-not-allowed' : ''
+        } table-cell-input`}
+        style={{
+          borderRadius: '10px',
+          borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
+          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+        }}
+      />
+      <p className="table-cell-field-error" aria-hidden="true">
+        {'\u00a0'}
+      </p>
+    </div>
   );
 };
 
@@ -137,56 +246,160 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
   };
 
   return (
-    <input
-      type="number"
-      value={displayValue}
-      onChange={handleChange}
-      disabled={isReadonly}
-      placeholder={placeholder}
-      min={validationConfig?.min}
-      max={validationConfig?.max}
-      step={formatConfig?.decimalPlaces ? Math.pow(0.1, formatConfig.decimalPlaces) : undefined}
-      className={`w-full h-[28px] px-2 text-sm border focus:outline-none text-right ${
-        isReadonly ? 'cursor-not-allowed' : ''
-      } table-cell-input`}
-      style={{
-        borderRadius: '10px',
-        borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
-        backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
-      }}
-    />
+    <div className="table-cell-field w-full">
+      <input
+        type="number"
+        value={displayValue}
+        onChange={handleChange}
+        disabled={isReadonly}
+        placeholder={placeholder}
+        min={validationConfig?.min}
+        max={validationConfig?.max}
+        step={formatConfig?.decimalPlaces ? Math.pow(0.1, formatConfig.decimalPlaces) : undefined}
+        className={`w-full h-[28px] px-2 text-sm border focus:outline-none text-right ${
+          isReadonly ? 'cursor-not-allowed' : ''
+        } table-cell-input`}
+        style={{
+          borderRadius: '10px',
+          borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
+          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+        }}
+      />
+      <p className="table-cell-field-error" aria-hidden="true">
+        {'\u00a0'}
+      </p>
+    </div>
   );
 };
 
 interface TableCellDateProps {
   config: BaseWidgetConfig;
   value: any;
+  rowValues?: Record<string, any>;
   onValueChange: (value: any) => void;
 }
 
-const TableCellDate = ({ config, value, onValueChange }: TableCellDateProps) => {
+const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDateProps) => {
+  const { translateConfig } = useWidgetTranslation();
   const isReadonly = config['widget-readonly'] || false;
   const placeholder = config['widget-data-placeholder'] || '';
+  const optionsConfig = config['widget-data-options'];
+  const formatConfig = config['widget-data-format'];
+  const dateConstraint = formatConfig?.dateConstraint || 'any';
+  const minDate = optionsConfig?.minDate;
+  const maxDate = optionsConfig?.maxDate;
+  const minDateField = optionsConfig?.minDateField as string | undefined;
+  const maxDateField = optionsConfig?.maxDateField as string | undefined;
+  const minDateMessage = optionsConfig?.minDateMessage
+    ? translateConfig(optionsConfig.minDateMessage)
+    : undefined;
+  const maxDateMessage = optionsConfig?.maxDateMessage
+    ? translateConfig(optionsConfig.maxDateMessage)
+    : undefined;
+
+  const [constraintError, setConstraintError] = useState<string | null>(null);
+
+  const resolveSiblingDate = (fieldRef: string | undefined): string | undefined => {
+    if (!fieldRef || !rowValues) {
+      return undefined;
+    }
+    const raw = getValueByPath(rowValues, fieldRef) ?? rowValues[fieldRef];
+    return resolveDateBoundFromFieldValue(raw);
+  };
+
+  const fieldMinDate = useMemo(
+    () => resolveSiblingDate(minDateField),
+    [minDateField, rowValues]
+  );
+  const fieldMaxDate = useMemo(
+    () => resolveSiblingDate(maxDateField),
+    [maxDateField, rowValues]
+  );
+
+  const effectiveMinDate = useMemo(() => {
+    const staticMin = getMinDate(dateConstraint, minDate);
+    return mergeMinDateBounds(staticMin, fieldMinDate);
+  }, [dateConstraint, minDate, fieldMinDate]);
+
+  const effectiveMaxDate = useMemo(() => {
+    const staticMax = getMaxDate(dateConstraint, maxDate);
+    return mergeMaxDateBounds(staticMax, fieldMaxDate);
+  }, [dateConstraint, maxDate, fieldMaxDate]);
+
+  const constraintMessages = useMemo(
+    () => ({ minDateMessage, maxDateMessage }),
+    [minDateMessage, maxDateMessage]
+  );
 
   // input type="date" requires YYYY-MM-DD format
   const displayValue = value && typeof value === 'string' ? value.split('T')[0] : '';
 
+  useEffect(() => {
+    if (!displayValue) {
+      setConstraintError(null);
+      return;
+    }
+    const error = validateDateConstraints(
+      displayValue,
+      effectiveMinDate,
+      effectiveMaxDate,
+      dateConstraint,
+      constraintMessages
+    );
+    setConstraintError(error);
+  }, [displayValue, effectiveMinDate, effectiveMaxDate, dateConstraint, constraintMessages]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextValue = e.target.value;
+    onValueChange(nextValue);
+    if (!nextValue) {
+      setConstraintError(null);
+      return;
+    }
+    const error = validateDateConstraints(
+      nextValue,
+      effectiveMinDate,
+      effectiveMaxDate,
+      dateConstraint,
+      constraintMessages
+    );
+    setConstraintError(error);
+  };
+
+  const hasError = Boolean(constraintError);
+
   return (
-    <input
-      type="date"
-      value={displayValue}
-      onChange={(e) => onValueChange(e.target.value)}
-      disabled={isReadonly}
-      placeholder={placeholder}
-      className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
-        isReadonly ? 'cursor-not-allowed' : ''
-      } table-cell-input`}
-      style={{
-        borderRadius: '10px',
-        borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
-        backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
-      }}
-    />
+    <div className="table-cell-field w-full">
+      <input
+        type="date"
+        value={displayValue}
+        onChange={handleChange}
+        disabled={isReadonly}
+        placeholder={placeholder}
+        min={effectiveMinDate}
+        max={effectiveMaxDate}
+        title={constraintError || translateConfig(config['widget-data-tooltip'])}
+        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+          isReadonly ? 'cursor-not-allowed' : ''
+        } table-cell-input`}
+        style={{
+          borderRadius: '10px',
+          borderColor: hasError
+            ? 'var(--owt-color-error, #B91C1C)'
+            : 'var(--owt-widget-input-border, #C4C4C4)',
+          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+        }}
+      />
+      <p
+        className="table-cell-field-error text-xs mt-0.5 leading-tight"
+        style={{
+          color: hasError ? 'var(--owt-color-error, #B91C1C)' : 'transparent',
+        }}
+        aria-live="polite"
+      >
+        {constraintError ?? '\u00a0'}
+      </p>
+    </div>
   );
 };
 
@@ -282,6 +495,25 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   
   // Check if any row is being edited (either manually or via section edit mode)
   const isAnyRowEditing = editingState !== null || isAdding;
+
+  const canSaveEditingRow = useMemo(() => {
+    if (!editingState) {
+      return false;
+    }
+    return isTableRowDataValid(
+      editingState.currentValue,
+      columns,
+      isReadonly,
+      translateConfig
+    );
+  }, [editingState, columns, isReadonly, translateConfig]);
+
+  const canSaveNewRow = useMemo(() => {
+    if (!isAdding || !newRowData) {
+      return false;
+    }
+    return isTableRowDataValid(newRowData, columns, isReadonly, translateConfig);
+  }, [isAdding, newRowData, columns, isReadonly, translateConfig]);
 
   // Show confirmation dialog
   const showConfirmation = useCallback((message: string, onConfirm: () => void, onCancel: () => void) => {
@@ -379,6 +611,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   // Save edited row
   const saveEdit = useCallback(async () => {
     if (!editingState) return;
+    if (!canSaveEditingRow) return;
 
     const rowData = editingState.currentValue;
     const rowIndex = editingState.rowIndex;
@@ -453,7 +686,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [editingState, rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
+  }, [editingState, canSaveEditingRow, rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
 
   // Add new row
   const startAdd = useCallback(() => {
@@ -472,6 +705,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   // Save new row
   const saveAdd = useCallback(async () => {
     if (!isAdding || !newRowData) return;
+    if (!canSaveNewRow) return;
 
     setLoadingRowIndex(-1); // Use -1 to indicate new row
 
@@ -506,7 +740,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [isAdding, newRowData, rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode]);
+  }, [isAdding, newRowData, canSaveNewRow, rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode]);
 
   // Delete row
   const deleteRow = useCallback(async (rowIndex: number) => {
@@ -645,11 +879,25 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     }
   }, [isAdding, newRowData, columns, widgetConfig, rows.length, dispatch]);
 
+  const getRowValuesForEdit = useCallback(
+    (rowIndex: number): Record<string, any> => {
+      if (editingState && editingState.rowIndex === rowIndex) {
+        return editingState.currentValue ?? {};
+      }
+      if (isAdding && rowIndex === rows.length && newRowData) {
+        return newRowData;
+      }
+      return rows[rowIndex] ?? {};
+    },
+    [editingState, isAdding, rows, newRowData]
+  );
+
   // Lightweight cell renderer for table cells (no labels, compact)
   const renderTableCell = useCallback((rowIndex: number, column: any, cellValue: any, isReadonly: boolean) => {
     const columnKey = column['column-key'];
     const widgetType = column.widget || 'text';
     const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
+    const rowValues = getRowValuesForEdit(rowIndex);
     
     // Use lightweight cell config (no label, minimal styling)
     const cellConfig: BaseWidgetConfig = {
@@ -686,6 +934,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       return <TableCellDate
         config={cellConfig}
         value={cellValue}
+        rowValues={rowValues}
         onValueChange={(newValue) => updateCellValue(columnKey, newValue, rowIndex)}
       />;
     }
@@ -704,7 +953,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         />
       </div>
     );
-  }, [widgetConfig, updateCellValue]);
+  }, [widgetConfig, updateCellValue, getRowValuesForEdit]);
 
   // Render cell content (widget in edit mode, formatted value in view mode)
   const renderCell = useCallback((rowIndex: number, column: any, row: any) => {
@@ -827,6 +1076,22 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
           box-shadow: 0 0 0 1px var(--owt-widget-input-focus-border, #F07B1A);
           border-color: var(--owt-widget-input-focus-border, #F07B1A);
         }
+
+        /* Keep inputs and action buttons top-aligned when a cell shows validation text */
+        .${tableWidgetId} tr.table-row-editing td {
+          vertical-align: top;
+        }
+
+        .${tableWidgetId} .table-cell-field-error {
+          min-height: 1.125rem;
+        }
+
+        .${tableWidgetId} .table-cell-actions {
+          display: flex;
+          flex-direction: row;
+          gap: 0.5rem;
+          align-items: flex-start;
+        }
       `}</style>
       <div className={`table-widget-container ${tableWidgetId}`}>
         {/* Confirmation Dialog */}
@@ -931,7 +1196,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                 return (
                   <tr
                     key={rowIndex}
-                    className={isLoading ? 'opacity-50' : ''}
+                    className={`${isLoading ? 'opacity-50' : ''}${isEditing ? ' table-row-editing' : ''}`}
                     style={{
                       borderBottom: '1px solid var(--owt-widget-table-row-divider, #E4E4E4)',
                       backgroundColor: isEditing
@@ -955,11 +1220,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                       <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>
                         {isEditing ? (
                           // Show OK (Save)/Cancel buttons when row is being edited (works in both section edit mode and normal mode)
-                          <div className="flex flex-row gap-2 items-center" style={{ width: '100%' }}>
+                          <div className="table-cell-actions" style={{ width: '100%' }}>
                             <button
                               type="button"
                               onClick={saveEdit}
-                              disabled={isLoading}
+                              disabled={isLoading || !canSaveEditingRow}
                               className="px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
                               style={{ 
                                 display: 'inline-block', 
@@ -1034,19 +1299,22 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
 
               {/* New row being added */}
               {isAdding && newRowData && (
-                <tr style={{ backgroundColor: 'var(--owt-widget-table-editing-row-bg, #FBE6AA)' }}>
+                <tr
+                  className="table-row-editing"
+                  style={{ backgroundColor: 'var(--owt-widget-table-editing-row-bg, #FBE6AA)' }}
+                >
                   {columns.map((col) => (
                     <td key={col['column-key']} className="px-4 py-3 whitespace-nowrap">
                       {renderCell(rows.length, col, { ...newRowData, edit_action: 'ADD' })}
                     </td>
                   ))}
                   <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex gap-2">
+                    <div className="table-cell-actions">
                       <button
                         type="button"
                         onClick={saveAdd}
-                        disabled={loadingRowIndex === -1}
-                        className="px-3 py-1 text-xs disabled:opacity-50"
+                        disabled={loadingRowIndex === -1 || !canSaveNewRow}
+                        className="px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
                           borderRadius: 'var(--owt-btn-border-radius, 10px)',
                           backgroundColor: 'var(--owt-color-success, #16A34A)',

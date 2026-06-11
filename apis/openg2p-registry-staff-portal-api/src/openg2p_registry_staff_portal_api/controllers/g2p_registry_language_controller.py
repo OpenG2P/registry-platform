@@ -7,8 +7,6 @@ from openg2p_registry_core.schemas import (
     CreateLanguageRequest,
     GetAllLanguagesRequest,
     GetLanguageRequest,
-    LanguageOperationData,
-    LanguageOperationResponse,
     RegistryLanguageData,
     RegistryLanguagesResponse,
     RegistryLanguageResponse,
@@ -47,19 +45,19 @@ class G2PRegistryLanguageController(BaseController):
         self.router.add_api_route(
             "/create_language",
             self.create_language,
-            responses={200: {"model": LanguageOperationResponse}},
+            responses={200: {"model": RegistryLanguageResponse}},
             methods=["POST"],
         )
         self.router.add_api_route(
             "/update_language",
             self.update_language,
-            responses={200: {"model": LanguageOperationResponse}},
+            responses={200: {"model": RegistryLanguageResponse}},
             methods=["POST"],
         )
         self.router.add_api_route(
             "/remove_language",
             self.remove_language,
-            responses={200: {"model": LanguageOperationResponse}},
+            responses={200: {"model": RegistryLanguageResponse}},
             methods=["POST"],
         )
 
@@ -82,28 +80,28 @@ class G2PRegistryLanguageController(BaseController):
             return self.helper.construct_error_response(error_exception, get_request)
 
     @require_permissions({"registryConfiguration:edit"})
-    async def create_language(self, create_request: CreateLanguageRequest) -> LanguageOperationResponse:
+    async def create_language(self, create_request: CreateLanguageRequest) -> RegistryLanguageResponse:
         try:
-            language_operation_data: LanguageOperationData = await self.g2p_registry_language_controller_service.create_language(create_request)
-            return self.helper.construct_language_operation_success_response(language_operation_data, create_request)
+            language: RegistryLanguageData = await self.g2p_registry_language_controller_service.create_language(create_request)
+            return self.helper.construct_registry_language_success_response(language, create_request)
         except Exception as error_exception:
             _logger.error(f"Error in create_language: {str(error_exception)}")
             return self.helper.construct_error_response(error_exception, create_request)
 
     @require_permissions({"registryConfiguration:edit"})
-    async def update_language(self, update_request: UpdateLanguageRequest) -> LanguageOperationResponse:
+    async def update_language(self, update_request: UpdateLanguageRequest) -> RegistryLanguageResponse:
         try:
-            language_operation_data: LanguageOperationData = await self.g2p_registry_language_controller_service.update_language(update_request)
-            return self.helper.construct_language_operation_success_response(language_operation_data, update_request)
+            language: RegistryLanguageData = await self.g2p_registry_language_controller_service.update_language(update_request)
+            return self.helper.construct_registry_language_success_response(language, update_request)
         except Exception as error_exception:
             _logger.error(f"Error in update_language: {str(error_exception)}")
             return self.helper.construct_error_response(error_exception, update_request)
 
     @require_permissions({"registryConfiguration:edit"})
-    async def remove_language(self, remove_request: RemoveLanguageRequest) -> LanguageOperationResponse:
+    async def remove_language(self, remove_request: RemoveLanguageRequest) -> RegistryLanguageResponse:
         try:
-            language_operation_data: LanguageOperationData = await self.g2p_registry_language_controller_service.remove_language(remove_request)
-            return self.helper.construct_language_operation_success_response(language_operation_data, remove_request)
+            language: RegistryLanguageData = await self.g2p_registry_language_controller_service.remove_language(remove_request)
+            return self.helper.construct_registry_language_success_response(language, remove_request)
         except Exception as error_exception:
             _logger.error(f"Error in remove_language: {str(error_exception)}")
             return self.helper.construct_error_response(error_exception, remove_request)

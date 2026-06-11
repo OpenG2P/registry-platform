@@ -22,7 +22,8 @@ export type LanguageConfig = {
     language_label: string;
     language_flag_base64: string;
     is_default: boolean;
-    language_translation: Record<string, any>;
+    core_translation?: Record<string, string> | null;
+    domain_translation?: Record<string, string> | null;
 };
 export type ClientSafeConfigShape = {
     partnerImportExportEnable: boolean;
