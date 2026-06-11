@@ -26,8 +26,9 @@ import { dummyProfile } from '../assets';
  *
  *   Key             | Description
  *   --------------- | -----------------------------------------------
- *   image           | Backend storage ID       (e.g. "record_image_storage_id")
- *   imageUrl        | Resolved image URL       (e.g. "record_image_url") — used for display
+ *   imageUrl        | Image URL for display (e.g. "record_image_url"). Upload replaces
+ *                     with a File; delete sets undefined. Storage ID is handled on save
+ *                     by the host app (e.g. staff-portal-ui).
  *   name            | Record display name      (e.g. "record_name")
  *   functionalId    | Functional record ID     (e.g. "functional_record_id")
  *   status          | Record status value      (e.g. "record_status")
@@ -97,7 +98,6 @@ import { dummyProfile } from '../assets';
  *   "widget-type": "group",
  *   "widget-id": "registry-header",
  *   "widget-data-path": {
- *     "image": "record_image_storage_id",
  *     "imageUrl": "record_image_url",
  *     "name": "record_name",
  *     "functionalId": "functional_record_id",
@@ -323,20 +323,20 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
     [paths, values, schemaData],
   );
 
-  const imageVal = findValue('image');
   const imageUrlVal = findValue('imageUrl');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (imageVal instanceof File) {
-      const url = URL.createObjectURL(imageVal);
+    if (imageUrlVal instanceof File) {
+      const url = URL.createObjectURL(imageUrlVal);
       setPreviewUrl(url);
       return () => URL.revokeObjectURL(url);
     }
     setPreviewUrl(null);
-  }, [imageVal]);
+  }, [imageUrlVal]);
 
-  const displayImageUrl = previewUrl || (typeof imageUrlVal === 'string' && imageUrlVal ? imageUrlVal : null);
+  const displayImageUrl =
+    previewUrl || (typeof imageUrlVal === 'string' && imageUrlVal ? imageUrlVal : null);
 
   const displayName = findValue('name') || '';
   const functionalId = findValue('functionalId') || '';
@@ -470,16 +470,17 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   const handleImageUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
-      if (!file) return;
-      updateFieldValue('image', file);
+      if (!file || !paths.imageUrl) return;
+      dispatch(setValues(setValueByPath({ ...values }, paths.imageUrl, file)));
       e.target.value = '';
     },
-    [updateFieldValue],
+    [paths.imageUrl, values, dispatch],
   );
 
   const handleImageDelete = useCallback(() => {
-    updateFieldValue('image', '');
-  }, [updateFieldValue]);
+    if (!paths.imageUrl) return;
+    dispatch(setValues(setValueByPath({ ...values }, paths.imageUrl, null)));
+  }, [paths.imageUrl, values, dispatch]);
 
   // ── Scoped class for CSS isolation ────────────────────────────
   const cls = `header-section-widget-${widgetConfig['widget-id']}`;
