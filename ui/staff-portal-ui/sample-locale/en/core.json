@@ -37,6 +37,7 @@
       "searchPlaceholder": "Search...",
       "selectAction": "Select {label}",
       "selectTitle": "Select {label}",
+      "selectRecord": "Select {label}",
       "change": "Change",
       "noResults": "No results found",
       "searchHint": "Type and press Enter or click search",
@@ -734,6 +735,7 @@
     "shape_coordinates_json": "Shape Coordinates Json",
     "shape_type": "Shape Type",
     "size_of_group": "Size Of Group",
+    "size_total": "Members",
     "soil_fertility": "Soil Fertility",
     "sort_order": "Sort Order",
     "source_of_income": "Source Of Income",
@@ -1220,6 +1222,7 @@
     "gps_latitude": "Gps Latitude",
     "gps_longitude": "Gps Longitude",
     "headship_type": "Headship Type",
+    "household_head_name": "Head",
     "high_mobility_indicator": "High Mobility Indicator",
     "history_id": "History ID",
     "id_allocation_latest_error_code": "ID Allocation Latest Error Code",
@@ -1422,6 +1425,10 @@
     "due_at": "Due at",
     "profile_image_file": "Profile image",
     "registry_themes": "Themes",
-    "edit_registry_details": "Edit Registry Details"
+    "edit_registry_details": "Edit Registry Details",
+    "Click to Search Household": "Click to Search Household",
+    "Household": "Household",
+    "Search by name or ID": "Search by name or ID",
+    "Select Household": "Select Household"
   }
   

@@ -358,6 +358,10 @@ const baseWidgetSchema = {
           type: 'string' as const,
           description: 'Label for the empty-state search button (default: Select {widget-label})',
         },
+        select_record_label: {
+          type: 'string' as const,
+          description: 'Label for the apply button in the lookup popup (default: Select {widget-label})',
+        },
       },
       description: 'Register lookup widget configuration',
     },
