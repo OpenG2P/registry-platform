@@ -22,6 +22,7 @@ import {
   HeaderSectionWidget,
   ScoresDisplayWidget,
   IdAuthenticationWidget,
+  RegisterLookupWidget,
 } from '../widgets';
 
 /**
@@ -89,6 +90,9 @@ export const registerDefaultWidgets = () => {
 
   // ID Authentication widget for OIDC-based foundational ID authentication (view-only + action)
   widgetRegistry.register({ widget: 'id-authentication', component: IdAuthenticationWidget });
+
+  // Register lookup widget — searchable popup to select a record from any register
+  widgetRegistry.register({ widget: 'register-lookup', component: RegisterLookupWidget });
 };
 
 // Auto-register on import

@@ -1,7 +1,6 @@
 "use client";
 
 import { routeServiceEndpoint } from '@/shared/utils/serviceRouteMapper';
-import { separatePaginationAndPayload } from '@/shared/utils/paginationHelper';
 
 /**
  * Type definition for DataSourceRequestHandler
@@ -29,27 +28,14 @@ const _dataSourceRequestHandler: DataSourceRequestHandler = async (
         // Route service + endpoint to actual Next.js API URL
         const url = routeServiceEndpoint(service, endpoint);
 
-        // Separate pagination from request payload
-        const { pagination, payload } = separatePaginationAndPayload(params);
-
-        // Build request body
-        const requestBody: any = {
-            ...payload,
-        };
-
-        // Add pagination if present
-        if (pagination) {
-            requestBody.pagination_request = pagination;
-        }
-
-        // Make API call to Next.js route
+        // Pass params as a flat body; each API route maps to backend shape
         const response = await fetch(url, {
             method: method || 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...options?.headers,
             },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify(params),
         });
 
         // Handle HTTP errors

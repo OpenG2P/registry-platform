@@ -59,8 +59,12 @@ export function normalizeEditActions(
             result.link_internal_record_id = linkInternalRecordId;
             result.internal_record_id = "";
         }
-
-        if (document_store_id && result.record_image_storage_id !== undefined) {
+        // delete the profile image
+        if (result.record_image_url == null) {
+            result.record_image_storage_id = '';
+        }
+        // update the profile image
+        if (document_store_id) {
             result.record_image_storage_id = document_store_id;
         }
 

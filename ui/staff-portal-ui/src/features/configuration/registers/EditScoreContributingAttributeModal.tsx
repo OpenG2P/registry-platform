@@ -103,7 +103,7 @@ export default function EditScoreContributingAttributeModal({
                     attribute_name: attributeName.trim(),
                     attribute_computation_required: computationRequired,
                     attribute_computation_value: value,
-                    attribute_weightage: attributeWeightage,
+                    attribute_weightage: weightage,
                 }),
             },
         );

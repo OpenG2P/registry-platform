@@ -1,7 +1,22 @@
-## Sample Locale Reference
+## Sample Locale
 
-Translations are handled dynamically at runtime. The `sample-locale` folder is not used directly in application code; it is only a reference for how translation JSON should be organized into `core` and `domain`.
+This folder is both a **reference** and a **fallback**:
 
-- `core`: Platform-level translations. This includes common keys and labels used across the product and labels used by all features in the platform (for example: register, configuration, change request, incoming message, and other shared or feature-level modules).
-- `domain`: Registry/domain-specific translations. This includes field labels, section labels, register labels, and other domain-related UI text.
-- Note: Try to maintain all field labels and section labels as snake_case keys.
+- **Reference** — shows how translations should be structured when uploading a language via the
+  Configuration UI. Organize keys into `core` and `domain` following the same format here.
+
+- **Fallback** — `language.helpers.ts` bundles these English translations at compile time.
+  Any key missing from the API language config silently falls back to the values here,
+  so the app never shows a `MISSING_MESSAGE` error.
+
+### Files
+
+- `core.json` — Platform-level translations (common labels, register, configuration, change
+  request, incoming messages, and other shared feature UI).
+- `domain.json` — Domain/registry-specific translations (field labels, section labels, register
+  names). Domain keys win over core keys on duplicates.
+
+### Rules
+
+- Keep all keys in `snake_case`.
+- When adding a new UI string, add it here first so the fallback stays complete.
