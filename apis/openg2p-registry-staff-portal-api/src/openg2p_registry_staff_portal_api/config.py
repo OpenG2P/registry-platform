@@ -29,13 +29,6 @@ class Settings(ExtSettings):
     auth_provider_api_url: str | None = None
     keycloak_client_id: str | None = None
 
-    # Keycloak Admin — sync DP_<policy_mnemonic> client roles on add/remove policy
-    keycloak_admin_url: str | None = None
-    keycloak_admin_client_id: str | None = None
-    keycloak_admin_client_secret: str | None = None
-    keycloak_admin_realm: str = "staff"
-    keycloak_data_policy_role_sync_enabled: bool = True
-
     # OpenG2P Audit Manager integration
     # Both `audit_enabled=true` AND a non-empty `audit_manager_url` are
     # required to actually emit audits. Default = disabled / no-op.

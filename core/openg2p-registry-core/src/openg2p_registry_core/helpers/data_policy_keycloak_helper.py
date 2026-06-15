@@ -57,7 +57,7 @@ class DataPolicyKeycloakHelper:
 
         token_url = (
             f"{self._config.keycloak_admin_url.rstrip('/')}"
-            f"/realms/master/protocol/openid-connect/token"
+            f"/realms/{self._config.keycloak_admin_realm}/protocol/openid-connect/token"
         )
         data = {
             "grant_type": "client_credentials",
@@ -109,7 +109,7 @@ class DataPolicyKeycloakHelper:
         return resp.json()
 
     async def _resolve_client_uuid(self, client_id: str) -> str:
-        realm = self._config.keycloak_admin_realm
+        realm = self._config.keycloak_realm
         clients = await self._admin_request(
             "GET",
             f"/realms/{realm}/clients",
@@ -142,7 +142,7 @@ class DataPolicyKeycloakHelper:
         role_name = data_policy_role_name(policy_mnemonic)
         client_id = self._registry_client_id()
         client_uuid = await self._resolve_client_uuid(client_id)
-        realm = self._config.keycloak_admin_realm
+        realm = self._config.keycloak_realm
 
         body: dict[str, str] = {"name": role_name}
         if policy_description:
@@ -179,7 +179,7 @@ class DataPolicyKeycloakHelper:
         role_name = data_policy_role_name(policy_mnemonic)
         client_id = self._registry_client_id()
         client_uuid = await self._resolve_client_uuid(client_id)
-        realm = self._config.keycloak_admin_realm
+        realm = self._config.keycloak_realm
 
         await self._admin_request(
             "DELETE",
