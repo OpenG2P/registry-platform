@@ -160,6 +160,7 @@ class RegisterData(BaseModel):
     register_icon: Optional[str] = None
     functional_id_generation_required: bool = False
     completion_score_required: bool = False
+    outgest_applicable: bool = False
 
 
 class AllRegistersRegisterData(RegisterData):
@@ -177,6 +178,7 @@ class AllRegistersRegisterData(RegisterData):
     dedup_threshold_score: Optional[float] = None
     functional_id_generation_required: bool = False
     completion_score_required: bool = False
+    outgest_applicable: bool = False
 
 
 class ChildRegisterData(BaseModel):
@@ -1106,6 +1108,7 @@ class CreateRegisterRequestPayload(BaseModel):
     register_purpose: Optional[str] = None
     functional_id_generation_required: bool = False
     completion_score_required: bool = False
+    outgest_applicable: bool = False
 
 
 class EditRegisterRequestPayload(BaseModel):
@@ -1120,6 +1123,7 @@ class EditRegisterRequestPayload(BaseModel):
     register_purpose: Optional[str] = None
     functional_id_generation_required: Optional[bool] = None
     completion_score_required: Optional[bool] = None
+    outgest_applicable: Optional[bool] = None
 
 
 class DeleteRegisterRequestPayload(BaseModel):

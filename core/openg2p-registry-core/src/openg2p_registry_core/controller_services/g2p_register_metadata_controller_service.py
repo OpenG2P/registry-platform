@@ -379,6 +379,7 @@ class G2PRegisterMetadataControllerService(BaseService):
             register_purpose=payload.register_purpose,
             functional_id_generation_required=payload.functional_id_generation_required,
             completion_score_required=payload.completion_score_required,
+            outgest_applicable=payload.outgest_applicable,
         )
         return register_data
 
@@ -402,6 +403,7 @@ class G2PRegisterMetadataControllerService(BaseService):
             register_purpose=payload.register_purpose,
             functional_id_generation_required=payload.functional_id_generation_required,
             completion_score_required=payload.completion_score_required,
+            outgest_applicable=payload.outgest_applicable,
         )
         return register_data
 

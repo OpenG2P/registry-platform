@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime
 
@@ -11,6 +12,8 @@ from ..models import (
     ProcessStatusEnum,
 )
 from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
+
+_logger = logging.getLogger(__name__)
 
 
 async def fanout_outgest_rows(
@@ -31,6 +34,13 @@ async def fanout_outgest_rows(
         raise ValueError(
             "fanout_outgest_rows requires either intake_form_submission_id or change_request_id"
         )
+
+    if not register_definition.outgest_applicable:
+        _logger.info(
+            "Skipping outgest fanout — outgest_applicable=False for register_id=%s",
+            register_definition.register_id,
+        )
+        return
 
     topics = (
         await session.execute(

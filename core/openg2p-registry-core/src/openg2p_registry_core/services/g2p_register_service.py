@@ -839,6 +839,7 @@ class G2PRegisterService(BaseService):
                 dedup_threshold_score=register_definition.dedup_threshold_score,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
                 completion_score_required=register_definition.completion_score_required,
+                outgest_applicable=register_definition.outgest_applicable,
             )
             all_registers_list.append(register_data)
 
@@ -893,6 +894,7 @@ class G2PRegisterService(BaseService):
                 register_description=register_definition.register_description,
                 master_register_id=register_definition.master_register_id,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
+                outgest_applicable=register_definition.outgest_applicable,
             )
             dashboard_registers_list.append(register_data)
 
@@ -943,6 +945,7 @@ class G2PRegisterService(BaseService):
             register_description=master_register_definition.register_description,
             master_register_id=master_register_definition.master_register_id,
             functional_id_generation_required=master_register_definition.functional_id_generation_required,
+            outgest_applicable=master_register_definition.outgest_applicable,
         )
         return master_register_data
 
@@ -2393,6 +2396,7 @@ class G2PRegisterService(BaseService):
         register_purpose: str | None = None,
         functional_id_generation_required: bool = False,
         completion_score_required: bool = False,
+        outgest_applicable: bool = False,
     ) -> RegisterData:
         """
         Create a new register definition and a null register schema record.
@@ -2426,6 +2430,7 @@ class G2PRegisterService(BaseService):
                 register_purpose=register_purpose if register_purpose else RegisterPurposeEnum.REGISTER.value,
                 functional_id_generation_required=functional_id_generation_required,
                 completion_score_required=completion_score_required,
+                outgest_applicable=outgest_applicable,
             )
             session.add(register_definition)
 
@@ -2452,6 +2457,7 @@ class G2PRegisterService(BaseService):
                 register_rank=register_definition.register_rank,
                 register_icon=register_definition.register_icon,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
+                outgest_applicable=register_definition.outgest_applicable,
             )
 
     async def edit_register(
@@ -2467,6 +2473,7 @@ class G2PRegisterService(BaseService):
         register_purpose: str | None = None,
         functional_id_generation_required: bool | None = None,
         completion_score_required: bool | None = None,
+        outgest_applicable: bool | None = None,
     ) -> RegisterData:
         """
         Edit an existing register definition.
@@ -2549,6 +2556,9 @@ class G2PRegisterService(BaseService):
             if completion_score_required is not None:
                 register_definition.completion_score_required = completion_score_required
 
+            if outgest_applicable is not None:
+                register_definition.outgest_applicable = outgest_applicable
+
             await session.commit()
             await session.refresh(register_definition)
 
@@ -2564,6 +2574,7 @@ class G2PRegisterService(BaseService):
                 register_rank=register_definition.register_rank,
                 register_icon=register_definition.register_icon,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
+                outgest_applicable=register_definition.outgest_applicable,
             )
 
     async def delete_register(self, register_id: str) -> RegisterData:
@@ -2595,6 +2606,7 @@ class G2PRegisterService(BaseService):
                 register_rank=register_definition.register_rank,
                 register_icon=register_definition.register_icon,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
+                outgest_applicable=register_definition.outgest_applicable,
             )
 
             # Delete associated register schema
