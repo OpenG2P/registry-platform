@@ -2,8 +2,10 @@ name: NPM Publish UI Widget
 
 # Publishes @openg2p/registry-widgets via npm trusted publishing (OIDC).
 #
-# Dev (automatic): push to develop → bump dev prerelease → publish --tag next
+# Dev (automatic): push to develop → dev prerelease version → publish --tag next
+#   → sync staff-portal-ui → commit (ui-widgets + staff-portal-ui)
 # Release (manual): Run workflow → enter version (e.g. 1.1.0) → publish latest
+#   → sync staff-portal-ui → commit (ui-widgets + staff-portal-ui)
 #
 # npm trusted publisher (one per package):
 #   Repository: OpenG2P/registry-platform
@@ -56,7 +58,7 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      - name: Bump dev prerelease version
+      - name: Set dev prerelease version
         run: npm version prerelease --preid=dev --no-git-tag-version
 
       - name: Build
@@ -65,14 +67,21 @@ jobs:
       - name: Publish to npm (dist-tag next)
         run: npm publish --tag next --access public
 
-      - name: Commit version bump
+      - name: Commit version and sync staff-portal-ui
         working-directory: ${{ github.workspace }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json
-          git diff --staged --quiet && echo "No version files to commit" && exit 0
-          git commit -m "chore(ui-widgets): bump version for npm next publish [skip ci]"
+          WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
+
+          npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-portal-ui
+
+          git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
+            ui/staff-portal-ui/package.json ui/staff-portal-ui/package-lock.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(ui-widgets): version for npm next publish, sync staff-portal-ui @${WIDGET_VERSION} [skip ci]"
+          fi
+
           git push
 
   publish-release:
@@ -134,12 +143,19 @@ jobs:
       - name: Publish to npm (latest)
         run: npm publish --access public
 
-      - name: Commit version bump
+      - name: Commit version and sync staff-portal-ui
         working-directory: ${{ github.workspace }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json
-          git diff --staged --quiet && echo "No version files to commit" && exit 0
-          git commit -m "chore(ui-widgets): release v${{ inputs.version }} [skip ci]"
+          WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
+
+          npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-portal-ui
+
+          git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
+            ui/staff-portal-ui/package.json ui/staff-portal-ui/package-lock.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(ui-widgets): release v${WIDGET_VERSION}, sync staff-portal-ui [skip ci]"
+          fi
+
           git push
