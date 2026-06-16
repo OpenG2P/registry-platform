@@ -36,6 +36,9 @@ class G2PRegisterDefinition(BaseORMModel):
     # Completion score configuration
     completion_score_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     
+    # Outgest configuration
+    outgest_applicable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
     # Registrant authentication configuration
     requires_registrant_authentication: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     registrant_authentication_validity_days: Mapped[int] = mapped_column(Integer, nullable=True, default=730)
