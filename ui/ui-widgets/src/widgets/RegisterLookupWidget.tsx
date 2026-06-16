@@ -582,8 +582,8 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
             } ${!isEnabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white cursor-pointer'}`}
           >
             <img src={searchIcon} alt="" className="w-4 h-4 opacity-50 flex-shrink-0" />
-            <span className="truncate">{actionLabel}</span>
-            {isRequired && <span className="text-red-500 ml-1">*</span>}
+            <span className="min-w-0 truncate">{actionLabel}</span>
+            {isRequired && <span className="shrink-0 text-red-500">*</span>}
           </button>
           {touched && error.length > 0 && <p className="text-red-500 text-sm mt-1">{error[0]}</p>}
         </div>

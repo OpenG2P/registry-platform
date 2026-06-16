@@ -2,6 +2,7 @@ import React, { useMemo, useCallback } from 'react';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
+import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 /**
  * Checkbox widget with advanced features
@@ -110,12 +111,11 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     return (
       <div className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-baseline">
-          <label className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
-            {translateConfig(widgetConfig['widget-label'])}
-            {isRequired && (
-              <span className="text-red-500 ml-1">*</span>
-            )}
-          </label>
+          <WidgetFieldLabel
+            className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+            label={translateConfig(widgetConfig['widget-label'])}
+            required={isRequired}
+          />
           <div className="flex-1 min-w-0">
             <label className="inline-flex cursor-pointer items-baseline gap-2">
               <input
@@ -240,12 +240,11 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
   return (
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-baseline">
-        <label className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
-          {translateConfig(widgetConfig['widget-label'])}
-          {isRequired && (
-            <span className="text-red-500 ml-1">*</span>
-          )}
-        </label>
+        <WidgetFieldLabel
+          className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+          label={translateConfig(widgetConfig['widget-label'])}
+          required={isRequired}
+        />
         <div className="flex-1 min-w-0">
           <div className={layoutConfig.className} style={layoutConfig.style} onBlur={onBlur}>
             {loading ? (

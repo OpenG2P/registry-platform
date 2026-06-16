@@ -5,7 +5,7 @@ import { WidgetRootState } from '../store';
 import { setValue, setValues, setError, setTouched, setLoading, setDataSource } from '../store/widgetSlice';
 import { getWidgetValue, setWidgetValue } from '../utils/pathUtils';
 import { validateWidget } from '../utils/validation';
-import { shouldShowWidget, shouldEnableWidget, shouldRequireWidget, evaluateWidgetConditions, hasVisibilityRules } from '../utils/conditions';
+import { shouldShowWidget, shouldEnableWidget, evaluateWidgetConditions, hasVisibilityRules } from '../utils/conditions';
 import { formatValue } from '../utils/formatting';
 import {
   getStaticDataSource,

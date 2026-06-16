@@ -3,6 +3,7 @@ import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetRenderer } from '../components/WidgetRenderer';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
+import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 /**
  * Iterable accordion widget - expandable/collapsible container for widgets
@@ -104,12 +105,11 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
   return (
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-start mb-2">
-        <label className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
-          {translateConfig(widgetConfig['widget-label'])}
-          {isRequired && (
-            <span className="text-red-500 ml-1">*</span>
-          )}
-        </label>
+        <WidgetFieldLabel
+          className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          label={translateConfig(widgetConfig['widget-label'])}
+          required={isRequired}
+        />
         <div className="flex-1 min-w-0 flex justify-between items-center">
           <div className="flex-1"></div>
           {operations.add && !isReadonly && isEnabled && (

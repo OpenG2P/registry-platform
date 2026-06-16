@@ -2,6 +2,7 @@ import React, { useMemo, useCallback, useId } from 'react';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig, BooleanRepresentation } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
+import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 /**
  * Boolean widget with advanced features
@@ -151,12 +152,11 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     return (
       <div className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-baseline">
-          <label className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
-            {translateConfig(widgetConfig['widget-label'])}
-            {isRequired && (
-              <span className="text-red-500 ml-1">*</span>
-            )}
-          </label>
+          <WidgetFieldLabel
+            className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+            label={translateConfig(widgetConfig['widget-label'])}
+            required={isRequired}
+          />
           <div className="flex-1 min-w-0">
             <label className="inline-flex items-baseline cursor-pointer gap-2">
               <input
@@ -199,12 +199,11 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     return (
       <div className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-baseline">
-          <label className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
-            {translateConfig(widgetConfig['widget-label'])}
-            {isRequired && (
-              <span className="text-red-500 ml-1">*</span>
-            )}
-          </label>
+          <WidgetFieldLabel
+            className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+            label={translateConfig(widgetConfig['widget-label'])}
+            required={isRequired}
+          />
           <div className="flex-1 min-w-0">
             <div className={containerClass} onBlur={onBlur}>
               {allowUnset && (
@@ -261,12 +260,11 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
   return (
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-baseline">
-        <label className="text-base font-medium leading-normal text-gray-700 sm:min-w-[150px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
-          {translateConfig(widgetConfig['widget-label'])}
-          {isRequired && (
-            <span className="text-red-500 ml-1">*</span>
-          )}
-        </label>
+        <WidgetFieldLabel
+          className="text-base font-medium leading-normal text-gray-700 sm:min-w-[150px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+          label={translateConfig(widgetConfig['widget-label'])}
+          required={isRequired}
+        />
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-3" onBlur={onBlur}>
             {allowUnset && (
