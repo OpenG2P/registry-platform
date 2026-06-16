@@ -25,7 +25,10 @@ export async function POST(request: NextRequest) {
                 dedup_threshold_score: body.dedup_threshold_score,
                 functional_id_generation_required: body.functional_id_generation_required,
                 completion_score_required: body.completion_score_required,
-
+                requires_registrant_authentication: body.requires_registrant_authentication,
+                registrant_authentication_validity_days: body.registrant_authentication_validity_days,
+                registrant_re_auth_warning_days_before: body.registrant_re_auth_warning_days_before,
+                outgest_applicable: body.outgest_applicable,
             },
         }),
     });

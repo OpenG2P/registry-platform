@@ -840,6 +840,9 @@ class G2PRegisterService(BaseService):
                 functional_id_generation_required=register_definition.functional_id_generation_required,
                 completion_score_required=register_definition.completion_score_required,
                 outgest_applicable=register_definition.outgest_applicable,
+                requires_registrant_authentication=register_definition.requires_registrant_authentication,
+                registrant_authentication_validity_days=register_definition.registrant_authentication_validity_days,
+                registrant_re_auth_warning_days_before=register_definition.registrant_re_auth_warning_days_before,
             )
             all_registers_list.append(register_data)
 
@@ -2397,6 +2400,9 @@ class G2PRegisterService(BaseService):
         functional_id_generation_required: bool = False,
         completion_score_required: bool = False,
         outgest_applicable: bool = False,
+        requires_registrant_authentication: bool = False,
+        registrant_authentication_validity_days: int | None = 730,
+        registrant_re_auth_warning_days_before: int | None = 30,
     ) -> RegisterData:
         """
         Create a new register definition and a null register schema record.
@@ -2431,6 +2437,9 @@ class G2PRegisterService(BaseService):
                 functional_id_generation_required=functional_id_generation_required,
                 completion_score_required=completion_score_required,
                 outgest_applicable=outgest_applicable,
+                requires_registrant_authentication=requires_registrant_authentication,
+                registrant_authentication_validity_days=registrant_authentication_validity_days,
+                registrant_re_auth_warning_days_before=registrant_re_auth_warning_days_before,
             )
             session.add(register_definition)
 
@@ -2458,6 +2467,10 @@ class G2PRegisterService(BaseService):
                 register_icon=register_definition.register_icon,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
                 outgest_applicable=register_definition.outgest_applicable,
+                completion_score_required=register_definition.completion_score_required,
+                requires_registrant_authentication=register_definition.requires_registrant_authentication,
+                registrant_authentication_validity_days=register_definition.registrant_authentication_validity_days,
+                registrant_re_auth_warning_days_before=register_definition.registrant_re_auth_warning_days_before,
             )
 
     async def edit_register(
@@ -2474,6 +2487,9 @@ class G2PRegisterService(BaseService):
         functional_id_generation_required: bool | None = None,
         completion_score_required: bool | None = None,
         outgest_applicable: bool | None = None,
+        requires_registrant_authentication: bool | None = None,
+        registrant_authentication_validity_days: int | None = None,
+        registrant_re_auth_warning_days_before: int | None = None,
     ) -> RegisterData:
         """
         Edit an existing register definition.
@@ -2506,6 +2522,15 @@ class G2PRegisterService(BaseService):
 
                 if dedup_threshold_score is not None:
                     register_definition.dedup_threshold_score = dedup_threshold_score
+
+                if requires_registrant_authentication is not None:
+                    register_definition.requires_registrant_authentication = requires_registrant_authentication
+
+                if registrant_authentication_validity_days is not None:
+                    register_definition.registrant_authentication_validity_days = registrant_authentication_validity_days
+
+                if registrant_re_auth_warning_days_before is not None:
+                    register_definition.registrant_re_auth_warning_days_before = registrant_re_auth_warning_days_before
 
             else:
                 # Allow editing all fields
@@ -2553,6 +2578,15 @@ class G2PRegisterService(BaseService):
                 if functional_id_generation_required is not None:
                     register_definition.functional_id_generation_required = functional_id_generation_required
 
+                if requires_registrant_authentication is not None:
+                    register_definition.requires_registrant_authentication = requires_registrant_authentication
+
+                if registrant_authentication_validity_days is not None:
+                    register_definition.registrant_authentication_validity_days = registrant_authentication_validity_days
+
+                if registrant_re_auth_warning_days_before is not None:
+                    register_definition.registrant_re_auth_warning_days_before = registrant_re_auth_warning_days_before
+
             if completion_score_required is not None:
                 register_definition.completion_score_required = completion_score_required
 
@@ -2575,6 +2609,10 @@ class G2PRegisterService(BaseService):
                 register_icon=register_definition.register_icon,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
                 outgest_applicable=register_definition.outgest_applicable,
+                completion_score_required=register_definition.completion_score_required,
+                requires_registrant_authentication=register_definition.requires_registrant_authentication,
+                registrant_authentication_validity_days=register_definition.registrant_authentication_validity_days,
+                registrant_re_auth_warning_days_before=register_definition.registrant_re_auth_warning_days_before,
             )
 
     async def delete_register(self, register_id: str) -> RegisterData:

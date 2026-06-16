@@ -380,6 +380,9 @@ class G2PRegisterMetadataControllerService(BaseService):
             functional_id_generation_required=payload.functional_id_generation_required,
             completion_score_required=payload.completion_score_required,
             outgest_applicable=payload.outgest_applicable,
+            requires_registrant_authentication=payload.requires_registrant_authentication,
+            registrant_authentication_validity_days=payload.registrant_authentication_validity_days,
+            registrant_re_auth_warning_days_before=payload.registrant_re_auth_warning_days_before,
         )
         return register_data
 
@@ -404,6 +407,9 @@ class G2PRegisterMetadataControllerService(BaseService):
             functional_id_generation_required=payload.functional_id_generation_required,
             completion_score_required=payload.completion_score_required,
             outgest_applicable=payload.outgest_applicable,
+            requires_registrant_authentication=payload.requires_registrant_authentication,
+            registrant_authentication_validity_days=payload.registrant_authentication_validity_days,
+            registrant_re_auth_warning_days_before=payload.registrant_re_auth_warning_days_before,
         )
         return register_data
 
