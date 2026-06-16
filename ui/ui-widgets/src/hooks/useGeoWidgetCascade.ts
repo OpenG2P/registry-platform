@@ -45,6 +45,7 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
   const valuesRef = useRef(values);
   const handlerRef = useRef(dataSourceRequestHandler);
   const lastCascadePublishRef = useRef<string | null | undefined>(undefined);
+  const lastDirectParentValueRef = useRef<any>(undefined);
 
   // Keep refs updated
   useEffect(() => {
@@ -135,6 +136,16 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
         event.value === null ||
         event.value === '' ||
         event.value === GEO_LEVEL_CLEARED;
+
+      const isFirstParentEvent = lastDirectParentValueRef.current === undefined;
+      const parentValueChanged =
+        !isFirstParentEvent &&
+        lastDirectParentValueRef.current !== event.value;
+      lastDirectParentValueRef.current = event.value;
+
+      if (!parentCleared && !parentValueChanged && !isFirstParentEvent) {
+        return;
+      }
 
       let parentValue = event.value;
       if (!parentCleared && (parentValue === undefined || parentValue === null)) {
@@ -265,16 +276,5 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
         )
       );
     }
-
-    // Notify descendants when this level changes via hierarchy/rehydration (handleChange may not run).
-    if (!isLastLevel && eventBus && lastCascadePublishRef.current !== level_value_id) {
-      lastCascadePublishRef.current = level_value_id;
-      eventBus.publish({
-        type: 'widget:change',
-        widgetId,
-        value: level_value_id,
-        timestamp: Date.now(),
-      });
-    }
-  }, [geoConfig, currentValue, widgetId, dataPath, dispatch, dataSourceOptions, eventBus, groupId]);
+  }, [geoConfig, currentValue, widgetId, dataPath, dispatch, dataSourceOptions, groupId]);
 };
