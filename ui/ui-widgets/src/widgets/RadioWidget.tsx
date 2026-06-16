@@ -130,7 +130,9 @@ export const RadioWidget = ({ config }: RadioWidgetProps) => {
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     const selectedOption = processedOptions.find(opt => opt.value === currentValue);
-    const displayValue = selectedOption ? selectedOption.label : (allowUnset && currentValue === null ? '-' : '');
+    const displayValue = selectedOption
+      ? translateConfig(selectedOption.label)
+      : (allowUnset && currentValue === null ? '-' : '');
 
     return (
       <div className="mb-[10px] RadioDisplayWidget flex flex-col sm:flex-row sm:items-start">

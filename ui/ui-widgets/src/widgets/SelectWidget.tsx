@@ -45,7 +45,7 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
     const label = translateConfig(widgetConfig['widget-label']);
     // Find the selected option's label
     const selectedOption = dataSourceOptions.find((option) => option.value === value);
-    const displayValue = selectedOption ? selectedOption.label : (value || '-');
+    const displayValue = selectedOption ? translateConfig(selectedOption.label) : (value || '-');
     
     return (
       <div className="mb-[10px] SelectDisplayWidget flex flex-col sm:flex-row sm:items-start">
@@ -88,7 +88,7 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
             <option value="">{translate('common.select')}</option>
             {dataSourceOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {translateConfig(option.label)}
               </option>
             ))}
           </select>

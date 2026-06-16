@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
@@ -192,22 +192,27 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
   }, [isOpen]);
 
   const processedOptions = useMemo(() => {
-    let options = [...dataSourceOptions];
+    let options = dataSourceOptions.map((opt) => {
+      const rawLabel = String(opt.label ?? opt.value ?? '');
+      return {
+        value: opt.value,
+        label: translateConfig(rawLabel),
+        rawLabel,
+      };
+    });
     if (sortOptions) {
-      options.sort((a, b) => {
-        const labelA = String(a.label || '').toLowerCase();
-        const labelB = String(b.label || '').toLowerCase();
-        return labelA.localeCompare(labelB);
-      });
+      options.sort((a, b) => a.label.localeCompare(b.label));
     }
     return options;
-  }, [dataSourceOptions, sortOptions]);
+  }, [dataSourceOptions, sortOptions, translateConfig]);
 
   const filteredOptions = useMemo(() => {
     if (!searchQuery.trim()) return processedOptions;
     const q = searchQuery.trim().toLowerCase();
-    return processedOptions.filter((opt) =>
-      String(opt.label || '').toLowerCase().includes(q)
+    return processedOptions.filter(
+      (opt) =>
+        opt.label.toLowerCase().includes(q) ||
+        opt.rawLabel.toLowerCase().includes(q)
     );
   }, [processedOptions, searchQuery]);
 
@@ -246,7 +251,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
   const selectedLabels = useMemo(() => {
     return selectedValues.map((val) => {
       const opt = processedOptions.find((o) => o.value === val);
-      return opt ? translateConfig(opt.label) : String(val);
+      return opt ? opt.label : translateConfig(String(val));
     });
   }, [selectedValues, processedOptions, translateConfig]);
 
@@ -254,11 +259,6 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
   const visibleLabels = selectedLabels.slice(0, 5);
   const overflowCount = Math.max(0, selectedLabels.length - 10);
   const disabled = !isEnabled || loading || widgetConfig['widget-readonly'];
-
-  const summaryText = useMemo(() => {
-    if (selectedLabels.length === 0) return translate('common.select') || 'Select…';
-    return `${selectedLabels.length} selected`;
-  }, [selectedLabels.length, translate]);
 
   const renderSelectedLabels = (options?: { readonly?: boolean }) => {
     if (selectedLabels.length === 0) return null;
@@ -279,7 +279,10 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
                 type="button"
                 onClick={() => handleToggle(selectedValues[index], false)}
                 className="shrink-0 text-blue-600 hover:text-blue-900 focus:outline-none"
-                aria-label={`Remove ${label}`}
+                aria-label={translate('common.removeItem', {
+                  label,
+                  defaultValue: `Remove ${label}`,
+                })}
               >
                 ×
               </button>
@@ -293,7 +296,10 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             onClick={() => setIsListPopupOpen((prev) => !prev)}
             className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            +{overflowCount} more
+            {translate('common.moreSelected', {
+              count: overflowCount,
+              defaultValue: `+${overflowCount} more`,
+            })}
           </button>
         )}
       </div>
@@ -322,7 +328,10 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           className="px-3 py-2 text-xs font-semibold text-gray-500 shrink-0"
           style={{ borderBottom: '1px solid #e5e7eb' }}
         >
-          All selected ({selectedLabels.length})
+          {translate('common.allSelected', {
+            count: selectedLabels.length,
+            defaultValue: `All selected (${selectedLabels.length})`,
+          })}
         </div>
         <div className="overflow-y-auto flex-1 min-h-0 py-1 overscroll-contain">
           {selectedLabels.map((label, index) => (
@@ -339,18 +348,15 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
     ) : null;
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const fieldLabel = widgetConfig['widget-label'];
 
     return (
       <div className="mb-[10px] MultiSelectDisplayWidget flex flex-col sm:flex-row sm:items-start">
-        {label && (
-          <div
+        {fieldLabel && (
+          <WidgetFieldLabel
             className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
-            style={{ fontFamily: 'Roboto, sans-serif' }}
-            title={label}
-          >
-            {label}:
-          </div>
+            label={fieldLabel}
+          />
         )}
         <div className="flex-1 min-w-0">
           {selectedLabels.length === 0 ? (
@@ -392,7 +398,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Search…"
+            placeholder={translate('common.searchPlaceholder', { defaultValue: 'Search...' })}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-[28px] px-2 text-sm border border-gray-300 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -412,7 +418,9 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             } : handleSelectAll}
             className="text-xs font-medium text-blue-600 hover:text-blue-800 focus:outline-none"
           >
-            {allFilteredSelected ? 'Deselect All' : 'Select All'}
+            {allFilteredSelected
+              ? translate('common.deselectAll', { defaultValue: 'Deselect All' })
+              : translate('common.selectAll', { defaultValue: 'Select All' })}
           </button>
           {selectedValues.length > 0 && (
             <button
@@ -420,7 +428,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
               onClick={handleClearAll}
               className="text-xs font-medium text-red-500 hover:text-red-700 focus:outline-none"
             >
-              Clear All
+              {translate('common.clearAll', { defaultValue: 'Clear All' })}
             </button>
           )}
         </div>
@@ -434,7 +442,9 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
               {translate('common.loading')}
             </p>
           ) : filteredOptions.length === 0 ? (
-            <p className="text-sm text-gray-400 px-3 py-2">No options found</p>
+            <p className="text-sm text-gray-400 px-3 py-2">
+              {translate('common.noOptionsFound', { defaultValue: 'No options found' })}
+            </p>
           ) : (
             filteredOptions.map((option) => {
               const isChecked = selectedValues.includes(option.value);
@@ -452,7 +462,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
                     className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
                   <span className="text-sm text-gray-700 leading-normal select-none">
-                    {translateConfig(option.label)}
+                    {option.label}
                   </span>
                 </label>
               );
@@ -467,7 +477,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={widgetConfig['widget-label'] ?? ''}
           required={isRequired}
         />
 
@@ -500,7 +510,12 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
                 selectedValues.length === 0 ? 'text-gray-400' : 'text-gray-900'
               }`}
             >
-              {summaryText}
+              {selectedLabels.length === 0
+                ? translate('common.select', { defaultValue: 'Select...' })
+                : translate('common.selectedCount', {
+                    count: selectedLabels.length,
+                    defaultValue: `${selectedLabels.length} selected`,
+                  })}
             </span>
             <svg
               className={`w-4 h-4 flex-shrink-0 text-gray-500 transition-transform ${

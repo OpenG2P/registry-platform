@@ -1,4 +1,4 @@
-import React from 'react';
+import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 
 export interface WidgetFieldLabelProps {
   label: string;
@@ -16,7 +16,9 @@ export const WidgetFieldLabel = ({
   className = '',
   title,
 }: WidgetFieldLabelProps) => {
-  const tooltip = title ?? label;
+  const { translateConfig } = useWidgetTranslation();
+  const translatedLabel = translateConfig(label);
+  const tooltip = title !== undefined ? translateConfig(title) : translatedLabel;
 
   return (
     <label
@@ -24,7 +26,7 @@ export const WidgetFieldLabel = ({
       style={{ fontFamily: 'Roboto, sans-serif' }}
       title={tooltip}
     >
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate">{translatedLabel}</span>
       {required && <span className="ml-1 shrink-0 text-red-500">*</span>}
     </label>
   );
