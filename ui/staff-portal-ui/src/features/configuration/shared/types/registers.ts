@@ -15,6 +15,10 @@ export interface Register {
     program_id?: string;
     functional_id_generation_required?: boolean;
     completion_score_required?: boolean;
+    requires_registrant_authentication?: boolean;
+    registrant_authentication_validity_days?: number;
+    registrant_re_auth_warning_days_before?: number;
+    outgest_applicable?: boolean;
 }
 
 export interface ScoreDefinition {

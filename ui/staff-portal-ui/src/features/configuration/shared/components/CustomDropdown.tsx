@@ -19,10 +19,12 @@ interface CustomDropdownProps {
     disabled?: boolean;
     searchable?: boolean;
     menuMaxHeight?: number;
+    inline?: boolean;
 }
 
 type MenuPosition = {
-    top: number;
+    top?: number;
+    bottom?: number;
     left: number;
     width: number;
     maxHeight: number;
@@ -42,6 +44,7 @@ export default function CustomDropdown({
     disabled,
     searchable,
     menuMaxHeight = DEFAULT_MENU_MAX_HEIGHT,
+    inline = false,
 }: CustomDropdownProps) {
     const [open, setOpen] = useState(false);
     const [selected, setSelected] = useState<string | undefined>(value);
@@ -71,24 +74,29 @@ export default function CustomDropdown({
         const spaceBelow = window.innerHeight - rect.bottom - gap;
         const spaceAbove = rect.top - gap;
         const openDown = spaceBelow >= 160 || spaceBelow >= spaceAbove;
-        const placement = openDown ? 'bottom' : 'top';
         const availableSpace = openDown ? spaceBelow : spaceAbove;
         const maxHeight = Math.min(
             menuMaxHeight,
             Math.max(120, availableSpace - 8),
         );
 
-        const top = openDown
-            ? rect.bottom + gap
-            : Math.max(8, rect.top - gap - maxHeight);
-
-        setMenuPosition({
-            top,
-            left: rect.left,
-            width: rect.width,
-            maxHeight,
-            placement,
-        });
+        setMenuPosition(
+            openDown
+                ? {
+                      top: rect.bottom + gap,
+                      left: rect.left,
+                      width: rect.width,
+                      maxHeight,
+                      placement: 'bottom',
+                  }
+                : {
+                      bottom: window.innerHeight - rect.top + gap,
+                      left: rect.left,
+                      width: rect.width,
+                      maxHeight,
+                      placement: 'top',
+                  },
+        );
     }, [menuMaxHeight]);
 
     useEffect(() => {
@@ -155,7 +163,9 @@ export default function CustomDropdown({
                 role="listbox"
                 className="fixed z-[200] flex flex-col bg-neutral-second border border-primary-second rounded-[10px] shadow-lg overflow-hidden"
                 style={{
-                    top: menuPosition.top,
+                    ...(menuPosition.placement === 'bottom'
+                        ? { top: menuPosition.top }
+                        : { bottom: menuPosition.bottom }),
                     left: menuPosition.left,
                     width: menuPosition.width,
                     maxHeight: menuPosition.maxHeight,
@@ -214,7 +224,7 @@ export default function CustomDropdown({
                 </label>
             )}
 
-            <div className="relative mt-2">
+            <div className={`relative ${label || !inline ? 'mt-2' : ''}`}>
                 <div
                     ref={triggerRef}
                     onClick={handleToggle}

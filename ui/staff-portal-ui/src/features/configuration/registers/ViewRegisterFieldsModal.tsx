@@ -47,6 +47,22 @@ export default function ViewRegisterFieldsModal({
                     label={t('completion_score_required')}
                     value={data.completion_score_required ? t('true') : t('false')}
                 />
+                <Field
+                    label={t('outgest_applicable')}
+                    value={data.outgest_applicable ? t('true') : t('false')}
+                />
+                <Field
+                    label={t('requires_registrant_authentication')}
+                    value={data.requires_registrant_authentication ? t('true') : t('false')}
+                />
+                <Field
+                    label={t('registrant_authentication_validity_days')}
+                    value={data.registrant_authentication_validity_days ?? '-'}
+                />
+                <Field
+                    label={t('registrant_re_auth_warning_days_before')}
+                    value={data.registrant_re_auth_warning_days_before ?? '-'}
+                />
                 <Field label={t('register_rank')} value={data.register_rank ?? 0} />
                 <Field label={t('program_id')} value={data.program_id} />
                 <Field label={t('has_image')} value={data.has_image ? t('true') : t('false')} />
