@@ -1,6 +1,18 @@
 import { WidgetCondition, WidgetOptionRule, WidgetOptions } from '../types';
 import { getValueByPath } from './pathUtils';
 
+const normalizeBooleanLike = (val: unknown): boolean => {
+  if (val === true || val === 1) return true;
+  if (val === false || val === 0 || val === null || val === undefined || val === '') {
+    return false;
+  }
+  if (typeof val === 'string') {
+    const normalized = val.trim().toLowerCase();
+    return normalized === 'true' || normalized === 'yes' || normalized === '1';
+  }
+  return Boolean(val);
+};
+
 /**
  * Evaluate condition against field value
  */
@@ -13,6 +25,9 @@ export const evaluateCondition = (
 
   switch (operator) {
     case 'equals':
+      if (typeof value === 'boolean' || typeof fieldValue === 'boolean') {
+        return normalizeBooleanLike(fieldValue) === normalizeBooleanLike(value);
+      }
       return fieldValue === value;
     case 'notEquals':
       return fieldValue !== value;
