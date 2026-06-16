@@ -1,6 +1,7 @@
 import "server-only";
 import { getBackendConfig } from "./backend-config";
 import { createBackendRequest } from "./backend-request";
+import { getServerEnv } from "./env-config";
 import { requireAuthFromCookies } from "./requireAuth";
 
 import { Branding, ClientSafeConfigShape, LanguageConfig } from "./client-safe-config.types";
@@ -9,11 +10,12 @@ class ClientSafeConfig {
     private config: ClientSafeConfigShape;
 
     constructor() {
+        const env = getServerEnv();
         this.config = {
-            partnerImportExportEnable: process.env.PARTNER_IMPORT_EXPORT_ENABLE === "true",
-            verifyServiceUrl: process.env.VERIFY_SERVICE_URL ?? "",
-            vpClientId: process.env.VP_CLIENT_ID ?? "",
-            pageSize: parseInt(process.env.PAGE_SIZE ?? "10"),
+            partnerImportExportEnable: env.partnerImportExportEnable,
+            verifyServiceUrl: env.verifyServiceUrl,
+            vpClientId: env.vpClientId,
+            pageSize: env.pageSize,
             registryName: "",
             registryLogo: "",
             registry_theme_id: "",
