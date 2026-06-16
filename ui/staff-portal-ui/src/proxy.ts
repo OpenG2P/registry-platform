@@ -1,15 +1,25 @@
 import createMiddleware from 'next-intl/middleware';
-import { routing } from './i18n/routing';
 import { NextRequest } from 'next/server';
 
+import { getServerEnv } from '@/app/api/_lib/env-config';
+import { buildCspHeader } from '@/shared/utils/csp';
+import { routing } from './i18n/routing';
+
 export default function middleware(request: NextRequest) {
-    const defaultLocale = process.env.DEFAULT_LOCALE || routing.defaultLocale;
+    const env = getServerEnv();
+    const defaultLocale = env.defaultLocale || routing.defaultLocale;
     const handleRequest = createMiddleware({
         ...routing,
         defaultLocale: defaultLocale as any
     });
 
-    return handleRequest(request);
+    const response = handleRequest(request);
+
+    if (process.env.NODE_ENV !== 'development') {
+        response.headers.set('Content-Security-Policy', buildCspHeader(env));
+    }
+
+    return response;
 }
 
 export const config = {
