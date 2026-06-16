@@ -421,6 +421,13 @@ export const SectionRenderer = ({
     };
   }, [sectionToRender, widgetsEditable]);
 
+  const effectiveHideEditButton =
+    hideEditButton ||
+    section['section-hide-edit-button'] === true ||
+    !collectWidgets(section.panels || []).some(
+      (w) =>
+        section['section-editable'] === true || w['widget-readonly'] !== true,
+    );
 
   // Handle edit button click
   const handleEdit = () => {
@@ -1514,7 +1521,7 @@ export const SectionRenderer = ({
             <div
               id={gridId}
               className="section-panels"
-              style={mode === 'RegistryView' && hideEditButton ? { paddingBottom: '30px' } : {}}
+              style={mode === 'RegistryView' && effectiveHideEditButton ? { paddingBottom: '30px' } : {}}
             >
           {editableSection.panels.map((panel, index) => (
             <div
@@ -1627,10 +1634,10 @@ export const SectionRenderer = ({
             </>
           )}
           {/* RegistryView Mode - Show edit button (if not hidden) */}
-          {mode === 'RegistryView' && !hideEditButton && (
+          {mode === 'RegistryView' && !effectiveHideEditButton && (
             <hr className="w-full" style={{ height: '1px', marginTop: !isEditMode ? '10px' : 0, marginBottom: '14px', border: 'none', backgroundColor: 'var(--owt-color-border, #C4C4C4)' }} />
           )}
-          {mode === 'RegistryView' && !isEditMode && !hideEditButton && (
+          {mode === 'RegistryView' && !isEditMode && !effectiveHideEditButton && (
             <div className="flex justify-center items-center" style={{ marginBottom: '20px' }}>
               <button
                 onClick={handleEdit}
