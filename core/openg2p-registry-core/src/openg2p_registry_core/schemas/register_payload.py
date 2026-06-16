@@ -160,6 +160,9 @@ class RegisterData(BaseModel):
     register_icon: Optional[str] = None
     functional_id_generation_required: bool = False
     completion_score_required: bool = False
+    requires_registrant_authentication: bool = False
+    registrant_authentication_validity_days: Optional[int] = 730
+    registrant_re_auth_warning_days_before: Optional[int] = 30
 
 
 class AllRegistersRegisterData(RegisterData):
@@ -177,6 +180,9 @@ class AllRegistersRegisterData(RegisterData):
     dedup_threshold_score: Optional[float] = None
     functional_id_generation_required: bool = False
     completion_score_required: bool = False
+    requires_registrant_authentication: bool = False
+    registrant_authentication_validity_days: Optional[int] = 730
+    registrant_re_auth_warning_days_before: Optional[int] = 30
 
 
 class ChildRegisterData(BaseModel):
@@ -1106,6 +1112,9 @@ class CreateRegisterRequestPayload(BaseModel):
     register_purpose: Optional[str] = None
     functional_id_generation_required: bool = False
     completion_score_required: bool = False
+    requires_registrant_authentication: bool = False
+    registrant_authentication_validity_days: Optional[int] = 730
+    registrant_re_auth_warning_days_before: Optional[int] = 30
 
 
 class EditRegisterRequestPayload(BaseModel):
@@ -1120,6 +1129,9 @@ class EditRegisterRequestPayload(BaseModel):
     register_purpose: Optional[str] = None
     functional_id_generation_required: Optional[bool] = None
     completion_score_required: Optional[bool] = None
+    requires_registrant_authentication: Optional[bool] = None
+    registrant_authentication_validity_days: Optional[int] = None
+    registrant_re_auth_warning_days_before: Optional[int] = None
 
 
 class DeleteRegisterRequestPayload(BaseModel):

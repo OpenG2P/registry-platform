@@ -63,7 +63,8 @@ class Settings(IamSettings):
     keycloak_admin_url: str | None = "https://keycloak.dev.openg2p.org"
     keycloak_admin_client_id: str | None = "openg2p-staff-portal"
     keycloak_admin_client_secret: str | None = "client-secret"
-    keycloak_admin_realm: str = "staff"
+    keycloak_admin_realm: str = "master"
     keycloak_data_policy_role_sync_enabled: bool = True
 
     keycloak_client_id: str = "registry-staff-portal"
+    keycloak_realm: str = "staff"
