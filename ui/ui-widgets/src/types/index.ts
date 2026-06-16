@@ -221,11 +221,22 @@ export interface WidgetCondition {
 }
 
 /**
+ * Single conditional action rule (used in widget-data-options.actions list)
+ */
+export interface WidgetOptionRule {
+  action: 'show' | 'hide' | 'enable' | 'disable' | 'require';
+  condition?: WidgetCondition;
+}
+
+/**
  * Widget options for conditional behavior
  */
 export interface WidgetOptions {
-  action?: 'show' | 'hide' | 'enable' | 'disable';
+  /** @deprecated Prefer `actions` for multiple sequential rules */
+  action?: 'show' | 'hide' | 'enable' | 'disable' | 'require';
   condition?: WidgetCondition;
+  /** Sequential rules: enable/disable/show/hide first, then require */
+  actions?: WidgetOptionRule[];
   minDate?: string;
   maxDate?: string;
   minDateField?: string;

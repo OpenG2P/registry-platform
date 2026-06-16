@@ -31,6 +31,7 @@ export const CurrencyInputWidget = ({ config }: CurrencyInputWidgetProps) => {
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     config: widgetConfig,
@@ -83,7 +84,7 @@ export const CurrencyInputWidget = ({ config }: CurrencyInputWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start">
         <label className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
           {translateConfig(widgetConfig['widget-label'])}
-          {widgetConfig['widget-required'] && (
+          {isRequired && (
             <span className="text-red-500 ml-1">*</span>
           )}
         </label>

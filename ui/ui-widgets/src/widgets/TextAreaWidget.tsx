@@ -50,6 +50,7 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     config: widgetConfig,
@@ -113,7 +114,6 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
     : '';
 
   // Check if required
-  const isRequired = widgetConfig['widget-required'] || false;
 
   // Error display
   const hasError = touched && error && error.length > 0;

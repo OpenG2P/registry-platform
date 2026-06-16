@@ -68,6 +68,7 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     setError,
@@ -340,7 +341,7 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
           title={translateConfig(widgetConfig['widget-label'])}
         >
           {translateConfig(widgetConfig['widget-label'])}
-          {widgetConfig['widget-required'] && <span className="text-red-500 ml-1">*</span>}
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
         </label>
         <div className="flex-1 min-w-0">
           <input

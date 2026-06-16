@@ -23,6 +23,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     dataSourceOptions,
@@ -469,7 +470,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           title={translateConfig(widgetConfig['widget-label'])}
         >
           {translateConfig(widgetConfig['widget-label'])}
-          {widgetConfig['widget-required'] && (
+          {isRequired && (
             <span className="text-red-500 ml-1">*</span>
           )}
         </label>

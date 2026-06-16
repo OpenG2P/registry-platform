@@ -263,7 +263,33 @@ const baseWidgetSchema = {
       properties: {
         action: {
           type: 'string' as const,
-          enum: ['show', 'hide', 'enable', 'disable'],
+          enum: ['show', 'hide', 'enable', 'disable', 'require'],
+        },
+        actions: {
+          type: 'array' as const,
+          description: 'Sequential conditional rules (enable/disable first, then require)',
+          items: {
+            type: 'object' as const,
+            properties: {
+              action: {
+                type: 'string' as const,
+                enum: ['show', 'hide', 'enable', 'disable', 'require'],
+              },
+              condition: {
+                type: 'object' as const,
+                properties: {
+                  field: { type: 'string' as const },
+                  operator: {
+                    type: 'string' as const,
+                    enum: CONDITION_OPERATORS,
+                  },
+                  value: {},
+                },
+                required: ['field', 'operator'],
+              },
+            },
+            required: ['action'],
+          },
         },
         condition: {
           type: 'object' as const,

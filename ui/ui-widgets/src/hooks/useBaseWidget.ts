@@ -5,7 +5,7 @@ import { WidgetRootState } from '../store';
 import { setValue, setValues, setError, setTouched, setLoading, setDataSource } from '../store/widgetSlice';
 import { getWidgetValue, setWidgetValue } from '../utils/pathUtils';
 import { validateWidget } from '../utils/validation';
-import { shouldShowWidget, shouldEnableWidget } from '../utils/conditions';
+import { shouldShowWidget, shouldEnableWidget, shouldRequireWidget, evaluateWidgetConditions, hasVisibilityRules } from '../utils/conditions';
 import { formatValue } from '../utils/formatting';
 import {
   getStaticDataSource,
@@ -239,6 +239,23 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLayoutWidget]); // Only run once on mount
 
+  const resolveIsRequired = useCallback(
+    (currentValues: Record<string, any>) => {
+      if (isLayoutWidget) {
+        return false;
+      }
+      if (config['widget-readonly']) {
+        return false;
+      }
+      return evaluateWidgetConditions(
+        config['widget-data-options'],
+        currentValues,
+        config['widget-required'] ?? false,
+      ).required;
+    },
+    [config, isLayoutWidget],
+  );
+
   // Handle value change
   // CRITICAL: Don't include 'values' in dependency array - it causes the callback to be recreated
   // every time values change, which can lead to stale closures and double dispatches
@@ -318,7 +335,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         const validationErrors = validateWidget(
           newValue,
           config['widget-data-validation'],
-          config['widget-required']
+          resolveIsRequired(currentValues)
         );
         dispatch(setError({ widgetId, errors: validationErrors }));
       }
@@ -342,17 +359,16 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         });
       }
     },
-    [config, widgetId, dispatch, onValueChange, eventBus] // Removed 'values' to prevent stale closures
+    [config, widgetId, dispatch, onValueChange, eventBus, resolveIsRequired] // Removed 'values' to prevent stale closures
   );
 
   // Handle blur
   const handleBlur = useCallback(() => {
     dispatch(setTouched({ widgetId, touched: true }));
-    // Validate on blur
     const validationErrors = validateWidget(
       currentValue,
       config['widget-data-validation'],
-      config['widget-required']
+      resolveIsRequired(valuesRef.current)
     );
     dispatch(setError({ widgetId, errors: validationErrors }));
 
@@ -365,7 +381,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         timestamp: Date.now(),
       });
     }
-  }, [currentValue, config, widgetId, dispatch, eventBus]);
+  }, [currentValue, config, widgetId, dispatch, eventBus, resolveIsRequired]);
 
   // Get field value helper
   const getFieldValue = useCallback(
@@ -378,7 +394,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   // Conditional visibility and enablement
   const isVisible = useMemo(() => {
     // Layout widgets are always visible unless explicitly hidden
-    if (isLayoutWidget && !config['widget-data-options']?.condition) {
+    if (isLayoutWidget && !hasVisibilityRules(config['widget-data-options'])) {
       return true;
     }
     return shouldShowWidget(config['widget-data-options'], values);
@@ -394,6 +410,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     }
     return shouldEnableWidget(config['widget-data-options'], values);
   }, [config['widget-readonly'], config['widget-data-options'], values, isLayoutWidget]);
+
+  const isRequired = useMemo(
+    () => resolveIsRequired(values),
+    [resolveIsRequired, values],
+  );
 
   // Format value for display
   const formattedValue = useMemo(() => {
@@ -573,6 +594,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     loading,
     isVisible,
     isEnabled,
+    isRequired,
     onChange: handleChange,
     onBlur: handleBlur,
     setError: (errors: string[]) => dispatch(setError({ widgetId, errors })),

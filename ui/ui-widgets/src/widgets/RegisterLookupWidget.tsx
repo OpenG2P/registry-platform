@@ -340,6 +340,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     config: widgetConfig,
@@ -582,7 +583,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
           >
             <img src={searchIcon} alt="" className="w-4 h-4 opacity-50 flex-shrink-0" />
             <span className="truncate">{actionLabel}</span>
-            {widgetConfig['widget-required'] && <span className="text-red-500 ml-1">*</span>}
+            {isRequired && <span className="text-red-500 ml-1">*</span>}
           </button>
           {touched && error.length > 0 && <p className="text-red-500 text-sm mt-1">{error[0]}</p>}
         </div>

@@ -41,6 +41,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     config: widgetConfig,
@@ -152,7 +153,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <label className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
             {translateConfig(widgetConfig['widget-label'])}
-            {widgetConfig['widget-required'] && (
+            {isRequired && (
               <span className="text-red-500 ml-1">*</span>
             )}
           </label>
@@ -200,7 +201,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <label className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
             {translateConfig(widgetConfig['widget-label'])}
-            {widgetConfig['widget-required'] && (
+            {isRequired && (
               <span className="text-red-500 ml-1">*</span>
             )}
           </label>
@@ -262,7 +263,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-baseline">
         <label className="text-base font-medium leading-normal text-gray-700 sm:min-w-[150px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
           {translateConfig(widgetConfig['widget-label'])}
-          {widgetConfig['widget-required'] && (
+          {isRequired && (
             <span className="text-red-500 ml-1">*</span>
           )}
         </label>

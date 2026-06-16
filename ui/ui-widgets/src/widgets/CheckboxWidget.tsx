@@ -62,6 +62,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     dataSourceOptions,
@@ -111,7 +112,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <label className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
             {translateConfig(widgetConfig['widget-label'])}
-            {widgetConfig['widget-required'] && (
+            {isRequired && (
               <span className="text-red-500 ml-1">*</span>
             )}
           </label>
@@ -241,7 +242,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-baseline">
         <label className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
           {translateConfig(widgetConfig['widget-label'])}
-          {widgetConfig['widget-required'] && (
+          {isRequired && (
             <span className="text-red-500 ml-1">*</span>
           )}
         </label>
