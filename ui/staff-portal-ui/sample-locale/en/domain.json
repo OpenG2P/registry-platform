@@ -364,6 +364,7 @@
     "remarks": "Remarks",
     "request_id": "Request ID",
     "requires_registrant_authentication": "Requires Registrant Authentication",
+    "outgest_applicable": "Outgest Applicable",
     "residency_status": "Residency Status",
     "resolved_id": "Resolved ID",
     "resolved_prefix": "Resolved Prefix",
