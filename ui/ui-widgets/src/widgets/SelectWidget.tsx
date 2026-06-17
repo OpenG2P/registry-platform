@@ -2,6 +2,7 @@ import React from 'react';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
+import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 /**
  * Select/Dropdown widget with data source support
@@ -26,9 +27,11 @@ interface SelectWidgetProps {
 export const SelectWidget = ({ config }: SelectWidgetProps) => {
   const {
     value,
+    geoDisplayLabel,
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     dataSourceOptions,
@@ -43,7 +46,9 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
     const label = translateConfig(widgetConfig['widget-label']);
     // Find the selected option's label
     const selectedOption = dataSourceOptions.find((option) => option.value === value);
-    const displayValue = selectedOption ? selectedOption.label : (value || '-');
+    const displayValue = selectedOption
+      ? translateConfig(selectedOption.label)
+      : (geoDisplayLabel || (value != null && value !== '' ? translateConfig(String(value)) : '-'));
     
     return (
       <div className="mb-[10px] SelectDisplayWidget flex flex-col sm:flex-row sm:items-start">
@@ -64,12 +69,11 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
   return (
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-start">
-        <label className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
-          {translateConfig(widgetConfig['widget-label'])}
-          {widgetConfig['widget-required'] && (
-            <span className="text-red-500 ml-1">*</span>
-          )}
-        </label>
+        <WidgetFieldLabel
+          className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          label={translateConfig(widgetConfig['widget-label'])}
+          required={isRequired}
+        />
         <div className="flex-1 min-w-0">
           <select
             value={value || ''}
@@ -87,7 +91,7 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
             <option value="">{translate('common.select')}</option>
             {dataSourceOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {translateConfig(option.label)}
               </option>
             ))}
           </select>

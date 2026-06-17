@@ -1,5 +1,17 @@
-import { WidgetCondition, ConditionOperator } from '../types';
+import { WidgetCondition, WidgetOptionRule, WidgetOptions } from '../types';
 import { getValueByPath } from './pathUtils';
+
+const normalizeBooleanLike = (val: unknown): boolean => {
+  if (val === true || val === 1) return true;
+  if (val === false || val === 0 || val === null || val === undefined || val === '') {
+    return false;
+  }
+  if (typeof val === 'string') {
+    const normalized = val.trim().toLowerCase();
+    return normalized === 'true' || normalized === 'yes' || normalized === '1';
+  }
+  return Boolean(val);
+};
 
 /**
  * Evaluate condition against field value
@@ -13,6 +25,9 @@ export const evaluateCondition = (
 
   switch (operator) {
     case 'equals':
+      if (typeof value === 'boolean' || typeof fieldValue === 'boolean') {
+        return normalizeBooleanLike(fieldValue) === normalizeBooleanLike(value);
+      }
       return fieldValue === value;
     case 'notEquals':
       return fieldValue !== value;
@@ -46,50 +61,96 @@ export const evaluateCondition = (
 };
 
 /**
- * Check if widget should be visible based on conditions
+ * Normalize widget-data-options into a sequential list of action rules.
+ * Supports legacy single { action, condition } and new { actions: [...] }.
  */
-export const shouldShowWidget = (
-  options: { action?: string; condition?: WidgetCondition } | undefined,
-  allValues: Record<string, any>
-): boolean => {
-  if (!options?.condition) {
-    return true;
+export const normalizeOptionRules = (options?: WidgetOptions): WidgetOptionRule[] => {
+  if (!options) {
+    return [];
   }
 
-  const conditionResult = evaluateCondition(options.condition, allValues);
-
-  if (options.action === 'show') {
-    return conditionResult;
+  if (Array.isArray(options.actions) && options.actions.length > 0) {
+    return options.actions.filter((rule) => !!rule?.action);
   }
 
-  if (options.action === 'hide') {
-    return !conditionResult;
+  if (options.action && options.condition) {
+    return [{ action: options.action, condition: options.condition }];
   }
 
-  return true;
+  return [];
 };
+
+export const hasVisibilityRules = (options?: WidgetOptions): boolean => {
+  return normalizeOptionRules(options).some(
+    (rule) => rule.action === 'show' || rule.action === 'hide',
+  );
+};
+
+export interface WidgetConditionState {
+  visible: boolean;
+  enabled: boolean;
+  required: boolean;
+}
 
 /**
- * Check if widget should be enabled based on conditions
+ * Evaluate widget-data-options rules sequentially.
+ * show/hide and enable/disable only affect visibility and enabled state.
+ * require is independent: required = widget-required OR require-condition-match.
  */
-export const shouldEnableWidget = (
-  options: { action?: string; condition?: WidgetCondition } | undefined,
-  allValues: Record<string, any>
-): boolean => {
-  if (!options?.condition) {
-    return true;
+export const evaluateWidgetConditions = (
+  options: WidgetOptions | undefined,
+  allValues: Record<string, any>,
+  baseRequired: boolean = false,
+): WidgetConditionState => {
+  let visible = true;
+  let enabled = true;
+  let required = baseRequired;
+
+  const rules = normalizeOptionRules(options);
+
+  for (const rule of rules) {
+    if (!rule.condition) {
+      continue;
+    }
+
+    const match = evaluateCondition(rule.condition, allValues);
+
+    switch (rule.action) {
+      case 'show':
+        visible = match;
+        break;
+      case 'hide':
+        visible = !match;
+        break;
+      case 'enable':
+        enabled = match;
+        break;
+      case 'disable':
+        enabled = !match;
+        break;
+      case 'require':
+        required = baseRequired || match;
+        break;
+      default:
+        break;
+    }
   }
 
-  const conditionResult = evaluateCondition(options.condition, allValues);
-
-  if (options.action === 'enable') {
-    return conditionResult;
-  }
-
-  if (options.action === 'disable') {
-    return !conditionResult;
-  }
-
-  return true;
+  return { visible, enabled, required };
 };
 
+export const shouldShowWidget = (
+  options: WidgetOptions | undefined,
+  allValues: Record<string, any>,
+): boolean => evaluateWidgetConditions(options, allValues).visible;
+
+export const shouldEnableWidget = (
+  options: WidgetOptions | undefined,
+  allValues: Record<string, any>,
+): boolean => evaluateWidgetConditions(options, allValues).enabled;
+
+export const shouldRequireWidget = (
+  options: WidgetOptions | undefined,
+  allValues: Record<string, any>,
+  baseRequired: boolean = false,
+): boolean => evaluateWidgetConditions(options, allValues, baseRequired).required;

@@ -97,13 +97,10 @@ export const translateWidgetConfig = (
         ...dataSource,
         options: dataSource.options.map((option: { value: string | number; label: string }) => {
           if (option.label && typeof option.label === 'string') {
-            const optionLabel = option.label;
-            if (isTranslationKey(optionLabel)) {
-              return {
-                ...option,
-                label: translate(optionLabel, { defaultValue: optionLabel }),
-              };
-            }
+            return {
+              ...option,
+              label: translate(option.label, { defaultValue: option.label }),
+            };
           }
           return option;
         }),

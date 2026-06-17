@@ -45,6 +45,14 @@ const namespaceWidgetConfig = (
     );
   }
 
+  // Namespace geo parent references so cascade events match namespaced widget-id
+  if (namespaced['widget-geo-config']?.parentWidgetId) {
+    namespaced['widget-geo-config'] = {
+      ...namespaced['widget-geo-config'],
+      parentWidgetId: `${namespace}__${namespaced['widget-geo-config'].parentWidgetId}`,
+    };
+  }
+
   // Recursively namespace nested widgets (for layout widgets)
   if (namespaced.widgets && Array.isArray(namespaced.widgets)) {
     namespaced.widgets = namespaced.widgets.map((widget) =>

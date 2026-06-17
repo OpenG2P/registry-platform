@@ -422,7 +422,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
       'widget-data-format.dateTimeConstraint': ['any', 'past-only', 'future-only'],
 
       // Widget options
-      'widget-data-options.action': ['show', 'hide', 'enable', 'disable'],
+      'widget-data-options.action': ['show', 'hide', 'enable', 'disable', 'require'],
       'widget-data-options.condition.operator': CONDITION_OPERATORS,
     };
   }, []);

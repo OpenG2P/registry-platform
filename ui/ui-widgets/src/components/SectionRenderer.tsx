@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore, useDispatch, useSelector } from 'react-redux';
-import { setValues } from '../store/widgetSlice';
+import { setValues, setDataSource } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 import { SectionConfig, PanelConfig, SupportingDocumentConfig } from '../types';
 import { UseBaseWidgetOptions } from '../hooks/useBaseWidget';
@@ -16,6 +16,16 @@ import { SectionMode } from './SectionsContainer';
 import { namespaceSectionConfig } from '../utils/schemaNamespace';
 import { sectionValidate, collectWidgets } from '../utils/sectionValidate';
 import { extractTableRecordsFromSnapshot, isTableLikeWidget } from '../utils/extractTableRecordsFromSnapshot';
+import {
+  getGeoGroupId,
+  resolveGeoWidgetLevelValue,
+  resetAndSeedGeoHierarchyFromValues,
+} from '../utils/geoHierarchy';
+import {
+  applySectionEditSnapshot,
+  captureSectionEditSnapshot,
+  SectionEditSnapshot,
+} from '../utils/sectionRevert';
 import {personIcon, calendarIcon, rightArrowIcon, arrowUpIcon, arrowDownIcon, arrowLeftIcon, arrowRightIcon } from '../assets';
 
 /** Root class on readonly label/value rows; SectionRenderer scopes overflow/ellipsis rules here. */
@@ -346,6 +356,8 @@ export const SectionRenderer = ({
   }, [forceExitEdit]); // eslint-disable-line react-hooks/exhaustive-deps
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(true);
   const sectionRef = useRef<HTMLDivElement>(null);
+  const baselineSnapshotRef = useRef<{ records: unknown[]; files: unknown[] } | null>(null);
+  const editEntrySnapshotRef = useRef<SectionEditSnapshot | null>(null);
   const [sectionHeight, setSectionHeight] = useState<number | null>(null);
   const [editSectionPosition, setEditSectionPosition] = useState<{
     top: number;
@@ -421,6 +433,27 @@ export const SectionRenderer = ({
     };
   }, [sectionToRender, widgetsEditable]);
 
+  const effectiveHideEditButton =
+    hideEditButton ||
+    section['section-hide-edit-button'] === true ||
+    !collectWidgets(section.panels || []).some(
+      (w) =>
+        section['section-editable'] === true || w['widget-readonly'] !== true,
+    );
+
+  const captureEditEntrySnapshot = useCallback(() => {
+    const currentValues = (store.getState() as WidgetRootState).widget.values;
+    const supportingDocuments = section['section-supporting-documents'] || [];
+    editEntrySnapshotRef.current = captureSectionEditSnapshot(
+      currentValues,
+      section,
+      {
+        namespace,
+        sectionId,
+        supportingDocuments: hasSupportingDocuments ? supportingDocuments : [],
+      }
+    );
+  }, [store, section, namespace, sectionId, hasSupportingDocuments]);
 
   // Handle edit button click
   const handleEdit = () => {
@@ -429,6 +462,7 @@ export const SectionRenderer = ({
       const height = sectionRef.current.offsetHeight;
       setSectionHeight(height);
     }
+    captureEditEntrySnapshot();
     setIsEditMode(true);
     onEditModeChange?.(originalSectionId, true);
   };
@@ -703,8 +737,6 @@ export const SectionRenderer = ({
     return { records, files };
   }, [originalSection, hasSupportingDocuments]);
 
-  // Capture baseline when entering edit mode (used for isDirty comparison)
-  const baselineSnapshotRef = useRef<{ records: unknown[]; files: unknown[] } | null>(null);
   // IntakeForm only: increment when baseline is updated after save - forces badge to update (refs don't trigger re-renders)
   const [intakeFormBaselineTrigger, setIntakeFormBaselineTrigger] = useState(0);
 
@@ -725,6 +757,9 @@ export const SectionRenderer = ({
   // Set baseline when entering edit mode; clear when leaving (baseline captured only on entry)
   useEffect(() => {
     if (effectiveEditModeForDirty) {
+      if (!editEntrySnapshotRef.current) {
+        captureEditEntrySnapshot();
+      }
       const oldSchemaData = schemaData || contextSchemaData || {};
       if (namespace) {
         const namespacedSchema = getValueByPath(oldSchemaData, namespace);
@@ -732,10 +767,14 @@ export const SectionRenderer = ({
           ? buildSectionSnapshot(namespacedSchema as Record<string, any>)
           : buildSectionSnapshot(oldSchemaData);
       } else {
-        baselineSnapshotRef.current = buildSectionSnapshot(oldSchemaData);
+        baselineSnapshotRef.current = buildSectionSnapshot(
+          (store.getState() as WidgetRootState).widget.values,
+          namespace
+        );
       }
     } else {
       baselineSnapshotRef.current = null;
+      editEntrySnapshotRef.current = null;
       onSectionDirtyChange?.(sectionId, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- baseline must be captured only when effectiveEditModeForDirty toggles
@@ -761,72 +800,136 @@ export const SectionRenderer = ({
   // and handleCancel.
   const revertToOriginalValues = useCallback(() => {
     const sectionWidgets = collectWidgets(originalSection.panels);
-    const oldSchemaData = schemaData || contextSchemaData;
-    const currentStoreValues = (store.getState() as any).widget.values;
+    const currentStoreValues = (store.getState() as WidgetRootState).widget.values;
+    const snapshot = editEntrySnapshotRef.current;
     let newStoreValues = currentStoreValues;
 
-    sectionWidgets.forEach(widget => {
-      const originalWidgetId = widget['widget-id'];
-      const namespacedWidgetId = namespace ? `${namespace}__${originalWidgetId}` : originalWidgetId;
-      const widgetId = namespacedWidgetId;
-      const originalDataPath = widget['widget-data-path'];
-      const storeDataPath = namespace && originalDataPath
-        ? (typeof originalDataPath === 'string'
-          ? `${namespace}.${originalDataPath}`
-          : Object.fromEntries(
-            Object.entries(originalDataPath).map(([key, path]) => [key, `${namespace}.${path}`])
-          ))
-        : originalDataPath;
+    if (snapshot) {
+      newStoreValues = applySectionEditSnapshot(currentStoreValues, snapshot);
+    } else {
+      const oldSchemaData = schemaData || contextSchemaData;
+      const processedGeoGroups = new Set<string>();
 
-      if (widgetId && originalDataPath) {
-        let oldValue: any;
-        if (typeof originalDataPath === 'object') {
-          oldValue = {};
-          Object.entries(originalDataPath).forEach(([key, path]) => {
-            if (typeof path === 'string') {
-              oldValue[key] = getValueByPath(oldSchemaData, path);
+      sectionWidgets.forEach((widget) => {
+        const originalWidgetId = widget['widget-id'];
+        const namespacedWidgetId = namespace ? `${namespace}__${originalWidgetId}` : originalWidgetId;
+        const widgetId = namespacedWidgetId;
+        const originalDataPath = widget['widget-data-path'];
+        const storeDataPath = namespace && originalDataPath
+          ? (typeof originalDataPath === 'string'
+            ? `${namespace}.${originalDataPath}`
+            : Object.fromEntries(
+              Object.entries(originalDataPath).map(([key, path]) => [key, `${namespace}.${path}`])
+            ))
+          : originalDataPath;
+        const geoConfig = widget['widget-geo-config'];
+
+        if (widgetId && originalDataPath) {
+          let oldValue: any;
+          if (typeof originalDataPath === 'object') {
+            oldValue = {};
+            Object.entries(originalDataPath).forEach(([key, path]) => {
+              if (typeof path === 'string') {
+                oldValue[key] = getValueByPath(oldSchemaData, path);
+              }
+            });
+          } else if (typeof originalDataPath === 'string') {
+            oldValue = getValueByPath(oldSchemaData, originalDataPath);
+          }
+
+          if (oldValue !== undefined) {
+            newStoreValues = setWidgetValue(
+              newStoreValues,
+              storeDataPath,
+              widgetId,
+              oldValue
+            );
+
+            if (geoConfig && typeof storeDataPath === 'string') {
+              const groupId = getGeoGroupId(storeDataPath);
+              const levelValue = resolveGeoWidgetLevelValue(
+                newStoreValues,
+                widgetId,
+                storeDataPath,
+                geoConfig
+              );
+
+              if (levelValue !== undefined && levelValue !== null && levelValue !== '') {
+                newStoreValues = { ...newStoreValues, [widgetId]: levelValue };
+              } else {
+                const { [widgetId]: _removed, ...rest } = newStoreValues;
+                newStoreValues = rest;
+              }
+
+              if (!processedGeoGroups.has(groupId)) {
+                resetAndSeedGeoHierarchyFromValues(
+                  newStoreValues,
+                  storeDataPath,
+                  widgetId,
+                  groupId
+                );
+                processedGeoGroups.add(groupId);
+              }
+
+              if (geoConfig.parentWidgetId) {
+                dispatch(setDataSource({ widgetId, data: [] }));
+              }
+            } else {
+              newStoreValues = { ...newStoreValues, [widgetId]: oldValue };
             }
-          });
-        } else if (typeof originalDataPath === 'string') {
-          oldValue = getValueByPath(oldSchemaData, originalDataPath);
+          }
         }
+      });
 
-        if (oldValue !== undefined) {
+      if (hasSupportingDocuments) {
+        const originalSupportingDocuments = originalSection['section-supporting-documents'] || [];
+        originalSupportingDocuments.forEach((doc, index) => {
+          const widgetId = `supporting-doc-${sectionId}-${index}`;
+          const originalDataPath = doc['document-data-path'];
+          const storeDataPath = namespace && originalDataPath
+            ? `${namespace}.${originalDataPath}`
+            : originalDataPath;
+          const oldValue = getValueByPath(oldSchemaData, originalDataPath);
           newStoreValues = setWidgetValue(
             newStoreValues,
             storeDataPath,
             widgetId,
             oldValue
           );
-          // Also revert the widgetId-based entry — useBaseWidget.handleChange
-          // sets values[widgetId] during editing, and useBaseWidget.currentValue
-          // reads values[widgetId] first before falling through to the dataPath.
-          newStoreValues = { ...newStoreValues, [widgetId]: oldValue };
-        }
+        });
+      }
+    }
+
+    const processedGeoGroups = new Set<string>();
+    sectionWidgets.forEach((widget) => {
+      const geoConfig = widget['widget-geo-config'];
+      if (!geoConfig) {
+        return;
+      }
+
+      const originalWidgetId = widget['widget-id'];
+      const widgetId = namespace ? `${namespace}__${originalWidgetId}` : originalWidgetId;
+      const originalDataPath = widget['widget-data-path'];
+      const storeDataPath = namespace && typeof originalDataPath === 'string'
+        ? `${namespace}.${originalDataPath}`
+        : originalDataPath;
+
+      if (typeof storeDataPath !== 'string') {
+        return;
+      }
+
+      const groupId = getGeoGroupId(storeDataPath);
+      if (!processedGeoGroups.has(groupId)) {
+        resetAndSeedGeoHierarchyFromValues(newStoreValues, storeDataPath, widgetId, groupId);
+        processedGeoGroups.add(groupId);
+      }
+
+      if (geoConfig.parentWidgetId) {
+        dispatch(setDataSource({ widgetId, data: [] }));
       }
     });
 
-    if (hasSupportingDocuments) {
-      const originalSupportingDocuments = originalSection['section-supporting-documents'] || [];
-      originalSupportingDocuments.forEach((doc, index) => {
-        const widgetId = `supporting-doc-${sectionId}-${index}`;
-        const originalDataPath = doc['document-data-path'];
-        const storeDataPath = namespace && originalDataPath
-          ? `${namespace}.${originalDataPath}`
-          : originalDataPath;
-        const oldValue = getValueByPath(oldSchemaData, originalDataPath);
-        newStoreValues = setWidgetValue(
-          newStoreValues,
-          storeDataPath,
-          widgetId,
-          oldValue
-        );
-      });
-    }
-
-    if (newStoreValues !== currentStoreValues) {
-      dispatch(setValues(newStoreValues));
-    }
+    dispatch(setValues(newStoreValues));
   }, [originalSection, schemaData, contextSchemaData, store, namespace, hasSupportingDocuments, sectionId, dispatch]);
 
   // Handle save button click
@@ -1514,7 +1617,7 @@ export const SectionRenderer = ({
             <div
               id={gridId}
               className="section-panels"
-              style={mode === 'RegistryView' && hideEditButton ? { paddingBottom: '30px' } : {}}
+              style={mode === 'RegistryView' && effectiveHideEditButton ? { paddingBottom: '30px' } : {}}
             >
           {editableSection.panels.map((panel, index) => (
             <div
@@ -1627,10 +1730,10 @@ export const SectionRenderer = ({
             </>
           )}
           {/* RegistryView Mode - Show edit button (if not hidden) */}
-          {mode === 'RegistryView' && !hideEditButton && (
+          {mode === 'RegistryView' && !effectiveHideEditButton && (
             <hr className="w-full" style={{ height: '1px', marginTop: !isEditMode ? '10px' : 0, marginBottom: '14px', border: 'none', backgroundColor: 'var(--owt-color-border, #C4C4C4)' }} />
           )}
-          {mode === 'RegistryView' && !isEditMode && !hideEditButton && (
+          {mode === 'RegistryView' && !isEditMode && !effectiveHideEditButton && (
             <div className="flex justify-center items-center" style={{ marginBottom: '20px' }}>
               <button
                 onClick={handleEdit}
