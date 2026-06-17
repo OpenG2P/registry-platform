@@ -4,6 +4,7 @@ import { getBackendConfig } from "./backend-config";
 import { BackendResponse, RequestBody } from "./backend-types";
 import { createBackendRequest } from "./backend-request";
 import { requireAuth } from "./requireAuth";
+import { applyBackendSetCookies } from "./auth-cookies";
 
 export type PayloadBuilder = (body: any) => RequestBody;
 export type ResponseTransformer = (responseBody: any) => any;
@@ -112,7 +113,7 @@ export async function proxyToBackend({
 
 			const status = errorCodeMap[errorCode] || 400;
 
-			return NextResponse.json(
+			const errorResponse = NextResponse.json(
 				{
 					error: backendResponse.response_header.response_error_message,
 					code: errorCode,
@@ -122,6 +123,8 @@ export async function proxyToBackend({
 					headers: responseHeaders,
 				}
 			);
+			applyBackendSetCookies(response, errorResponse);
+			return errorResponse;
 		}
 
 		const responseBody = backendResponse.response_body;
@@ -130,13 +133,17 @@ export async function proxyToBackend({
 			: responseBody?.response_payload;
 
 		if (data === undefined) {
-			return NextResponse.json(
+			const emptyResponse = NextResponse.json(
 				{ error: 'Empty response from backend' },
 				{ status: 500, headers: responseHeaders },
 			);
+			applyBackendSetCookies(response, emptyResponse);
+			return emptyResponse;
 		}
 
-		return NextResponse.json(data, { headers: responseHeaders });
+		const successResponse = NextResponse.json(data, { headers: responseHeaders });
+		applyBackendSetCookies(response, successResponse);
+		return successResponse;
 
 	} catch (e) {
 		return NextResponse.json(

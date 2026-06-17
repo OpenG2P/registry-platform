@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '../_lib/requireAuth';
 import { getBackendConfig } from '../_lib/backend-config';
+import { AUTH_COOKIE_NAMES } from '../_lib/auth-cookies';
 
 export async function GET(req: NextRequest) {
     const auth = requireAuth(req);
     if (auth instanceof NextResponse) return auth;
 
     const backendConfig = getBackendConfig();
-
     const idToken = req.cookies.get('X-ID-Token')?.value;
-
     const redirectUri = `${backendConfig.redirectUrl}`;
 
     const logoutUrl =
@@ -26,17 +25,13 @@ export async function GET(req: NextRequest) {
 
     const res = NextResponse.redirect(logoutUrl);
 
-    res.cookies.delete({
-        name: 'X-Access-Token',
-        path: '/',
-        domain: backendConfig.cookieDomain,
-    });
-
-    res.cookies.delete({
-        name: 'X-ID-Token',
-        path: '/',
-        domain: backendConfig.cookieDomain,
-    });
+    for (const name of AUTH_COOKIE_NAMES) {
+        res.cookies.delete({
+            name,
+            path: '/',
+            domain: backendConfig.cookieDomain,
+        });
+    }
 
     return res;
 }

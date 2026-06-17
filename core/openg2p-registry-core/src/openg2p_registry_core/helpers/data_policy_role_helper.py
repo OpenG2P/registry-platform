@@ -1,7 +1,7 @@
 """
 Keycloak data-policy roles use the DP_ prefix (tactical 1.2.0).
 
-Functional roles are resolved by AuthMiddleware; DP_ roles are handled by
+Functional roles are resolved by ResolvePermissionMiddleware; DP_ roles are handled by
 DataPolicyMiddleware and Registry policy lookup.
 """
 
