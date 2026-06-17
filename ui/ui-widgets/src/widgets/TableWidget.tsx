@@ -173,7 +173,9 @@ const SelectDisplayValue = ({ config, value }: SelectDisplayValueProps) => {
     return <span>-</span>;
   }
   
-  const selectedOption = dataSourceOptions.find((option: any) => option.value === value);
+  const selectedOption = dataSourceOptions.find(
+    (option: any) => option.value === value || String(option.value) === String(value)
+  );
   return <span>{selectedOption ? selectedOption.label : String(value)}</span>;
 };
 

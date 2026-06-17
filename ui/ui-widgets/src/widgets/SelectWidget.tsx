@@ -45,10 +45,14 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     // Find the selected option's label
-    const selectedOption = dataSourceOptions.find((option) => option.value === value);
+    const selectedOption = dataSourceOptions.find(
+      (option) => option.value === value || String(option.value) === String(value)
+    );
     const displayValue = selectedOption
       ? translateConfig(selectedOption.label)
-      : (geoDisplayLabel || (value != null && value !== '' ? translateConfig(String(value)) : '-'));
+      : loading
+        ? (geoDisplayLabel || '-')
+        : (geoDisplayLabel || (value != null && value !== '' ? translateConfig(String(value)) : '-'));
     
     return (
       <div className="mb-[10px] SelectDisplayWidget flex flex-col sm:flex-row sm:items-start">
