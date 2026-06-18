@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
@@ -27,7 +27,9 @@ const SelectDisplayValue = ({ config, value }: { config: BaseWidgetConfig; value
   if (loading) return <span>-</span>;
   if (value === null || value === undefined || value === '') return <span>-</span>;
 
-  const selectedOption = dataSourceOptions.find((option: any) => option.value === value);
+  const selectedOption = dataSourceOptions.find(
+    (option: any) => option.value === value || String(option.value) === String(value)
+  );
   return <span>{selectedOption ? selectedOption.label : String(value)}</span>;
 };
 

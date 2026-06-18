@@ -10,6 +10,7 @@ import { formatValue } from '../utils/formatting';
 import {
   getStaticDataSource,
   getApiDataSource,
+  getCachedApiDataSource,
   getSchemaDataSource,
   transformDataSourceOptions,
 } from '../utils/dataSource';
@@ -471,9 +472,10 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       return;
     }
 
-    // Non-geo readonly widgets skip API loads. Geo widgets still load in readonly so
-    // labels can be resolved and translated on initial page view (not only after Edit).
-    if (dataSource.type === 'api' && isReadonly && !geoConfig) {
+    const loadApiInReadonly =
+      !!geoConfig ||
+      ['select', 'radio', 'checkbox', 'multi-select'].includes(config.widget);
+    if (dataSource.type === 'api' && isReadonly && !loadApiInReadonly) {
       return;
     }
 
@@ -523,6 +525,32 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
           return;
         }
 
+        const resolveOptionKeys = () => {
+          if (dataSource.type === 'static') {
+            return { valueKey: undefined, labelKey: undefined };
+          }
+          if (geoConfig) {
+            return {
+              valueKey: dataSource.valueKey || 'level_value_id',
+              labelKey: dataSource.labelKey || 'level_value_mnemonic',
+            };
+          }
+          return { valueKey: dataSource.valueKey, labelKey: dataSource.labelKey };
+        };
+
+        if (dataSource.type === 'api') {
+          const levelId = geoConfig?.level;
+          const cached = getCachedApiDataSource(dataSource, valuesRef.current, levelId);
+          if (cached) {
+            const { valueKey, labelKey } = resolveOptionKeys();
+            dispatch(setDataSource({
+              widgetId,
+              data: transformDataSourceOptions(cached, valueKey, labelKey),
+            }));
+            return;
+          }
+        }
+
         dispatch(setLoading({ widgetId, loading: true }));
 
         let data: any[] = [];
@@ -536,31 +564,13 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
             dispatch(setDataSource({ widgetId, data: [] }));
             return;
           }
-          // Extract level_id from widget-geo-config.level if available
           const levelId = geoConfig?.level;
           data = await getApiDataSource(dataSource, valuesRef.current, currentHandler, levelId);
         } else if (dataSource.type === 'schema') {
           data = getSchemaDataSource(dataSource, schemaData || {});
         }
 
-        // Transform to { value, label } format
-        // For geo widgets, default to level_value_id and level_value_mnemonic
-        let valueKey: string | undefined;
-        let labelKey: string | undefined;
-
-        if (dataSource.type === 'static') {
-          valueKey = undefined;
-          labelKey = undefined;
-        } else if (geoConfig) {
-          // Geo widgets: default to level_value_id and level_value_mnemonic
-          valueKey = dataSource.valueKey || 'level_value_id';
-          labelKey = dataSource.labelKey || 'level_value_mnemonic';
-        } else {
-          // Non-geo widgets: use specified keys or undefined
-          valueKey = dataSource.valueKey;
-          labelKey = dataSource.labelKey;
-        }
-
+        const { valueKey, labelKey } = resolveOptionKeys();
         const transformed = transformDataSourceOptions(
           data,
           valueKey,
