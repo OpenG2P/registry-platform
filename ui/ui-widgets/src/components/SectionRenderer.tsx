@@ -20,6 +20,8 @@ import {
   getGeoGroupId,
   resolveGeoWidgetLevelValue,
   resetAndSeedGeoHierarchyFromValues,
+  collectGeoWidgetRegistrationsFromWidgets,
+  reconcileGeoHierarchiesInValues,
 } from '../utils/geoHierarchy';
 import {
   applySectionEditSnapshot,
@@ -944,7 +946,17 @@ export const SectionRenderer = ({
     // This ensures we use the original widget IDs and data paths
     const sectionWidgets = collectWidgets(originalSection.panels)
     const currentState = (store.getState() as any).widget
-    const currentSchemaData = currentState.values || {}
+    let currentSchemaData = currentState.values || {}
+
+    const geoRegistrations = collectGeoWidgetRegistrationsFromWidgets(sectionWidgets, namespace);
+    if (geoRegistrations.length > 0) {
+      currentSchemaData = reconcileGeoHierarchiesInValues(
+        currentSchemaData,
+        geoRegistrations,
+        currentState.dataSources || {}
+      );
+      dispatch(setValues(currentSchemaData));
+    }
 
     const isSectionValid = sectionValidate(
       originalSection,
@@ -1027,7 +1039,17 @@ export const SectionRenderer = ({
     if (isDraft !== false && store && onSectionSave) {
       const sectionWidgets = collectWidgets(originalSection.panels);
       const currentState = (store.getState() as any).widget;
-      const currentSchemaData = currentState.values || {};
+      let currentSchemaData = currentState.values || {};
+
+      const geoRegistrations = collectGeoWidgetRegistrationsFromWidgets(sectionWidgets, namespace);
+      if (geoRegistrations.length > 0) {
+        currentSchemaData = reconcileGeoHierarchiesInValues(
+          currentSchemaData,
+          geoRegistrations,
+          currentState.dataSources || {}
+        );
+        dispatch(setValues(currentSchemaData));
+      }
 
       const isSectionValid = sectionValidate(
         originalSection,
