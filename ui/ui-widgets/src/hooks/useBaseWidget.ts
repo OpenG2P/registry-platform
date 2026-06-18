@@ -454,6 +454,14 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   const apiEndpoint = dataSource?.type === 'api' ? (dataSource as any).endpoint : '';
   const configKey = `${widgetId}-${isReadonly}-${dataSource?.type || 'none'}-${apiService}-${apiEndpoint}`;
 
+  // Only re-load schema-backed data sources when schemaData content changes.
+  // Dialog table fields pass a new schemaData object every render; including the
+  // raw reference in effect deps causes infinite API reload loops for select widgets.
+  const schemaDataRef = useRef(schemaData);
+  schemaDataRef.current = schemaData;
+  const schemaDataKey =
+    dataSource?.type === 'schema' ? JSON.stringify(schemaData ?? {}) : '';
+
   // Extract dependency value using a granular selector to prevent unnecessary re-renders
   // and infinite loops when other unrelated values in the state change.
   const dependencyValue = useSelector((state: WidgetRootState) => {
@@ -567,7 +575,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
           const levelId = geoConfig?.level;
           data = await getApiDataSource(dataSource, valuesRef.current, currentHandler, levelId);
         } else if (dataSource.type === 'schema') {
-          data = getSchemaDataSource(dataSource, schemaData || {});
+          data = getSchemaDataSource(dataSource, schemaDataRef.current || {});
         }
 
         const { valueKey, labelKey } = resolveOptionKeys();
@@ -579,11 +587,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
 
         dispatch(setDataSource({ widgetId, data: transformed }));
       } catch (error) {
-        console.error(
-          `[useBaseWidget] ERROR loading data source for widget "${widgetId}" (type="${dataSource.type}"):`,
-          error,
-          '\nWidget config:', config,
-          '\ndataSourceRequestHandler provided:', Boolean(dataSourceRequestHandler),
+        // Use warn (not error) to avoid Next.js intercept-console-error turning
+        // this into a thrown error and freezing dialog overlays on repeated failures.
+        console.warn(
+          `[useBaseWidget] Failed to load data source for widget "${widgetId}" (type="${dataSource.type}"):`
+          , error
         );
         dispatch(setDataSource({ widgetId, data: [] }));
       } finally {
@@ -594,7 +602,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     loadDataSource();
     // Use configKey and dependencyValue to ensure effect runs only when relevant state changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configKey, dependencyValue, dataSourceRequestHandler, schemaData, widgetId, dispatch]);
+  }, [configKey, dependencyValue, dataSourceRequestHandler, schemaDataKey, widgetId, dispatch]);
 
   const geoDisplayLabel = useMemo(() => {
     if (!geoConfig) {

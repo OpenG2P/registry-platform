@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
@@ -19,6 +19,67 @@ type DialogMode = 'add' | 'edit';
 
 const isUnsetRowValue = (value: unknown): boolean =>
   value === null || value === undefined || value === '';
+
+/** Stable dialog field renderer — avoids remount/re-fetch loops from inline config objects. */
+const DialogTableField = React.memo(function DialogTableField({
+  col,
+  cellWidgetId,
+  initialValue,
+  isReadonly,
+  dialogScopeKey,
+  dialogRowValues,
+  onUpdateField,
+}: {
+  col: BaseWidgetConfig & { 'column-key'?: string };
+  cellWidgetId: string;
+  initialValue: unknown;
+  isReadonly: boolean;
+  dialogScopeKey: string;
+  dialogRowValues: Record<string, unknown>;
+  onUpdateField: (columnKey: string, value: unknown) => void;
+}) {
+  const columnKey = col['column-key'] || cellWidgetId;
+
+  const fieldConfig = useMemo((): BaseWidgetConfig => {
+    const rawOptions = col['widget-data-options'];
+    let widgetDataOptions = rawOptions;
+    if (rawOptions?.condition?.field) {
+      widgetDataOptions = {
+        ...rawOptions,
+        condition: {
+          ...rawOptions.condition,
+          field: `${dialogScopeKey}-${rawOptions.condition.field}`,
+        },
+      };
+    }
+
+    return {
+      ...col,
+      widget: col.widget || 'text',
+      'widget-type': col['widget-type'] || 'input',
+      'widget-id': cellWidgetId,
+      'widget-label': col['widget-label'],
+      'widget-readonly': isReadonly || col['widget-readonly'] === true,
+      'widget-data-path': undefined,
+      'widget-data-default': initialValue,
+      'widget-data-options': widgetDataOptions,
+      'widget-required': shouldRequireWidget(
+        col['widget-data-options'],
+        dialogRowValues,
+        col['widget-required'],
+      ),
+    };
+  }, [col, cellWidgetId, initialValue, isReadonly, dialogScopeKey, dialogRowValues]);
+
+  const handleValueChange = useCallback(
+    (_widgetId: string, newValue: unknown) => {
+      onUpdateField(columnKey, newValue);
+    },
+    [columnKey, onUpdateField]
+  );
+
+  return <WidgetRenderer config={fieldConfig} onValueChange={handleValueChange} />;
+});
 
 // Display select value label in view mode
 const SelectDisplayValue = ({ config, value }: { config: BaseWidgetConfig; value: any }) => {
@@ -162,7 +223,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
     setDialogSessionId(0);
   }, [dialogSessionId, resetDialogWidgets]);
 
-  const updateField = useCallback((columnKey: string, newValue: any) => {
+  const updateField = useCallback((columnKey: string, newValue: unknown) => {
     setFormData((prev) => ({ ...prev, [columnKey]: newValue }));
   }, []);
 
@@ -529,34 +590,20 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                 if (!shouldShowWidget(col['widget-data-options'], dialogRowValues)) {
                   return null;
                 }
-                const widgetType = col.widget || 'text';
                 const cellWidgetId = dialogFieldWidgetId(key);
-                const initialValue =
-                  formData[key] ?? col['widget-data-default'];
-
-                const fieldConfig: BaseWidgetConfig = {
-                  ...col,
-                  widget: widgetType,
-                  'widget-type': col['widget-type'] || 'input',
-                  'widget-id': cellWidgetId,
-                  'widget-label': col['widget-label'],
-                  'widget-readonly': isReadonly || col['widget-readonly'] === true,
-                  'widget-data-path': undefined,
-                  'widget-data-default': initialValue,
-                  'widget-data-options': undefined,
-                  'widget-required': shouldRequireWidget(
-                    col['widget-data-options'],
-                    dialogRowValues,
-                    col['widget-required'],
-                  ),
-                };
+                const initialValue = formData[key] ?? col['widget-data-default'];
+                const dialogScopeKey = `${widgetConfig['widget-id']}-dlg-${dialogSessionId}`;
 
                 return (
                   <div key={`${dialogSessionId}-${key}`} className="min-w-0">
-                    <WidgetRenderer
-                      config={fieldConfig}
-                      schemaData={{ [cellWidgetId]: initialValue }}
-                      onValueChange={(_widgetId, newValue) => updateField(key, newValue)}
+                    <DialogTableField
+                      col={col}
+                      cellWidgetId={cellWidgetId}
+                      initialValue={initialValue}
+                      isReadonly={isReadonly}
+                      dialogScopeKey={dialogScopeKey}
+                      dialogRowValues={dialogRowValues}
+                      onUpdateField={updateField}
                     />
                   </div>
                 );
