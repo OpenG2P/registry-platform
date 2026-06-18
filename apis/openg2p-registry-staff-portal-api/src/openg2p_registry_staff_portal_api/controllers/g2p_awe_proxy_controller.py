@@ -1,12 +1,13 @@
 import logging
 
 from fastapi import Request
-from iam_core.user_auth.decorators import require_permissions
+from iam_core.user_auth.decorators import requires_auth
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_fastapi_common.schemas import G2PResponse
 
 from openg2p_registry_core.controller_services import G2PAweProxyControllerService
 from openg2p_registry_core.errors import G2PRegistryErrorCodes, G2PRegistryException
+from openg2p_registry_core.helpers.auth_token import bearer_from_request
 from openg2p_registry_core.schemas.awe_proxy import (
     AweProxyDataResponse,
     AweProxyDataResponseBody,
@@ -76,16 +77,15 @@ class G2PAweProxyController(BaseController):
         )
 
     def _bearer(self, request: Request) -> str:
-        token = getattr(getattr(request, "state", None), "auth", None)
-        credentials = getattr(token, "credentials", None) if token else None
-        if not credentials:
+        token = bearer_from_request(request)
+        if not token:
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.AWE_BEARER_TOKEN_REQUIRED.value[1],
                 message=G2PRegistryErrorCodes.AWE_BEARER_TOKEN_REQUIRED.value[0],
             )
-        return credentials
+        return token
 
-    @require_permissions({""})
+    @requires_auth
     async def list_my_tasks(
         self,
         request: Request,
@@ -104,7 +104,7 @@ class G2PAweProxyController(BaseController):
             _logger.error("Error in list_my_tasks: %s", exc)
             return self.helper.construct_error_response(exc, g2p_request)
 
-    @require_permissions({""})
+    @requires_auth
     async def my_task_stats(
         self,
         request: Request,
@@ -123,7 +123,7 @@ class G2PAweProxyController(BaseController):
             _logger.error("Error in my_task_stats: %s", exc)
             return self.helper.construct_error_response(exc, g2p_request)
 
-    @require_permissions({""})
+    @requires_auth
     async def submit_task_decision(
         self,
         request: Request,
@@ -142,7 +142,7 @@ class G2PAweProxyController(BaseController):
             _logger.error("Error in submit_task_decision: %s", exc)
             return self.helper.construct_error_response(exc, g2p_request)
 
-    @require_permissions({""})
+    @requires_auth
     async def claim_task(
         self,
         request: Request,
@@ -161,7 +161,7 @@ class G2PAweProxyController(BaseController):
             _logger.error("Error in claim_task: %s", exc)
             return self.helper.construct_error_response(exc, g2p_request)
 
-    @require_permissions({""})
+    @requires_auth
     async def get_request(
         self,
         request: Request,
@@ -180,7 +180,7 @@ class G2PAweProxyController(BaseController):
             _logger.error("Error in get_request: %s", exc)
             return self.helper.construct_error_response(exc, g2p_request)
 
-    @require_permissions({""})
+    @requires_auth
     async def get_request_events(
         self,
         request: Request,
