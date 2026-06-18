@@ -55,9 +55,11 @@ export function RegisterRecordCard({ record, registerType, isEven }: RegisterRec
                             {firstField ? (
                                 <p className="text-[16px] text-neutral-first truncate">
                                     <span className="font-normal text-neutral-first/70">
-                                        {t(firstField.field_name)}:{' '}
+                                        {t.has(firstField.field_name) ? t(firstField.field_name) : firstField.field_name}:{' '}
                                     </span>
-                                    <span className="font-medium">{firstField.value}</span>
+                                    <span className="font-medium">
+                                        {firstField.value ? (t.has(firstField.value) ? t(firstField.value) : firstField.value) : ''}
+                                    </span>
                                 </p>
                             ) : (
                                 <p className="text-[16px] invisible">&nbsp;</p>
@@ -65,9 +67,11 @@ export function RegisterRecordCard({ record, registerType, isEven }: RegisterRec
                             {secondField ? (
                                 <p className="text-[16px] text-neutral-first truncate">
                                     <span className="font-normal text-neutral-first/70">
-                                        {t(secondField.field_name)}:{' '}
+                                        {t.has(secondField.field_name) ? t(secondField.field_name) : secondField.field_name}:{' '}
                                     </span>
-                                    <span className="font-medium">{secondField.value}</span>
+                                    <span className="font-medium">
+                                        {secondField.value ? (t.has(secondField.value) ? t(secondField.value) : secondField.value) : ''}
+                                    </span>
                                 </p>
                             ) : (
                                 <p className="text-[16px] invisible">&nbsp;</p>
