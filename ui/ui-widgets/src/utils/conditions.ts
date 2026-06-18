@@ -25,8 +25,16 @@ export const evaluateCondition = (
 
   switch (operator) {
     case 'equals':
-      if (typeof value === 'boolean' || typeof fieldValue === 'boolean') {
-        return normalizeBooleanLike(fieldValue) === normalizeBooleanLike(value);
+      if (typeof value === 'boolean') {
+        // Unset fields must not match boolean conditions (e.g. RID show-when-no
+        // must wait until user explicitly selects No on has_national_id).
+        if (fieldValue === null || fieldValue === undefined || fieldValue === '') {
+          return false;
+        }
+        return normalizeBooleanLike(fieldValue) === value;
+      }
+      if (typeof fieldValue === 'boolean') {
+        return fieldValue === normalizeBooleanLike(value);
       }
       return fieldValue === value;
     case 'notEquals':
