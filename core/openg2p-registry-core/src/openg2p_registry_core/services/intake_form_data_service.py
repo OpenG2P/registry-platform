@@ -358,8 +358,12 @@ class G2PIntakeFormDataService(BaseService):
     ) -> set[str]:
         incoming_ids: set[str] = set()
         for record in records:
+            payload = dict(record or {})
+            if payload.get("edit_action") == "DELETE":
+                continue
+
             record_data = self._build_intake_row_data(
-                dict(record or {}),
+                payload,
                 intake_class,
                 submission,
                 actor_name,
