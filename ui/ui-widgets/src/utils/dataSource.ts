@@ -1,6 +1,92 @@
 import { DataSource, DataSourceRequestHandler } from '../types';
 import { getValueByPath, resolveWidgetIdValue } from './pathUtils';
 
+type ApiDataSource = Extract<DataSource, { type: 'api' }>;
+
+const apiDataSourceCache = new Map<string, any[]>();
+const apiDataSourceInflight = new Map<string, Promise<any[]>>();
+
+function buildApiRequestContext(
+  dataSource: ApiDataSource,
+  allValues: Record<string, any>,
+  levelId?: string
+): { service: string; endpoint: string; method: string; requestParams: Record<string, any> } | null {
+  let depValue: any = null;
+  if (dataSource.dependsOn) {
+    if (dataSource.dependsOn.includes('.')) {
+      depValue = getValueByPath(allValues, dataSource.dependsOn);
+    } else {
+      depValue = resolveWidgetIdValue(allValues, dataSource.dependsOn);
+    }
+    if (depValue === null || depValue === undefined || depValue === '') {
+      return null;
+    }
+  }
+
+  const method = dataSource.method || 'GET';
+  const staticParams: Record<string, any> = { ...dataSource.params };
+  const standardFields = ['type', 'service', 'endpoint', 'url', 'method', 'dependsOn', 'valueKey', 'labelKey', 'headers', 'body', 'params', 'level_id'];
+  for (const [key, value] of Object.entries(dataSource)) {
+    if (!standardFields.includes(key) && value !== undefined && value !== null) {
+      staticParams[key] = value;
+    }
+  }
+  if (levelId) {
+    staticParams.level_id = levelId;
+  }
+
+  const requestParams: Record<string, any> = { ...staticParams };
+  if (dataSource.dependsOn && depValue !== null && depValue !== undefined) {
+    const parentValueId = typeof depValue === 'object' && depValue !== null
+      ? (depValue.level_value_id || depValue.id || depValue.value || depValue)
+      : depValue;
+    if (staticParams.level_id) {
+      requestParams.parent_level_value_id = parentValueId;
+    } else {
+      const paramKey = dataSource.dependsOn.split('.').pop() || 'filter';
+      requestParams[paramKey] = parentValueId;
+    }
+  } else if (staticParams.level_id) {
+    requestParams.parent_level_value_id = '';
+  }
+
+  const service = dataSource.service;
+  const endpoint = dataSource.endpoint;
+  if (!service || !endpoint) {
+    return null;
+  }
+
+  return { service, endpoint, method, requestParams };
+}
+
+function buildApiDataSourceCacheKey(
+  service: string,
+  endpoint: string,
+  method: string,
+  requestParams: Record<string, any>
+): string {
+  return `${service}|${endpoint}|${method}|${JSON.stringify(requestParams)}`;
+}
+
+/** Return cached API options when already fetched (e.g. duplicate table cells). */
+export function getCachedApiDataSource(
+  dataSource: ApiDataSource,
+  allValues: Record<string, any>,
+  levelId?: string
+): any[] | undefined {
+  const context = buildApiRequestContext(dataSource, allValues, levelId);
+  if (!context) {
+    return undefined;
+  }
+  const cacheKey = buildApiDataSourceCacheKey(
+    context.service,
+    context.endpoint,
+    context.method,
+    context.requestParams
+  );
+  return apiDataSourceCache.get(cacheKey);
+}
+
 /**
  * Get static data source options
  */
@@ -24,117 +110,44 @@ export const getApiDataSource = async (
   }
 
   try {
-    // Get dependency value if exists
-    // dependsOn can be either a data path (e.g., "person.address") or a widget-id
-    let depValue: any = null;
-    if (dataSource.dependsOn) {
-      if (dataSource.dependsOn.includes('.')) {
-        depValue = getValueByPath(allValues, dataSource.dependsOn);
-      } else {
-        depValue = resolveWidgetIdValue(allValues, dataSource.dependsOn);
-      }
-
-      if (depValue === null || depValue === undefined || depValue === '') {
-        // If dependency is empty, return empty array
-        return [];
-      }
-    }
-
-    // Build request parameters
-    const method = dataSource.method || 'GET';
-
-    // Extract static params from dataSource
-    // Include explicit params object and any additional fields (like level_id)
-    const staticParams: Record<string, any> = { ...dataSource.params };
-
-    // Extract additional fields that aren't part of the standard ApiDataSource interface
-    // These are fields like level_id that might be directly on the dataSource
-    // BUT: level_id should come from widget-geo-config.level, not from dataSource
-    const standardFields = ['type', 'service', 'endpoint', 'url', 'method', 'dependsOn', 'valueKey', 'labelKey', 'headers', 'body', 'params', 'level_id'];
-    for (const [key, value] of Object.entries(dataSource)) {
-      if (!standardFields.includes(key) && value !== undefined && value !== null) {
-        staticParams[key] = value;
-      }
-    }
-
-    // If levelId is provided (from widget-geo-config.level), use it instead of any level_id in dataSource
-    if (levelId) {
-      staticParams.level_id = levelId;
-    }
-
-    // Build request params object
-    const requestParams: Record<string, any> = { ...staticParams };
-
-    // Add dependency value to params
-    if (dataSource.dependsOn && depValue !== null && depValue !== undefined) {
-      // Extract the actual value ID if depValue is an object
-      const parentValueId = typeof depValue === 'object' && depValue !== null
-        ? (depValue.level_value_id || depValue.id || depValue.value || depValue)
-        : depValue;
-
-      // For geo APIs, use parent_level_value_id
-      if (staticParams.level_id) {
-        requestParams.parent_level_value_id = parentValueId;
-      } else {
-        // For other APIs, use the dependency field name as param key
-        const paramKey = dataSource.dependsOn.split('.').pop() || 'filter';
-        requestParams[paramKey] = parentValueId;
-      }
-    } else if (staticParams.level_id) {
-      // First level has no parent, send empty string as many OpenG2P APIs expect it
-      requestParams.parent_level_value_id = "";
-    }
-
-    // Get service mnemonic and endpoint (required)
-    const service = dataSource.service;
-    const endpoint = dataSource.endpoint;
-
-    if (!service) {
-      console.error('[getApiDataSource] API data source missing service mnemonic. Use "service" field instead of "url"');
+    const context = buildApiRequestContext(dataSource, allValues, levelId);
+    if (!context) {
       return [];
     }
 
-    if (!endpoint) {
-      console.error('[getApiDataSource] API data source missing endpoint. Use "endpoint" field to specify the operation (e.g., "get_g2p_geo_level_values")');
-      return [];
+    const { service, endpoint, method, requestParams } = context;
+    const cacheKey = buildApiDataSourceCacheKey(service, endpoint, method, requestParams);
+
+    const cached = apiDataSourceCache.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
-    // Call handler — let any throw propagate to the outer catch so it is logged once
-    // by useBaseWidget rather than double-logged here (which can cascade when
-    // intercept-console-error.js converts console.error calls into thrown errors).
-    const response = await dataSourceRequestHandler(
-      service,
-      endpoint,
-      method,
-      requestParams,
-      {
-        headers: dataSource.headers,
-      }
-    );
-
-    // Handle OpenG2P response format (response_body.response_payload)
-    if (response && typeof response === 'object') {
-      if (response.response_body?.response_payload && Array.isArray(response.response_body.response_payload)) {
-        return response.response_body.response_payload;
-      }
+    const inflight = apiDataSourceInflight.get(cacheKey);
+    if (inflight) {
+      return inflight;
     }
 
-    // Handle array response
-    if (Array.isArray(response)) {
-      return response;
-    }
+    const fetchPromise = (async () => {
+      const response = await dataSourceRequestHandler(
+        service,
+        endpoint,
+        method,
+        requestParams,
+        { headers: dataSource.headers }
+      );
+      const parsed = Array.isArray(response) ? response : [];
 
-    // Handle object response (extract array from common keys)
-    if (response && typeof response === 'object') {
-      if (response.data && Array.isArray(response.data)) {
-        return response.data;
-      }
-      if (response.results && Array.isArray(response.results)) {
-        return response.results;
-      }
-    }
+      apiDataSourceCache.set(cacheKey, parsed);
+      return parsed;
+    })();
 
-    return [];
+    apiDataSourceInflight.set(cacheKey, fetchPromise);
+    try {
+      return await fetchPromise;
+    } finally {
+      apiDataSourceInflight.delete(cacheKey);
+    }
   } catch (error) {
     // Rethrow so useBaseWidget's catch can log it with full widget context
     throw error;

@@ -282,6 +282,54 @@ export function isUpstreamGeoAncestor(
   return false;
 }
 
+/** Group id for geo widgets sharing the same register prefix (e.g. `{registerId}`). */
+export function getGeoGroupId(
+  dataPath: string | Record<string, string> | undefined
+): string {
+  if (typeof dataPath === 'string' && dataPath.includes('.')) {
+    return dataPath.split('.').slice(0, -1).join('.');
+  }
+  return 'default';
+}
+
+/**
+ * Resolve the human-readable label for a geo level from persisted hierarchy JSON.
+ * Used in readonly mode when API options are not loaded.
+ */
+export function resolveGeoWidgetLevelLabel(
+  values: Record<string, any>,
+  widgetId: string,
+  dataPath: string | Record<string, string> | undefined,
+  geoConfig: GeoLevelConfig
+): string | undefined {
+  if (!dataPath || typeof dataPath !== 'string') {
+    return undefined;
+  }
+
+  const stored = getWidgetValue(values, dataPath, widgetId);
+  const hierarchy = stored?.hierarchy || stored?.geo_code_hierarchy_json?.hierarchy;
+  if (!Array.isArray(hierarchy)) {
+    return undefined;
+  }
+
+  const levelData = hierarchy.find((l: any) => l.level === geoConfig.level);
+  if (levelData?.level_value_mnemonic) {
+    return String(levelData.level_value_mnemonic);
+  }
+  return undefined;
+}
+
+/** All registered geo widgets that are descendants of ancestorWidgetId. */
+export function getGeoDescendantWidgetIds(ancestorWidgetId: string): string[] {
+  const descendants: string[] = [];
+  for (const [childId, parentId] of geoWidgetParentRegistry.entries()) {
+    if (isUpstreamGeoAncestor(ancestorWidgetId, childId, parentId)) {
+      descendants.push(childId);
+    }
+  }
+  return descendants;
+}
+
 function readStoredHierarchyLevels(
   values: Record<string, any>,
   dataPath: string,

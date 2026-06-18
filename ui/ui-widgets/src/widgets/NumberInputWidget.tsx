@@ -2,6 +2,7 @@ import React, { useMemo, useCallback, useState, useEffect } from 'react';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
+import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import {
   formatNumber,
   parseNumber,
@@ -79,6 +80,7 @@ export const NumberInputWidget = ({ config }: NumberInputWidgetProps) => {
     error,
     touched,
     isEnabled,
+    isRequired,
     onChange,
     onBlur,
     config: widgetConfig,
@@ -260,12 +262,11 @@ export const NumberInputWidget = ({ config }: NumberInputWidgetProps) => {
   return (
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-start">
-        <label className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={translateConfig(widgetConfig['widget-label'])}>
-          {translateConfig(widgetConfig['widget-label'])}
-          {widgetConfig['widget-required'] && (
-            <span className="text-red-500 ml-1">*</span>
-          )}
-        </label>
+        <WidgetFieldLabel
+          className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          label={translateConfig(widgetConfig['widget-label'])}
+          required={isRequired}
+        />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <input

@@ -6,7 +6,7 @@ import {
   PanelConfig,
   BaseWidgetConfig,
 } from "../types";
-import { shouldShowWidget } from "./conditions";
+import { shouldShowWidget, shouldEnableWidget, shouldRequireWidget } from "./conditions";
 import { getValueByPath, getWidgetValue } from "./pathUtils";
 import { validateWidget } from "./validation";
 import { isTableLikeWidget } from "./extractTableRecordsFromSnapshot";
@@ -141,6 +141,13 @@ export const sectionValidate = (
 
     if (!isVisible) continue;
 
+    const isEnabled = shouldEnableWidget(
+      widget['widget-data-options'],
+      currentSchemaData,
+    );
+
+    if (!isEnabled) continue;
+
     const widgetId = widget['widget-id'];
 
     if (isTableLikeWidget(widget)) {
@@ -162,10 +169,16 @@ export const sectionValidate = (
       widgetId
     );
 
+    const isRequired = shouldRequireWidget(
+      widget['widget-data-options'],
+      currentSchemaData,
+      widget['widget-required'] ?? false,
+    );
+
     const errors = validateWidget(
       value,
       widget['widget-data-validation'],
-      widget['widget-required'],
+      isRequired,
       skipRequired,
     );
 
