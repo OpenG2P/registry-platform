@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/Authcontext";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { withCsrfHeaders } from "@/shared/utils/csrf";
 
 interface UseFetchConfig {
     url?: string | null;
@@ -56,18 +57,17 @@ export function useFetch<T = any>({
         setError(null);
 
         try {
+            const method = (finalOptions?.method || 'GET').toUpperCase();
             const res = await fetch(finalUrl, {
                 ...finalOptions,
+                credentials: 'include',
                 headers:
                     finalOptions?.body instanceof FormData
-                        ? {
-                            // ONLY non-content-type headers allowed
-                            ...(finalOptions?.headers ?? {}),
-                        }
-                        : {
+                        ? withCsrfHeaders(method, finalOptions?.headers)
+                        : withCsrfHeaders(method, {
                             "Content-Type": "application/json",
                             ...(finalOptions?.headers ?? {}),
-                        },
+                        }),
                 signal: controller.signal,
             });
 
