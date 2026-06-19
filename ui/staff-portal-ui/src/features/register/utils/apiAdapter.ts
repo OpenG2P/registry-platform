@@ -1,10 +1,14 @@
+import { withCsrfHeaders } from '@/shared/utils/csrf';
+
 export const apiAdapter = async (url: string, options: any) => {
+    const method = options.method || 'GET';
     const response = await fetch(url, {
-        method: options.method || 'GET',
-        headers: {
+        method,
+        credentials: 'include',
+        headers: withCsrfHeaders(method, {
             'Content-Type': 'application/json',
             ...options.headers,
-        },
+        }),
         body: options.body ? JSON.stringify(options.body) : undefined,
     });
 

@@ -6,7 +6,6 @@ export function getServerEnv() {
         iamUrl: process.env.IAM_URL ?? "",
         loginProviderId: process.env.LOGIN_PROVIDER_ID ?? "",
         applicationMnemonic: process.env.APPLICATION_MNEMONIC ?? "openg2p-registry",
-        redirectUrl: process.env.REDIRECT_URL ?? "",
 
         defaultLocale: process.env.DEFAULT_LOCALE ?? "",
 

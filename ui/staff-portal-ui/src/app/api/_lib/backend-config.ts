@@ -12,6 +12,5 @@ export function getBackendConfig() {
         iamUrl: env.iamUrl,
         loginProviderId: env.loginProviderId,
         applicationMnemonic: env.applicationMnemonic,
-        redirectUrl: env.redirectUrl,
     };
 }
