@@ -454,6 +454,12 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   const apiEndpoint = dataSource?.type === 'api' ? (dataSource as any).endpoint : '';
   const configKey = `${widgetId}-${isReadonly}-${dataSource?.type || 'none'}-${apiService}-${apiEndpoint}`;
 
+  // Stable key so inline schemaData objects (e.g. dialog-table fields) don't retrigger loads every render
+  const schemaDataKey = useMemo(
+    () => (schemaData ? JSON.stringify(schemaData) : ''),
+    [schemaData],
+  );
+
   // Extract dependency value using a granular selector to prevent unnecessary re-renders
   // and infinite loops when other unrelated values in the state change.
   const dependencyValue = useSelector((state: WidgetRootState) => {
@@ -594,7 +600,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     loadDataSource();
     // Use configKey and dependencyValue to ensure effect runs only when relevant state changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configKey, dependencyValue, dataSourceRequestHandler, schemaData, widgetId, dispatch]);
+  }, [configKey, dependencyValue, dataSourceRequestHandler, schemaDataKey, widgetId, dispatch]);
 
   const geoDisplayLabel = useMemo(() => {
     if (!geoConfig) {
