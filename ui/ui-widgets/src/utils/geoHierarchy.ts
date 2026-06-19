@@ -253,7 +253,17 @@ export const geoHierarchyBuilder = new GeoHierarchyBuilder();
 /** Sentinel written to Redux when a geo level is cleared by cascade (distinct from "never set"). */
 export const GEO_LEVEL_CLEARED = null;
 
+export interface GeoWidgetRegistration {
+  widgetId: string;
+  parentWidgetId: string | null;
+  level: string;
+  geoConfig: GeoLevelConfig;
+  dataPath: string;
+  groupId: string;
+}
+
 const geoWidgetParentRegistry = new Map<string, string | null>();
+const geoWidgetConfigRegistry = new Map<string, GeoWidgetRegistration>();
 
 export function registerGeoWidgetParent(widgetId: string, parentWidgetId: string | null): void {
   geoWidgetParentRegistry.set(widgetId, parentWidgetId || null);
@@ -261,6 +271,202 @@ export function registerGeoWidgetParent(widgetId: string, parentWidgetId: string
 
 export function unregisterGeoWidgetParent(widgetId: string): void {
   geoWidgetParentRegistry.delete(widgetId);
+}
+
+export function registerGeoWidget(
+  widgetId: string,
+  geoConfig: GeoLevelConfig & { parentWidgetId?: string | null },
+  dataPath: string
+): void {
+  if (typeof dataPath !== 'string') {
+    return;
+  }
+  const parentWidgetId = geoConfig.parentWidgetId?.trim() ? geoConfig.parentWidgetId : null;
+  registerGeoWidgetParent(widgetId, parentWidgetId);
+  geoWidgetConfigRegistry.set(widgetId, {
+    widgetId,
+    parentWidgetId,
+    level: geoConfig.level,
+    geoConfig,
+    dataPath,
+    groupId: getGeoGroupId(dataPath),
+  });
+}
+
+export function unregisterGeoWidget(widgetId: string): void {
+  unregisterGeoWidgetParent(widgetId);
+  geoWidgetConfigRegistry.delete(widgetId);
+}
+
+export function orderGeoWidgetRegistrations(
+  registrations: GeoWidgetRegistration[]
+): GeoWidgetRegistration[] {
+  if (registrations.length <= 1) {
+    return registrations;
+  }
+
+  const roots = registrations.filter((entry) => !entry.parentWidgetId);
+  if (roots.length === 0) {
+    return registrations;
+  }
+
+  const ordered: GeoWidgetRegistration[] = [];
+  let current: GeoWidgetRegistration | undefined = roots[0];
+  const visited = new Set<string>();
+
+  while (current && !visited.has(current.widgetId)) {
+    visited.add(current.widgetId);
+    ordered.push(current);
+    current = registrations.find((entry) => entry.parentWidgetId === current!.widgetId);
+  }
+
+  return ordered.length > 0 ? ordered : registrations;
+}
+
+function resolveLevelValueId(rawValue: any): string | null {
+  if (rawValue === null || rawValue === undefined || rawValue === '') {
+    return null;
+  }
+  if (typeof rawValue === 'string' || typeof rawValue === 'number') {
+    return String(rawValue);
+  }
+  if (typeof rawValue === 'object') {
+    const id = rawValue.level_value_id || rawValue.id || rawValue.value;
+    return id != null && id !== '' ? String(id) : null;
+  }
+  return null;
+}
+
+function resolveStoredMnemonic(
+  values: Record<string, any>,
+  registration: GeoWidgetRegistration,
+  valueId: string
+): string | undefined {
+  const stored = getWidgetValue(values, registration.dataPath, registration.widgetId);
+  const hierarchy = stored?.hierarchy || stored?.geo_code_hierarchy_json?.hierarchy;
+  if (!Array.isArray(hierarchy)) {
+    return undefined;
+  }
+  const levelData = hierarchy.find((entry: any) => entry.level === registration.level);
+  if (levelData && String(levelData.level_value_id) === String(valueId)) {
+    return levelData.level_value_mnemonic ? String(levelData.level_value_mnemonic) : undefined;
+  }
+  return undefined;
+}
+
+/** Resolve display mnemonic from cached dropdown options, then stored hierarchy. */
+export function createGeoLevelMnemonicResolver(
+  values: Record<string, any>,
+  dataSources: Record<string, Array<{ value: any; label: string }>>
+): (registration: GeoWidgetRegistration, valueId: string) => string | undefined {
+  return (registration, valueId) => {
+    const options = dataSources[registration.widgetId];
+    const option = options?.find((entry) => String(entry.value) === String(valueId));
+    if (option?.label) {
+      return option.label;
+    }
+    return resolveStoredMnemonic(values, registration, valueId);
+  };
+}
+
+/** Rebuild group hierarchy from widget values in parent→child order; stop at first missing level. */
+export function rebuildGeoHierarchyFromRegistrations(
+  groupId: string,
+  values: Record<string, any>,
+  registrations: GeoWidgetRegistration[],
+  resolveMnemonic?: (registration: GeoWidgetRegistration, valueId: string) => string | undefined
+): boolean {
+  const ordered = orderGeoWidgetRegistrations(
+    registrations.filter((entry) => entry.groupId === groupId)
+  );
+  geoHierarchyBuilder.clear(groupId);
+
+  for (const registration of ordered) {
+    const rawValue = resolveGeoWidgetLevelValue(
+      values,
+      registration.widgetId,
+      registration.dataPath,
+      registration.geoConfig
+    );
+    const valueId = resolveLevelValueId(rawValue);
+    if (!valueId) {
+      break;
+    }
+    const mnemonic =
+      resolveMnemonic?.(registration, valueId) ??
+      resolveStoredMnemonic(values, registration, valueId) ??
+      valueId;
+    geoHierarchyBuilder.addLevel(registration.level, valueId, mnemonic, groupId);
+  }
+
+  return geoHierarchyBuilder.buildHierarchyJson(groupId) !== null;
+}
+
+export function collectGeoWidgetRegistrationsFromWidgets(
+  widgets: Array<{
+    'widget-id': string;
+    'widget-data-path'?: string | Record<string, string>;
+    'widget-geo-config'?: GeoLevelConfig & { parentWidgetId?: string | null };
+  }>,
+  namespace?: string
+): GeoWidgetRegistration[] {
+  return widgets
+    .filter((widget) => widget['widget-geo-config'] && typeof widget['widget-data-path'] === 'string')
+    .map((widget) => {
+      const originalWidgetId = widget['widget-id'];
+      const originalDataPath = widget['widget-data-path'] as string;
+      const geoConfig = widget['widget-geo-config']!;
+      const widgetId = namespace ? `${namespace}__${originalWidgetId}` : originalWidgetId;
+      const parentWidgetId = geoConfig.parentWidgetId?.trim()
+        ? (namespace ? `${namespace}__${geoConfig.parentWidgetId}` : geoConfig.parentWidgetId)
+        : null;
+      const dataPath = namespace ? `${namespace}.${originalDataPath}` : originalDataPath;
+
+      return {
+        widgetId,
+        parentWidgetId,
+        level: geoConfig.level,
+        geoConfig,
+        dataPath,
+        groupId: getGeoGroupId(dataPath),
+      };
+    });
+}
+
+/** Reconcile all geo groups in section values before save. */
+export function reconcileGeoHierarchiesInValues(
+  values: Record<string, any>,
+  registrations: GeoWidgetRegistration[],
+  dataSources: Record<string, Array<{ value: any; label: string }>> = {}
+): Record<string, any> {
+  const groupIds = [...new Set(registrations.map((entry) => entry.groupId))];
+  let updatedValues = values;
+  const resolveMnemonic = createGeoLevelMnemonicResolver(updatedValues, dataSources);
+
+  for (const groupId of groupIds) {
+    const groupRegistrations = registrations.filter((entry) => entry.groupId === groupId);
+    const dataPath = groupRegistrations[0]?.dataPath;
+    const widgetId = groupRegistrations[0]?.widgetId;
+    if (!dataPath || !widgetId) {
+      continue;
+    }
+
+    rebuildGeoHierarchyFromRegistrations(
+      groupId,
+      updatedValues,
+      groupRegistrations,
+      resolveMnemonic
+    );
+    updatedValues = applySharedGeoHierarchyToValues(updatedValues, groupId, dataPath, widgetId);
+  }
+
+  return updatedValues;
+}
+
+export function getGeoWidgetRegistrationsInGroup(groupId: string): GeoWidgetRegistration[] {
+  return orderGeoWidgetRegistrations(
+    [...geoWidgetConfigRegistry.values()].filter((entry) => entry.groupId === groupId)
+  );
 }
 
 /** True when changedWidgetId is any upstream geo parent of widgetId (not only immediate parent). */
@@ -280,6 +486,54 @@ export function isUpstreamGeoAncestor(
     cursor = geoWidgetParentRegistry.get(cursor) ?? null;
   }
   return false;
+}
+
+/** Group id for geo widgets sharing the same register prefix (e.g. `{registerId}`). */
+export function getGeoGroupId(
+  dataPath: string | Record<string, string> | undefined
+): string {
+  if (typeof dataPath === 'string' && dataPath.includes('.')) {
+    return dataPath.split('.').slice(0, -1).join('.');
+  }
+  return 'default';
+}
+
+/**
+ * Resolve the human-readable label for a geo level from persisted hierarchy JSON.
+ * Used in readonly mode when API options are not loaded.
+ */
+export function resolveGeoWidgetLevelLabel(
+  values: Record<string, any>,
+  widgetId: string,
+  dataPath: string | Record<string, string> | undefined,
+  geoConfig: GeoLevelConfig
+): string | undefined {
+  if (!dataPath || typeof dataPath !== 'string') {
+    return undefined;
+  }
+
+  const stored = getWidgetValue(values, dataPath, widgetId);
+  const hierarchy = stored?.hierarchy || stored?.geo_code_hierarchy_json?.hierarchy;
+  if (!Array.isArray(hierarchy)) {
+    return undefined;
+  }
+
+  const levelData = hierarchy.find((l: any) => l.level === geoConfig.level);
+  if (levelData?.level_value_mnemonic) {
+    return String(levelData.level_value_mnemonic);
+  }
+  return undefined;
+}
+
+/** All registered geo widgets that are descendants of ancestorWidgetId. */
+export function getGeoDescendantWidgetIds(ancestorWidgetId: string): string[] {
+  const descendants: string[] = [];
+  for (const [childId, parentId] of geoWidgetParentRegistry.entries()) {
+    if (isUpstreamGeoAncestor(ancestorWidgetId, childId, parentId)) {
+      descendants.push(childId);
+    }
+  }
+  return descendants;
 }
 
 function readStoredHierarchyLevels(

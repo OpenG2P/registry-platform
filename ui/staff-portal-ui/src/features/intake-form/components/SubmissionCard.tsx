@@ -13,13 +13,6 @@ interface IntakeFormSubmissionCardProps {
 export function IntakeFormSubmissionCard({ submission, registerType }: IntakeFormSubmissionCardProps) {
     const t = useTranslations();
 
-    const formatLabel = (label: string) => {
-        return label
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-    };
-
     return (
         <Link
             href={`/intake-form/${registerType}/submission/${submission.submission_id}`}
@@ -69,8 +62,8 @@ export function IntakeFormSubmissionCard({ submission, registerType }: IntakeFor
                             {submission.display_fields?.slice(0, Math.ceil((submission.display_fields?.length || 0) / 2)).map((field) => (
                                 <KeyValue
                                     key={field.field_name}
-                                    label={formatLabel(field.field_name)}
-                                    value={String(field.value ?? '--')}
+                                    label={t.has(field.field_name) ? t(field.field_name) : field.field_name}
+                                    value={field.value ? (t.has(field.value) ? t(field.value) : field.value) : ''}
                                 />
                             ))}
                         </div>
@@ -81,8 +74,8 @@ export function IntakeFormSubmissionCard({ submission, registerType }: IntakeFor
                             {submission.display_fields?.slice(Math.ceil((submission.display_fields?.length || 0) / 2)).map((field) => (
                                 <KeyValue
                                     key={field.field_name}
-                                    label={formatLabel(field.field_name)}
-                                    value={String(field.value ?? '--')}
+                                    label={t.has(field.field_name) ? t(field.field_name) : field.field_name}
+                                    value={field.value ? (t.has(field.value) ? t(field.value) : field.value) : ''}
                                 />
                             ))}
                         </div>

@@ -839,6 +839,7 @@ class G2PRegisterService(BaseService):
                 dedup_threshold_score=register_definition.dedup_threshold_score,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
                 completion_score_required=register_definition.completion_score_required,
+                outgest_applicable=register_definition.outgest_applicable,
                 requires_registrant_authentication=register_definition.requires_registrant_authentication,
                 registrant_authentication_validity_days=register_definition.registrant_authentication_validity_days,
                 registrant_re_auth_warning_days_before=register_definition.registrant_re_auth_warning_days_before,
@@ -896,6 +897,7 @@ class G2PRegisterService(BaseService):
                 register_description=register_definition.register_description,
                 master_register_id=register_definition.master_register_id,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
+                outgest_applicable=register_definition.outgest_applicable,
             )
             dashboard_registers_list.append(register_data)
 
@@ -946,6 +948,7 @@ class G2PRegisterService(BaseService):
             register_description=master_register_definition.register_description,
             master_register_id=master_register_definition.master_register_id,
             functional_id_generation_required=master_register_definition.functional_id_generation_required,
+            outgest_applicable=master_register_definition.outgest_applicable,
         )
         return master_register_data
 
@@ -1068,18 +1071,6 @@ class G2PRegisterService(BaseService):
                     message=str(validation_error)
                 )
 
-        # Sorting
-        order_by_clause = None
-        if sort_by:
-            # Sort descending if startswith '-', else ascending
-            column_name = sort_by.lstrip('-')
-            sort_column = getattr(implementation_class, column_name, None)
-            if sort_column is not None:
-                if sort_by.startswith('-'):
-                    order_by_clause = sort_column.desc()
-                else:
-                    order_by_clause = sort_column.asc()
-
         # Total count
         total_query = select(implementation_class).filter(*filter_conditions)
         total_count = (await session.execute(total_query)).scalars().unique().all()
@@ -1090,8 +1081,7 @@ class G2PRegisterService(BaseService):
 
         # Query records
         query = select(implementation_class).filter(*filter_conditions)
-        if order_by_clause is not None:
-            query = query.order_by(order_by_clause)
+        query = self._apply_register_record_sort(query, implementation_class, sort_by)
         query = query.offset(offset).limit(page_size)
 
         results = (await session.execute(query)).scalars().all()
@@ -1174,14 +1164,7 @@ class G2PRegisterService(BaseService):
 
         # Build query with filters applied
         query = select(implementation_class).where(*filter_conditions)
-
-        # Apply sorting if provided
-        if sort_by:
-            try:
-                sort_column = getattr(implementation_class, sort_by)
-                query = query.order_by(sort_column)
-            except AttributeError:
-                _logger.warning(f"Sort column {sort_by} not found, using default order")
+        query = self._apply_register_record_sort(query, implementation_class, sort_by)
 
         # Apply pagination
         query = query.offset(offset).limit(page_size)
@@ -1239,6 +1222,17 @@ class G2PRegisterService(BaseService):
             search_results_list.append(search_result_data)
 
         return search_results_list, total_items
+
+    def _apply_register_record_sort(self, query, implementation_class, sort_by: str | None):
+        """Sort register records; newest first when no sort is specified."""
+        if sort_by:
+            column_name = sort_by.lstrip('-')
+            descending = sort_by.startswith('-')
+            sort_column = getattr(implementation_class, column_name, None)
+            if sort_column is not None:
+                return query.order_by(sort_column.desc() if descending else sort_column.asc())
+            _logger.warning(f"Sort column {sort_by} not found, using default order")
+        return query.order_by(implementation_class.last_approved_at.desc())
 
     def _has_explicit_record_status_filter(self, filter_by: dict | str | None) -> bool:
         """Return True when filter_by explicitly includes record_status."""
@@ -2396,6 +2390,7 @@ class G2PRegisterService(BaseService):
         register_purpose: str | None = None,
         functional_id_generation_required: bool = False,
         completion_score_required: bool = False,
+        outgest_applicable: bool = False,
         requires_registrant_authentication: bool = False,
         registrant_authentication_validity_days: int | None = 730,
         registrant_re_auth_warning_days_before: int | None = 30,
@@ -2432,6 +2427,7 @@ class G2PRegisterService(BaseService):
                 register_purpose=register_purpose if register_purpose else RegisterPurposeEnum.REGISTER.value,
                 functional_id_generation_required=functional_id_generation_required,
                 completion_score_required=completion_score_required,
+                outgest_applicable=outgest_applicable,
                 requires_registrant_authentication=requires_registrant_authentication,
                 registrant_authentication_validity_days=registrant_authentication_validity_days,
                 registrant_re_auth_warning_days_before=registrant_re_auth_warning_days_before,
@@ -2461,6 +2457,7 @@ class G2PRegisterService(BaseService):
                 register_rank=register_definition.register_rank,
                 register_icon=register_definition.register_icon,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
+                outgest_applicable=register_definition.outgest_applicable,
                 completion_score_required=register_definition.completion_score_required,
                 requires_registrant_authentication=register_definition.requires_registrant_authentication,
                 registrant_authentication_validity_days=register_definition.registrant_authentication_validity_days,
@@ -2480,6 +2477,7 @@ class G2PRegisterService(BaseService):
         register_purpose: str | None = None,
         functional_id_generation_required: bool | None = None,
         completion_score_required: bool | None = None,
+        outgest_applicable: bool | None = None,
         requires_registrant_authentication: bool | None = None,
         registrant_authentication_validity_days: int | None = None,
         registrant_re_auth_warning_days_before: int | None = None,
@@ -2583,6 +2581,9 @@ class G2PRegisterService(BaseService):
             if completion_score_required is not None:
                 register_definition.completion_score_required = completion_score_required
 
+            if outgest_applicable is not None:
+                register_definition.outgest_applicable = outgest_applicable
+
             await session.commit()
             await session.refresh(register_definition)
 
@@ -2598,6 +2599,7 @@ class G2PRegisterService(BaseService):
                 register_rank=register_definition.register_rank,
                 register_icon=register_definition.register_icon,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
+                outgest_applicable=register_definition.outgest_applicable,
                 completion_score_required=register_definition.completion_score_required,
                 requires_registrant_authentication=register_definition.requires_registrant_authentication,
                 registrant_authentication_validity_days=register_definition.registrant_authentication_validity_days,
@@ -2633,6 +2635,7 @@ class G2PRegisterService(BaseService):
                 register_rank=register_definition.register_rank,
                 register_icon=register_definition.register_icon,
                 functional_id_generation_required=register_definition.functional_id_generation_required,
+                outgest_applicable=register_definition.outgest_applicable,
             )
 
             # Delete associated register schema

@@ -10,10 +10,13 @@ import {
   applySharedGeoHierarchyToValues,
   resolveGeoWidgetLevelValue,
   GEO_LEVEL_CLEARED,
-  registerGeoWidgetParent,
-  unregisterGeoWidgetParent,
+  registerGeoWidget,
+  unregisterGeoWidget,
   isUpstreamGeoAncestor,
   seedGeoHierarchyFromValues,
+  rebuildGeoHierarchyFromRegistrations,
+  getGeoWidgetRegistrationsInGroup,
+  createGeoLevelMnemonicResolver,
 } from '../utils/geoHierarchy';
 import { getWidgetValue } from '../utils/pathUtils';
 
@@ -23,8 +26,6 @@ export interface UseGeoWidgetCascadeOptions {
   values: Record<string, any>;
 }
 
-// Define stable empty array to avoid selector reference issues
-const EMPTY_DATA_SOURCE: any[] = [];
 
 /**
  * Hook for geo widget cascade functionality
@@ -45,6 +46,7 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
   const valuesRef = useRef(values);
   const handlerRef = useRef(dataSourceRequestHandler);
   const lastCascadePublishRef = useRef<string | null | undefined>(undefined);
+  const lastDirectParentValueRef = useRef<any>(undefined);
 
   // Keep refs updated
   useEffect(() => {
@@ -60,18 +62,16 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
   );
 
   // Memoize selector to avoid returning new array reference
-  const dataSourceOptions = useSelector((state: WidgetRootState) => 
-    state.widget.dataSources[widgetId] ?? EMPTY_DATA_SOURCE
-  );
+  const allDataSources = useSelector((state: WidgetRootState) => state.widget.dataSources);
 
   // Register parent chain for upstream-ancestor detection (grandparent → grandchild reset)
   useEffect(() => {
-    if (!geoConfig) {
+    if (!geoConfig || typeof dataPath !== 'string') {
       return;
     }
-    registerGeoWidgetParent(widgetId, geoConfig.parentWidgetId);
-    return () => unregisterGeoWidgetParent(widgetId);
-  }, [widgetId, geoConfig]);
+    registerGeoWidget(widgetId, geoConfig, dataPath);
+    return () => unregisterGeoWidget(widgetId);
+  }, [widgetId, geoConfig, dataPath]);
 
   // Keep in-memory builder in sync with persisted hierarchy (reload, cancel→re-edit, etc.)
   useEffect(() => {
@@ -136,6 +136,16 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
         event.value === '' ||
         event.value === GEO_LEVEL_CLEARED;
 
+      const isFirstParentEvent = lastDirectParentValueRef.current === undefined;
+      const parentValueChanged =
+        !isFirstParentEvent &&
+        lastDirectParentValueRef.current !== event.value;
+      lastDirectParentValueRef.current = event.value;
+
+      if (!parentCleared && !parentValueChanged && !isFirstParentEvent) {
+        return;
+      }
+
       let parentValue = event.value;
       if (!parentCleared && (parentValue === undefined || parentValue === null)) {
         parentValue = currentValues[parentWidgetId];
@@ -173,24 +183,33 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
 
   // Handle value changes to build hierarchy
   useEffect(() => {
-    if (!geoConfig) {
+    if (!geoConfig || typeof dataPath !== 'string') {
       return;
     }
 
-    // Skip if value is undefined (it might still be loading or rehydrating)
+    const { level, isLastLevel } = geoConfig;
+    const groupRegistrations = getGeoWidgetRegistrationsInGroup(groupId);
+
+    const applyGroupRebuild = () => {
+      const resolveMnemonic = createGeoLevelMnemonicResolver(valuesRef.current, allDataSources);
+      rebuildGeoHierarchyFromRegistrations(
+        groupId,
+        valuesRef.current,
+        groupRegistrations,
+        resolveMnemonic
+      );
+      dispatch(
+        setValues(
+          applySharedGeoHierarchyToValues(valuesRef.current, groupId, dataPath, widgetId)
+        )
+      );
+    };
+
     // ONLY clear hierarchy if the value is explicitly null or empty string (user action)
     if (currentValue === null || currentValue === '') {
-      const { level, isLastLevel } = geoConfig;
       geoHierarchyBuilder.removeLevelAndBelow(level, groupId);
-      
-      // If we have a dataPath, we need to update Redux with the cleared hierarchy
-      if (dataPath) {
-        dispatch(
-          setValues(
-            applySharedGeoHierarchyToValues(valuesRef.current, groupId, dataPath, widgetId)
-          )
-        );
-      }
+      applyGroupRebuild();
+
       if (!isLastLevel && eventBus && lastCascadePublishRef.current !== GEO_LEVEL_CLEARED) {
         lastCascadePublishRef.current = GEO_LEVEL_CLEARED;
         eventBus.publish({
@@ -204,77 +223,12 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
     }
 
     if (currentValue === undefined) {
-      return; // Skip if undefined (still initializing)
-    }
-
-    const { level, isLastLevel } = geoConfig;
-    
-    // Check if hierarchy is already built to prevent endless loops
-    if (dataPath) {
-      const currentHierarchy = getWidgetValue(valuesRef.current, dataPath, widgetId);
-      // If hierarchy JSON is already set and matches current value, skip rebuilding
-      if (currentHierarchy && typeof currentHierarchy === 'object') {
-        // Check if this specific level's value matches the hierarchy
-        const hierarchyArray = currentHierarchy.hierarchy || currentHierarchy.geo_code_hierarchy_json?.hierarchy;
-        
-        if (Array.isArray(hierarchyArray)) {
-          const currentLevelValue = typeof currentValue === 'object' 
-            ? (currentValue.level_value_id || currentValue.id || currentValue.value)
-            : currentValue;
-          
-          const levelData = hierarchyArray.find((l: any) => l.level === geoConfig.level);
-          
-          // If this level is already correctly represented in the hierarchy, skip rebuilding
-          // String conversion ensures comparison works for mixed types
-          if (levelData && String(levelData.level_value_id) === String(currentLevelValue)) {
-            return;
-          }
-        }
+      const hasOwnValue = Object.prototype.hasOwnProperty.call(valuesRef.current, widgetId);
+      if (!hasOwnValue) {
+        return;
       }
     }
 
-    // Extract level_value_id and level_value_mnemonic from current value
-    // The value could be the ID itself or an object with id/name
-    let level_value_id: string;
-    let level_value_mnemonic: string;
-
-    if (typeof currentValue === 'string' || typeof currentValue === 'number') {
-      // Value is just the ID, need to find mnemonic from data source
-      level_value_id = String(currentValue);
-      // Try to get mnemonic from data source options
-      const option = dataSourceOptions.find((opt: any) => opt.value === currentValue);
-      level_value_mnemonic = option?.label || String(currentValue);
-    } else if (currentValue && typeof currentValue === 'object') {
-      level_value_id = currentValue.level_value_id || currentValue.id || currentValue.value;
-      level_value_mnemonic = currentValue.level_value_mnemonic || currentValue.name || currentValue.label;
-    } else {
-      return;
-    }
-
-    // When a widget's own value changes, remove this level and all below from hierarchy first
-    geoHierarchyBuilder.removeLevelAndBelow(level, groupId);
-    
-    // Add level to hierarchy
-    geoHierarchyBuilder.addLevel(level, level_value_id, level_value_mnemonic, groupId);
-
-    // Build and store hierarchy JSON on every change
-    if (dataPath && geoHierarchyBuilder.buildHierarchyJson(groupId)) {
-      dispatch(
-        setValues(
-          applySharedGeoHierarchyToValues(valuesRef.current, groupId, dataPath, widgetId)
-        )
-      );
-    }
-
-    // Notify descendants when this level changes via hierarchy/rehydration (handleChange may not run).
-    if (!isLastLevel && eventBus && lastCascadePublishRef.current !== level_value_id) {
-      lastCascadePublishRef.current = level_value_id;
-      eventBus.publish({
-        type: 'widget:change',
-        widgetId,
-        value: level_value_id,
-        timestamp: Date.now(),
-      });
-    }
-  }, [geoConfig, currentValue, widgetId, dataPath, dispatch, dataSourceOptions, eventBus, groupId]);
+    applyGroupRebuild();
+  }, [geoConfig, currentValue, widgetId, dataPath, dispatch, allDataSources, groupId, eventBus]);
 };

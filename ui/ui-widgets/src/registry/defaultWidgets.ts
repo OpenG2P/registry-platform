@@ -23,6 +23,7 @@ import {
   ScoresDisplayWidget,
   IdAuthenticationWidget,
   RegisterLookupWidget,
+  MultiSelectWidget,
 } from '../widgets';
 
 /**
@@ -93,6 +94,9 @@ export const registerDefaultWidgets = () => {
 
   // Register lookup widget — searchable popup to select a record from any register
   widgetRegistry.register({ widget: 'register-lookup', component: RegisterLookupWidget });
+
+  // Multi-select widget — searchable dropdown with checkbox-style options, select all, and clear all
+  widgetRegistry.register({ widget: 'multi-select', component: MultiSelectWidget });
 };
 
 // Auto-register on import
