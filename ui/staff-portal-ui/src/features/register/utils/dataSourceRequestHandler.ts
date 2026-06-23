@@ -1,6 +1,7 @@
 "use client";
 
 import { routeServiceEndpoint } from '@/shared/utils/serviceRouteMapper';
+import { withCsrfHeaders } from '@/shared/utils/csrf';
 
 /**
  * Type definition for DataSourceRequestHandler
@@ -28,13 +29,16 @@ const _dataSourceRequestHandler: DataSourceRequestHandler = async (
         // Route service + endpoint to actual Next.js API URL
         const url = routeServiceEndpoint(service, endpoint);
 
+        const requestMethod = method || 'POST';
+
         // Pass params as a flat body; each API route maps to backend shape
         const response = await fetch(url, {
-            method: method || 'POST',
-            headers: {
+            method: requestMethod,
+            credentials: 'include',
+            headers: withCsrfHeaders(requestMethod, {
                 'Content-Type': 'application/json',
                 ...options?.headers,
-            },
+            }),
             body: JSON.stringify(params),
         });
 
