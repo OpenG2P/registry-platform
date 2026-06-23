@@ -21,7 +21,7 @@ _config = Settings.get_config()
 
 app = initializer.return_app()
 
-# Partner-api has no AuthMiddleware to chain after — AuditMiddleware
+# Partner-api has no ResolvePermissionMiddleware to chain after — AuditMiddleware
 # is the only middleware here. It wraps every request, captures the
 # outcome, and emits a CloudEvent to Audit Manager (fire-and-forget).
 # Default = disabled / no-op until both REGISTRY_PARTNER_API_AUDIT_ENABLED
