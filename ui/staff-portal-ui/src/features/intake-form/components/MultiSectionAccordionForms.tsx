@@ -137,12 +137,12 @@ export default function MultiSectionAccordionForms({
             <div className="pt-6 border-t-2 border-neutral-second mb-4">
               {intakeFormHeading && (
                 <h3 className="text-[24px] font-medium leading-[100%] text-neutral-first mb-4">
-                  {intakeFormHeading}
+                  {t(intakeFormHeading) || intakeFormHeading}
                 </h3>
               )}
               {intakeFormDescription && (
                 <div className="text-secondary-third text-[16px] font-normal leading-[100%] flex flex-col gap-4 whitespace-pre-wrap pr-10">
-                  {intakeFormDescription}
+                  {t(intakeFormDescription) || intakeFormDescription}
                 </div>
               )}
             </div>
