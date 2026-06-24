@@ -1,6 +1,5 @@
 import type { LanguageConfig } from '@/app/api/_lib/client-safe-config.types';
 import sampleCore from '../../../../../sample-locale/en/core.json';
-import sampleDomain from '../../../../../sample-locale/en/domain.json';
 
 export type TranslationValue =
     | string
@@ -18,11 +17,8 @@ export function toTranslationMap(input: unknown): TranslationMap {
     return { ...(input as TranslationMap) };
 }
 
-// English sample files are bundled as a compile-time fallback.
-const EN_FALLBACK: TranslationMap = {
-    ...toTranslationMap(sampleCore),
-    ...toTranslationMap(sampleDomain),
-};
+// English core translations are bundled as a compile-time fallback for platform UI.
+const EN_FALLBACK: TranslationMap = toTranslationMap(sampleCore);
 
 /** Merges English fallback, then API core/domain (API wins on duplicate keys). */
 export function getLanguageMessages(
