@@ -1,7 +1,7 @@
 """
 Data-policy middleware (tactical 1.2.0).
 
-Runs after AuthMiddleware. Parses DP_ prefixed roles from the access token
+Runs after ResolvePermissionMiddleware. Parses DP_ prefixed roles from the access token
 and stores resolved policy mnemonics on request.state for downstream handlers.
 """
 
@@ -22,7 +22,7 @@ class DataPolicyMiddleware(BaseHTTPMiddleware):
     """
     Extract data-policy role mnemonics from the authenticated principal.
 
-    Register inside AuthMiddleware (closer to the app) so request.state.auth
+    Register inside ResolvePermissionMiddleware (closer to the app) so request.state.auth
     is populated before this middleware runs.
     """
 

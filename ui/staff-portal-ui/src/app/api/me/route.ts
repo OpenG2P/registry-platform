@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '../_lib/requireAuth';
 import { getBackendConfig } from '../_lib/backend-config';
+import { jsonResponseFromBackend } from '../_lib/auth-cookies';
 
 export async function GET(req: NextRequest) {
     const auth = requireAuth(req);
     if (auth instanceof NextResponse) return auth;
-    const backendConfig = getBackendConfig()
-    const iamUrl = `${backendConfig.iamUrl}${"/auth/get_logged_in_user"}`;
+    const backendConfig = getBackendConfig();
+    const iamUrl = `${backendConfig.iamUrl}/auth/get_logged_in_user`;
 
     const res = await fetch(iamUrl, {
         method: 'GET',
@@ -14,6 +15,5 @@ export async function GET(req: NextRequest) {
         cache: 'no-store',
     });
 
-    const data = await res.json();
-    return NextResponse.json(data, { status: res.status });
+    return jsonResponseFromBackend(res);
 }
