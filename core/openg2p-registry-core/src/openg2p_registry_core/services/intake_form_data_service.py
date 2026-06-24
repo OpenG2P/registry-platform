@@ -125,6 +125,8 @@ class G2PIntakeFormDataService(BaseService):
         submission.last_updated_at = datetime.now()
         session.add(submission)
         await session.flush()
+        await self._upsert_submission_search_text(submission, session)
+        await session.flush()
         return submission
 
     async def _get_or_create_draft_submission(
