@@ -52,7 +52,6 @@ from .models import (
     G2PIntakeFormDefinition,
     G2PIntakeFormSubmission,
     G2PIntakeFormSectionDocuments,
-    G2PIntakeFormSectionPayload,
     G2PIntakeFormUITab,
     G2PIntakeFormUITabSection,
     G2PRegisterChangeRequest,
@@ -267,7 +266,6 @@ class Initializer(BaseInitializer):
             await G2PRegistryThemeValue.create_migrate()
             await G2PRegisterDocumentHistory.create_migrate()
             await G2PRegisterSectionDocument.create_migrate()
-            await G2PIntakeFormSectionPayload.create_migrate()
             await G2PIntakeFormSectionDocuments.create_migrate()
             await G2PRegisterChangeRequestPayload.create_migrate()
             await G2PRegisterChangeRequestDocument.create_migrate()

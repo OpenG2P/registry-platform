@@ -74,13 +74,6 @@ class G2PIntakeFormSubmission(BaseORMModel):
 G2PIntakeFormSubmissions = G2PIntakeFormSubmission
 
 
-class G2PIntakeFormSubmissionPayload(BaseORMModel):
-    __tablename__ = "g2p_intake_form_submission_payloads"
-
-    submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True)
-    search_text: Mapped[str] = mapped_column(Text, nullable=True)
-
-
 class G2PIntakeFormSubmissionDocument(BaseORMModel):
     __tablename__ = "g2p_intake_form_submission_documents"
 
@@ -91,5 +84,4 @@ class G2PIntakeFormSubmissionDocument(BaseORMModel):
     document_store_id: Mapped[str] = mapped_column(String, nullable=False)
 
 
-G2PIntakeFormSectionPayload = G2PIntakeFormSubmissionPayload
 G2PIntakeFormSectionDocuments = G2PIntakeFormSubmissionDocument
