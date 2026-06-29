@@ -87,6 +87,22 @@ async def _process_ingestion_async(ingest_id: str) -> None:
             )
             await _finalize_submission_async(submission_id, session)
 
+            # Auto-approve partner submissions when the form's subject section
+            # is configured with cr_auto_approve_for_partner. Without this gate
+            # the submission stays PENDING approval and never gets materialised
+            # into the register tables by intake_form_register_ingest_worker.
+            if _form_allows_partner_auto_approval(incoming_classified_data, ordered_sections):
+                await G2PIntakeFormDataService.get_component().approve_submission_with_session(
+                    submission_id,
+                    session,
+                    approved_by="system",
+                )
+                _logger.info(
+                    "Auto-approved partner intake submission %s (form_id=%s)",
+                    submission_id,
+                    incoming_classified_data.intake_form_id,
+                )
+
             incoming_classified_data.ingestion_number_of_attempts += 1
             incoming_classified_data.ingestion_status = ProcessStatusEnum.PROCESSED.value
             incoming_classified_data.ingestion_latest_error_code = None
@@ -147,6 +163,26 @@ async def _prepare_submission_for_ingestion(
         f"Ingestion '{incoming_classified_data.ingest_id}' is already linked to finalized "
         f"submission '{submission_id}' and cannot create a duplicate."
     )
+
+
+def _form_allows_partner_auto_approval(
+    incoming_classified_data: IncomingClassifiedData,
+    ordered_sections: list[G2PRegisterSection],
+) -> bool:
+    """Return True when the intake form's subject-register section is flagged
+    ``cr_auto_approve_for_partner``.
+
+    A partner submission spans many child sections; the subject (primary)
+    section drives the auto-approval decision so a single configuration toggle
+    governs the whole submission.
+    """
+    subject_register_id = incoming_classified_data.register_id
+    for section in ordered_sections:
+        if section.section_register_id != subject_register_id:
+            continue
+        if getattr(section, "cr_auto_approve_for_partner", False):
+            return True
+    return False
 
 
 async def _get_ordered_form_sections(form_id: str, session) -> list[G2PRegisterSection]:

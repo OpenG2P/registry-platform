@@ -24,6 +24,9 @@ from openg2p_registry_core.schemas.change_request import (
 from openg2p_registry_core.services.g2p_change_request_worker_service import (
     G2PChangeRequestWorkerService,
 )
+from openg2p_registry_core.services.g2p_register_change_request_service import (
+    G2PRegisterChangeRequestService,
+)
 
 from ..app import celery_app
 from ..config import Settings
@@ -136,6 +139,26 @@ async def _process_change_request_ingest_async(ingest_id: str) -> None:
                 classified.ingestion_latest_error_code = None
                 classified.ingestion_date_time = datetime.now()
                 session.add(classified)
+
+                # Auto-approve the freshly created change request when the
+                # section is configured for partner auto-approval. This is the
+                # gate that lets connector-sourced updates land in the register
+                # tables without manual review.
+                section = await session.get(G2PRegisterSection, classified.section_id)
+                if section is not None and getattr(section, "cr_auto_approve_for_partner", False):
+                    cr_change_request_service = G2PRegisterChangeRequestService.get_component()
+                    await cr_change_request_service._approve_change_request_core(
+                        change_request_id=cr.change_request_id,
+                        session=session,
+                        skip_verification=True,
+                        approved_by="system",
+                    )
+                    await cr_change_request_service._fanout_outgest_for_change_request(cr, session)
+                    _logger.info(
+                        "Auto-approved partner change request %s (section=%s)",
+                        cr.change_request_id,
+                        classified.section_id,
+                    )
     except Exception as error:
         _logger.error(
             "change_request_ingest_worker failed for ingest_id %s: %s",
