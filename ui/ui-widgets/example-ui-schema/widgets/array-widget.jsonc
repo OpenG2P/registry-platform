@@ -1,0 +1,21 @@
+{
+  "widget": "array-widget",
+  "widget-type": "group",
+  "widget-id": "skills",
+  "widget-label": "Skills",
+  "widget-data-path": "register-id.skills",
+  "widget-item": {
+    "widget": "text",
+    "widget-type": "input",
+    "widget-id": "skill",
+    "widget-label": "Skill",
+    "widget-data-path": "."
+  }
+
+  // --- Optional ---
+  // "widget-data-add-label": "Add Skill",
+  // "widget-data-operations": {
+  //   "add": true,
+  //   "remove": true
+  // }
+}

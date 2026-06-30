@@ -4,23 +4,6 @@ import { BaseWidgetConfig } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
-/**
- * Currency input widget with formatting
- * 
- * Usage in schema:
- * {
- *   "widget": "currency",
- *   "widget-type": "input",
- *   "widget-label": "Salary",
- *   "widget-id": "salary",
- *   "widget-data-path": "person.salary",
- *   "widget-data-format": {
- *     "currency": "USD",
- *     "locale": "en-US",
- *     "decimals": 2
- *   }
- * }
- */
 interface CurrencyInputWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -38,9 +21,8 @@ export const CurrencyInputWidget = ({ config }: CurrencyInputWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { translateConfig } = useWidgetTranslation();
 
-  // For input, use raw numeric value; formatted value is for display only
   const numericValue = typeof value === 'number' ? value : (value ? parseFloat(String(value)) : '');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,7 +37,6 @@ export const CurrencyInputWidget = ({ config }: CurrencyInputWidgetProps) => {
     }
   };
 
-  // For readonly mode, render as display text
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     const display = formattedValue || (value !== null && value !== undefined ? String(value) : '-');
@@ -70,11 +51,7 @@ export const CurrencyInputWidget = ({ config }: CurrencyInputWidgetProps) => {
           <div className="text-base text-gray-900 font-medium" title={String(display ?? '')}>
             {display}
           </div>
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     );
@@ -115,11 +92,7 @@ export const CurrencyInputWidget = ({ config }: CurrencyInputWidgetProps) => {
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     </div>

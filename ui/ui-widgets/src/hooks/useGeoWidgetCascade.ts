@@ -48,7 +48,6 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
   const lastCascadePublishRef = useRef<string | null | undefined>(undefined);
   const lastDirectParentValueRef = useRef<any>(undefined);
 
-  // Keep refs updated
   useEffect(() => {
     valuesRef.current = values;
     handlerRef.current = dataSourceRequestHandler;
@@ -124,7 +123,6 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
       const currentValues = valuesRef.current;
       const currentHandler = handlerRef.current;
 
-      // Grandparent (or higher) changed: clear this level; only immediate parent drives reload
       if (isAncestor && !isDirectParent) {
         clearThisLevel(currentValues);
         return;
@@ -181,7 +179,6 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
     };
   }, [geoConfig, eventBus, dataSource, widgetId, dataPath, dispatch, groupId]);
 
-  // Handle value changes to build hierarchy
   useEffect(() => {
     if (!geoConfig || typeof dataPath !== 'string') {
       return;
@@ -205,7 +202,6 @@ export const useGeoWidgetCascade = (options: UseGeoWidgetCascadeOptions) => {
       );
     };
 
-    // ONLY clear hierarchy if the value is explicitly null or empty string (user action)
     if (currentValue === null || currentValue === '') {
       geoHierarchyBuilder.removeLevelAndBelow(level, groupId);
       applyGroupRebuild();

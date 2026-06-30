@@ -4,34 +4,6 @@ import { BaseWidgetConfig, BooleanRepresentation } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
-/**
- * Boolean widget with advanced features
- * 
- * Features:
- * - Boolean representation (true/false, yes/no, on/off, custom labels)
- * - Control type (checkbox, radio buttons, toggle/switch)
- * - Default value (true, false, unset/null)
- * - Required vs optional
- * - Layout options (horizontal/vertical)
- * 
- * Usage in schema:
- * {
- *   "widget": "boolean",
- *   "widget-type": "input",
- *   "widget-label": "Is Married",
- *   "widget-id": "married",
- *   "widget-data-path": "person.married",
- *   "widget-data-default": false,
- *   "widget-data-format": {
- *     "booleanRepresentation": "yes-no",
- *     "booleanControlType": "radio",
- *     "allowUnset": true
- *   },
- *   "widget-data-validation": {},
- *   "widget-required": false,
- *   "widget-orientation": "horizontal"
- * }
- */
 interface BooleanWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -48,7 +20,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { translateConfig } = useWidgetTranslation();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const representation = formatConfig?.booleanRepresentation || 'true-false';
@@ -56,7 +28,6 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
   const allowUnset = formatConfig?.allowUnset ?? (widgetConfig['widget-required'] ? false : true);
   const orientation = widgetConfig['widget-orientation'] || 'horizontal';
 
-  // Get labels based on representation
   const getLabels = useCallback((): { trueLabel: string; falseLabel: string } => {
     if (representation === 'custom') {
       return {
@@ -84,7 +55,6 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
 
   const radioGroupName = `${widgetConfig['widget-id'] ?? 'boolean'}__${useId().replace(/:/g, '')}`;
 
-  // Determine current value (handle null/undefined)
   const currentValue = useMemo(() => {
     if (value === null || value === undefined) {
       return null;
@@ -92,28 +62,23 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     return Boolean(value);
   }, [value]);
 
-  // Handle value change
   const handleChange = useCallback((newValue: boolean | null) => {
     onChange(newValue);
   }, [onChange]);
 
-  // Handle checkbox change
   const handleCheckboxChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked;
     if (allowUnset && !checked && currentValue === true) {
-      // If allowUnset and unchecking, set to null
       handleChange(null);
     } else {
       handleChange(checked);
     }
   }, [allowUnset, currentValue, handleChange]);
 
-  // Handle radio change
   const handleRadioChange = useCallback((selectedValue: boolean | null) => {
     handleChange(selectedValue);
   }, [handleChange]);
 
-  // For readonly mode, render as display text
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     let displayValue = '';
@@ -137,17 +102,12 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
           <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     );
   }
 
-  // Render based on control type
   if (controlType === 'checkbox') {
     return (
       <div className="mb-[10px]">
@@ -176,11 +136,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
             {touched && error.length > 0 && (
               <p className="text-red-500 text-sm mt-1">{error[0]}</p>
             )}
-            {/* {widgetConfig['widget-data-helptext'] && (
-              <p className="text-gray-500 text-sm mt-1">
-                {translateConfig(widgetConfig['widget-data-helptext'])}
-              </p>
-            )} */}
+            
           </div>
         </div>
       </div>
@@ -245,18 +201,13 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
             {touched && error.length > 0 && (
               <p className="text-red-500 text-sm mt-1">{error[0]}</p>
             )}
-            {/* {widgetConfig['widget-data-helptext'] && (
-              <p className="text-gray-500 text-sm mt-1">
-                {translateConfig(widgetConfig['widget-data-helptext'])}
-              </p>
-            )} */}
+            
           </div>
         </div>
       </div>
     );
   }
 
-  // Toggle/switch control type
   return (
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-baseline">
@@ -312,11 +263,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     </div>

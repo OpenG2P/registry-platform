@@ -230,7 +230,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
           'currency': 'input',
           'display': 'input',
           'table': 'table',
-          'simple-table': 'table',
+          'dialog-table': 'table',
           'array-widget': 'group',
           'iterable-accordion': 'group',
           'profile': 'layout',

@@ -58,17 +58,6 @@ function sortScores(scores: ScoreRecord[]): ScoreRecord[] {
   return withTime.map((x) => x.s);
 }
 
-/**
- * Scores Display Widget - full-width, view-only widget (list)
- *
- * Expected config (reference):
- * {
- *   "widget": "scores-display",
- *   "widget-type": "group",
- *   "widget-id": "record-scores",
- *   "widget-data-path": "scores"
- * }
- */
 export const ScoresDisplayWidget = ({
   config,
   schemaData: propSchemaData,
@@ -89,20 +78,8 @@ export const ScoresDisplayWidget = ({
       return getValueByPathOrKey(schemaData, path);
     };
 
-    // 1) Try exact path (works when schema/store is already namespaced)
     const direct = tryResolve(dataPath);
-    if (direct !== undefined) return direct;
-
-    // 2) If section/widget config has been namespaced (e.g. "rv-section-0.scores"),
-    // fall back to the original path ("scores") so examples still work even when
-    // schemaData/store are not namespaced.
-    if (dataPath.includes('.')) {
-      const unNamespaced = dataPath.split('.').slice(1).join('.');
-      const fallback = tryResolve(unNamespaced);
-      if (fallback !== undefined) return fallback;
-    }
-
-    return undefined;
+    return direct;
   }, [dataPath, values, schemaData]);
 
   const scores = useMemo((): ScoreRecord[] => {

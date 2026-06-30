@@ -1,0 +1,65 @@
+
+// Section with supporting document uploads + 3-3-3 field layout.
+// Files render in the "Supported Documents" area (file widgets auto-generated).
+
+{
+  "section-id": "identity_documents",
+  "section-title": "Identity Documents",
+  "section-editable": true,
+  "section-supporting-documents": [
+    {
+      "document-data-path": "register-id.national_id_document",
+      "document-type": "pdf",
+      "document-label": "National ID Document",
+      "document-required": true,
+      "document-accept": ".pdf,.jpg,.jpeg,.png",
+      "document-max-size": 5242880
+    },
+    {
+      "document-data-path": "register-id.proof_of_residence",
+      "document-type": "pdf",
+      "document-label": "Proof of Residence",
+      "document-required": false,
+      "document-accept": ".pdf,.doc,.docx",
+      "document-max-size": 10485760
+    }
+    // Additional document slot example:
+    // ,{
+    //   "document-data-path": "register-id.passport_photo",
+    //   "document-type": "image",
+    //   "document-label": "Passport Photo",
+    //   "document-required": true,
+    //   "document-accept": "image/*",
+    //   "document-max-size": 2097152
+    // }
+  ],
+  "panels": [
+    {
+      "panel-id": "panel_main",
+      "panel-orientation": "horizontal",
+      "panels": [
+        {
+          "panel-id": "panel_column_1",
+          "panel-orientation": "vertical",
+          "widgets": [
+            // e.g. text, text, date — copy from widgets/*.jsonc
+          ]
+        },
+        {
+          "panel-id": "panel_column_2",
+          "panel-orientation": "vertical",
+          "widgets": [
+            // e.g. select, text, date
+          ]
+        },
+        {
+          "panel-id": "panel_column_3",
+          "panel-orientation": "vertical",
+          "widgets": [
+            // e.g. display, boolean, textarea
+          ]
+        }
+      ]
+    }
+  ]
+}

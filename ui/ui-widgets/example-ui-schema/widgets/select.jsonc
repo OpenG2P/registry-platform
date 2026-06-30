@@ -1,0 +1,48 @@
+{
+  "widget": "select",
+  "widget-type": "input",
+  "widget-id": "country",
+  "widget-label": "Country",
+  "widget-data-path": "register-id.country",
+  "widget-data-source": {
+    "type": "static",
+    "options": [
+      { "value": "us", "label": "United States" },
+      { "value": "in", "label": "India" }
+    ]
+  }
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-default": "us",
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "sortOptions": true
+  // },
+
+  // --- widget-data-source: API variant ---
+  // "widget-data-source": {
+  //   "type": "api",
+  //   "method": "POST",
+  //   "service": "attributes",
+  //   "endpoint": "values",
+  //   "params": { "attribute_id": "COUNTRY" },
+  //   "labelKey": "value_display",
+  //   "valueKey": "value_code"
+  // },
+
+  // --- widget-data-source: geo cascade (see geo-cascade-section.jsonc) ---
+  // "widget-geo-config": {
+  //   "level": "region",
+  //   "isLastLevel": false,
+  //   "parentWidgetId": ""
+  // },
+
+  // --- widget-data-options (conditional) ---
+  // "widget-data-options": {
+  //   "action": "show",
+  //   "condition": { "field": "register-id.show_country", "operator": "equals", "value": true }
+  // }
+}

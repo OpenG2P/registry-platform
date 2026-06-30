@@ -35,7 +35,7 @@ export default [
       commonjs(),
       json(),
       typescript({
-        tsconfig: './tsconfig.json',
+        tsconfig: './tsconfig.build.json',
         exclude: ['**/*.test.ts', '**/*.test.tsx'],
         declaration: true,
         declarationDir: './dist',
@@ -47,8 +47,6 @@ export default [
       '@reduxjs/toolkit',
       'react-redux',
       'zod',
-      'i18next',
-      'react-i18next',
       'lodash.get',
       'lodash.set',
       'json-edit-react',
@@ -59,7 +57,7 @@ export default [
     output: [{ file: 'dist/index.d.ts', format: 'esm' }],
     plugins: [
       dts({
-        tsconfig: './tsconfig.json',
+        tsconfig: './tsconfig.build.json',
       }),
     ],
     external: [
@@ -68,8 +66,6 @@ export default [
       '@reduxjs/toolkit',
       'react-redux',
       'zod',
-      'i18next',
-      'react-i18next',
     ],
   },
 ];

@@ -1,23 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { canPreviewInWeb } from '../utils/filePreview';
 import { closeSign, dummyDoc } from '../assets';
 
-interface FilePreviewModalProps {
+export interface FilePreviewModalProps {
   file: File | string | null;
   isOpen: boolean;
   onClose: () => void;
 }
 
-/**
- * Gets the MIME type for preview rendering
- */
 const getPreviewMimeType = (file: File | string): string => {
   if (file instanceof File) {
     return file.type;
   }
 
-  // Infer from extension
   const fileName = file.toLowerCase();
   const extension = fileName.split('.').pop() || '';
 
@@ -45,16 +41,11 @@ const getPreviewMimeType = (file: File | string): string => {
   return mimeMap[extension] || 'application/octet-stream';
 };
 
-export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
+export const FilePreviewModal = ({
   file,
   isOpen,
   onClose,
-}) => {
-  // Log at the very start of component
-  console.log('=== FilePreviewModal RENDER START ===');
-  console.log('FilePreviewModal component called - isOpen:', isOpen, 'file:', file ? (file instanceof File ? file.name : file) : 'null');
-  console.log('File type:', typeof file, 'Is File:', file instanceof File, 'Is null:', file === null);
-
+}: FilePreviewModalProps) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'text' | 'unsupported'>('unsupported');
 
@@ -67,24 +58,20 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       return;
     }
 
-    // Check if file can be previewed
     if (!canPreviewInWeb(file)) {
       setPreviewType('unsupported');
       return;
     }
 
-    // Create preview URL
     let url: string;
     if (file instanceof File) {
       url = URL.createObjectURL(file);
     } else {
-      // If it's a string, assume it's already a URL
       url = file;
     }
 
     setPreviewUrl(url);
 
-    // Determine preview type
     const mimeType = getPreviewMimeType(file);
     if (mimeType.startsWith('image/')) {
       setPreviewType('image');
@@ -96,7 +83,6 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       setPreviewType('unsupported');
     }
 
-    // Cleanup function
     return () => {
       if (url && url.startsWith('blob:')) {
         URL.revokeObjectURL(url);
@@ -104,7 +90,6 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
     };
   }, [file, isOpen]);
 
-  // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -114,7 +99,6 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden';
     }
 
@@ -124,18 +108,12 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  console.log('FilePreviewModal render check - isOpen:', isOpen, 'file:', file ? (file instanceof File ? file.name : file) : 'null');
-
   if (!isOpen || !file) {
-    console.log('Modal not rendering - isOpen:', isOpen, 'file:', !!file);
     return null;
   }
 
-  console.log('Modal will render!');
-
   const fileName = file instanceof File ? file.name : file.split('/').pop() || 'file';
   const canPreview = canPreviewInWeb(file);
-  console.log('Modal rendering - fileName:', fileName, 'canPreview:', canPreview, 'previewUrl:', previewUrl, 'previewType:', previewType);
 
   const modalContent = (
     <div
@@ -147,7 +125,6 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
         className="relative bg-white rounded-lg shadow-xl max-w-7xl max-h-[90vh] w-full m-4 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 truncate flex-1 mr-4">
             {fileName}
@@ -165,7 +142,6 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
           </button>
         </div>
 
-        {/* Preview Content */}
         <div className="flex-1 overflow-auto p-4 bg-gray-50">
           {!canPreview ? (
             <div className="flex items-center justify-center h-full min-h-[400px]">
@@ -214,55 +190,37 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
     </div>
   );
 
-  // Render modal using portal to ensure it's at the document body level
   if (typeof document !== 'undefined' && document.body) {
-    console.log('Rendering modal via portal to document.body');
     try {
       return createPortal(modalContent, document.body);
-    } catch (error) {
-      console.error('Error creating portal:', error);
+    } catch {
       return modalContent;
     }
-  } else {
-    console.warn('document.body not available, rendering inline');
-    return modalContent;
   }
+
+  return modalContent;
 };
 
-/**
- * Component to fetch and display text file content
- */
-const TextFilePreview: React.FC<{ url: string }> = ({ url }) => {
+interface TextFilePreviewProps {
+  url: string;
+}
+
+const TextFilePreview = ({ url }: TextFilePreviewProps) => {
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (url.startsWith('blob:')) {
-      // For blob URLs (File objects), fetch the content
-      fetch(url)
-        .then((res) => res.text())
-        .then((text) => {
-          setContent(text);
-          setLoading(false);
-        })
-        .catch((err) => {
-          setError(err.message);
-          setLoading(false);
-        });
-    } else {
-      // For regular URLs, try to fetch
-      fetch(url)
-        .then((res) => res.text())
-        .then((text) => {
-          setContent(text);
-          setLoading(false);
-        })
-        .catch((err) => {
-          setError(err.message);
-          setLoading(false);
-        });
-    }
+    fetch(url)
+      .then((res) => res.text())
+      .then((text) => {
+        setContent(text);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, [url]);
 
   if (loading) return <span>Loading...</span>;

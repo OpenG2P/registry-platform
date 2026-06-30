@@ -6,36 +6,6 @@ import { useWidgetContext } from '../components/WidgetProvider';
 import { WidgetRenderer } from '../components/WidgetRenderer';
 import { searchIcon, closeIcon } from '../assets';
 
-/**
- * Register lookup widget — searchable popup to select a record from any register.
- * Reads ID from widget-data-path, finds matching register row by internal_record_id, shows display fields.
- *
- * Example (individual → household link):
- *
- * {
- *   "widget": "register-lookup",
- *   "widget-id": "link_internal_record_id",
- *   "widget-type": "input",
- *   "widget-label": "Household",
- *   "widget-required": true,
- *   "widget-data-path": "<section_register_ids>.link_internal_record_id",
- *   "widget-data-source": {
- *     "type": "api",
- *     "method": "POST",
- *     "params": {
- *       "register_id": "<target_register_id>"
- *     },
- *     "service": "register",
- *     "endpoint": "records"
- *   },
- *   "widget-lookup-config": {
- *     "page_size": 10,
- *     "action_label": "Click to Search Household",
- *     "search_placeholder": "Search by name or ID...",
- *     "select_record_label": "Select Household"
- *   }
- * }
- */
 const normalizeDisplayFields = (row: Record<string, any>) => {
   if (!Array.isArray(row.display_fields)) return [];
   return [...row.display_fields]

@@ -19,46 +19,6 @@ import {
   mergeMaxDateBounds,
 } from '../utils/dateInput';
 
-/**
- * Date input widget with advanced features
- *
- * Features:
- * - Configurable date format (DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD, etc.)
- * - Default value (none / today)
- * - Date constraints (minDate, maxDate, any/past only/future only)
- * - Relative bounds via minDateField / maxDateField (e.g. end date >= start date)
- * - Required vs optional
- * - Input method (date picker / manual / hybrid)
- * - Placeholder text
- * - Read-only & disabled
- * - Canonical stored format (ISO 8601)
- * 
- * Usage in schema:
- * {
- *   "widget": "date",
- *   "widget-type": "input",
- *   "widget-label": "Date of Birth",
- *   "widget-id": "dob",
- *   "widget-data-path": "person.dob",
- *   "widget-data-default": "today",
- *   "widget-data-format": {
- *     "dateFormat": "DD/MM/YYYY",
- *     "inputMethod": "hybrid",
- *     "dateConstraint": "past-only"
- *   },
- *   "widget-data-options": {
- *     "minDate": "1900-01-01",
- *     "maxDate": "today"
- *     "minDateField": "register.start_date",
- *     "minDateMessage": "Date of birth must be on or after 1900-01-01"
- *     "maxDateField": "register.end_date",
- *     "maxDateMessage": "Date of birth must be on or before today"
- *   },
- *   "widget-data-validation": {},
- *   "widget-required": true,
- *   "widget-data-placeholder": "DD/MM/YYYY"
- * }
- */
 interface DateInputWidgetProps {
   config: BaseWidgetConfig;
 }

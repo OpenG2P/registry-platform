@@ -1,0 +1,97 @@
+{
+  "section-id": "widget_explore_section_1",
+  "section-title": "Widget Explore — Inputs",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_widget_explore_1_main",
+      "panel-orientation": "horizontal",
+      "panels": [
+        {
+          "panel-id": "panel_widget_explore_1_col1",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "boolean",
+              "widget-type": "input",
+              "widget-id": "is_married",
+              "widget-label": "Boolean",
+              "widget-data-path": "register-id.is_married"
+            },
+            {
+              "widget": "checkbox",
+              "widget-type": "input",
+              "widget-id": "consent",
+              "widget-label": "Checkbox",
+              "widget-data-path": "register-id.consent",
+              "widget-data-default": false
+            },
+            {
+              "widget": "currency",
+              "widget-type": "input",
+              "widget-id": "salary",
+              "widget-label": "Currency",
+              "widget-data-path": "register-id.salary"
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_widget_explore_1_col2",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "date",
+              "widget-type": "input",
+              "widget-id": "date_of_birth",
+              "widget-label": "Date",
+              "widget-data-path": "register-id.date_of_birth"
+            },
+            {
+              "widget": "datetime",
+              "widget-type": "input",
+              "widget-id": "appointment_time",
+              "widget-label": "Datetime",
+              "widget-data-path": "register-id.appointment_time"
+            },
+            {
+              "widget": "display",
+              "widget-type": "input",
+              "widget-id": "functional_id",
+              "widget-label": "Display",
+              "widget-data-path": "register-id.functional_id",
+              "widget-readonly": true
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_widget_explore_1_col3",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "file",
+              "widget-type": "input",
+              "widget-id": "document",
+              "widget-label": "File",
+              "widget-data-path": "register-id.document"
+            },
+            {
+              "widget": "number",
+              "widget-type": "input",
+              "widget-id": "amount",
+              "widget-label": "Number",
+              "widget-data-path": "register-id.amount"
+            },
+            {
+              "widget": "phone",
+              "widget-type": "input",
+              "widget-id": "phone",
+              "widget-label": "Phone",
+              "widget-data-path": "register-id.phone"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

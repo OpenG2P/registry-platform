@@ -4,22 +4,7 @@ import { BaseWidgetConfig } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
-/**
- * Select/Dropdown widget with data source support
- * 
- * Usage in schema:
- * {
- *   "widget": "select",
- *   "widget-type": "input",
- *   "widget-label": "Country",
- *   "widget-id": "country",
- *   "widget-data-path": "address.country",
- *   "widget-data-source": {
- *     "type": "static" | "api" | "schema",
- *     ...
- *   }
- * }
- */
+
 interface SelectWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -41,10 +26,8 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
 
   const { translate, translateConfig } = useWidgetTranslation();
 
-  // For readonly mode, render as display text showing only the selected label
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
-    // Find the selected option's label
     const selectedOption = dataSourceOptions.find(
       (option) => option.value === value || String(option.value) === String(value)
     );
@@ -105,11 +88,7 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     </div>

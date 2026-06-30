@@ -4,21 +4,7 @@ import { BaseWidgetConfig } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
-/**
- * Phone input widget with formatting
- * 
- * Usage in schema:
- * {
- *   "widget": "phone",
- *   "widget-type": "input",
- *   "widget-label": "Phone",
- *   "widget-id": "phone",
- *   "widget-data-path": "person.phone",
- *   "widget-data-format": {
- *     "pattern": "(XXX) XXX-XXXX"
- *   }
- * }
- */
+
 interface PhoneInputWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -36,14 +22,12 @@ export const PhoneInputWidget = ({ config }: PhoneInputWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { translateConfig } = useWidgetTranslation();
 
-  // Use formatted value if available, otherwise raw value
   const displayValue = formattedValue !== undefined && formattedValue !== value 
     ? formattedValue 
     : (value || '');
 
-  // For readonly mode, render as display text
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     return (
@@ -57,11 +41,7 @@ export const PhoneInputWidget = ({ config }: PhoneInputWidgetProps) => {
           <div className="text-base text-gray-900 font-medium" title={String(displayValue || '')}>
             {displayValue || '-'}
           </div>
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     );
@@ -94,11 +74,7 @@ export const PhoneInputWidget = ({ config }: PhoneInputWidgetProps) => {
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     </div>
