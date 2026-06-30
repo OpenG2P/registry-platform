@@ -16,7 +16,7 @@ export function useAllAttributes(
             body: JSON.stringify({
                 current_page: page,
                 page_size: pageSize,
-                search_text: searchText ?? '',
+                search_text: searchText?.trim() ?? '',
             }),
         },
     });

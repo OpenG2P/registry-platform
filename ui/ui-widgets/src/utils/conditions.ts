@@ -3,9 +3,7 @@ import { getValueByPath } from './pathUtils';
 
 const normalizeBooleanLike = (val: unknown): boolean => {
   if (val === true || val === 1) return true;
-  if (val === false || val === 0 || val === null || val === undefined || val === '') {
-    return false;
-  }
+  if (val === false || val === 0) return false;
   if (typeof val === 'string') {
     const normalized = val.trim().toLowerCase();
     return normalized === 'true' || normalized === 'yes' || normalized === '1';
@@ -25,8 +23,11 @@ export const evaluateCondition = (
 
   switch (operator) {
     case 'equals':
-      if (typeof value === 'boolean' || typeof fieldValue === 'boolean') {
-        return normalizeBooleanLike(fieldValue) === normalizeBooleanLike(value);
+      if (typeof value === 'boolean') {
+        return typeof fieldValue === 'boolean' && fieldValue === value;
+      }
+      if (typeof fieldValue === 'boolean') {
+        return fieldValue === normalizeBooleanLike(value);
       }
       return fieldValue === value;
     case 'notEquals':
