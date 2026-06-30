@@ -40,5 +40,5 @@ export function buildCspHeader(env = getServerEnv()): string {
             `${directive} ${resolveSources(env[envKey], defaults).join(" ")}`
     );
 
-    return `${directives.join("; ")};`;
+    return `${directives.join("; ")}; upgrade-insecure-requests`;
 }
