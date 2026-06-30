@@ -6,6 +6,7 @@ export function getServerEnv() {
         iamUrl: process.env.IAM_URL ?? "",
         loginProviderId: process.env.LOGIN_PROVIDER_ID ?? "",
         applicationMnemonic: process.env.APPLICATION_MNEMONIC ?? "openg2p-registry",
+        cookieDomain: process.env.COOKIE_DOMAIN?.trim() ?? "",
 
         defaultLocale: process.env.DEFAULT_LOCALE ?? "",
 

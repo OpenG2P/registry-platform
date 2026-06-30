@@ -46,6 +46,40 @@ def _try_parse_submission_uuid(artifact_id: str) -> str | None:
 
 
 class G2PAweWebhookService(BaseService):
+    async def _upsert_webhook_event_log(
+        self,
+        session: AsyncSession,
+        event: AweWebhookEvent,
+    ) -> G2PAweReqEvent:
+        log_row = await session.get(G2PAweReqEvent, event.event_id)
+        if log_row is None:
+            log_row = G2PAweReqEvent(
+                event_id=event.event_id,
+                event_type=event.event_type,
+                request_id=event.request_id,
+                artifact_type=event.artifact_type,
+                artifact_id=event.artifact_id,
+                status=event.status,
+                stage_order=event.stage_order,
+                actor=event.actor,
+                occurred_at=event.occurred_at,
+                received_at=datetime.now(),
+                applied=False,
+                error=None,
+            )
+            session.add(log_row)
+        else:
+            log_row.event_type = event.event_type
+            log_row.request_id = event.request_id
+            log_row.artifact_type = event.artifact_type
+            log_row.artifact_id = event.artifact_id
+            log_row.status = event.status
+            log_row.stage_order = event.stage_order
+            log_row.actor = event.actor
+            log_row.occurred_at = event.occurred_at
+        await session.flush()
+        return log_row
+
     async def handle_decision_webhook(
         self,
         *,
@@ -80,32 +114,7 @@ class G2PAweWebhookService(BaseService):
                     message="duplicate",
                 )
 
-            log_row = existing or G2PAweReqEvent(
-                event_id=event.event_id,
-                event_type=event.event_type,
-                request_id=event.request_id,
-                artifact_type=event.artifact_type,
-                artifact_id=event.artifact_id,
-                status=event.status,
-                stage_order=event.stage_order,
-                actor=event.actor,
-                occurred_at=event.occurred_at,
-                received_at=datetime.now(),
-                applied=False,
-                error=None,
-            )
-            if existing is None:
-                session.add(log_row)
-                await session.flush()
-            else:
-                log_row.event_type = event.event_type
-                log_row.request_id = event.request_id
-                log_row.artifact_type = event.artifact_type
-                log_row.artifact_id = event.artifact_id
-                log_row.status = event.status
-                log_row.stage_order = event.stage_order
-                log_row.actor = event.actor
-                log_row.occurred_at = event.occurred_at
+            log_row = await self._upsert_webhook_event_log(session, event)
 
             try:
                 if event.event_type in TERMINAL_EVENT_TYPES:
@@ -116,8 +125,11 @@ class G2PAweWebhookService(BaseService):
                 if event.event_type not in SUMMARY_SKIP_EVENT_TYPES:
                     await self._update_status_summary(event, session)
             except Exception as exc:
+                error_msg = str(exc)[:2000]
+                await session.rollback()
+                log_row = await self._upsert_webhook_event_log(session, event)
                 log_row.applied = False
-                log_row.error = str(exc)[:2000]
+                log_row.error = error_msg
                 await session.commit()
                 raise
 

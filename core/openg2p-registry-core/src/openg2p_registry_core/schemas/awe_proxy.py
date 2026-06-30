@@ -4,6 +4,11 @@ from openg2p_fastapi_common.schemas import G2PRequest, G2PRequestBody, G2PRespon
 from pydantic import BaseModel, Field
 
 
+class ListTasksForRequestRequestPayload(BaseModel):
+    request_id: str
+    page_size: int = Field(default=100, ge=1, le=100)
+
+
 class ListMyAweTasksRequestPayload(BaseModel):
     """List tasks for the current user (assignee=me).
 
@@ -61,6 +66,14 @@ class GetAweRequestEventsRequestPayload(BaseModel):
 
 class AweProxyDataResponsePayload(BaseModel):
     data: Any
+
+
+class ListTasksForRequestRequestBody(G2PRequestBody):
+    request_payload: ListTasksForRequestRequestPayload
+
+
+class ListTasksForRequestRequest(G2PRequest):
+    request_body: ListTasksForRequestRequestBody
 
 
 class ListMyAweTasksRequestBody(G2PRequestBody):
