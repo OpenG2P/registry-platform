@@ -54,6 +54,7 @@ app.add_middleware(
 app.add_middleware(ValidateAndRefreshTokenMiddleware)
 app.add_middleware(
     CsrfMiddleware,
+    enabled=_config.csrf_enabled,
     excluded_paths=REGISTRY_STAFF_CSRF_EXCLUDED_PATHS,
 )
 
