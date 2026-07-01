@@ -7,6 +7,7 @@ interface RegistryConfig {
     configuration_id: string;
     registry_name: string;
     registry_logo: string;
+    registry_favicon: string;
     registry_theme_id: string;
 }
 
@@ -33,6 +34,7 @@ export const useRegistryConfig = () => {
             configuration_id: config.configuration_id,
             registry_name: config.registry_name,
             registry_logo: config.registry_logo,
+            registry_favicon: config.registry_favicon,
             registry_theme_id: themeId,
         };
 
