@@ -124,7 +124,6 @@ export default function IntakeFormSubmissionView({
                                 <SubmissionHeader
                                     submission={submission}
                                     section_payloads={section_payloads}
-                                    onActionComplete={() => window.location.reload()}
                                 />
                             )}
 
