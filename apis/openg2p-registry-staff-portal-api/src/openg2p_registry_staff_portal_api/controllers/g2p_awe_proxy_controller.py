@@ -15,12 +15,21 @@ from openg2p_registry_core.schemas.awe_proxy import (
     AweProxyListDataResponse,
     AweProxyListDataResponseBody,
     ClaimAweTaskRequest,
+    ClaimAweTaskRequestPayload,
     GetAweRequestEventsRequest,
+    GetAweRequestEventsRequestPayload,
     GetAweRequestRequest,
+    GetAweRequestRequestPayload,
     ListMyAweTasksRequest,
+    ListMyAweTasksRequestPayload,
+    ListMyAweTasksPayload,
     ListTasksForRequestRequest,
+    ListTasksForRequestRequestPayload,
+    ListTasksForRequestPayload,
     MyAweTaskStatsRequest,
+    MyAweTaskStatsRequestPayload,
     SubmitAweTaskDecisionRequest,
+    SubmitAweTaskDecisionRequestPayload,
 )
 
 from ..config import Settings
@@ -100,7 +109,10 @@ class G2PAweProxyController(BaseController):
     ) -> G2PResponse:
         try:
             data = await self.service.list_my_tasks(
-                g2p_request.request_body.request_payload,
+                g2p_request.request_body.resolve_payload(
+                    ListMyAweTasksRequestPayload,
+                    ListMyAweTasksPayload,
+                ),
                 bearer_token=self._bearer(request),
             )
             return self.helper.construct_success_response(
@@ -119,7 +131,10 @@ class G2PAweProxyController(BaseController):
     ) -> G2PResponse:
         try:
             data = await self.service.list_tasks_for_request(
-                g2p_request.request_body.request_payload,
+                g2p_request.request_body.resolve_payload(
+                    ListTasksForRequestRequestPayload,
+                    ListTasksForRequestPayload,
+                ),
                 bearer_token=self._bearer(request),
             )
             return self.helper.construct_success_response(
@@ -138,7 +153,7 @@ class G2PAweProxyController(BaseController):
     ) -> G2PResponse:
         try:
             data = await self.service.my_task_stats(
-                g2p_request.request_body.request_payload,
+                g2p_request.request_body.resolve_payload(MyAweTaskStatsRequestPayload),
                 bearer_token=self._bearer(request),
             )
             return self.helper.construct_success_response(
@@ -157,7 +172,7 @@ class G2PAweProxyController(BaseController):
     ) -> G2PResponse:
         try:
             data = await self.service.submit_task_decision(
-                g2p_request.request_body.request_payload,
+                g2p_request.request_body.resolve_payload(SubmitAweTaskDecisionRequestPayload),
                 bearer_token=self._bearer(request),
             )
             return self.helper.construct_success_response(
@@ -176,7 +191,7 @@ class G2PAweProxyController(BaseController):
     ) -> G2PResponse:
         try:
             data = await self.service.claim_task(
-                g2p_request.request_body.request_payload,
+                g2p_request.request_body.resolve_payload(ClaimAweTaskRequestPayload),
                 bearer_token=self._bearer(request),
             )
             return self.helper.construct_success_response(
@@ -195,7 +210,7 @@ class G2PAweProxyController(BaseController):
     ) -> G2PResponse:
         try:
             data = await self.service.get_request(
-                g2p_request.request_body.request_payload,
+                g2p_request.request_body.resolve_payload(GetAweRequestRequestPayload),
                 bearer_token=self._bearer(request),
             )
             return self.helper.construct_success_response(
@@ -214,7 +229,7 @@ class G2PAweProxyController(BaseController):
     ) -> G2PResponse:
         try:
             data = await self.service.get_request_events(
-                g2p_request.request_body.request_payload,
+                g2p_request.request_body.resolve_payload(GetAweRequestEventsRequestPayload),
                 bearer_token=self._bearer(request),
             )
             return self.helper.construct_success_response(
