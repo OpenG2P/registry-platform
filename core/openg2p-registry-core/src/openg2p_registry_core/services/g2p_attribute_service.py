@@ -21,12 +21,21 @@ class G2PAttributeService(BaseService):
         session: AsyncSession,
         current_page: Optional[int] = None,
         page_size: Optional[int] = None,
+        search_text: Optional[str] = None,
     ) -> tuple[List[AttributeData], int]:
-        total = (
-            await session.execute(select(func.count()).select_from(G2PAttribute))
-        ).scalar_one()
+        filters = []
+        if search_text:
+            filters.append(G2PAttribute.attribute_code.ilike(f"%{search_text}%"))
 
-        query = select(G2PAttribute).order_by(G2PAttribute.attribute_code)
+        count_query = select(func.count()).select_from(G2PAttribute)
+        if filters:
+            count_query = count_query.where(*filters)
+        total = (await session.execute(count_query)).scalar_one()
+
+        query = select(G2PAttribute)
+        if filters:
+            query = query.where(*filters)
+        query = query.order_by(G2PAttribute.attribute_code)
         if current_page is not None and page_size is not None:
             query = query.offset((current_page - 1) * page_size).limit(page_size)
 
@@ -133,6 +142,7 @@ class G2PAttributeService(BaseService):
         parent_value_id: Optional[str] = None,
         current_page: Optional[int] = None,
         page_size: Optional[int] = None,
+        search_text: Optional[str] = None,
         session: Optional[AsyncSession] = None,
     ) -> tuple[List[AttributeValueData], int]:
         filters = []
@@ -140,6 +150,8 @@ class G2PAttributeService(BaseService):
             filters.append(G2PAttributeValue.attribute_id == attribute_id)
         if parent_value_id:
             filters.append(G2PAttributeValue.parent_value_id == parent_value_id)
+        if search_text:
+            filters.append(G2PAttributeValue.value_code.ilike(f"%{search_text}%"))
 
         async def _run(db_session: AsyncSession) -> tuple[List[AttributeValueData], int]:
             count_query = select(func.count()).select_from(G2PAttributeValue)
