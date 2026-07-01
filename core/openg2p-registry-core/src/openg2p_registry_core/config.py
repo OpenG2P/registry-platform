@@ -68,3 +68,6 @@ class Settings(IamSettings):
 
     keycloak_client_id: str = "registry-staff-portal"
     keycloak_realm: str = "staff"
+
+    # Intake submission application reference generation
+    application_reference_random_digits: int = 5

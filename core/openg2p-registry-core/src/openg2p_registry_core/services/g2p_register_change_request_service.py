@@ -280,6 +280,8 @@ class G2PRegisterChangeRequestService(BaseService):
         if not skip_sequence_check:
             await self.validate_change_request_sequence(change_request, session)
 
+        await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
+
         if register_section.section_register_id == register_section.register_id:
             await self.approve_register(change_request, register_section, session)
         else:
@@ -433,7 +435,9 @@ class G2PRegisterChangeRequestService(BaseService):
 
         _logger.info(f"Approving primary master section change request: {change_request}")
         register_section = await self.validate_change_request_core(change_request, session, skip_verification, skip_sequence_check)
-        
+
+        await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
+
         # In case of approval, insert data into register_history
         await self.insert_into_register_history(change_request, session)
         # Upsert data into register
@@ -469,6 +473,7 @@ class G2PRegisterChangeRequestService(BaseService):
         register_section = await self.validate_change_request_core(
             change_request, session, skip_verification, skip_sequence_check
         )
+        await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
         await self.insert_into_register_history(change_request, session)
         await self.insert_non_primary_master_section_into_register(
             change_request, change_request.internal_record_id, session
@@ -613,7 +618,9 @@ class G2PRegisterChangeRequestService(BaseService):
 
         _logger.info(f"Approving child section change request: {change_request}")
         register_section = await self.validate_change_request_core(change_request, session, skip_verification, skip_sequence_check)
-        
+
+        await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
+
         # In case of approval, insert data into register_history
         await self.insert_into_register_history(change_request, session)
         # Upsert data into register
@@ -805,6 +812,16 @@ class G2PRegisterChangeRequestService(BaseService):
         change_request.approved_by = actor_name or "system"
         change_request.approved_at = datetime.now()
         session.add(change_request)
+
+    async def _run_pre_approve_hook(
+        self,
+        register_id: str,
+        change_request: G2PRegisterChangeRequest,
+        session,
+    ) -> None:
+        register_definition = await self.validate_register_definition(register_id, session)
+        domain_service = self._get_required_domain_service(register_definition.register_mnemonic)
+        await domain_service.pre_approve(change_request, session)
 
     async def _run_post_approve_hook(
         self,

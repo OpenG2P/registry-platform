@@ -316,7 +316,7 @@ class G2PIntakeFormDataService(BaseService):
     ) -> dict:
         payload_record["internal_record_id"] = payload_record.get("internal_record_id") or str(uuid.uuid4())
         record_data = self._build_record_data(payload_record, payload_record, intake_class)
-        record_data["submission_id"] = submission.submission_id
+        self._stamp_submission_row_fields(record_data, submission)
         self._set_data_if_column(record_data, intake_class, "created_by", actor_name or submission.created_by)
         self._set_data_if_column(record_data, intake_class, "created_at", submission.first_created_at)
         self._set_data_if_column(record_data, intake_class, "last_approved_at", submission.last_updated_at)
@@ -971,7 +971,7 @@ class G2PIntakeFormDataService(BaseService):
                     intake_record,
                     intake_class,
                 )
-                record_data["submission_id"] = submission.submission_id
+                self._stamp_submission_row_fields(record_data, submission)
                 self._set_data_if_column(record_data, intake_class, "section_id", section.section_id)
                 self._set_data_if_column(record_data, intake_class, "created_by", submission.created_by)
                 self._set_data_if_column(
@@ -1341,6 +1341,7 @@ class G2PIntakeFormDataService(BaseService):
     ) -> SubmissionResponsePayload:
         return SubmissionResponsePayload(
             submission_id=submission.submission_id,
+            application_reference=submission.application_reference,
             record_name=record_name,
             form_id=submission.form_id,
             register_id=submission.register_id,
@@ -1415,6 +1416,14 @@ class G2PIntakeFormDataService(BaseService):
 
     def _apply_pagination(self, query, current_page: int, page_size: int):
         return query.offset((current_page - 1) * page_size).limit(page_size)
+
+    def _stamp_submission_row_fields(
+        self,
+        record_data: dict,
+        submission: G2PIntakeFormSubmission,
+    ) -> None:
+        record_data["submission_id"] = submission.submission_id
+        record_data["application_reference"] = submission.application_reference
 
     def _build_record_data(self, schema_data: dict, payload_data: dict, model_class) -> dict:
         mapper = inspect(model_class)
