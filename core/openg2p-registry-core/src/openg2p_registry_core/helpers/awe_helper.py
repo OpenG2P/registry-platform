@@ -38,6 +38,8 @@ from .awe_config import get_awe_settings, normalize_awe_base_url
 
 logger = logging.getLogger(__name__)
 
+_ACTIONABLE_TASK_STATUSES = frozenset({"open", "claimed"})
+
 
 class AWEClientError(Exception):
     """Raised when the AWE API returns a non-2xx response.
@@ -281,6 +283,74 @@ class AweHelper(BaseService):
             page=page,
             page_size=page_size,
         )
+
+    async def list_tasks_for_request(
+        self,
+        token: str,
+        *,
+        request_id: str,
+        page_size: int = 100,
+    ) -> Dict[str, Any]:
+        """Return tasks for the registry approval sidebar on a detail page.
+
+        Includes the caller's task(s) for the request plus other approvers'
+        completed approved tasks. When the caller has an open or claimed task
+        it is listed first; the remaining items are other approved tasks
+        ordered by stage.
+        """
+        all_page = await self._list_tasks(
+            token,
+            assignee="*",
+            request_id=request_id,
+            page=1,
+            page_size=page_size,
+        )
+        my_page = await self._list_tasks(
+            token,
+            assignee="me",
+            request_id=request_id,
+            page=1,
+            page_size=page_size,
+        )
+
+        all_items: List[Dict[str, Any]] = list(all_page.get("items") or [])
+        my_items: List[Dict[str, Any]] = list(my_page.get("items") or [])
+        my_ids = {task["id"] for task in my_items}
+
+        my_actionable = [
+            task for task in my_items if task.get("status") in _ACTIONABLE_TASK_STATUSES
+        ]
+        my_other = [
+            task for task in my_items if task.get("status") not in _ACTIONABLE_TASK_STATUSES
+        ]
+        others_approved = [
+            task
+            for task in all_items
+            if task["id"] not in my_ids
+            and task.get("status") == "completed"
+            and task.get("decision_action") == "approve"
+        ]
+
+        def _stage_sort_key(task: Dict[str, Any]) -> tuple[int, str]:
+            return (task.get("stage_order") or 0, task.get("created_at") or "")
+
+        others_approved.sort(key=_stage_sort_key)
+
+        if my_actionable:
+            my_actionable.sort(key=_stage_sort_key)
+            items = [my_actionable[0], *others_approved]
+        else:
+            my_other.sort(key=_stage_sort_key)
+            items = [*my_other, *others_approved]
+
+        total = len(items)
+        return {
+            "items": items,
+            "total": total,
+            "page": 1,
+            "page_size": page_size,
+            "pages": 1 if total else 1,
+        }
 
     # ------------------------------------------------------------------
     # 3. List all open tasks

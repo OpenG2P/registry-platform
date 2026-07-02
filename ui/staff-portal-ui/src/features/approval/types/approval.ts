@@ -4,6 +4,7 @@ export interface ApprovalTask {
     stage_id: string;
     stage_order: number;
     assignee: string;
+    assignee_name?: string | null;
     kind?: 'approver' | 'observer';
     status: string;
     claimed_at?: string | null;

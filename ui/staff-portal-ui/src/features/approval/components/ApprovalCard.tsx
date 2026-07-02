@@ -37,9 +37,10 @@ export default function ApprovalCard({
     const [submittingAction, setSubmittingAction] = useState<'approve' | 'reject' | null>(null);
 
     const isCurrentUser = Boolean(user?.preferred_username && task.assignee === user.preferred_username);
-    const assigneeDisplay = isCurrentUser ? user.name : task.assignee;
-
     const isTaskActionable = task.status === 'open' || task.status === 'claimed';
+    const assigneeDisplay = isCurrentUser
+        ? (user?.name || task.assignee)
+        : (task.assignee_name?.trim() || task.assignee);
     const showActionForm = isPending && canAct && isCurrentUser && isTaskActionable;
     const isInteractionDisabled = approvalDecisionBlocked || submittingAction !== null;
 
