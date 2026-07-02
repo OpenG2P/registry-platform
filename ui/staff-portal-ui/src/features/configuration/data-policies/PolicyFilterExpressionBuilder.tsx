@@ -3,8 +3,13 @@
 import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { X } from 'lucide-react';
-import type { RegisterField } from '@/features/configuration/shared/hooks/useRegisterFields';
+import {
+    POLICY_TARGET,
+    isGlobalPolicyTarget,
+} from './constants';
+import type { PolicyFilterField } from './policyFilterFields';
 import FilterSelect from './FilterSelect';
+import PolicyConditionValueInput from './PolicyConditionValueInput';
 import {
     type FilterConditionState,
     type FilterGroupState,
@@ -16,13 +21,13 @@ import {
     createEmptyGroup,
     createDefaultFilterRoot,
     getOperatorsForFieldType,
-    usesMultiValue,
     usesNoValue,
 } from './policyFilterExpression';
 
 interface PolicyFilterExpressionBuilderProps {
     root: FilterRootState;
-    fields: RegisterField[];
+    policyTarget: string;
+    fields: PolicyFilterField[];
     fieldsLoading?: boolean;
     onChange: (root: FilterRootState) => void;
     disabled?: boolean;
@@ -30,6 +35,7 @@ interface PolicyFilterExpressionBuilderProps {
 
 function ConditionRow({
     condition,
+    policyTarget,
     fields,
     fieldsLoading,
     onChange,
@@ -37,7 +43,8 @@ function ConditionRow({
     disabled,
 }: {
     condition: FilterConditionState;
-    fields: RegisterField[];
+    policyTarget: string;
+    fields: PolicyFilterField[];
     fieldsLoading?: boolean;
     onChange: (c: FilterConditionState) => void;
     onRemove: () => void;
@@ -47,20 +54,19 @@ function ConditionRow({
 
     const fieldOptions = useMemo(
         () =>
-            fields.map((f) => ({
-                label: `${f.field_name} (${f.data_type})`,
-                value: f.field_name,
+            fields.map((field) => ({
+                label: field.label,
+                value: field.id,
             })),
         [fields],
     );
 
-    const selectedField = fields.find((f) => f.field_name === condition.field_id);
-    const operatorOptions = getOperatorsForFieldType(selectedField?.data_type ?? 'string').map(
+    const selectedField = fields.find((field) => field.id === condition.field_id);
+    const operatorOptions = getOperatorsForFieldType(selectedField?.dataType ?? 'string').map(
         (op) => ({ label: t(`filter_operator_${op}`), value: op }),
     );
 
     const showValue = !usesNoValue(condition.operator);
-    const multiValue = usesMultiValue(condition.operator);
 
     return (
         <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] gap-3 items-center rounded-[10px] border border-primary-second/30 bg-neutral-second/40 px-4 py-2">
@@ -68,12 +74,13 @@ function ConditionRow({
                 options={fieldOptions}
                 value={condition.field_id}
                 onChange={(fieldId) => {
-                    const field = fields.find((f) => f.field_name === fieldId);
-                    const ops = getOperatorsForFieldType(field?.data_type ?? 'string');
+                    const field = fields.find((item) => item.id === fieldId);
+                    const ops = getOperatorsForFieldType(field?.dataType ?? 'string');
                     onChange({
                         ...condition,
                         field_id: fieldId,
                         operator: ops.includes(condition.operator) ? condition.operator : ops[0],
+                        valueInput: '',
                     });
                 }}
                 loading={fieldsLoading}
@@ -94,15 +101,13 @@ function ConditionRow({
                 placeholder={t('filter_operator')}
             />
             {showValue ? (
-                <input
-                    type="text"
-                    value={condition.valueInput}
-                    onChange={(e) => onChange({ ...condition, valueInput: e.target.value })}
-                    placeholder={
-                        multiValue ? t('filter_values_placeholder') : t('filter_value_placeholder')
-                    }
+                <PolicyConditionValueInput
+                    policyTarget={policyTarget}
+                    fieldId={condition.field_id}
+                    operator={condition.operator}
+                    valueInput={condition.valueInput}
+                    onChange={(valueInput) => onChange({ ...condition, valueInput })}
                     disabled={disabled}
-                    className="w-full border border-primary-second rounded-[10px] px-4 py-2 text-[16px] bg-neutral-second outline-none focus:outline-none focus:ring-0 focus-visible:ring-0 focus:border-primary-second disabled:opacity-50 disabled:cursor-not-allowed"
                 />
             ) : (
                 <span />
@@ -122,6 +127,7 @@ function ConditionRow({
 
 function GroupEditor({
     group,
+    policyTarget,
     fields,
     fieldsLoading,
     depth,
@@ -131,7 +137,8 @@ function GroupEditor({
     disabled,
 }: {
     group: FilterGroupState;
-    fields: RegisterField[];
+    policyTarget: string;
+    fields: PolicyFilterField[];
     fieldsLoading?: boolean;
     depth: number;
     onChange: (group: FilterGroupState) => void;
@@ -229,6 +236,7 @@ function GroupEditor({
                             <GroupEditor
                                 key={child.id}
                                 group={child}
+                                policyTarget={policyTarget}
                                 fields={fields}
                                 fieldsLoading={fieldsLoading}
                                 depth={depth + 1}
@@ -252,6 +260,7 @@ function GroupEditor({
                             <ConditionRow
                                 key={child.id}
                                 condition={child}
+                                policyTarget={policyTarget}
                                 fields={fields}
                                 fieldsLoading={fieldsLoading}
                                 disabled={disabled}
@@ -278,8 +287,19 @@ function GroupEditor({
     );
 }
 
+function getEmptyFieldsMessageKey(policyTarget: string): string {
+    if (policyTarget === POLICY_TARGET.ATTRIBUTE) {
+        return 'no_attributes_for_filter_fields';
+    }
+    if (policyTarget === POLICY_TARGET.GEO) {
+        return 'no_geo_levels_for_filter_fields';
+    }
+    return 'select_register_for_filter_fields';
+}
+
 export default function PolicyFilterExpressionBuilder({
     root,
+    policyTarget,
     fields,
     fieldsLoading,
     onChange,
@@ -289,13 +309,16 @@ export default function PolicyFilterExpressionBuilder({
 
     if (!fields.length && !fieldsLoading) {
         return (
-            <p className="text-[16px] text-neutral-first/50">{t('select_register_for_filter_fields')}</p>
+            <p className="text-[16px] text-neutral-first/50">
+                {t(getEmptyFieldsMessageKey(policyTarget))}
+            </p>
         );
     }
 
     return (
         <GroupEditor
             group={root}
+            policyTarget={policyTarget}
             fields={fields}
             fieldsLoading={fieldsLoading}
             depth={0}
@@ -304,4 +327,14 @@ export default function PolicyFilterExpressionBuilder({
             disabled={disabled}
         />
     );
+}
+
+export function canShowFilterBuilder(
+    policyTarget: string,
+    registerId: string,
+): boolean {
+    if (isGlobalPolicyTarget(policyTarget)) {
+        return true;
+    }
+    return Boolean(registerId);
 }

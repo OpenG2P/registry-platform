@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import type { DataPolicy } from '@/features/configuration/shared/hooks/usePolicies';
+import { getPolicyTargetLabelKey } from './constants';
 import { BaseModal, Field } from '../shared/components';
 
 interface ViewPolicyModalProps {
@@ -13,6 +14,8 @@ export default function ViewPolicyModal({ onClose, data }: ViewPolicyModalProps)
     const t = useTranslations();
 
     if (!data) return null;
+
+    const policyTargetLabelKey = getPolicyTargetLabelKey(data.policy_target);
 
     return (
         <BaseModal
@@ -28,9 +31,17 @@ export default function ViewPolicyModal({ onClose, data }: ViewPolicyModalProps)
                     value={data.policy_description}
                     layout="column"
                 />
+                <Field
+                    label={t('policy_target')}
+                    value={
+                        policyTargetLabelKey ? t(policyTargetLabelKey) : data.policy_target || '—'
+                    }
+                />
                 <Field label={t('policy_type')} value={data.policy_type} />
                 <Field label={t('policy_id')} value={data.policy_id} />
-                <Field label={t('register_id')} value={data.register_id} />
+                {data.register_id ? (
+                    <Field label={t('register_id')} value={data.register_id} />
+                ) : null}
                 <Field
                     label={t('policy_filter_expression')}
                     value={JSON.stringify(data.policy_filter_expression ?? {}, null, 2)}

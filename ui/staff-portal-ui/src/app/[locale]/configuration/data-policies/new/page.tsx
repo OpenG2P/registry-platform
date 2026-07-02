@@ -8,15 +8,32 @@ import { toast } from 'react-toastify';
 import { useRouter } from '@/i18n/navigation';
 import { TopBar } from '@/components/shared';
 import { useFetch } from '@/shared/hooks';
-import { useAllRegister } from '@/features/configuration/shared';
+import {
+    useAllRegister,
+    useAllAttributes,
+    useGeoLevels,
+} from '@/features/configuration/shared';
 import { useRegisterFields } from '@/features/configuration/shared/hooks/useRegisterFields';
 import {
     CustomDropdown,
     InputField,
     TextAreaField,
 } from '@/features/configuration/shared/components';
-import PolicyFilterExpressionBuilder from '@/features/configuration/data-policies/PolicyFilterExpressionBuilder';
+import PolicyFilterExpressionBuilder, {
+    canShowFilterBuilder,
+} from '@/features/configuration/data-policies/PolicyFilterExpressionBuilder';
 import PolicyFilterPreview from '@/features/configuration/data-policies/PolicyFilterPreview';
+import {
+    POLICY_TARGET,
+    POLICY_TARGET_OPTIONS,
+    isValidPolicyTarget,
+    resolveRegisterIdForTarget,
+} from '@/features/configuration/data-policies/constants';
+import {
+    fromAttributes,
+    fromGeoLevels,
+    fromRegisterFields,
+} from '@/features/configuration/data-policies/policyFilterFields';
 import {
     createDefaultFilterRoot,
     serializeFilterExpression,
@@ -33,12 +50,15 @@ export default function NewDataPolicyPage() {
 
     const { execute: addPolicy } = useFetch();
     const { registers, loading: registersLoading } = useAllRegister(1, 100);
-    const initialRegisterId = searchParams.get('registerId') ||'';
 
-    console.log('initialRegisterId', initialRegisterId);
-
+    const initialRegisterId = searchParams.get('registerId')?.trim() ?? '';
+    const initialPolicyTargetParam = searchParams.get('policyTarget')?.trim() ?? '';
+    const initialPolicyTarget = isValidPolicyTarget(initialPolicyTargetParam)
+        ? initialPolicyTargetParam
+        : POLICY_TARGET.REGISTER_RECORD;
 
     const [registerId, setRegisterId] = useState(initialRegisterId);
+    const [policyTarget, setPolicyTarget] = useState<string>(initialPolicyTarget);
     const [policyMnemonic, setPolicyMnemonic] = useState('');
     const [policyDescription, setPolicyDescription] = useState('');
     const [policyType, setPolicyType] = useState<string>('ALLOW');
@@ -46,26 +66,48 @@ export default function NewDataPolicyPage() {
     const [saving, setSaving] = useState(false);
 
     const lockRegister = Boolean(initialRegisterId);
-    const { fields, loading: fieldsLoading } = useRegisterFields(registerId);
+    const isRegisterTarget = policyTarget === POLICY_TARGET.REGISTER_RECORD;
+
+    const { fields: registerFields, loading: registerFieldsLoading } = useRegisterFields(
+        isRegisterTarget ? registerId : '',
+    );
+    const { attributes, loading: attributesLoading } = useAllAttributes(1, 500);
+    const { geoLevels, loading: geoLevelsLoading } = useGeoLevels();
 
     useEffect(() => {
         setRegisterId(initialRegisterId);
     }, [initialRegisterId]);
 
     useEffect(() => {
-        if (initialRegisterId || registersLoading || !registers?.length) return;
+        if (!isValidPolicyTarget(initialPolicyTargetParam)) return;
+        setPolicyTarget(initialPolicyTargetParam);
+    }, [initialPolicyTargetParam]);
+
+    useEffect(() => {
+        if (!isRegisterTarget || initialRegisterId || registersLoading || !registers?.length) {
+            return;
+        }
         setRegisterId((current) => current || registers[0].register_id);
-    }, [initialRegisterId, registers, registersLoading]);
+    }, [isRegisterTarget, initialRegisterId, registers, registersLoading]);
 
     useEffect(() => {
         setFilterRoot(createDefaultFilterRoot());
-    }, [registerId]);
+    }, [registerId, policyTarget]);
+
+    const policyTargetOptions = useMemo(
+        () =>
+            POLICY_TARGET_OPTIONS.map((option) => ({
+                label: t(option.labelKey),
+                value: option.value,
+            })),
+        [t],
+    );
 
     const registerOptions = useMemo(
         () =>
-            (registers || []).map((r) => ({
-                label: r.register_mnemonic || r.register_id,
-                value: r.register_id,
+            (registers || []).map((register) => ({
+                label: register.register_mnemonic || register.register_id,
+                value: register.register_id,
             })),
         [registers],
     );
@@ -75,16 +117,37 @@ export default function NewDataPolicyPage() {
         [],
     );
 
-    const listHref = registerId
-        ? `/configuration/data-policies?registerId=${encodeURIComponent(registerId)}`
-        : '/configuration/data-policies';
+    const filterFields = useMemo(() => {
+        if (policyTarget === POLICY_TARGET.ATTRIBUTE) {
+            return fromAttributes(attributes);
+        }
+        if (policyTarget === POLICY_TARGET.GEO) {
+            return fromGeoLevels(geoLevels);
+        }
+        return fromRegisterFields(registerFields);
+    }, [policyTarget, attributes, geoLevels, registerFields]);
+
+    const fieldsLoading = useMemo(() => {
+        if (policyTarget === POLICY_TARGET.ATTRIBUTE) return attributesLoading;
+        if (policyTarget === POLICY_TARGET.GEO) return geoLevelsLoading;
+        return registerFieldsLoading;
+    }, [policyTarget, attributesLoading, geoLevelsLoading, registerFieldsLoading]);
+
+    const listHref = useMemo(() => {
+        const params = new URLSearchParams();
+        params.set('policyTarget', policyTarget);
+        if (isRegisterTarget && registerId) {
+            params.set('registerId', registerId);
+        }
+        return `/configuration/data-policies?${params.toString()}`;
+    }, [policyTarget, isRegisterTarget, registerId]);
 
     const handleCancel = () => {
         router.push(listHref);
     };
 
     const handleSubmit = async () => {
-        if (!registerId) {
+        if (isRegisterTarget && !registerId) {
             toast.warn(t('register_required'));
             return;
         }
@@ -102,17 +165,18 @@ export default function NewDataPolicyPage() {
             const result = await addPolicy('/api/configuration/data-policy/add-policy', {
                 method: 'POST',
                 body: JSON.stringify({
-                    register_id: registerId,
+                    register_id: resolveRegisterIdForTarget(policyTarget, registerId),
+                    policy_target: policyTarget,
                     policy_mnemonic: policyMnemonic.trim(),
                     policy_description: policyDescription.trim(),
                     policy_type: policyType,
-                    policy_filter_expression: serializeFilterExpression(filterRoot, fields),
+                    policy_filter_expression: serializeFilterExpression(filterRoot, filterFields),
                 }),
             });
 
             if (result?.policy_id) {
                 toast.success(t('toast_policy_created'));
-                router.push(`${listHref}${listHref.includes('?') ? '&' : '?'}created=1`);
+                router.push(`${listHref}&created=1`);
             } else {
                 toast.error(t('toast_policy_create_failed'));
             }
@@ -120,6 +184,8 @@ export default function NewDataPolicyPage() {
             setSaving(false);
         }
     };
+
+    const showFilterBuilder = canShowFilterBuilder(policyTarget, registerId);
 
     return (
         <>
@@ -131,7 +197,6 @@ export default function NewDataPolicyPage() {
                 showFilters={false}
                 showPagination={false}
                 showAddNewButton={false}
-               
             />
 
             <div className="mx-7.5 flex flex-col gap-5 pb-10 font-roboto">
@@ -175,15 +240,25 @@ export default function NewDataPolicyPage() {
                         {t('policy_details')}
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-                    <CustomDropdown
-                        label={t('register')}
-                        options={registerOptions}
-                        value={registerId}
-                        onChange={setRegisterId}
-                        loading={registersLoading}
-                        placeholder={t('select_register')}
-                        disabled={lockRegister}
-                    />
+                        <CustomDropdown
+                            label={t('policy_target')}
+                            options={policyTargetOptions}
+                            value={policyTarget}
+                            onChange={setPolicyTarget}
+                        />
+                        {isRegisterTarget ? (
+                            <CustomDropdown
+                                label={t('register')}
+                                options={registerOptions}
+                                value={registerId}
+                                onChange={setRegisterId}
+                                loading={registersLoading}
+                                placeholder={t('select_register')}
+                                disabled={lockRegister}
+                            />
+                        ) : (
+                            <div />
+                        )}
                         <CustomDropdown
                             label={t('policy_type')}
                             options={policyTypeOptions}
@@ -213,7 +288,7 @@ export default function NewDataPolicyPage() {
                     <h2 className="text-base font-semibold text-neutral-first mb-4">
                         {t('filter_rules')}
                     </h2>
-                    {!registerId ? (
+                    {!showFilterBuilder ? (
                         <p className="text-[16px] text-neutral-first/50">
                             {t('select_register_for_filter_fields')}
                         </p>
@@ -221,12 +296,13 @@ export default function NewDataPolicyPage() {
                         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] gap-6 items-stretch">
                             <PolicyFilterExpressionBuilder
                                 root={filterRoot}
-                                fields={fields}
+                                policyTarget={policyTarget}
+                                fields={filterFields}
                                 fieldsLoading={fieldsLoading}
                                 onChange={setFilterRoot}
                             />
                             <div className="xl:sticky xl:top-4 flex flex-col min-h-full">
-                                <PolicyFilterPreview root={filterRoot} fields={fields} />
+                                <PolicyFilterPreview root={filterRoot} fields={filterFields} />
                             </div>
                         </div>
                     )}

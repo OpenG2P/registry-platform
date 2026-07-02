@@ -4,7 +4,7 @@ import { proxyToBackend } from '@/app/api/_lib/backend-proxy';
 export async function POST(request: NextRequest) {
     return proxyToBackend({
         req: request,
-        targetEndpoint: '/data-policy/get_policies',
+        targetEndpoint: '/data-policy/get_all_policies',
         buildPayload: (body) => ({
             pagination_request: {
                 current_page: body.current_page ?? 1,
@@ -13,9 +13,7 @@ export async function POST(request: NextRequest) {
                 filter_by: body.filter_by ?? '',
                 search_text: body.search_text ?? '',
             },
-            request_payload: {
-                register_id: body.register_id,
-            },
+            request_payload: {},
         }),
         transformResponse: (responseBody) => ({
             policies: responseBody?.response_payload?.policies || [],
