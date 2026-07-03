@@ -41,7 +41,7 @@ from .controller_services import (
     G2PAweProxyControllerService,
     G2PDataPolicyControllerService,
 )
-from .helpers import AweHelper, MinioClient, PatternMatcher, TemplateHelper
+from .helpers import AweHelper, ApplicationReferenceGenerator, MinioClient, PatternMatcher, TemplateHelper
 from .models import (
     DataModel,
     DeduplicationChangerequestResult,
@@ -162,6 +162,7 @@ class Initializer(BaseInitializer):
             _config.template_bucket_name
         )
         PatternMatcher()
+        ApplicationReferenceGenerator(_config.application_reference_format)
         KeymanagerCryptoHelper()
         AweHelper()
 
