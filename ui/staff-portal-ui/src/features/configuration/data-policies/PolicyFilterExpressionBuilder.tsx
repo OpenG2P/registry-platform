@@ -3,10 +3,6 @@
 import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { X } from 'lucide-react';
-import {
-    POLICY_TARGET,
-    isGlobalPolicyTarget,
-} from './constants';
 import type { PolicyFilterField } from './policyFilterFields';
 import FilterSelect from './FilterSelect';
 import PolicyConditionValueInput from './PolicyConditionValueInput';
@@ -288,10 +284,10 @@ function GroupEditor({
 }
 
 function getEmptyFieldsMessageKey(policyTarget: string): string {
-    if (policyTarget === POLICY_TARGET.ATTRIBUTE) {
+    if (policyTarget === 'ATTRIBUTE') {
         return 'no_attributes_for_filter_fields';
     }
-    if (policyTarget === POLICY_TARGET.GEO) {
+    if (policyTarget === 'GEO') {
         return 'no_geo_levels_for_filter_fields';
     }
     return 'select_register_for_filter_fields';
@@ -333,7 +329,7 @@ export function canShowFilterBuilder(
     policyTarget: string,
     registerId: string,
 ): boolean {
-    if (isGlobalPolicyTarget(policyTarget)) {
+    if (policyTarget === 'ATTRIBUTE' || policyTarget === 'GEO') {
         return true;
     }
     return Boolean(registerId);

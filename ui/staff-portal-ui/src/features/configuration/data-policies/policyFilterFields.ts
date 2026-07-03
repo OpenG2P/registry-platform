@@ -18,7 +18,7 @@ export function fromRegisterFields(fields: RegisterField[]): PolicyFilterField[]
 
 export function fromAttributes(attributes: Attribute[]): PolicyFilterField[] {
     return attributes.map((attribute) => ({
-        id: attribute.attribute_id,
+        id: attribute.attribute_code,
         label: attribute.attribute_display || attribute.attribute_code,
         dataType: 'string',
     }));
@@ -26,9 +26,9 @@ export function fromAttributes(attributes: Attribute[]): PolicyFilterField[] {
 
 export function fromGeoLevels(levels: GeoLevel[]): PolicyFilterField[] {
     return levels.map((level) => ({
-        id: level.level_id,
+        id: level.level_mnemonic,
         label: level.level_mnemonic || level.level_id,
-        dataType: 'string',
+        dataType: 'geo_hierarchy',
     }));
 }
 

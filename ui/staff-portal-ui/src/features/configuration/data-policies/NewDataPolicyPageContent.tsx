@@ -11,7 +11,7 @@ import { useFetch } from '@/shared/hooks';
 import {
     useAllRegister,
     useAllAttributes,
-    useGeoLevels,
+    useG2pGeoLevels,
 } from '@/features/configuration/shared';
 import { useRegisterFields } from '@/features/configuration/shared/hooks/useRegisterFields';
 import {
@@ -22,16 +22,14 @@ import {
 import PolicyFilterExpressionBuilder, {
     canShowFilterBuilder,
 } from '@/features/configuration/data-policies/PolicyFilterExpressionBuilder';
+import AdministrativeAreasPolicyBuilder from '@/features/configuration/data-policies/AdministrativeAreasPolicyBuilder';
+import GeoPolicyPreview from '@/features/configuration/data-policies/GeoPolicyPreview';
 import PolicyFilterPreview from '@/features/configuration/data-policies/PolicyFilterPreview';
-import {
-    POLICY_TARGET,
-    POLICY_TARGET_OPTIONS,
-    isValidPolicyTarget,
-    resolveRegisterIdForTarget,
-} from '@/features/configuration/data-policies/constants';
+import { orderGeoLevelsByHierarchy } from '@/features/configuration/data-policies/geoLevelUtils';
+import { toGeoPolicyFilterExpression } from '@/features/configuration/data-policies/geoLocationSerialization';
+import type { GeoLocationSelection } from '@/features/configuration/data-policies/geoLocationTypes';
 import {
     fromAttributes,
-    fromGeoLevels,
     fromRegisterFields,
 } from '@/features/configuration/data-policies/policyFilterFields';
 import {
@@ -43,7 +41,19 @@ import {
 
 const POLICY_TYPES = ['ALLOW', 'DENY'] as const;
 
-export default function NewDataPolicyPage() {
+interface NewDataPolicyPageContentProps {
+    policyTarget: string;
+    menuLabelKey: string;
+    addPolicyLabelKey: string;
+    listPath: string;
+}
+
+export default function NewDataPolicyPageContent({
+    policyTarget,
+    menuLabelKey,
+    addPolicyLabelKey,
+    listPath,
+}: NewDataPolicyPageContentProps) {
     const t = useTranslations();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -52,36 +62,32 @@ export default function NewDataPolicyPage() {
     const { registers, loading: registersLoading } = useAllRegister(1, 100);
 
     const initialRegisterId = searchParams.get('registerId')?.trim() ?? '';
-    const initialPolicyTargetParam = searchParams.get('policyTarget')?.trim() ?? '';
-    const initialPolicyTarget = isValidPolicyTarget(initialPolicyTargetParam)
-        ? initialPolicyTargetParam
-        : POLICY_TARGET.REGISTER_RECORD;
 
     const [registerId, setRegisterId] = useState(initialRegisterId);
-    const [policyTarget, setPolicyTarget] = useState<string>(initialPolicyTarget);
     const [policyMnemonic, setPolicyMnemonic] = useState('');
     const [policyDescription, setPolicyDescription] = useState('');
     const [policyType, setPolicyType] = useState<string>('ALLOW');
     const [filterRoot, setFilterRoot] = useState<FilterRootState>(createDefaultFilterRoot());
+    const [geoLocations, setGeoLocations] = useState<GeoLocationSelection[]>([]);
     const [saving, setSaving] = useState(false);
 
     const lockRegister = Boolean(initialRegisterId);
-    const isRegisterTarget = policyTarget === POLICY_TARGET.REGISTER_RECORD;
+    const isRegisterTarget = policyTarget === 'REGISTER_RECORD';
+    const isGeoTarget = policyTarget === 'GEO';
 
     const { fields: registerFields, loading: registerFieldsLoading } = useRegisterFields(
         isRegisterTarget ? registerId : '',
     );
     const { attributes, loading: attributesLoading } = useAllAttributes(1, 500);
-    const { geoLevels, loading: geoLevelsLoading } = useGeoLevels();
+    const { geoLevels: g2pGeoLevels, loading: g2pGeoLevelsLoading } = useG2pGeoLevels();
+    const orderedGeoLevels = useMemo(
+        () => orderGeoLevelsByHierarchy(g2pGeoLevels),
+        [g2pGeoLevels],
+    );
 
     useEffect(() => {
         setRegisterId(initialRegisterId);
     }, [initialRegisterId]);
-
-    useEffect(() => {
-        if (!isValidPolicyTarget(initialPolicyTargetParam)) return;
-        setPolicyTarget(initialPolicyTargetParam);
-    }, [initialPolicyTargetParam]);
 
     useEffect(() => {
         if (!isRegisterTarget || initialRegisterId || registersLoading || !registers?.length) {
@@ -91,17 +97,12 @@ export default function NewDataPolicyPage() {
     }, [isRegisterTarget, initialRegisterId, registers, registersLoading]);
 
     useEffect(() => {
+        if (isGeoTarget) {
+            setGeoLocations([]);
+            return;
+        }
         setFilterRoot(createDefaultFilterRoot());
-    }, [registerId, policyTarget]);
-
-    const policyTargetOptions = useMemo(
-        () =>
-            POLICY_TARGET_OPTIONS.map((option) => ({
-                label: t(option.labelKey),
-                value: option.value,
-            })),
-        [t],
-    );
+    }, [registerId, policyTarget, isGeoTarget]);
 
     const registerOptions = useMemo(
         () =>
@@ -118,29 +119,26 @@ export default function NewDataPolicyPage() {
     );
 
     const filterFields = useMemo(() => {
-        if (policyTarget === POLICY_TARGET.ATTRIBUTE) {
+        if (policyTarget === 'ATTRIBUTE') {
             return fromAttributes(attributes);
         }
-        if (policyTarget === POLICY_TARGET.GEO) {
-            return fromGeoLevels(geoLevels);
-        }
         return fromRegisterFields(registerFields);
-    }, [policyTarget, attributes, geoLevels, registerFields]);
+    }, [policyTarget, attributes, registerFields]);
 
     const fieldsLoading = useMemo(() => {
-        if (policyTarget === POLICY_TARGET.ATTRIBUTE) return attributesLoading;
-        if (policyTarget === POLICY_TARGET.GEO) return geoLevelsLoading;
+        if (policyTarget === 'ATTRIBUTE') return attributesLoading;
         return registerFieldsLoading;
-    }, [policyTarget, attributesLoading, geoLevelsLoading, registerFieldsLoading]);
+    }, [policyTarget, attributesLoading, registerFieldsLoading]);
 
     const listHref = useMemo(() => {
-        const params = new URLSearchParams();
-        params.set('policyTarget', policyTarget);
-        if (isRegisterTarget && registerId) {
-            params.set('registerId', registerId);
+        if (!isRegisterTarget || !registerId) {
+            return listPath;
         }
-        return `/configuration/data-policies?${params.toString()}`;
-    }, [policyTarget, isRegisterTarget, registerId]);
+
+        const params = new URLSearchParams();
+        params.set('registerId', registerId);
+        return `${listPath}?${params.toString()}`;
+    }, [isRegisterTarget, registerId, listPath]);
 
     const handleCancel = () => {
         router.push(listHref);
@@ -155,28 +153,37 @@ export default function NewDataPolicyPage() {
             toast.warn(t('policy_mnemonic_required'));
             return;
         }
-        if (!validateFilterExpression(filterRoot)) {
+        if (isGeoTarget) {
+            if (geoLocations.length === 0) {
+                toast.warn(t('policy_filter_expression_required'));
+                return;
+            }
+        } else if (!validateFilterExpression(filterRoot)) {
             toast.warn(t('policy_filter_expression_required'));
             return;
         }
 
         setSaving(true);
         try {
+            const policyFilterExpression = isGeoTarget
+                ? toGeoPolicyFilterExpression(geoLocations)
+                : serializeFilterExpression(filterRoot, filterFields);
+
             const result = await addPolicy('/api/configuration/data-policy/add-policy', {
                 method: 'POST',
                 body: JSON.stringify({
-                    register_id: resolveRegisterIdForTarget(policyTarget, registerId),
+                    register_id: policyTarget === 'REGISTER_RECORD' ? registerId : '',
                     policy_target: policyTarget,
                     policy_mnemonic: policyMnemonic.trim(),
                     policy_description: policyDescription.trim(),
                     policy_type: policyType,
-                    policy_filter_expression: serializeFilterExpression(filterRoot, filterFields),
+                    policy_filter_expression: policyFilterExpression,
                 }),
             });
 
             if (result?.policy_id) {
                 toast.success(t('toast_policy_created'));
-                router.push(`${listHref}&created=1`);
+                router.push(`${listHref}${listHref.includes('?') ? '&' : '?'}created=1`);
             } else {
                 toast.error(t('toast_policy_create_failed'));
             }
@@ -191,8 +198,9 @@ export default function NewDataPolicyPage() {
         <>
             <TopBar
                 breadcrumb={[
-                    { label: t('data_policies'), href: '/configuration/data-policies' },
-                    { label: t('add_policy') },
+                    { label: t('data_policies'), href: listPath },
+                    { label: t(menuLabelKey), href: listHref },
+                    { label: t(addPolicyLabelKey) },
                 ]}
                 showFilters={false}
                 showPagination={false}
@@ -211,7 +219,7 @@ export default function NewDataPolicyPage() {
                             <ArrowLeft size={20} className="text-neutral-first" />
                         </button>
                         <h1 className="text-lg font-semibold text-neutral-first m-0">
-                            {t('add_policy')}
+                            {t(addPolicyLabelKey)}
                         </h1>
                     </div>
 
@@ -240,12 +248,6 @@ export default function NewDataPolicyPage() {
                         {t('policy_details')}
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-                        <CustomDropdown
-                            label={t('policy_target')}
-                            options={policyTargetOptions}
-                            value={policyTarget}
-                            onChange={setPolicyTarget}
-                        />
                         {isRegisterTarget ? (
                             <CustomDropdown
                                 label={t('register')}
@@ -256,9 +258,7 @@ export default function NewDataPolicyPage() {
                                 placeholder={t('select_register')}
                                 disabled={lockRegister}
                             />
-                        ) : (
-                            <div />
-                        )}
+                        ) : null}
                         <CustomDropdown
                             label={t('policy_type')}
                             options={policyTypeOptions}
@@ -294,15 +294,31 @@ export default function NewDataPolicyPage() {
                         </p>
                     ) : (
                         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] gap-6 items-stretch">
-                            <PolicyFilterExpressionBuilder
-                                root={filterRoot}
-                                policyTarget={policyTarget}
-                                fields={filterFields}
-                                fieldsLoading={fieldsLoading}
-                                onChange={setFilterRoot}
-                            />
+                            {isGeoTarget ? (
+                                <AdministrativeAreasPolicyBuilder
+                                    geoLevels={orderedGeoLevels}
+                                    geoLevelsLoading={g2pGeoLevelsLoading}
+                                    locations={geoLocations}
+                                    onChange={setGeoLocations}
+                                />
+                            ) : (
+                                <PolicyFilterExpressionBuilder
+                                    root={filterRoot}
+                                    policyTarget={policyTarget}
+                                    fields={filterFields}
+                                    fieldsLoading={fieldsLoading}
+                                    onChange={setFilterRoot}
+                                />
+                            )}
                             <div className="xl:sticky xl:top-4 flex flex-col min-h-full">
-                                <PolicyFilterPreview root={filterRoot} fields={filterFields} />
+                                {isGeoTarget ? (
+                                    <GeoPolicyPreview locations={geoLocations} />
+                                ) : (
+                                    <PolicyFilterPreview
+                                        root={filterRoot}
+                                        fields={filterFields}
+                                    />
+                                )}
                             </div>
                         </div>
                     )}

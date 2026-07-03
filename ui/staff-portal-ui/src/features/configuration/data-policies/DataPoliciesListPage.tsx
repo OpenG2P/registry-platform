@@ -22,15 +22,19 @@ import {
 } from '@/features/configuration/shared/components';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { ViewPolicyModal } from '@/features/configuration/data-policies';
-import {
-    POLICY_TARGET,
-    POLICY_TARGET_OPTIONS,
-    getPolicyTargetLabelKey,
-    isGlobalPolicyTarget,
-    isValidPolicyTarget,
-} from '@/features/configuration/data-policies/constants';
+interface DataPoliciesListPageProps {
+    policyTarget: string;
+    menuLabelKey: string;
+    listPath: string;
+    newPath: string;
+}
 
-const DataPoliciesPage = () => {
+export default function DataPoliciesListPage({
+    policyTarget,
+    menuLabelKey,
+    listPath,
+    newPath,
+}: DataPoliciesListPageProps) {
     const t = useTranslations();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -45,19 +49,13 @@ const DataPoliciesPage = () => {
     const [selectedRegisterId, setSelectedRegisterId] = useState('');
     const firstRegisterId = registers[0]?.register_id ?? '';
 
-    const initialPolicyTargetParam = searchParams.get('policyTarget')?.trim() ?? '';
-    const [selectedPolicyTarget, setSelectedPolicyTarget] = useState<string>(
-        isValidPolicyTarget(initialPolicyTargetParam)
-            ? initialPolicyTargetParam
-            : POLICY_TARGET.REGISTER_RECORD,
-    );
-
-    const isRegisterTarget = selectedPolicyTarget === POLICY_TARGET.REGISTER_RECORD;
-    const canListPolicies = isGlobalPolicyTarget(selectedPolicyTarget) || !!selectedRegisterId;
+    const isRegisterTarget = policyTarget === 'REGISTER_RECORD';
+    const canListPolicies =
+        policyTarget === 'ATTRIBUTE' || policyTarget === 'GEO' || !!selectedRegisterId;
 
     const { policies, pagination, loading, refresh } = usePolicies(
         selectedRegisterId,
-        selectedPolicyTarget,
+        policyTarget,
         currentPage,
         config.pageSize || 10,
     );
@@ -78,25 +76,10 @@ const DataPoliciesPage = () => {
     }, [isRegisterTarget, registersLoading, firstRegisterId, searchParams, registers]);
 
     useEffect(() => {
-        const urlPolicyTarget = searchParams.get('policyTarget')?.trim() ?? '';
-        if (!isValidPolicyTarget(urlPolicyTarget)) return;
-        setSelectedPolicyTarget(urlPolicyTarget);
-    }, [searchParams]);
-
-    useEffect(() => {
         if (searchParams.get('created') === '1') {
             refresh();
         }
     }, [searchParams, refresh]);
-
-    const policyTargetOptions = useMemo(
-        () =>
-            POLICY_TARGET_OPTIONS.map((option) => ({
-                label: t(option.labelKey),
-                value: option.value,
-            })),
-        [t],
-    );
 
     const registerOptions = useMemo(
         () =>
@@ -119,11 +102,6 @@ const DataPoliciesPage = () => {
 
     const handleRegisterChange = (registerId: string) => {
         setSelectedRegisterId(registerId);
-        setCurrentPage(1);
-    };
-
-    const handlePolicyTargetChange = (policyTarget: string) => {
-        setSelectedPolicyTarget(policyTarget);
         setCurrentPage(1);
     };
 
@@ -160,7 +138,14 @@ const DataPoliciesPage = () => {
             key: 'policy_target',
             label: t('policy_target'),
             render: (item: DataPolicy) => {
-                const labelKey = getPolicyTargetLabelKey(item.policy_target);
+                const labelKey =
+                    item.policy_target === 'REGISTER_RECORD'
+                        ? 'policy_target_register_record'
+                        : item.policy_target === 'ATTRIBUTE'
+                          ? 'policy_target_attribute'
+                          : item.policy_target === 'GEO'
+                            ? 'policy_target_geo'
+                            : undefined;
                 return labelKey ? t(labelKey) : item.policy_target || '—';
             },
         },
@@ -168,18 +153,22 @@ const DataPoliciesPage = () => {
     ];
 
     const buildNewPolicyHref = () => {
-        const params = new URLSearchParams();
-        params.set('policyTarget', selectedPolicyTarget);
-        if (isRegisterTarget && selectedRegisterId) {
-            params.set('registerId', selectedRegisterId);
+        if (!isRegisterTarget || !selectedRegisterId) {
+            return newPath;
         }
-        return `/configuration/data-policies/new?${params.toString()}`;
+
+        const params = new URLSearchParams();
+        params.set('registerId', selectedRegisterId);
+        return `${newPath}?${params.toString()}`;
     };
 
     return (
         <>
             <TopBar
-                breadcrumb={[{ label: t('data_policies') }]}
+                breadcrumb={[
+                    { label: t('data_policies'), href: listPath },
+                    { label: t(menuLabelKey) },
+                ]}
                 showFilters={false}
                 showPagination={canListPolicies}
                 showAddNewButton={canListPolicies}
@@ -192,16 +181,8 @@ const DataPoliciesPage = () => {
                 onNext={handleNext}
             />
 
-            <div className="px-7.5 pb-4 flex flex-row flex-wrap items-end gap-4">
-                <div className="w-56">
-                    <CustomDropdown
-                        label={t('policy_target')}
-                        options={policyTargetOptions}
-                        value={selectedPolicyTarget}
-                        onChange={handlePolicyTargetChange}
-                    />
-                </div>
-                {isRegisterTarget ? (
+            {isRegisterTarget ? (
+                <div className="px-7.5 pb-4 flex flex-row flex-wrap items-end gap-4">
                     <div className="w-56">
                         <CustomDropdown
                             label={t('register')}
@@ -212,8 +193,8 @@ const DataPoliciesPage = () => {
                             placeholder={t('select_register')}
                         />
                     </div>
-                ) : null}
-            </div>
+                </div>
+            ) : null}
 
             {!canListPolicies ? (
                 <div className="px-7.5 text-sm text-secondary-third text-center py-8">
@@ -265,6 +246,4 @@ const DataPoliciesPage = () => {
             )}
         </>
     );
-};
-
-export default DataPoliciesPage;
+}

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { POLICY_TARGET } from './constants';
+import { useAllAttributes } from '@/features/configuration/shared';
 import { useAttributeValues } from '@/features/configuration/shared/hooks/useAttributeValues';
 import {
     getGeoLevelValueLabel,
@@ -117,12 +117,20 @@ function AttributeValueInput({
     disabled?: boolean;
 }) {
     const t = useTranslations();
-    const { allAttributeValues, loading } = useAttributeValues(fieldId, 1, 500);
+    const { attributes, loading: attributesLoading } = useAllAttributes(1, 500);
+    const attributeId = useMemo(() => {
+        const byCode = attributes.find((attribute) => attribute.attribute_code === fieldId);
+        if (byCode) return byCode.attribute_id;
+        const byId = attributes.find((attribute) => attribute.attribute_id === fieldId);
+        return byId?.attribute_id ?? fieldId;
+    }, [attributes, fieldId]);
+    const { allAttributeValues, loading: valuesLoading } = useAttributeValues(attributeId, 1, 500);
     const options = allAttributeValues.map((value) => ({
         label: value.value_display || value.value_code,
-        value: value.value_id,
+        value: value.value_code,
     }));
     const multiValue = usesMultiValue(operator);
+    const loading = attributesLoading || valuesLoading;
 
     if (multiValue) {
         return (
@@ -207,7 +215,7 @@ export default function PolicyConditionValueInput({
         return <span />;
     }
 
-    if (policyTarget === POLICY_TARGET.ATTRIBUTE) {
+    if (policyTarget === 'ATTRIBUTE') {
         return (
             <AttributeValueInput
                 fieldId={fieldId}
@@ -219,7 +227,7 @@ export default function PolicyConditionValueInput({
         );
     }
 
-    if (policyTarget === POLICY_TARGET.GEO) {
+    if (policyTarget === 'GEO') {
         return (
             <GeoValueInput
                 fieldId={fieldId}

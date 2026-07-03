@@ -1,9 +1,5 @@
 import { useMemo } from 'react';
 import { useFetch } from '@/shared/hooks';
-import {
-    isGlobalPolicyTarget,
-    POLICY_TARGET,
-} from '@/features/configuration/data-policies/constants';
 
 export interface DataPolicy {
     policy_id: string;
@@ -21,11 +17,11 @@ function filterPolicies(
     registerId: string,
 ): DataPolicy[] {
     return policies.filter((policy) => {
-        const target = policy.policy_target || POLICY_TARGET.REGISTER_RECORD;
+        const target = policy.policy_target || 'REGISTER_RECORD';
         if (target !== policyTarget) {
             return false;
         }
-        if (isGlobalPolicyTarget(policyTarget)) {
+        if (policyTarget === 'ATTRIBUTE' || policyTarget === 'GEO') {
             return true;
         }
         return Boolean(registerId) && policy.register_id === registerId;
@@ -38,7 +34,7 @@ export function usePolicies(
     currentPage: number = 1,
     pageSize: number = 10,
 ) {
-    const enabled = isGlobalPolicyTarget(policyTarget) || !!registerId;
+    const enabled = policyTarget === 'ATTRIBUTE' || policyTarget === 'GEO' || !!registerId;
 
     const { data, loading, error, execute } = useFetch<{
         policies: DataPolicy[];

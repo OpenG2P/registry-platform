@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl';
 import type { DataPolicy } from '@/features/configuration/shared/hooks/usePolicies';
-import { getPolicyTargetLabelKey } from './constants';
 import { BaseModal, Field } from '../shared/components';
 
 interface ViewPolicyModalProps {
@@ -15,7 +14,14 @@ export default function ViewPolicyModal({ onClose, data }: ViewPolicyModalProps)
 
     if (!data) return null;
 
-    const policyTargetLabelKey = getPolicyTargetLabelKey(data.policy_target);
+    const policyTargetLabelKey =
+        data.policy_target === 'REGISTER_RECORD'
+            ? 'policy_target_register_record'
+            : data.policy_target === 'ATTRIBUTE'
+              ? 'policy_target_attribute'
+              : data.policy_target === 'GEO'
+                ? 'policy_target_geo'
+                : undefined;
 
     return (
         <BaseModal

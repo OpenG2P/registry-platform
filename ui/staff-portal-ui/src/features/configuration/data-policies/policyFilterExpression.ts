@@ -23,8 +23,8 @@ export type PolicyFilterExpression = {
     type: 'GROUP' | 'CONDITION';
     operator?: GroupOperator | ConditionOperator;
     field_id?: string;
-    value?: string | number | boolean;
-    values?: (string | number | boolean)[];
+    value?: string | number | boolean | Record<string, string>;
+    values?: (string | number | boolean | Record<string, string>)[];
     children?: PolicyFilterExpression[];
 };
 
@@ -158,6 +158,16 @@ function parseMultiValues(raw: string, dataType: string): (string | number | boo
     return raw.split(',').map((part) => parseScalarValue(part, dataType));
 }
 
+function parseGeoHierarchyValue(
+    raw: string,
+): Record<string, string> | Record<string, string>[] {
+    try {
+        return JSON.parse(raw) as Record<string, string> | Record<string, string>[];
+    } catch {
+        return { value: raw.trim() };
+    }
+}
+
 function serializeCondition(
     node: FilterConditionState,
     fields: PolicyFilterField[],
@@ -173,6 +183,16 @@ function serializeCondition(
 
     if (usesNoValue(node.operator)) {
         return base;
+    }
+
+    if (dataType === 'geo_hierarchy') {
+        const parsed = parseGeoHierarchyValue(node.valueInput);
+        if (usesMultiValue(node.operator)) {
+            const values = Array.isArray(parsed) ? parsed : [parsed];
+            return { ...base, values };
+        }
+        const value = Array.isArray(parsed) ? parsed[0] : parsed;
+        return { ...base, value };
     }
 
     if (usesMultiValue(node.operator)) {
