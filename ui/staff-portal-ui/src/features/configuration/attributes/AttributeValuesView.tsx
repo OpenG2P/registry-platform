@@ -161,13 +161,14 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
 
     const columns = useMemo(
         () => [
-            { key: 'value_code', label: t('value_code') },
             {
-                key: 'value_display',
-                label: t('value_display'),
+                key: 'value_code',
+                label: t('value_code'),
                 render: (item: AttributeValue) => (
                     <div className="flex items-center gap-2">
-                        <span className="truncate">{item.value_display}</span>
+                        <span className="truncate">
+                            {item.value_code ? t(item.value_code) : item.value_code}
+                        </span>
                         {isHierarchical &&
                             valueHasChildren(item.value_id, allAttributeValues) && (
                                 <ChevronRight
@@ -212,7 +213,9 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                                                 onClick={() => handleBreadcrumbClick(index)}
                                                 className="hover:text-primary-second transition-colors truncate max-w-40"
                                             >
-                                                {crumb.value_display}
+                                                {crumb.value_code
+                                                    ? t(crumb.value_code)
+                                                    : crumb.value_code}
                                             </button>
                                         </span>
                                     ))}
