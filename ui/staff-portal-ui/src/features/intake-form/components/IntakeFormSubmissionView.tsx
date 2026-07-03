@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import { useIntakeFormSectionAction } from '@/features/intake-form/hooks/useIntakeFormSectionAction';
 import { RegisterFlattenedRecord } from '@/features/register/types';
+import { useRegister } from '@/context/RegisterContext';
 import { useRbac } from '@/context/RbacContext';
 import { INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/intakeForm.actions';
 
@@ -23,15 +24,16 @@ interface BreadcrumbItem {
 interface IntakeFormSubmissionViewProps {
     registerType: string;
     submissionId: string;
-    breadcrumb: BreadcrumbItem[];
+    breadcrumb?: BreadcrumbItem[];
 }
 
 export default function IntakeFormSubmissionView({
     registerType,
     submissionId,
-    breadcrumb,
+    breadcrumb: breadcrumbOverride,
 }: IntakeFormSubmissionViewProps) {
     const t = useTranslations();
+    const { currentRegister } = useRegister();
     const { can } = useRbac();
     const canCreate = can(INTAKE_FORM_ACTIONS.edit);
 
@@ -63,13 +65,36 @@ export default function IntakeFormSubmissionView({
     const loading = loadingSubmission || loadingSections;
     const isDraft = submission?.draft_status === 'DRAFT';
 
-    const { handleAction, FormActionModals } = useIntakeFormSectionAction({
+    const { handleAction, FormActionModals, recordName } = useIntakeFormSectionAction({
         registerId: submission?.register_id || '',
         formId: intakeFormId || '',
         registerType,
         submissionId,
+        initialRecordName: submission?.record_name,
         onSuccess: () => {},
     });
+
+    const breadcrumb = useMemo(() => {
+        if (breadcrumbOverride) {
+            return breadcrumbOverride;
+        }
+
+        return [
+            {
+                label: t('register_intake_form', {
+                    subject: currentRegister?.register_subject || t('register'),
+                }),
+                href: `/intake-form/${registerType}`,
+            },
+            { label: recordName || '—' },
+        ];
+    }, [
+        breadcrumbOverride,
+        currentRegister?.register_subject,
+        registerType,
+        recordName,
+        t,
+    ]);
 
     const sectionDataMap = useMemo(() => {
         if (!section_payloads) return {};

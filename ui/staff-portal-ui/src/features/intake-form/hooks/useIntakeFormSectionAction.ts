@@ -15,6 +15,7 @@ interface UseIntakeFormSectionActionProps {
     registerType: string;
     section?: IntakeFormSection | null;
     submissionId?: string | null;
+    initialRecordName?: string | null;
     onSuccess?: () => void;
 }
 
@@ -24,6 +25,7 @@ export const useIntakeFormSectionAction = ({
     registerType,
     section,
     submissionId = null,
+    initialRecordName = null,
     onSuccess
 }: UseIntakeFormSectionActionProps) => {
     const t = useTranslations();
@@ -33,10 +35,15 @@ export const useIntakeFormSectionAction = ({
 
     const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(submissionId);
     const [sectionInternalIds, setSectionInternalIds] = useState<Record<string, string>>({});
+    const [recordName, setRecordName] = useState<string | null>(initialRecordName);
 
     useEffect(() => {
         setActiveSubmissionId(submissionId);
     }, [submissionId]);
+
+    useEffect(() => {
+        setRecordName(initialRecordName ?? null);
+    }, [initialRecordName]);
 
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
@@ -167,6 +174,10 @@ export const useIntakeFormSectionAction = ({
                 setActiveSubmissionId(saveResult.submission_id);
             }
 
+            if (saveResult.record_name) {
+                setRecordName(saveResult.record_name);
+            }
+
             // Extract and cache the internal_record_id for non-list sections from the response.
             // This ensures that subsequent saves, or other sections belonging to the same register,
             // will reuse the existing internal_record_id rather than creating duplicate records for the same section_register_id.
@@ -247,5 +258,5 @@ export const useIntakeFormSectionAction = ({
         return React.createElement(ActionModal, modalConfig);
     };
 
-    return { handleAction, FormActionModals };
+    return { handleAction, FormActionModals, recordName };
 };
