@@ -36,7 +36,17 @@ class G2PDciService(BaseService):
         super().__init__(**kwargs)
         self.register_service = G2PRegisterService.get_component()
 
-    async def search(self, signature: str, header: DciRequestHeader, message: DciSearchRequest) -> List[DciSearchResponseItem]:
+    async def search(
+        self,
+        signature: str,
+        header: DciRequestHeader,
+        message: DciSearchRequest,
+        consent_scopes_by_ref: Optional[Dict[str, Optional[List[str]]]] = None,
+    ) -> List[DciSearchResponseItem]:
+        # consent_scopes_by_ref maps reference_id -> effective_data_scopes the
+        # response must be clamped to (the PEP field-level enforcement). It is
+        # None when consent enforcement is disabled (return all fields); an
+        # entry's value being None likewise means "no clamp" for that item.
 
         dci_search_response_items: List[DciSearchResponseItem] = []
         for search_request_item in message.search_request:
@@ -65,13 +75,25 @@ class G2PDciService(BaseService):
                     sort_by=sort_by,
                 )
 
+            reg_records = [
+                self._render_reg_record_with_template(datum, template_file_id)
+                for datum in search_result_data
+            ]
+
+            # PEP field-level enforcement: clamp each record to the effective
+            # data scopes the Consent Manager permitted for this reference_id.
+            if consent_scopes_by_ref is not None:
+                allowed_scopes = consent_scopes_by_ref.get(search_request_item.reference_id)
+                if allowed_scopes is not None:
+                    reg_records = [
+                        self._clamp_record_fields(record, allowed_scopes)
+                        for record in reg_records
+                    ]
+
             dci_deep_search_result_data = DciSearchResultData(
                 reg_type = search_criteria.reg_type,
                 reg_record_type = search_criteria.reg_record_type,
-                reg_records = [
-                    self._render_reg_record_with_template(datum, template_file_id)
-                    for datum in search_result_data
-                ]
+                reg_records = reg_records
             )
 
             pagination = DciSearchResultPagination(
@@ -134,6 +156,21 @@ class G2PDciService(BaseService):
                 search_results.append(DeepSearchResultData(**record_dict))
 
             return search_results, total_count
+
+    @staticmethod
+    def _clamp_record_fields(record: Dict[str, Any], allowed_scopes: List[str]) -> Dict[str, Any]:
+        """Return a copy of a rendered registry record keeping only the fields
+        the Consent Manager permitted (``effective_data_scopes``).
+
+        Scope names are matched against the record's TOP-LEVEL keys (the
+        template output field names — i.e. the shared scope<->field catalog).
+        Strict allow-list: any field not in the effective scopes is dropped, so
+        a narrower policy or consent can only ever remove fields, never add.
+        """
+        if not isinstance(record, dict):
+            return record
+        allowed = set(allowed_scopes or [])
+        return {key: value for key, value in record.items() if key in allowed}
 
     def _get_model_class(self, register_mnemonic: str):
         module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
