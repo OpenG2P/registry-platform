@@ -552,6 +552,7 @@ class VersionForDateData(BaseModel):
     """Individual change record for a specific date"""
     change_request_id: str
     created_at: str
+    request_id: Optional[str] = None
 
 
 class VersionsForDateData(BaseModel):

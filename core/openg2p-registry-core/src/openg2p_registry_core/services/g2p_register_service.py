@@ -1657,6 +1657,17 @@ class G2PRegisterService(BaseService):
                             change_request_id=history_record.change_request_id,
                             created_at=history_record.created_at.isoformat()
                         )
+                if seen_change_requests:
+                    cr_result = await session.execute(
+                        select(
+                            G2PRegisterChangeRequest.change_request_id,
+                            G2PRegisterChangeRequest.awe_request_id,
+                        ).where(
+                            G2PRegisterChangeRequest.change_request_id.in_(seen_change_requests.keys())
+                        )
+                    )
+                    for row in cr_result.all():
+                        seen_change_requests[row.change_request_id].request_id = row.awe_request_id
                 section_changes = list(seen_change_requests.values())
                 
                 # Only add section if it has changes
