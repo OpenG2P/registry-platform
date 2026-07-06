@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useFetch } from '@/shared/hooks';
 
 export interface DataPolicy {
@@ -5,15 +6,36 @@ export interface DataPolicy {
     policy_mnemonic: string;
     policy_description: string;
     register_id: string;
+    policy_target: string;
     policy_type: string;
     policy_filter_expression: Record<string, unknown>;
 }
 
+function filterPolicies(
+    policies: DataPolicy[],
+    policyTarget: string,
+    registerId: string,
+): DataPolicy[] {
+    return policies.filter((policy) => {
+        const target = policy.policy_target || 'REGISTER_RECORD';
+        if (target !== policyTarget) {
+            return false;
+        }
+        if (policyTarget === 'ATTRIBUTE' || policyTarget === 'GEO') {
+            return true;
+        }
+        return Boolean(registerId) && policy.register_id === registerId;
+    });
+}
+
 export function usePolicies(
     registerId: string,
+    policyTarget: string,
     currentPage: number = 1,
     pageSize: number = 10,
 ) {
+    const enabled = policyTarget === 'ATTRIBUTE' || policyTarget === 'GEO' || !!registerId;
+
     const { data, loading, error, execute } = useFetch<{
         policies: DataPolicy[];
         pagination?: {
@@ -22,19 +44,26 @@ export function usePolicies(
         };
     }>({
         url: '/api/configuration/data-policy/get-policies',
-        enabled: !!registerId,
+        enabled,
         options: {
             method: 'POST',
             body: JSON.stringify({
-                register_id: registerId,
                 current_page: currentPage,
                 page_size: pageSize,
+                sort_by: '',
+                search_text: '',
+                filter_by: '',
             }),
         },
     });
 
+    const policies = useMemo(
+        () => filterPolicies(data?.policies ?? [], policyTarget, registerId),
+        [data?.policies, policyTarget, registerId],
+    );
+
     return {
-        policies: data?.policies || [],
+        policies,
         pagination: data?.pagination,
         loading,
         error,

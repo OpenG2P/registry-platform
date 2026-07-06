@@ -22,8 +22,19 @@ import {
 } from '@/features/configuration/shared/components';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { ViewPolicyModal } from '@/features/configuration/data-policies';
+interface DataPoliciesListPageProps {
+    policyTarget: string;
+    menuLabelKey: string;
+    listPath: string;
+    newPath: string;
+}
 
-const DataPoliciesPage = () => {
+export default function DataPoliciesListPage({
+    policyTarget,
+    menuLabelKey,
+    listPath,
+    newPath,
+}: DataPoliciesListPageProps) {
     const t = useTranslations();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -38,39 +49,43 @@ const DataPoliciesPage = () => {
     const [selectedRegisterId, setSelectedRegisterId] = useState('');
     const firstRegisterId = registers[0]?.register_id ?? '';
 
+    const isRegisterTarget = policyTarget === 'REGISTER_RECORD';
+    const canListPolicies =
+        policyTarget === 'ATTRIBUTE' || policyTarget === 'GEO' || !!selectedRegisterId;
+
     const { policies, pagination, loading, refresh } = usePolicies(
         selectedRegisterId,
+        policyTarget,
         currentPage,
         config.pageSize || 10,
     );
 
     useEffect(() => {
-        if (registersLoading || !firstRegisterId) return;
+        if (!isRegisterTarget || registersLoading || !firstRegisterId) return;
 
         const urlRegisterId = searchParams.get('registerId')?.trim() ?? '';
         const urlRegisterIsValid =
             Boolean(urlRegisterId) &&
-            registers.some((r) => r.register_id === urlRegisterId);
+            registers.some((register) => register.register_id === urlRegisterId);
 
         setSelectedRegisterId((prev) => {
             if (urlRegisterIsValid) return urlRegisterId;
-            if (prev && registers.some((r) => r.register_id === prev)) return prev;
+            if (prev && registers.some((register) => register.register_id === prev)) return prev;
             return firstRegisterId;
         });
-    }, [registersLoading, firstRegisterId, searchParams, registers]);
+    }, [isRegisterTarget, registersLoading, firstRegisterId, searchParams, registers]);
 
     useEffect(() => {
-        const registerId = searchParams.get('registerId');
-        if (searchParams.get('created') === '1' && registerId) {
+        if (searchParams.get('created') === '1') {
             refresh();
         }
     }, [searchParams, refresh]);
 
     const registerOptions = useMemo(
         () =>
-            (registers || []).map((r) => ({
-                label: r.register_mnemonic || r.register_id,
-                value: r.register_id,
+            (registers || []).map((register) => ({
+                label: register.register_mnemonic || register.register_id,
+                value: register.register_id,
             })),
         [registers],
     );
@@ -119,22 +134,46 @@ const DataPoliciesPage = () => {
     const columns = [
         { key: 'policy_mnemonic', label: t('policy_mnemonic') },
         { key: 'policy_description', label: t('policy_description') },
+        {
+            key: 'policy_target',
+            label: t('policy_target'),
+            render: (item: DataPolicy) => {
+                const labelKey =
+                    item.policy_target === 'REGISTER_RECORD'
+                        ? 'policy_target_register_record'
+                        : item.policy_target === 'ATTRIBUTE'
+                          ? 'policy_target_attribute'
+                          : item.policy_target === 'GEO'
+                            ? 'policy_target_geo'
+                            : undefined;
+                return labelKey ? t(labelKey) : item.policy_target || '—';
+            },
+        },
         { key: 'policy_type', label: t('policy_type') },
     ];
+
+    const buildNewPolicyHref = () => {
+        if (!isRegisterTarget || !selectedRegisterId) {
+            return newPath;
+        }
+
+        const params = new URLSearchParams();
+        params.set('registerId', selectedRegisterId);
+        return `${newPath}?${params.toString()}`;
+    };
 
     return (
         <>
             <TopBar
-                breadcrumb={[{ label: t('data_policies') }]}
+                breadcrumb={[
+                    { label: t('data_policies'), href: listPath },
+                    { label: t(menuLabelKey) },
+                ]}
                 showFilters={false}
-                showPagination={!!selectedRegisterId}
-                showAddNewButton={!!selectedRegisterId}
+                showPagination={canListPolicies}
+                showAddNewButton={canListPolicies}
                 addNewButtonText={t('add_new_policy')}
-                onAddNewButton={() =>
-                    router.push(
-                        `/configuration/data-policies/new?registerId=${encodeURIComponent(selectedRegisterId)}`,
-                    )
-                }
+                onAddNewButton={() => router.push(buildNewPolicyHref())}
                 pageStart={pageStart}
                 pageEnd={pageEnd}
                 total={total}
@@ -142,18 +181,22 @@ const DataPoliciesPage = () => {
                 onNext={handleNext}
             />
 
-            <div className="px-7.5 pb-4 max-w-md">
-                <CustomDropdown
-                    label={t('register')}
-                    options={registerOptions}
-                    value={selectedRegisterId}
-                    onChange={handleRegisterChange}
-                    loading={registersLoading}
-                    placeholder={t('select_register')}
-                />
-            </div>
+            {isRegisterTarget ? (
+                <div className="px-7.5 pb-4 flex flex-row flex-wrap items-end gap-4">
+                    <div className="w-56">
+                        <CustomDropdown
+                            label={t('register')}
+                            options={registerOptions}
+                            value={selectedRegisterId}
+                            onChange={handleRegisterChange}
+                            loading={registersLoading}
+                            placeholder={t('select_register')}
+                        />
+                    </div>
+                </div>
+            ) : null}
 
-            {!selectedRegisterId ? (
+            {!canListPolicies ? (
                 <div className="px-7.5 text-sm text-secondary-third text-center py-8">
                     {t('select_register_to_view_policies')}
                 </div>
@@ -203,6 +246,4 @@ const DataPoliciesPage = () => {
             )}
         </>
     );
-};
-
-export default DataPoliciesPage;
+}

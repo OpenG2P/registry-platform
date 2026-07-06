@@ -2,19 +2,22 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import type { RegisterField } from '@/features/configuration/shared/hooks/useRegisterFields';
 import {
     buildFilterPreviewLines,
     serializeFilterExpression,
     usesNoValue,
     type FilterRootState,
 } from './policyFilterExpression';
+import {
+    getPolicyFilterFieldLabel,
+    type PolicyFilterField,
+} from './policyFilterFields';
 
 type PreviewTab = 'summary' | 'json';
 
 interface PolicyFilterPreviewProps {
     root: FilterRootState;
-    fields: RegisterField[];
+    fields: PolicyFilterField[];
 }
 
 export default function PolicyFilterPreview({ root, fields }: PolicyFilterPreviewProps) {
@@ -31,12 +34,13 @@ export default function PolicyFilterPreview({ root, fields }: PolicyFilterPrevie
     }, [root, fields]);
 
     const formatCondition = (fieldId: string, operator: string, valueInput: string) => {
+        const fieldLabel = getPolicyFilterFieldLabel(fields, fieldId);
         const opLabel = t(`filter_operator_${operator}`);
         if (usesNoValue(operator as Parameters<typeof usesNoValue>[0])) {
-            return `${fieldId || '…'} · ${opLabel}`;
+            return `${fieldLabel || '…'} · ${opLabel}`;
         }
         const value = valueInput.trim() || '…';
-        return `${fieldId || '…'} · ${opLabel} · "${value}"`;
+        return `${fieldLabel || '…'} · ${opLabel} · "${value}"`;
     };
 
     return (
