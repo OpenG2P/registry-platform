@@ -31,14 +31,20 @@ class G2PRegisterDataControllerService(BaseService):
         number_of_versions_data: NumberOfVersionsData = await g2p_register_service.get_number_of_versions(register_id, internal_record_id, tab_id)
         return number_of_versions_data
 
-    async def get_record_history(self, get_record_history_request: GetRecordHistoryRequest) -> RecordHistoryListData:
+    async def get_record_history(
+        self,
+        get_record_history_request: GetRecordHistoryRequest,
+        policy_mnemonics: list[str] | None = None,
+    ) -> RecordHistoryListData:
         """Get the history records for a given register, internal_record_id and tab_id"""
         register_id = get_record_history_request.request_body.request_payload.register_id
         internal_record_id = get_record_history_request.request_body.request_payload.internal_record_id
         tab_id = get_record_history_request.request_body.request_payload.tab_id
         _logger.info(f"Getting record history for register_id: {register_id}, internal_record_id: {internal_record_id}, tab_id: {tab_id} through controller service")
         g2p_register_service = G2PRegisterService.get_component()
-        record_history_data: RecordHistoryListData = await g2p_register_service.get_record_history(register_id, internal_record_id, tab_id)
+        record_history_data: RecordHistoryListData = await g2p_register_service.get_record_history(
+            register_id, internal_record_id, tab_id, policy_mnemonics=policy_mnemonics
+        )
         return record_history_data
 
     async def get_version_dates(self, get_version_dates_request: GetVersionDatesRequest) -> VersionDatesData:
@@ -65,7 +71,7 @@ class G2PRegisterDataControllerService(BaseService):
     async def get_subject_record(
         self,
         get_subject_record_request: GetSubjectRecordRequest,
-        data_policy_mnemonics: list[str] | None = None,
+        policy_mnemonics: list[str] | None = None,
     ) -> RecordData:
         subject_register_id = get_subject_record_request.request_body.request_payload.subject_register_id
         subject_record_id = get_subject_record_request.request_body.request_payload.subject_record_id
@@ -74,7 +80,7 @@ class G2PRegisterDataControllerService(BaseService):
         record_data: RecordData = await g2p_register_service.get_record(
             subject_register_id,
             subject_record_id,
-            data_policy_mnemonics=data_policy_mnemonics,
+            policy_mnemonics=policy_mnemonics,
         )
         return record_data
 
@@ -122,8 +128,7 @@ class G2PRegisterDataControllerService(BaseService):
 
     async def get_section_records(
         self,
-        get_section_records_request: GetSectionRecordsRequest,
-        data_policy_mnemonics: list[str] | None = None,
+        get_section_records_request: GetSectionRecordsRequest
     ) -> list[RecordData]:
         """
         Get records from a related register that are linked to a subject record.
@@ -143,15 +148,14 @@ class G2PRegisterDataControllerService(BaseService):
         section_records: list[RecordData] = await g2p_register_hierarchical_service.get_section_records(
             subject_register_id,
             subject_record_id,
-            section_register_id,
-            data_policy_mnemonics=data_policy_mnemonics,
+            section_register_id
         )
         return section_records
 
     async def get_tab_records(
         self,
         get_register_tab_records_request: GetRegisterTabRecordsRequest,
-        data_policy_mnemonics: list[str] | None = None,
+        policy_mnemonics: list[str] | None = None,
     ) -> list[RegisterTabRecordData]:
         """
         Get all records for a tab, grouped by unique section_register_id.
@@ -168,20 +172,23 @@ class G2PRegisterDataControllerService(BaseService):
         )
         g2p_register_hierarchical_service = G2PRegisterHierarchicalService.get_component()
         tab_records: list[RegisterTabRecordData] = await g2p_register_hierarchical_service.get_tab_records(
-            subject_register_id,
-            subject_record_id,
-            tab_id,
-            data_policy_mnemonics=data_policy_mnemonics,
+            subject_register_id, subject_record_id, tab_id, policy_mnemonics=policy_mnemonics
         )
         return tab_records
 
-    async def get_register_summary_data(self, get_register_summary_data_request: GetRegisterSummaryDataRequest) -> list[RegisterSummaryData]:
+    async def get_register_summary_data(
+        self,
+        get_register_summary_data_request: GetRegisterSummaryDataRequest,
+        policy_mnemonics: list[str] | None = None,
+    ) -> list[RegisterSummaryData]:
         _logger.info("Fetching register summary data through controller service")
         g2p_register_service = G2PRegisterService.get_component()
-        register_summary_data_list: list[RegisterSummaryData] = await g2p_register_service.get_register_summary_data()
+        register_summary_data_list: list[RegisterSummaryData] = await g2p_register_service.get_register_summary_data(
+            policy_mnemonics=policy_mnemonics
+        )
         return register_summary_data_list
 
-    async def search_in_a_register(self, search_register_request: SearchRegisterRequest) -> tuple[list[SearchResultData], int, int]:
+    async def search_in_a_register(self, search_register_request: SearchRegisterRequest, policy_mnemonics: list[str] | None = None) -> tuple[list[SearchResultData], int, int]:
         payload = search_register_request.request_body.request_payload
         pagination = search_register_request.request_body.pagination_request
         register_id = payload.register_id
@@ -189,7 +196,8 @@ class G2PRegisterDataControllerService(BaseService):
         _logger.info(f"Searching in register_id: {register_id} with search_text: {pagination.search_text}, page: {pagination.current_page}, page_size: {pagination.page_size} through controller service")
         g2p_register_service = G2PRegisterService.get_component()
         search_results_list, total_items = await g2p_register_service.search_in_a_register(
-            register_id, pagination.search_text, pagination.current_page, pagination.page_size, pagination.sort_by, pagination.filter_by
+            register_id, pagination.search_text, pagination.current_page, pagination.page_size, pagination.sort_by, pagination.filter_by,
+            policy_mnemonics=policy_mnemonics,
         )
 
         # Calculate number of pages

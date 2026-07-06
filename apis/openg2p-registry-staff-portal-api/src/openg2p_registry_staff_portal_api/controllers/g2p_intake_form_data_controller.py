@@ -34,8 +34,8 @@ from openg2p_registry_core.schemas import (
 )
 
 from ..config import Settings
-from ..dependencies import get_data_policy_mnemonics
 from ..helpers import RequestResponseHelper
+from ..helpers.data_policy_request_helper import get_data_policy_mnemonics
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -119,11 +119,14 @@ class G2PIntakeFormDataController(BaseController):
     
     @require_permissions({})
     async def get_intake_form_submissions_summary(
-        self, get_intake_form_submissions_summary_request: GetIntakeFormSubmissionsSummaryRequest
+        self,
+        http_request: Request,
+        get_intake_form_submissions_summary_request: GetIntakeFormSubmissionsSummaryRequest,
     ) -> IntakeFormSubmissionsSummaryResponse:
         try:
             summary_data: IntakeFormSubmissionsSummaryData = await self.service.get_intake_form_submissions_summary(
-                get_intake_form_submissions_summary_request
+                get_intake_form_submissions_summary_request,
+                policy_mnemonics=get_data_policy_mnemonics(http_request),
             )
             summary_response: IntakeFormSubmissionsSummaryResponse = self.helper.construct_intake_form_submissions_summary_success_response(
                 summary_data=summary_data,
@@ -230,13 +233,13 @@ class G2PIntakeFormDataController(BaseController):
     @require_permissions({"intakeSubmission:view"})
     async def get_intake_form_submission(
         self,
+        http_request: Request,
         g2p_request: GetSubmissionRequest,
-        data_policy_mnemonics: list[str] = Depends(get_data_policy_mnemonics),
     ) -> SubmissionResponse:
         try:
             payload: SubmissionResponsePayload = await self.service.get_intake_form_submission(
                 g2p_request,
-                data_policy_mnemonics=data_policy_mnemonics,
+                policy_mnemonics=get_data_policy_mnemonics(http_request),
             )
             return self.helper.construct_success_response(
                 SubmissionResponseBody(response_payload=payload),
@@ -249,11 +252,13 @@ class G2PIntakeFormDataController(BaseController):
     @require_permissions({"intakeSubmission:view"})
     async def search_in_intake_form_submissions(
         self,
+        http_request: Request,
         g2p_request: SearchInSubmissionRequest,
     ) -> SubmissionSearchResultsResponse:
         try:
             payloads, total_items, number_of_pages = await self.service.search_in_intake_form_submissions(
-                g2p_request
+                g2p_request,
+                policy_mnemonics=get_data_policy_mnemonics(http_request),
             )
             return self.helper.construct_success_response(
                 SubmissionSearchResultsResponseBody(response_payload=payloads),
@@ -270,17 +275,22 @@ class G2PIntakeFormDataController(BaseController):
     @require_permissions({"intakeSubmission:view"})
     async def get_tab_records(
         self,
+        http_request: Request,
         g2p_request: GetIntakeFormTabRecordsRequest,
     ) -> GetIntakeFormTabRecordsResponse:
         try:
-            payload = await self.service.get_tab_records(g2p_request)
+            payload = await self.service.get_tab_records(
+                g2p_request,
+                policy_mnemonics=get_data_policy_mnemonics(http_request),
+            )
             return self.helper.construct_success_response(
                 GetIntakeFormTabRecordsResponseBody(response_payload=payload),
                 g2p_request,
             )
         except Exception as error_exception:
             _logger.error("Error in get_tab_records: %s", error_exception)
-    
+            return self.helper.construct_error_response(error_exception, g2p_request)
+
     @require_permissions({"intakeSubmission:view"})
     async def get_deduplication_intake_form_register_results(
         self,

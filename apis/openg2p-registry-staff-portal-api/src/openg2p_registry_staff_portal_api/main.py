@@ -11,8 +11,8 @@ from openg2p_registry_extensions.app import Initializer as ExtensionsInitializer
 
 from iam_core.user_auth.app import Initializer as IAMInitializer
 from iam_core.user_auth.middleware import AuthMiddleware
+from iam_core.user_auth.data_policy_middleware import DataPolicyMiddleware
 from openg2p_registry_staff_portal_api.audit_middleware import AuditMiddleware
-from openg2p_registry_staff_portal_api.data_policy_middleware import DataPolicyMiddleware
 
 
 IAMInitializer()

@@ -10,9 +10,12 @@ from openg2p_registry_core.schemas import (
     AddPolicyRequest,
     AddPolicyResponse,
     AddPolicyResponseBody,
-    GetPoliciesRequest,
-    GetPoliciesResponse,
-    GetPoliciesResponseBody,
+    GetAllPoliciesRequest,
+    GetAllPoliciesResponse,
+    GetAllPoliciesResponseBody,
+    GetPolicyRequest,
+    GetPolicyResponse,
+    GetPolicyResponseBody,
     RemovePolicyRequest,
     RemovePolicyResponse,
     RemovePolicyResponseBody,
@@ -37,9 +40,15 @@ class G2PDataPolicyController(BaseController):
         self.router.prefix = "/data-policy"
 
         self.router.add_api_route(
-            "/get_policies",
-            self.get_policies,
-            responses={200: {"model": GetPoliciesResponse}},
+            "/get_policy",
+            self.get_policy,
+            responses={200: {"model": GetPolicyResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/get_all_policies",
+            self.get_all_policies,
+            responses={200: {"model": GetAllPoliciesResponse}},
             methods=["POST"],
         )
         self.router.add_api_route(
@@ -56,26 +65,45 @@ class G2PDataPolicyController(BaseController):
         )
 
     @require_permissions({"registerDefinition:view"})
-    async def get_policies(
-        self, get_policies_request: GetPoliciesRequest
-    ) -> GetPoliciesResponse:
+    async def get_policy(
+        self, get_policy_request: GetPolicyRequest
+    ) -> GetPolicyResponse:
         try:
-            policies_payload = await self.controller_service.get_policies(get_policies_request)
-            response_body = GetPoliciesResponseBody(response_payload=policies_payload)
+            policies_payload = await self.controller_service.get_policy(get_policy_request)
+            response_body = GetPolicyResponseBody(response_payload=policies_payload)
             g2p_response_header = G2PResponseHeader(
-                request_id=get_policies_request.request_header.request_id,
+                request_id=get_policy_request.request_header.request_id,
                 response_status=G2PResponseStatus.SUCCESS,
                 response_error_code="",
                 response_error_message="",
                 response_timestamp=datetime.now(),
             )
-            return GetPoliciesResponse(
+            return GetPolicyResponse(
                 response_header=g2p_response_header,
                 response_body=response_body,
             )
         except Exception as error_exception:
-            _logger.error("Error in get_policies: %s", error_exception)
-            return self.helper.construct_error_response(error_exception, get_policies_request)
+            _logger.error("Error in get_policy: %s", error_exception)
+            return self.helper.construct_error_response(error_exception, get_policy_request)
+
+    @require_permissions({"registerDefinition:view"})
+    async def get_all_policies(
+        self, get_all_policies_request: GetAllPoliciesRequest
+    ) -> GetAllPoliciesResponse:
+        try:
+            policies_payload, pagination = await self.controller_service.get_all_policies(
+                get_all_policies_request
+            )
+            return self.helper.construct_success_response(
+                GetAllPoliciesResponseBody(response_payload=policies_payload),
+                get_all_policies_request,
+                pagination_response=pagination,
+            )
+        except Exception as error_exception:
+            _logger.error("Error in get_all_policies: %s", error_exception)
+            return self.helper.construct_error_response(
+                error_exception, get_all_policies_request
+            )
 
     @require_permissions({"registerDefinition:create"})
     async def add_policy(self, add_policy_request: AddPolicyRequest) -> AddPolicyResponse:
