@@ -54,9 +54,17 @@ class G2PDciController(BaseController):
             header: DciRequestHeader = dci_search_request_env.header
             message: DciSearchRequest = dci_search_request_env.message
 
+            # The raw body is the source of truth for both signature verification
+            # (exact signed bytes) and consent-object extraction.
+            raw_body: Dict[str, Any] = await request.json()
+
             # --- 1. Partner signature (transport auth) ----------------------
             if _config.signature_validation_enabled:
-                await self.keymanager_helper.validate_signature(signature, header, message)
+                await self.keymanager_helper.validate_signature(
+                    signature,
+                    (raw_body or {}).get("header") or {},
+                    (raw_body or {}).get("message") or {},
+                )
             else:
                 _logger.warning(
                     "signature_validation_enabled=false — SKIPPING DCI envelope "
@@ -68,7 +76,6 @@ class G2PDciController(BaseController):
             # the response to. None (whole map) => enforcement disabled, no clamp.
             scopes_by_ref: Optional[Dict[str, Optional[List[str]]]] = None
             if _config.consent_enforcement_enabled:
-                raw_body: Dict[str, Any] = await request.json()
                 scopes_by_ref = await self._enforce_consent(raw_body, header, message)
             else:
                 _logger.warning(

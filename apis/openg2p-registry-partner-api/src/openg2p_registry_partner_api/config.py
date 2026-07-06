@@ -74,10 +74,10 @@ class Settings(ExtSettings):
     # Algorithms accepted on the partner's DCI envelope JWS. fastapi-common
     # defaults to "RS256" only; partners commonly use EdDSA/ES256, so widen it.
     crypto_allowed_algorithms: str = "EdDSA,ES256,RS256"
-    partner_mgmt_api_url: str = ""  # e.g. http://partner-management-partner-api:8000
+    partner_mgmt_api_url: str = ""  # e.g. http://partner-management-partner-api:80
 
     # Consent Manager (PDP) — the /validate endpoint the registry (PEP) calls.
-    consent_manager_url: str = ""  # e.g. http://consent-manager-partner-api:8000
+    consent_manager_url: str = ""  # e.g. http://consent-manager-partner-api:80
     consent_manager_timeout: float = 5.0
 
     # Keymanager settings
