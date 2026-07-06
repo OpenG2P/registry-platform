@@ -468,6 +468,8 @@
   "registry_languages": "Languages",
   "registry_logo": "Registry Logo",
   "registry_logo_alt": "Registry Logo",
+  "registry_favicon": "Registry Favicon",
+  "registry_favicon_alt": "Registry Favicon",
   "registry_name": "Registry Name",
   "registry_theme": "Theme",
   "registry_themes": "Themes",

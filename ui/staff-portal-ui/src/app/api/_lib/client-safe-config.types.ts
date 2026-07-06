@@ -32,6 +32,7 @@ export type ClientSafeConfigShape = {
     pageSize: number;
     registryName: string;
     registryLogo: string;
+    registryFavicon: string;
     registry_theme_id: string;
     registry_language_id: string;
     branding?: Branding;

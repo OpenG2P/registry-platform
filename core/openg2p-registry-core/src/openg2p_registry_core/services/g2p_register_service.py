@@ -2966,6 +2966,7 @@ class G2PRegisterService(BaseService):
         self,
         registry_name: str,
         registry_logo: str = None,
+        registry_favicon: str = None,
         registry_theme_id: str = None,
         registry_language_id: str = None
     ) -> RegistryConfigurationData:
@@ -3007,6 +3008,7 @@ class G2PRegisterService(BaseService):
                 configuration_id=configuration_id,
                 registry_name=registry_name,
                 registry_logo=registry_logo,
+                registry_favicon=registry_favicon,
                 registry_theme_id=registry_theme_id,
                 registry_language_id=registry_language_id
             )
@@ -3019,6 +3021,7 @@ class G2PRegisterService(BaseService):
                 configuration_id=configuration_id,
                 registry_name=registry_name,
                 registry_logo=registry_logo,
+                registry_favicon=registry_favicon,
                 registry_theme_id=registry_theme_id,
                 registry_language_id=registry_language_id
             )
@@ -3041,6 +3044,7 @@ class G2PRegisterService(BaseService):
                 configuration_id=registry_configuration.configuration_id,
                 registry_name=registry_configuration.registry_name,
                 registry_logo=registry_configuration.registry_logo,
+                registry_favicon=registry_configuration.registry_favicon,
                 registry_theme_id=registry_configuration.registry_theme_id,
                 registry_language_id=registry_configuration.registry_language_id
             )
@@ -3050,6 +3054,7 @@ class G2PRegisterService(BaseService):
         configuration_id: str,
         registry_name: str = None,
         registry_logo: str = None,
+        registry_favicon: str = None,
         registry_theme_id: str = None,
         registry_language_id: str = None
     ) -> RegistryConfigurationData:
@@ -3092,6 +3097,8 @@ class G2PRegisterService(BaseService):
                 registry_configuration.registry_name = registry_name
             if registry_logo is not None:
                 registry_configuration.registry_logo = registry_logo
+            if registry_favicon is not None:
+                registry_configuration.registry_favicon = registry_favicon
             if registry_theme_id is not None:
                 registry_configuration.registry_theme_id = registry_theme_id
             if registry_language_id is not None:
@@ -3104,6 +3111,7 @@ class G2PRegisterService(BaseService):
                 configuration_id=registry_configuration.configuration_id,
                 registry_name=registry_configuration.registry_name,
                 registry_logo=registry_configuration.registry_logo,
+                registry_favicon=registry_configuration.registry_favicon,
                 registry_theme_id=registry_configuration.registry_theme_id,
                 registry_language_id=registry_configuration.registry_language_id
             )
