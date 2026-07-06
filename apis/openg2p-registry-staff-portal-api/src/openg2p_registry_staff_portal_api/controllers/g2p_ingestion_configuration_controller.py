@@ -31,7 +31,7 @@ from openg2p_registry_core.schemas import (
     GetAllSubscriptionActivityLogsRequest,
     SubscriptionActivityLogsResponse,
 )
-from iam_core.user_auth.helpers import require_permissions
+from iam_core.user_auth.decorators import require_permissions
 
 from ..helpers import RequestResponseHelper
 from ..config import Settings

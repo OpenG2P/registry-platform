@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendConfig } from '@/app/api/_lib/backend-config';
 import { requireAuth } from '@/app/api/_lib/requireAuth';
+import { jsonResponseFromBackend } from '@/app/api/_lib/auth-cookies';
 
 export async function POST(req: NextRequest) {
     const auth = requireAuth(req);
@@ -33,11 +34,7 @@ export async function POST(req: NextRequest) {
             }
         );
 
-        const result = await response.json();
-
-        return NextResponse.json(result, {
-            status: response.status,
-        });
+        return jsonResponseFromBackend(response);
     } catch (e) {
         return NextResponse.json(
             {

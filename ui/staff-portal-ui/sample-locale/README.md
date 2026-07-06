@@ -2,21 +2,28 @@
 
 This folder is both a **reference** and a **fallback**:
 
-- **Reference** — shows how translations should be structured when uploading a language via the
-  Configuration UI. Organize keys into `core` and `domain` following the same format here.
+- **Reference** — shows how **core** translations should be structured when uploading a language via the
+  Configuration UI.
 
-- **Fallback** — `language.helpers.ts` bundles these English translations at compile time.
-  Any key missing from the API language config silently falls back to the values here,
-  so the app never shows a `MISSING_MESSAGE` error.
+- **Fallback** — `language.helpers.ts` bundles `core.json` at compile time. Any platform key missing
+  from the API language config silently falls back to these values, so the app never shows a
+  `MISSING_MESSAGE` error for core strings.
 
 ### Files
 
-- `core.json` — Platform-level translations (common labels, register, configuration, change
-  request, incoming messages, and other shared feature UI).
-- `domain.json` — Domain/registry-specific translations (field labels, section labels, register
-  names). Domain keys win over core keys on duplicates.
+- `core.json` — Platform-level translations shared across all registry implementations: staff-portal UI
+  labels, configuration screens, change requests, messages, widget `common`/`table`/`errors`/
+  `validation` strings, and other keys referenced via `t()` / `translate()` in
+  `staff-portal-ui` and `ui-widgets`.
+
+**Domain translations** (register labesl, field labels, tab lebels, section labels, master data labels, enums) are **not** stored
+here. Each registry implementation provides its own `domain_translation` via the Configuration UI
+or registry deployment.
+
+At runtime: `getLanguageMessages()` merges `{ ...coreFallback, ...apiCore, ...apiDomain }` — API
+values win on duplicate keys; domain keys come from the active registry only.
 
 ### Rules
 
-- Keep all keys in `snake_case`.
-- When adding a new UI string, add it here first so the fallback stays complete.
+- Keep platform keys in `snake_case` (nested groups: `common`, `table`, `errors`, `validation`).
+- When adding a new platform UI string, add the key to `core.json` so the fallback stays complete.

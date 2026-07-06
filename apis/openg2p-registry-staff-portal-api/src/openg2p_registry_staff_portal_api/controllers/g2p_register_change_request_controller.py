@@ -29,7 +29,7 @@ from openg2p_registry_core.schemas.change_request import (
     ChangeRequestSummaryDataResponse, ChangeRequestSummaryDataResponseBody, ChangeRequestSummaryData,
     SearchChangeRequestRequest, ChangeRequestSearchResultsResponse, ChangeRequestSearchResultsResponseBody
 )
-from iam_core.user_auth.helpers import require_permissions
+from iam_core.user_auth.decorators import require_permissions
 
 from ..dependencies import get_data_policy_mnemonics
 from ..helpers import RequestResponseHelper

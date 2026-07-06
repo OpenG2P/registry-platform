@@ -3,7 +3,7 @@ from datetime import datetime
 
 from fastapi import Query
 from openg2p_fastapi_common.controller import BaseController
-from iam_core.user_auth.helpers import require_permissions
+from iam_core.user_auth.decorators import require_permissions
 
 from openg2p_registry_core.controller_services import (
     G2PRegistrantAuthenticationControllerService,

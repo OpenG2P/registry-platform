@@ -23,7 +23,7 @@ from openg2p_registry_core.schemas import (
     EnqueueImportFileResponseBody,
 )
 from openg2p_registry_core.services import InputMechanismDataService
-from iam_core.user_auth.helpers import require_permissions
+from iam_core.user_auth.decorators import require_permissions
 
 from ..config import Settings
 
