@@ -20,12 +20,11 @@ export default function AddAttributeModal({
 
     const [formData, setFormData] = useState({
         attribute_code: '',
-        attribute_display: '',
         is_hierarchical: false,
     });
 
     const handleSubmit = async () => {
-        if (!formData.attribute_code.trim() || !formData.attribute_display.trim()) {
+        if (!formData.attribute_code.trim()) {
             toast.warn(t('please_fill_required_fields'));
             return;
         }
@@ -34,7 +33,10 @@ export default function AddAttributeModal({
             '/api/configuration/attributes/create-attribute',
             {
                 method: 'POST',
-                body: JSON.stringify(formData),
+                body: JSON.stringify({
+                    ...formData,
+                    attribute_display: formData.attribute_code.trim(),
+                }),
             },
         );
 
@@ -60,13 +62,6 @@ export default function AddAttributeModal({
                 value={formData.attribute_code}
                 onChange={(value) =>
                     setFormData((prev) => ({ ...prev, attribute_code: value }))
-                }
-            />
-            <InputField
-                label={t('attribute_display')}
-                value={formData.attribute_display}
-                onChange={(value) =>
-                    setFormData((prev) => ({ ...prev, attribute_display: value }))
                 }
             />
             <CheckboxField

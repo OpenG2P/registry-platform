@@ -10,10 +10,8 @@ export function getBackendConfig() {
         backendApiUrl: env.backendApiUrl,
         masterdataBackendApiUrl: env.masterdataBackendApiUrl,
         iamUrl: env.iamUrl,
-        keycloakLogoutUrl: env.keycloakLogoutUrl,
         loginProviderId: env.loginProviderId,
         applicationMnemonic: env.applicationMnemonic,
         cookieDomain: env.cookieDomain,
-        redirectUrl: env.redirectUrl,
     };
 }

@@ -16,7 +16,8 @@ from ..schemas.awe_proxy import (
     ClaimAweTaskRequestPayload,
     GetAweRequestEventsRequestPayload,
     GetAweRequestRequestPayload,
-    ListMyAweTasksRequestPayload,
+    ListMyAweTasksPayload,
+    ListTasksForRequestPayload,
     MyAweTaskStatsRequestPayload,
     SubmitAweTaskDecisionRequestPayload,
 )
@@ -56,7 +57,7 @@ class G2PAweProxyControllerService(BaseService):
 
     async def list_my_tasks(
         self,
-        payload: ListMyAweTasksRequestPayload,
+        payload: ListMyAweTasksPayload,
         *,
         bearer_token: str,
     ) -> dict[str, Any]:
@@ -69,6 +70,21 @@ class G2PAweProxyControllerService(BaseService):
                 policy_key=payload.policy_key,
                 search_text=payload.search_text,
                 page=payload.page,
+                page_size=payload.page_size,
+            )
+        except AWEClientError as exc:
+            raise self._wrap_awe_error(exc) from exc
+
+    async def list_tasks_for_request(
+        self,
+        payload: ListTasksForRequestPayload,
+        *,
+        bearer_token: str,
+    ) -> dict[str, Any]:
+        try:
+            return await AweHelper.get_component().list_tasks_for_request(
+                bearer_token,
+                request_id=payload.request_id,
                 page_size=payload.page_size,
             )
         except AWEClientError as exc:

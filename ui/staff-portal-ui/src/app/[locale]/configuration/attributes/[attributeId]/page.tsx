@@ -29,7 +29,7 @@ const AttributeDetailPage = () => {
         rootItem: { label: t('attribute_values'), href: '/configuration/attributes' },
         customItems: [
             {
-                label: attribute?.attribute_display || attributeId,
+                label: attribute?.attribute_code ? t(attribute.attribute_code) : attributeId,
                 href: `/configuration/attributes/${encodeURIComponent(attributeId)}`,
             },
         ],
@@ -58,8 +58,7 @@ const AttributeDetailPage = () => {
             </div>
 
             <ConfigDetailsSummary
-                title={attribute.attribute_display}
-                description={attribute.attribute_code}
+                title={t(attribute.attribute_code) || attribute.attribute_code}
                 extraInfo1={
                     attribute.is_hierarchical ? t('hierarchical') : t('flat')
                 }

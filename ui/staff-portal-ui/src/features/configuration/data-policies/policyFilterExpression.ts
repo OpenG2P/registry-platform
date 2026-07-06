@@ -1,4 +1,4 @@
-import type { RegisterField } from '@/features/configuration/shared/hooks/useRegisterFields';
+import type { PolicyFilterField } from './policyFilterFields';
 
 export type GroupOperator = 'AND' | 'OR';
 
@@ -23,8 +23,8 @@ export type PolicyFilterExpression = {
     type: 'GROUP' | 'CONDITION';
     operator?: GroupOperator | ConditionOperator;
     field_id?: string;
-    value?: string | number | boolean;
-    values?: (string | number | boolean)[];
+    value?: string | number | boolean | Record<string, string>;
+    values?: (string | number | boolean | Record<string, string>)[];
     children?: PolicyFilterExpression[];
 };
 
@@ -158,12 +158,22 @@ function parseMultiValues(raw: string, dataType: string): (string | number | boo
     return raw.split(',').map((part) => parseScalarValue(part, dataType));
 }
 
+function parseGeoHierarchyValue(
+    raw: string,
+): Record<string, string> | Record<string, string>[] {
+    try {
+        return JSON.parse(raw) as Record<string, string> | Record<string, string>[];
+    } catch {
+        return { value: raw.trim() };
+    }
+}
+
 function serializeCondition(
     node: FilterConditionState,
-    fields: RegisterField[],
+    fields: PolicyFilterField[],
 ): PolicyFilterExpression {
-    const field = fields.find((f) => f.field_name === node.field_id);
-    const dataType = field?.data_type ?? 'string';
+    const field = fields.find((item) => item.id === node.field_id);
+    const dataType = field?.dataType ?? 'string';
 
     const base: PolicyFilterExpression = {
         type: 'CONDITION',
@@ -173,6 +183,16 @@ function serializeCondition(
 
     if (usesNoValue(node.operator)) {
         return base;
+    }
+
+    if (dataType === 'geo_hierarchy') {
+        const parsed = parseGeoHierarchyValue(node.valueInput);
+        if (usesMultiValue(node.operator)) {
+            const values = Array.isArray(parsed) ? parsed : [parsed];
+            return { ...base, values };
+        }
+        const value = Array.isArray(parsed) ? parsed[0] : parsed;
+        return { ...base, value };
     }
 
     if (usesMultiValue(node.operator)) {
@@ -190,7 +210,7 @@ function serializeCondition(
 
 function serializeGroup(
     node: FilterGroupState,
-    fields: RegisterField[],
+    fields: PolicyFilterField[],
 ): PolicyFilterExpression {
     return {
         type: 'GROUP',
@@ -205,7 +225,7 @@ function serializeGroup(
 
 export function serializeFilterExpression(
     root: FilterRootState,
-    fields: RegisterField[],
+    fields: PolicyFilterField[],
 ): PolicyFilterExpression {
     return serializeGroup(root, fields);
 }

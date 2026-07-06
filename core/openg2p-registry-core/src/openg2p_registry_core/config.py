@@ -70,4 +70,4 @@ class Settings(IamSettings):
     keycloak_realm: str = "staff"
 
     # Intake submission application reference generation
-    application_reference_random_digits: int = 5
+    application_reference_format: str = "{DATE:%Y%b%d|upper}-{SECONDS:5}{RAND:1}"

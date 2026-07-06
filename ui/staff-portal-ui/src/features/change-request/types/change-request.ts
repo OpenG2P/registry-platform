@@ -34,13 +34,3 @@ export interface ChangeRequest {
     is_core_section: boolean;
     is_primary_section: boolean;
 }
-
-export type PopupType = "approve" | "reject" | "reject-input";
-
-export interface Verification {
-    verification_id: string;
-    verified_by: string;
-    verified_at: string;
-    verification_observations: string;
-    is_approved: boolean;
-};

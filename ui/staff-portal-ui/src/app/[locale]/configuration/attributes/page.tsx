@@ -101,8 +101,12 @@ const AttributesListPage = () => {
     };
 
     const columns = [
-        { key: 'attribute_display', label: t('attribute_display') },
-        { key: 'attribute_code', label: t('attribute_code') },
+        {
+            key: 'attribute_code',
+            label: t('attribute_code'),
+            render: (item: Attribute) =>
+                item.attribute_code? t(item.attribute_code) : item.attribute_code,
+        },
         {
             key: 'is_hierarchical',
             label: t('is_hierarchical'),

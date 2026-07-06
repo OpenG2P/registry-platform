@@ -9,7 +9,9 @@ const SIDEBAR_OPTIONS: ConfigActiveOption[] = [
     'registry', 'registry-details', 'registry-themes', 'registry-languages', 'registers',
     'attributes', 'intake-forms', 'data-models', 'ingest-configurations', 'outgest-configurations',
     'ingest-key-paths', 'ingest-semantic-patterns', 'ingest-manage-subscription',
-    'ingest-templates', 'outgest-topics', 'outgest-templates', 'data-policies', 'awe-policy-config'
+    'ingest-templates', 'outgest-topics', 'outgest-templates', 'data-policies',
+    'data-policies-register', 'data-policies-reference-data', 'data-policies-administrative-areas',
+    'awe-policy-config'
 ];
 
 function getActiveOptionFromPathname(pathname: string | null): ConfigActiveOption {
@@ -38,10 +40,17 @@ function getActiveOptionFromPathname(pathname: string | null): ConfigActiveOptio
             if (subSegment === 'topics') return 'outgest-topics';
             if (subSegment === 'templates') return 'outgest-templates';
         }
+        if (parentSegment === 'data-policies') {
+            if (!subSegment || subSegment === 'new') return 'data-policies-register';
+            if (subSegment === 'register') return 'data-policies-register';
+            if (subSegment === 'reference-data') return 'data-policies-reference-data';
+            if (subSegment === 'administrative-areas') return 'data-policies-administrative-areas';
+        }
     }
 
     const option = parentSegment as ConfigActiveOption;
     if (option === 'registry') return 'registry-details';
+    if (option === 'data-policies') return 'data-policies-register';
     return SIDEBAR_OPTIONS.includes(option) ? option : 'registry-details';
 }
 

@@ -2,11 +2,11 @@
 Audit middleware — emits one CloudEvent to OpenG2P Audit Manager per
 audited API call.
 
-Mirrors the pattern of `iam_core.user_auth.middleware.AuthMiddleware`:
+Mirrors the pattern of `iam_core.user_auth.middleware.ResolvePermissionMiddleware`:
 
-  * Registered AFTER AuthMiddleware in main.py → becomes the OUTERMOST
-    middleware. Request flow: AuditMiddleware → AuthMiddleware → handler →
-    response → AuthMiddleware → AuditMiddleware. By the time we read
+  * Registered AFTER ResolvePermissionMiddleware in main.py → becomes the OUTERMOST
+    middleware. Request flow: AuditMiddleware → ResolvePermissionMiddleware → handler →
+    response → ResolvePermissionMiddleware → AuditMiddleware. By the time we read
     request.state.auth and the response status, both are populated.
 
 Audit policy (v2):
@@ -18,7 +18,7 @@ Audit policy (v2):
   Anonymous + outcome non-2xx, audit_anonymous_failures=true| YES (anon)
   Health probes / OpenAPI surfaces / OPTIONS preflight      | NO
 
-For 403 (Forbidden) responses the JWT was definitely valid (AuthMiddleware
+For 403 (Forbidden) responses the JWT was definitely valid (ResolvePermissionMiddleware
 validated it before raising the perms error), so we decode the bearer
 token to recover the real actor — even though `request.state.auth` is
 not set on that path. For 401 (Unauthorized) responses the JWT may be
@@ -83,7 +83,7 @@ def _decode_jwt_payload(token: str) -> dict | None:
     """Base64url-decode a JWT's payload segment WITHOUT verifying the signature.
 
     Safe to use only on tokens we know were validated by an upstream
-    middleware (e.g. AuthMiddleware confirms signature validity before
+    middleware (e.g. ResolvePermissionMiddleware confirms signature validity before
     raising 403). For untrusted tokens (401 path), do NOT trust the
     decoded claims — record the request as anonymous instead.
     """
@@ -171,7 +171,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
         return self._client
 
     def _match_route(self, request: Request) -> Any | None:
-        """Match the request to its FastAPI route (mirrors AuthMiddleware)."""
+        """Match the request to its FastAPI route (mirrors ResolvePermissionMiddleware)."""
         router = getattr(request.app, "router", None)
         for route in getattr(router, "routes", []):
             match, _ = route.matches(request.scope)
@@ -248,7 +248,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
           1. AuthPrincipal (request.state.auth set) — name, sub, roles.
              Try to enrich with `username` and `session_id` from JWT claims
              since AuthPrincipal doesn't carry them.
-          2. 403 Forbidden + bearer token — JWT is known-valid (AuthMiddleware
+          2. 403 Forbidden + bearer token — JWT is known-valid (ResolvePermissionMiddleware
              verified it before raising), so decode is trustworthy.
           3. Anonymous fallback — actor.type=anonymous, only IP is recorded.
 
@@ -284,7 +284,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             }
 
         if status_code == 403 and bearer:
-            # AuthMiddleware confirmed signature validity before raising.
+            # ResolvePermissionMiddleware confirmed signature validity before raising.
             # We can trust the decoded claims.
             claims = _decode_jwt_payload(bearer)
             if claims:

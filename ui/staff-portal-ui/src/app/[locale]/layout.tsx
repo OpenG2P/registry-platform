@@ -37,7 +37,7 @@ export async function generateMetadata({
         title: config.registryName || t('registry'),
         description: "",
         icons: {
-            icon: config.registryLogo || "/images/common/openg2p_logo.png",
+            icon: config.registryFavicon || "/images/common/openg2p_logo.png",
         },
     };
 }

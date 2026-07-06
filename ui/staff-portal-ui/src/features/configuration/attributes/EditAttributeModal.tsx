@@ -23,12 +23,11 @@ export default function EditAttributeModal({
 
     const [formData, setFormData] = useState({
         attribute_code: attribute.attribute_code,
-        attribute_display: attribute.attribute_display,
         is_hierarchical: attribute.is_hierarchical,
     });
 
     const handleSubmit = async () => {
-        if (!formData.attribute_code.trim() || !formData.attribute_display.trim()) {
+        if (!formData.attribute_code.trim()) {
             toast.warn(t('please_fill_required_fields'));
             return;
         }
@@ -40,6 +39,7 @@ export default function EditAttributeModal({
                 body: JSON.stringify({
                     attribute_id: attribute.attribute_id,
                     ...formData,
+                    attribute_display: formData.attribute_code.trim(),
                 }),
             },
         );
@@ -66,13 +66,6 @@ export default function EditAttributeModal({
                 value={formData.attribute_code}
                 onChange={(value) =>
                     setFormData((prev) => ({ ...prev, attribute_code: value }))
-                }
-            />
-            <InputField
-                label={t('attribute_display')}
-                value={formData.attribute_display}
-                onChange={(value) =>
-                    setFormData((prev) => ({ ...prev, attribute_display: value }))
                 }
             />
             <CheckboxField

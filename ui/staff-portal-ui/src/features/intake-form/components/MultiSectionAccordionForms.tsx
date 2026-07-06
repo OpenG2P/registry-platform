@@ -206,7 +206,7 @@ export default function MultiSectionAccordionForms({
                       alt=""
                       width={16}
                       height={16}
-                      className="scale-x-[-1]"
+                      className="rotate-180"
                     /> </span>
                    
                   </button>
