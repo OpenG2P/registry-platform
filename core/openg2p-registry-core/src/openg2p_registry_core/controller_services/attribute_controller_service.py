@@ -107,6 +107,7 @@ class G2PAttributeControllerService(BaseService):
     async def get_attribute_values(
         self,
         request: GetAttributeValuesRequest,
+        policy_mnemonics: list[str] | None = None,
     ) -> Tuple[List[AttributeValueData], Optional[G2PPaginationResponse]]:
         _logger.info("Fetching attribute values through controller service")
         payload = request.request_body.request_payload
@@ -122,6 +123,7 @@ class G2PAttributeControllerService(BaseService):
             current_page=current_page,
             page_size=page_size,
             search_text=search_text,
+            policy_mnemonics=policy_mnemonics,
         )
         pagination_response = self._build_pagination_response(
             total_items, page_size, pagination_request

@@ -12,13 +12,13 @@ from typing import Any
 
 import httpx
 
-from .data_policy_role_helper import data_policy_role_name
 from ..config import Settings
 from ..errors.exceptions import G2PRegistryException
 from ..errors.codes import G2PRegistryErrorCodes
 
 _logger = logging.getLogger("g2p-data-policy-keycloak")
 
+DATA_POLICY_ROLE_PREFIX = "DP_"
 
 class DataPolicyKeycloakHelper:
     """Keycloak Admin REST client for data-policy client roles."""
@@ -137,9 +137,9 @@ class DataPolicyKeycloakHelper:
                 "Keycloak data-policy role sync disabled or not configured; skipping %s",
                 policy_mnemonic,
             )
-            return data_policy_role_name(policy_mnemonic)
+            return self._data_policy_role_name(policy_mnemonic)
 
-        role_name = data_policy_role_name(policy_mnemonic)
+        role_name = self._data_policy_role_name(policy_mnemonic)
         client_id = self._registry_client_id()
         client_uuid = await self._resolve_client_uuid(client_id)
         realm = self._config.keycloak_realm
@@ -176,7 +176,7 @@ class DataPolicyKeycloakHelper:
             )
             return
 
-        role_name = data_policy_role_name(policy_mnemonic)
+        role_name = self._data_policy_role_name(policy_mnemonic)
         client_id = self._registry_client_id()
         client_uuid = await self._resolve_client_uuid(client_id)
         realm = self._config.keycloak_realm
@@ -190,3 +190,15 @@ class DataPolicyKeycloakHelper:
             role_name,
             client_id,
         )
+
+    def _data_policy_role_name(self, policy_mnemonic: str) -> str:
+        """Build Keycloak client role name for a policy mnemonic (e.g. policy-1 -> DP_policy-1)."""
+        name = str(policy_mnemonic).strip()
+        if not name:
+            raise ValueError("policy_mnemonic is required")
+        if self._is_data_policy_role(name):
+            return name
+        return f"{DATA_POLICY_ROLE_PREFIX}{name}"
+
+    def _is_data_policy_role(self, role: str) -> bool:
+        return str(role).strip().upper().startswith(DATA_POLICY_ROLE_PREFIX)

@@ -1347,6 +1347,14 @@ class GetAttributeValuesRequestPayload(BaseModel):
     parent_value_id: Optional[str] = None
 
 
+class GeoLevelValueData(BaseModel):
+    level_value_id: str
+    level_value_mnemonic: str
+    level_value_display: Optional[str] = None
+    parent_level_value_id: Optional[str] = None
+    level_mnemonic: Optional[str] = None
+
+
 class CreateAttributeValueRequestPayload(BaseModel):
     attribute_id: str
     value_code: str
