@@ -4,55 +4,6 @@ import { BaseWidgetConfig } from '../types';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
-/**
- * Checkbox widget with advanced features
- * 
- * Features:
- * - Single checkbox (boolean) - when no data source
- * - Multiple checkboxes (array) - when data source provided
- * - Static list of options
- * - Dynamic options (from API / dataset)
- * - Ordered options (preserve order or sort)
- * - Option label & value separation
- * - Display label
- * - Stored value (array for multi-select)
- * - Default selection (pre-selected options or empty array)
- * - Required vs optional (at least one must be selected if required)
- * - Layout options (vertical, horizontal, grid)
- * 
- * Usage in schema (single checkbox):
- * {
- *   "widget": "checkbox",
- *   "widget-type": "input",
- *   "widget-label": "I agree to terms",
- *   "widget-id": "agree",
- *   "widget-data-path": "form.agree",
- *   "widget-data-default": false
- * }
- * 
- * Usage in schema (multiple checkboxes):
- * {
- *   "widget": "checkbox",
- *   "widget-type": "input",
- *   "widget-label": "Interests",
- *   "widget-id": "interests",
- *   "widget-data-path": "person.interests",
- *   "widget-data-default": ["sports"],
- *   "widget-data-source": {
- *     "type": "static",
- *     "options": [
- *       { "value": "sports", "label": "Sports" },
- *       { "value": "music", "label": "Music" },
- *       { "value": "reading", "label": "Reading" }
- *     ]
- *   },
- *   "widget-data-format": {
- *     "layout": "vertical",
- *     "sortOptions": false
- *   },
- *   "widget-required": true
- * }
- */
 interface CheckboxWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -78,11 +29,9 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
   const layout = formatConfig?.layout || widgetConfig['widget-orientation'] || 'vertical';
   const sortOptions = formatConfig?.sortOptions ?? false;
 
-  // Single checkbox (no data source) - for boolean values
   if (!hasDataSource) {
     const isChecked = Boolean(value);
     
-    // For readonly mode, render as display text
     if (widgetConfig['widget-readonly']) {
       const label = translateConfig(widgetConfig['widget-label']);
       const displayValue = isChecked ? 'Yes' : 'No';
@@ -98,11 +47,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
             <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
               {displayValue}
             </div>
-            {/* {widgetConfig['widget-data-helptext'] && (
-              <p className="text-gray-500 text-sm mt-1">
-                {translateConfig(widgetConfig['widget-data-helptext'])}
-              </p>
-            )} */}
+            
           </div>
         </div>
       );
@@ -133,23 +78,16 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
             {touched && error.length > 0 && (
               <p className="text-red-500 text-sm mt-1">{error[0]}</p>
             )}
-            {/* {widgetConfig['widget-data-helptext'] && (
-              <p className="text-gray-500 text-sm mt-1">
-                {translateConfig(widgetConfig['widget-data-helptext'])}
-              </p>
-            )} */}
+            
           </div>
         </div>
       </div>
     );
   }
 
-  // Multiple checkboxes (with data source) - for array values
-  // Process and sort options if needed
   const processedOptions = useMemo(() => {
     let options = [...dataSourceOptions];
 
-    // Sort options by label if requested
     if (sortOptions) {
       options.sort((a, b) => {
         const labelA = String(a.label || '').toLowerCase();
@@ -161,7 +99,6 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     return options;
   }, [dataSourceOptions, sortOptions]);
 
-  // Get selected values as array
   const selectedValues = useMemo(() => {
     if (value === null || value === undefined) {
       return [];
@@ -169,22 +106,17 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     if (Array.isArray(value)) {
       return value;
     }
-    // Handle single value (convert to array)
     return [value];
   }, [value]);
 
-  // Handle checkbox change
   const handleCheckboxChange = useCallback((optionValue: any, checked: boolean) => {
     if (checked) {
-      // Add to selection
       onChange([...selectedValues, optionValue]);
     } else {
-      // Remove from selection
       onChange(selectedValues.filter((v: any) => v !== optionValue));
     }
   }, [selectedValues, onChange]);
 
-  // Get layout classes and styles
   const layoutConfig = useMemo(() => {
     switch (layout) {
       case 'horizontal':
@@ -193,7 +125,6 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
           style: undefined,
         };
       case 'grid':
-        // Calculate grid columns based on option count (max 4 columns, min 2)
         const cols = Math.max(2, Math.min(processedOptions.length, 4));
         return {
           className: 'grid gap-3',
@@ -208,7 +139,6 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     }
   }, [layout, processedOptions.length]);
 
-  // For readonly mode, render as display text
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     const selectedOptions = processedOptions.filter(opt => selectedValues.includes(opt.value));
@@ -227,11 +157,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
           <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     );
@@ -273,11 +199,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     </div>

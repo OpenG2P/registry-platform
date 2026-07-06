@@ -1,0 +1,78 @@
+{
+  "section-id": "widget_explore_section_3",
+  "section-title": "Widget Explore — Collections & Text",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_widget_explore_3_main",
+      "panel-orientation": "horizontal",
+      "panels": [
+        {
+          "panel-id": "panel_widget_explore_3_col1",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "array-widget",
+              "widget-type": "group",
+              "widget-id": "skills",
+              "widget-label": "Array Widget",
+              "widget-data-path": "register-id.skills",
+              "widget-data-add-label": "Add Skill",
+              "widget-data-operations": { "add": true, "remove": true },
+              "widget-item": {
+                "widget": "text",
+                "widget-type": "input",
+                "widget-id": "skill",
+                "widget-label": "Text",
+                "widget-data-path": "."
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_widget_explore_3_col2",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "iterable-accordion",
+              "widget-type": "group",
+              "widget-id": "notes",
+              "widget-label": "Iterable Accordion",
+              "widget-data-path": "register-id.notes",
+              "widget-data-add-label": "Add Note",
+              "widget-data-operations": { "add": true, "remove": true },
+              "widget-item": {
+                "widget": "textarea",
+                "widget-type": "input",
+                "widget-id": "note",
+                "widget-label": "Textarea",
+                "widget-data-path": ".",
+                "widget-data-format": { "rows": 3 }
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_widget_explore_3_col3",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "textarea",
+              "widget-type": "input",
+              "widget-id": "description",
+              "widget-label": "Textarea",
+              "widget-data-path": "register-id.description",
+              "widget-data-format": {
+                "rows": 4,
+                "characterType": "any",
+                "caseControl": "none",
+                "showCharCounter": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

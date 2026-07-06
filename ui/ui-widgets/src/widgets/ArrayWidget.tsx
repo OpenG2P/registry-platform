@@ -1,32 +1,8 @@
-import React from 'react';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { WidgetRenderer } from '../components/WidgetRenderer';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
-/**
- * Array widget for simple repeating values
- * 
- * Usage in schema:
- * {
- *   "widget": "array-widget",
- *   "widget-type": "group",
- *   "widget-label": "Skills",
- *   "widget-id": "skills",
- *   "widget-data-path": "person.skills",
- *   "widget-item": {
- *     "widget": "text",
- *     "widget-type": "input",
- *     "widget-label": "Skill"
- *   },
- *   "widget-data-add-label": "Add Skill",
- *   "widget-data-operations": {
- *     "add": true,
- *     "remove": true
- *   }
- * }
- */
 interface ArrayWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -103,14 +79,7 @@ export const ArrayWidget = ({ config }: ArrayWidgetProps) => {
         </div>
       ) : (
         <div className="space-y-2">
-          {items.map((itemValue, index) => {
-            const itemWidgetConfig: BaseWidgetConfig = {
-              ...itemConfig,
-              'widget-id': `${widgetConfig['widget-id']}-item-${index}`,
-              'widget-readonly': isReadonly || !operations.edit,
-            };
-
-            return (
+          {items.map((itemValue, index) => (
               <div
                 key={index}
                 className="flex items-center gap-2 p-2 border border-gray-300 rounded"
@@ -137,19 +106,14 @@ export const ArrayWidget = ({ config }: ArrayWidgetProps) => {
                   </button>
                 )}
               </div>
-            );
-          })}
+          ))}
         </div>
       )}
 
       {touched && error.length > 0 && (
         <p className="text-red-500 text-sm mt-1">{error[0]}</p>
       )}
-      {/* {widgetConfig['widget-data-helptext'] && (
-        <p className="text-gray-500 text-sm mt-1">
-          {translateConfig(widgetConfig['widget-data-helptext'])}
-        </p>
-      )} */}
+      
     </div>
   );
 };

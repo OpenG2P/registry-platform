@@ -1,77 +1,25 @@
 import { useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetRootState } from '../store';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { getValueByPath } from '../utils/pathUtils';
 import { dummyProfile } from '../assets';
 
-/**
- * Profile widget for displaying user identity information
- * Displays an image/avatar, display name, and ID in a vertical layout
- * 
- * This is a display widget that groups related profile fields together.
- * Recommended widget-type: 'group' (groups related data fields)
- * Alternative: 'layout' (for display-only, no value storage)
- * 
- * Configuration (Recommended - Multi-path data binding):
- * 
- * - widget-data-path: Object with keys 'image', 'name', 'id' mapping to data paths
- *   Example: { "image": "person.photo", "name": "person.name", "id": "person.id" }
- * 
- * Alternative (Individual path properties - fallback):
- * - widget-image-path?: string - Data path for the image/photo (e.g., "person.photo")
- * - widget-name-path?: string - Data path for the display name (e.g., "person.name")
- * - widget-id-path?: string - Data path for the ID (e.g., "person.id")
- * 
- * Format options:
- * - widget-data-format: Optional format configuration
- *   - imageSize?: number - Size of the avatar image in pixels (default: 80)
- *   - nameColor?: string - Color for the name text (default: '#F07B1A')
- *   - showIdLabel?: boolean - Whether to show "ID :" label (default: true)
- * 
- * Example usage (Recommended):
- * ```json
- * {
- *   "widget": "profile",
- *   "widget-type": "group",
- *   "widget-id": "user-profile",
- *   "widget-data-path": {
- *     "image": "photo",
- *     "name": "display_name",
- *     "id": "national_id"
- *   },
- *   "widget-data-format": {
- *     "imageSize": 80,
- *     "nameColor": "#F07B1A",
- *     "showIdLabel": true
- *   }
- * }
- * ```
- */
 interface ProfileWidgetProps {
   config: BaseWidgetConfig;
 }
 
 export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
   const {
-    value,
     config: widgetConfig,
     getFieldValue,
   } = useBaseWidget({ config });
 
-  const { translateConfig } = useWidgetTranslation();
-
-  // Get schemaData from context as fallback
   const { schemaData } = useWidgetContext();
 
-  // Get values from Redux store
   const values = useSelector((state: WidgetRootState) => state.widget.values);
 
-  // Support two approaches for data paths:
-  // 1. Multi-path binding via widget-data-path (object) - RECOMMENDED (Approach 2)
-  // 2. Individual path properties (widget-image-path, widget-name-path, widget-id-path) - Fallback
   let imageUrl: string | null = null;
   let displayName = '';
   let idValue = '';
@@ -81,25 +29,18 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
   const namePath = (widgetConfig as any)['widget-name-path'];
   const idPath = (widgetConfig as any)['widget-id-path'];
 
-  // Prioritize multi-path data binding (Approach 2 - Recommended)
   if (dataPath && typeof dataPath === 'object') {
-    // Multi-path data binding - preferred approach (Approach 2)
-    // Always fetch each path individually using getFieldValue for reliability
-    // The values in the dataPath object are the actual data paths to fetch
     const imagePathValue = dataPath.image || dataPath.photo || dataPath.avatar;
     const namePathValue = dataPath.name || dataPath.displayName;
     const idPathValue = dataPath.id || dataPath.identifier;
 
-    // Helper function to search for a path within all top-level objects
     const findValueInNestedObjects = (path: string, searchIn: Record<string, any> | undefined): any => {
       if (!searchIn) return undefined;
 
-      // First try direct path (in case it's at root level)
       let value = getValueByPath(searchIn, path);
       if (value !== undefined) return value;
 
-      // If not found, search within each top-level object
-      for (const [key, obj] of Object.entries(searchIn)) {
+      for (const obj of Object.values(searchIn)) {
         if (obj && typeof obj === 'object') {
           value = getValueByPath(obj, path);
           if (value !== undefined) {
@@ -111,10 +52,8 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
       return undefined;
     };
 
-    // Try to get values from Redux store first, then fallback to schemaData
     if (imagePathValue) {
       let fetchedImage = findValueInNestedObjects(imagePathValue, values);
-      // If not found in Redux, try schemaData
       if (fetchedImage === undefined && schemaData) {
         fetchedImage = findValueInNestedObjects(imagePathValue, schemaData);
       }
@@ -122,7 +61,6 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
     }
     if (namePathValue) {
       let fetchedName = findValueInNestedObjects(namePathValue, values);
-      // If not found in Redux, try schemaData
       if (fetchedName === undefined && schemaData) {
         fetchedName = findValueInNestedObjects(namePathValue, schemaData);
       }
@@ -130,14 +68,12 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
     }
     if (idPathValue) {
       let fetchedId = findValueInNestedObjects(idPathValue, values);
-      // If not found in Redux, try schemaData
       if (fetchedId === undefined && schemaData) {
         fetchedId = findValueInNestedObjects(idPathValue, schemaData);
       }
       idValue = fetchedId || '';
     }
   } else {
-    // Fallback: Individual path properties
     if (imagePath) {
       const imageValue = getFieldValue(imagePath);
       imageUrl = imageValue || null;
@@ -150,13 +86,11 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
     }
   }
 
-  // Get format options (using index access for widget-specific properties)
   const format = widgetConfig['widget-data-format'] || {};
   const imageSize = (format as any).imageSize || 80;
   const nameColor = (format as any).nameColor || 'var(--owt-color-primary-dark, #F07B1A)';
-  const showIdLabel = (format as any).showIdLabel !== false; // Default to true
+  const showIdLabel = (format as any).showIdLabel !== false;
 
-  // Generate a unique class ID for this widget instance
   const widgetClassId = `profile-widget-${config['widget-id']}`;
 
   return (
@@ -241,7 +175,6 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
         }
       `}</style>
       <div className={widgetClassId}>
-        {/* Avatar/Image */}
         <div className="profile-avatar-container">
           {imageUrl ? (
             <img
@@ -249,7 +182,6 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
               alt={displayName || 'Profile'}
               className="profile-avatar"
               onError={(e) => {
-                // Fallback to placeholder if image fails to load
                 const target = e.target as HTMLImageElement;
                 target.style.display = 'none';
                 const placeholder = target.parentElement?.querySelector('.profile-avatar-placeholder') as HTMLElement;
@@ -270,16 +202,13 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
           </div>
         </div>
 
-        {/* Name and ID Container */}
         <div className="profile-info">
-          {/* Display Name */}
           {displayName && (
             <div className="profile-name">
               {displayName}
             </div>
           )}
 
-          {/* ID */}
           {idValue && (
             <div className="profile-id">
               {showIdLabel && (

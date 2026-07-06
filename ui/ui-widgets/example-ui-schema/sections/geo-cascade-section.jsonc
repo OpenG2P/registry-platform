@@ -1,0 +1,220 @@
+
+// Location section: 3-3-3 columns with geo cascade, address, GPS. Replace register-id.
+{
+  "section-id": "geo_cascade",
+  "section-title": "Geo Cascade",
+  "section-editable": true,
+  "section-supporting-documents": [],
+  "panels": [
+    {
+      "panel-id": "panel_location_details_main",
+      "panel-orientation": "horizontal",
+      "panels": [
+        {
+          "panel-id": "panel_location_1",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "select",
+              "widget-type": "input",
+              "widget-id": "region_code",
+              "widget-label": "Region",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.geo_code_hierarchy_json",
+              "widget-geo-config": {
+                "level": "region",
+                "isLastLevel": false,
+                "parentWidgetId": ""
+              },
+              "widget-data-source": {
+                "type": "api",
+                "method": "POST",
+                "service": "master-data",
+                "endpoint": "geo-level-values",
+                "level_id": "region",
+                "dependsOn": ""
+              }
+            },
+            {
+              "widget": "select",
+              "widget-type": "input",
+              "widget-id": "zone_subcity_code",
+              "widget-label": "Zone / Subcity",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.geo_code_hierarchy_json",
+              "widget-geo-config": {
+                "level": "sub_city",
+                "isLastLevel": false,
+                "parentWidgetId": "region_code"
+              },
+              "widget-data-source": {
+                "type": "api",
+                "method": "POST",
+                "service": "master-data",
+                "endpoint": "geo-level-values",
+                "level_id": "sub_city",
+                "dependsOn": "region_code"
+              }
+            },
+            {
+              "widget": "select",
+              "widget-type": "input",
+              "widget-id": "woreda_code",
+              "widget-label": "Woreda",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.geo_code_hierarchy_json",
+              "widget-geo-config": {
+                "level": "woreda",
+                "isLastLevel": true,
+                "parentWidgetId": "zone_subcity_code"
+              },
+              "widget-data-source": {
+                "type": "api",
+                "method": "POST",
+                "service": "master-data",
+                "endpoint": "geo-level-values",
+                "level_id": "woreda",
+                "dependsOn": "zone_subcity_code"
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_location_2",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "text",
+              "widget-type": "input",
+              "widget-id": "kebele_code",
+              "widget-label": "Kebele",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.kebele_code",
+              "widget-data-validation": {
+                "pattern": "^[A-Za-zÀ-ÿ\\u0900-\\u097F0-9 .\\/'-]+$",
+                "maxLength": 50,
+                "patternMessage": "Only letters, numbers, spaces, apostrophes, hyphens, dots, and slashes are allowed"
+              }
+            },
+            {
+              "widget": "text",
+              "widget-type": "input",
+              "widget-id": "locality_ea_code",
+              "widget-label": "Locality / EA Code",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.locality_ea_code",
+              "widget-data-validation": {
+                "pattern": "^[A-Za-zÀ-ÿ\\u0900-\\u097F0-9 .\\/'-]+$",
+                "maxLength": 50,
+                "patternMessage": "Only letters, numbers, spaces, apostrophes, hyphens, dots, and slashes are allowed"
+              }
+            },
+            {
+              "widget": "textarea",
+              "widget-type": "input",
+              "widget-id": "address_descriptor",
+              "widget-label": "Address Descriptor",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.address_descriptor",
+              "widget-data-placeholder": "Enter address descriptor",
+              "widget-data-format": {
+                "rows": 2,
+                "caseControl": "none",
+                "characterType": "any",
+                "showCharCounter": true
+              },
+              "widget-data-validation": {
+                "minLength": 6,
+                "maxLength": 500
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_location_3",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "number",
+              "widget-type": "input",
+              "widget-id": "gps_latitude",
+              "widget-label": "GPS Latitude",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.gps_latitude",
+              "widget-data-placeholder": "Enter latitude",
+              "widget-data-format": {
+                "textAlign": "right",
+                "allowSigned": true,
+                "numericType": "decimal",
+                "formatOnBlur": true,
+                "roundingMode": "round",
+                "decimalPlaces": 6,
+                "decimalSeparator": ".",
+                "thousandSeparator": ","
+              },
+              "widget-data-validation": {
+                "min": -90,
+                "max": 90
+              }
+            },
+            {
+              "widget": "number",
+              "widget-type": "input",
+              "widget-id": "gps_longitude",
+              "widget-label": "GPS Longitude",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.gps_longitude",
+              "widget-data-placeholder": "Enter longitude",
+              "widget-data-format": {
+                "textAlign": "right",
+                "allowSigned": true,
+                "numericType": "decimal",
+                "formatOnBlur": true,
+                "roundingMode": "round",
+                "decimalPlaces": 6,
+                "decimalSeparator": ".",
+                "thousandSeparator": ","
+              },
+              "widget-data-validation": {
+                "min": -180,
+                "max": 180
+              }
+            },
+            {
+              "widget": "number",
+              "widget-type": "input",
+              "widget-id": "gps_accuracy",
+              "widget-label": "GPS Accuracy",
+              "widget-readonly": false,
+              "widget-required": false,
+              "widget-data-path": "register-id.gps_accuracy",
+              "widget-data-placeholder": "Enter GPS accuracy",
+              "widget-data-format": {
+                "textAlign": "right",
+                "allowSigned": true,
+                "numericType": "decimal",
+                "formatOnBlur": true,
+                "roundingMode": "round",
+                "decimalPlaces": 6,
+                "decimalSeparator": ".",
+                "thousandSeparator": ","
+              },
+              "widget-data-validation": {
+                "min": 0,
+                "max": 10000
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useEffect, useMemo } from 'react';
+import { createContext, useContext, type ReactNode, useEffect, useMemo } from 'react';
 import { Provider } from 'react-redux';
 import { DataSourceRequestHandler } from '../types';
 import { createWidgetStore, WidgetStore } from '../store';
@@ -10,10 +10,9 @@ import { ThemeContext } from '../hooks/useWidgetTheme';
 
 export interface WidgetProviderProps {
   store?: WidgetStore;
-  dataSourceRequestHandler?: DataSourceRequestHandler; // Required for widgets with API data sources
+  dataSourceRequestHandler?: DataSourceRequestHandler;
   schemaData?: Record<string, any>;
   translate?: (key: string, options?: any) => string;
-  /** Optional theme object to override default colors and styles across all widgets. */
   theme?: WidgetTheme;
   children: ReactNode;
 }
@@ -41,15 +40,10 @@ export const WidgetProvider = ({
   children,
 }: WidgetProviderProps) => {
   const widgetStore = useMemo(() => store || createWidgetStore(), [store]);
-  
-  // Create event bus instance (one per provider)
   const eventBus = useMemo(() => new WidgetEventBus(), []);
-
-  // Resolve theme: merge user-supplied overrides with defaults
   const resolvedTheme = useMemo(() => resolveTheme(theme), [theme]);
   const cssVariables = useMemo(() => themeToCSSVariables(resolvedTheme), [resolvedTheme]);
 
-  // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(
     () => ({
       dataSourceRequestHandler,
@@ -59,7 +53,6 @@ export const WidgetProvider = ({
     [dataSourceRequestHandler, schemaData, translate]
   );
 
-  // Warn if dataSourceRequestHandler is missing (will cause issues with API data sources)
   useEffect(() => {
     if (!dataSourceRequestHandler) {
       console.warn(
@@ -70,23 +63,20 @@ export const WidgetProvider = ({
     }
   }, [dataSourceRequestHandler]);
 
-  // Cleanup event bus on unmount
   useEffect(() => {
     return () => {
       eventBus.clear();
     };
   }, [eventBus]);
 
-  // Initialize schemaData to Redux store (only on mount)
-  // This prevents overwriting user changes when schemaData prop changes
   useEffect(() => {
     if (schemaData) {
       widgetStore.dispatch(setValues(schemaData));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schemaData, widgetStore]); // Only run on mount
+  }, [schemaData, widgetStore]);
 
-  const content = (
+  return (
     <Provider store={widgetStore}>
       <ThemeContext.Provider value={resolvedTheme}>
         <WidgetContext.Provider value={contextValue}>
@@ -99,7 +89,4 @@ export const WidgetProvider = ({
       </ThemeContext.Provider>
     </Provider>
   );
-
-  return content;
 };
-

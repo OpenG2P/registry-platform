@@ -5,47 +5,6 @@ import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { filterByCharacterType, applyCaseControl, applyMask, removeMask } from '../utils/textInput';
 
-/**
- * Generic text input widget with advanced features
- * Supports all text-based inputs via configuration (text, email, password, number, tel, url, etc.)
- * 
- * Features:
- * - Allowed character types (any, alphabetic, alphanumeric, numeric, numeric-decimal, custom)
- * - Case control (none, lowercase, uppercase, capitalize)
- * - Length constraints with live character counter
- * - Regular expression validation with custom messages
- * - Input masking (static and dynamic)
- * - Placeholder text with i18n support
- * 
- * Usage in schema:
- * {
- *   "widget": "text",
- *   "widget-type": "input",
- *   "widget-label": "Field Label",
- *   "widget-id": "fieldId",
- *   "widget-data-path": "person.name",
- *   "widget-data-format": {
- *     "inputType": "email",
- *     "characterType": "alphanumeric",
- *     "caseControl": "lowercase",
- *     "mask": {
- *       "pattern": "XXX-XXX-XXXX",
- *       "type": "static"
- *     },
- *     "showCharCounter": true
- *   },
- *   "widget-data-validation": {
- *     "validationType": "email",  // Predefined type: "email", "phone", or "url"
- *     // OR use custom pattern:
- *     // "pattern": "^[a-z0-9]+$",
- *     // "patternMessage": "Only lowercase alphanumeric characters allowed",
- *     "minLength": 5,
- *     "maxLength": 20
- *   },
- *   "widget-required": true,
- *   "widget-data-placeholder": "Enter your value"
- * }
- */
 interface TextInputWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -53,7 +12,6 @@ interface TextInputWidgetProps {
 export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
   const {
     value,
-    formattedValue,
     error,
     touched,
     isEnabled,
@@ -63,14 +21,12 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
-  
-  // Track raw value separately for masking (to preserve unmasked value internally)
+  const { translateConfig } = useWidgetTranslation();
+
   const formatConfig = widgetConfig['widget-data-format'];
   const validationConfig = widgetConfig['widget-data-validation'];
   const hasMask = !!formatConfig?.mask;
-  
-  // Initialize raw value from current value if masking is enabled
+
   const getRawValueFromValue = useCallback((val: any): string => {
     if (!hasMask || !val) return '';
     const stringVal = String(val);
@@ -79,7 +35,6 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
 
   const [rawValue, setRawValue] = useState<string>(() => getRawValueFromValue(value));
 
-  // Sync rawValue when value changes externally
   useEffect(() => {
     if (hasMask) {
       const newRaw = getRawValueFromValue(value);
@@ -89,17 +44,14 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     }
   }, [value, hasMask, getRawValueFromValue, rawValue]);
 
-  // Determine input type from configuration or default to 'text'
   const getInputType = () => {
     const inputType = formatConfig?.inputType || 'text';
-    // Handle currency as number type
     if (formatConfig?.currency) {
       return 'number';
     }
     return inputType;
   };
 
-  // Get current string value for processing
   const getStringValue = useCallback(() => {
     if (formatConfig?.currency) {
       return typeof value === 'number' ? value.toString() : (value ? String(value) : '');
@@ -107,11 +59,9 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     return value ? String(value) : '';
   }, [value, formatConfig?.currency]);
 
-  // Apply character filtering, case control, and masking
   const processInputValue = useCallback((inputValue: string): { processed: string; raw: string } => {
     let processed = inputValue;
 
-    // Step 1: Filter by character type
     if (formatConfig?.characterType && formatConfig.characterType !== 'any') {
       processed = filterByCharacterType(
         processed,
@@ -120,12 +70,10 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
       );
     }
 
-    // Step 2: Apply case control (before masking to preserve mask format)
     if (formatConfig?.caseControl && formatConfig.caseControl !== 'none') {
       processed = applyCaseControl(processed, formatConfig.caseControl);
     }
 
-    // Step 3: Apply masking if configured
     let raw = processed;
     if (formatConfig?.mask) {
       const masked = applyMask(processed, formatConfig.mask);
@@ -136,11 +84,9 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     return { processed, raw };
   }, [formatConfig]);
 
-  // Handle input change with all transformations
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
 
-    // Handle currency separately
     if (formatConfig?.currency) {
       const numericValue = inputValue.replace(/[^0-9.]/g, '');
       if (numericValue === '') {
@@ -156,19 +102,14 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
       return;
     }
 
-    // If masking is enabled, extract raw value from masked input
     let valueToProcess = inputValue;
     if (hasMask && formatConfig.mask) {
-      // Remove mask characters to get raw value
       valueToProcess = removeMask(inputValue, formatConfig.mask);
       setRawValue(valueToProcess);
     }
 
-    // Process the input value (filter characters, apply case)
     const { processed, raw } = processInputValue(valueToProcess);
 
-    // Update the actual value
-    // If masking is enabled, store raw value; otherwise store processed value
     if (hasMask) {
       onChange(raw);
     } else {
@@ -176,19 +117,16 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     }
   }, [formatConfig, onChange, processInputValue, hasMask]);
 
-  // Get display value (masked if applicable, otherwise processed value)
   const displayValue = useMemo(() => {
     if (formatConfig?.currency) {
       return typeof value === 'number' ? value : (value ? parseFloat(String(value)) : '');
     }
 
-    // If masking is enabled, use rawValue to generate masked display
     if (hasMask && formatConfig.mask) {
       const masked = applyMask(rawValue, formatConfig.mask);
       return masked.displayValue;
     }
 
-    // Otherwise, get string value and process it
     const stringValue = getStringValue();
     if (stringValue) {
       const { processed } = processInputValue(stringValue);
@@ -198,7 +136,6 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     return '';
   }, [value, formatConfig, rawValue, hasMask, getStringValue, processInputValue]);
 
-  // Calculate character count for counter (use raw value length when masking)
   const characterCount = useMemo(() => {
     if (hasMask) {
       return rawValue.length;
@@ -206,18 +143,15 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     return getStringValue().length;
   }, [hasMask, rawValue, getStringValue]);
 
-  // Get max length from validation config (default: 200)
   const maxLength = validationConfig?.maxLength ?? 200;
   const minLength = validationConfig?.minLength ?? 0;
 
-  // Determine placeholder - hide if input has value
   const placeholder = useMemo(() => {
     const hasValue = displayValue && displayValue.toString().trim().length > 0;
     const placeholderText = translateConfig(widgetConfig['widget-data-placeholder']);
     return hasValue ? undefined : placeholderText;
   }, [displayValue, widgetConfig, translateConfig]);
 
-  // For readonly mode, render as display text instead of input
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     return (
@@ -231,11 +165,6 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
           <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
         </div>
       </div>
     );
@@ -258,10 +187,10 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
               onBlur={onBlur}
               disabled={!isEnabled || widgetConfig['widget-readonly']}
               placeholder={placeholder}
-              maxLength={formatConfig?.mask ? undefined : maxLength} // Don't enforce maxLength when masking (handled by mask pattern)
+              maxLength={formatConfig?.mask ? undefined : maxLength}
               inputMode={
-                formatConfig?.currency 
-                  ? 'decimal' 
+                formatConfig?.currency
+                  ? 'decimal'
                   : formatConfig?.characterType === 'numeric' || formatConfig?.characterType === 'numeric-decimal'
                   ? 'numeric'
                   : undefined
@@ -287,11 +216,6 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
         </div>
       </div>
     </div>

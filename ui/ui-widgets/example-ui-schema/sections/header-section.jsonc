@@ -1,0 +1,55 @@
+{
+  "section-id": "header-section",
+  "section-title": "",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "header-panel",
+      "panel-orientation": "vertical",
+      "panel-column-span": 3,
+      "widgets": [
+        {
+          "widget": "header-section",
+          "widget-type": "group",
+          "widget-id": "registry-header",
+          "widget-data-path": {
+            "image": "register-id.record_image_storage_id",
+            "imageUrl": "register-id.record_image_url",
+            "name": "register-id.record_name",
+            "functionalId": "register-id.functional_record_id",
+            "status": "register-id.record_status",
+            "statusReason": "register-id.record_status_reason",
+            "completionScore": "register-id.completion_score",
+            "idealScore": "register-id.ideal_score",
+            "createdBy": "register-id.created_by",
+            "createdAt": "register-id.created_at",
+            "lastApprovedBy": "register-id.last_approved_by",
+            "lastApprovedAt": "register-id.last_approved_at"
+          },
+          "widget-field-config": {
+            "status": {
+              "data-source": {
+                "type": "static",
+                "options": [
+                  { "value": "active", "label": "Active" },
+                  { "value": "inactive", "label": "Inactive" },
+                  { "value": "archived", "label": "Archived" }
+                ]
+              }
+            }
+          },
+          "widget-data-format": {
+            "imageSize": 120,
+            "nameColor": "#ED7C22",
+            "statusColors": {
+              "active": "#16A34A",
+              "inactive": "#D97706",
+              "archived": "#6B7280"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

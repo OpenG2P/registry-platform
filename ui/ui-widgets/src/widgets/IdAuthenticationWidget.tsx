@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useWidgetContext } from '../components/WidgetProvider';
-import { BaseWidgetConfig, DataSourceRequestHandler } from '../types';
+import { BaseWidgetConfig } from '../types';
 import { WidgetRootState } from '../store';
 import { getValueByPath } from '../utils/pathUtils';
 

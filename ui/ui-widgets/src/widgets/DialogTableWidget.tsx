@@ -9,6 +9,7 @@ import { WidgetRootState } from '../store';
 import { resetWidget, setError, setTouched, setValues } from '../store/widgetSlice';
 import { validateWidget } from '../utils/validation';
 import { shouldRequireWidget, shouldShowWidget } from '../utils/conditions';
+import { setValueByPath } from '../utils/pathUtils';
 
 
 interface DialogTableWidgetProps {
@@ -19,6 +20,50 @@ type DialogMode = 'add' | 'edit';
 
 const isUnsetRowValue = (value: unknown): boolean =>
   value === null || value === undefined || value === '';
+
+const buildDialogConditionValues = (
+  row: Record<string, any>,
+  columns: any[],
+): Record<string, any> => {
+  let context: Record<string, any> = { ...row };
+  columns.forEach((col) => {
+    const columnKey = col['column-key'];
+    if (!columnKey || row[columnKey] === undefined) {
+      return;
+    }
+    const dataPath = col['widget-data-path'];
+    if (typeof dataPath === 'string' && dataPath) {
+      context = setValueByPath(context, dataPath, row[columnKey]);
+    }
+  });
+  return context;
+};
+
+type DialogColumnSegment =
+  | { type: 'single'; col: any }
+  | { type: 'group'; group: string; cols: any[] };
+
+const buildDialogColumnSegments = (columns: any[]): DialogColumnSegment[] => {
+  const segments: DialogColumnSegment[] = [];
+  let index = 0;
+
+  while (index < columns.length) {
+    const group = columns[index]['column-group'];
+    if (group) {
+      const groupCols: any[] = [];
+      while (index < columns.length && columns[index]['column-group'] === group) {
+        groupCols.push(columns[index]);
+        index += 1;
+      }
+      segments.push({ type: 'group', group, cols: groupCols });
+    } else {
+      segments.push({ type: 'single', col: columns[index] });
+      index += 1;
+    }
+  }
+
+  return segments;
+};
 
 /** Match TableWidget cell styling for add / update / delete rows */
 const getRowCellStyle = (editAction?: string): CSSProperties => {
@@ -37,7 +82,6 @@ const getRowCellStyle = (editAction?: string): CSSProperties => {
   return {};
 };
 
-// Display select value label in view mode
 const SelectDisplayValue = ({ config, value }: { config: BaseWidgetConfig; value: any }) => {
   const { dataSourceOptions, loading } = useBaseWidget({ config });
 
@@ -53,7 +97,7 @@ const SelectDisplayValue = ({ config, value }: { config: BaseWidgetConfig; value
 interface DialogTableFieldProps {
   col: any;
   cellWidgetId: string;
-  dialogRowValues: Record<string, any>;
+  dialogConditionValues: Record<string, any>;
   isReadonly: boolean;
 }
 
@@ -61,7 +105,7 @@ interface DialogTableFieldProps {
 const DialogTableField = memo(function DialogTableField({
   col,
   cellWidgetId,
-  dialogRowValues,
+  dialogConditionValues,
   isReadonly,
 }: DialogTableFieldProps) {
   const widgetType = col.widget || 'text';
@@ -79,11 +123,11 @@ const DialogTableField = memo(function DialogTableField({
       'widget-data-options': undefined,
       'widget-required': shouldRequireWidget(
         col['widget-data-options'],
-        dialogRowValues,
+        dialogConditionValues,
         col['widget-required'],
       ),
     };
-  }, [col, cellWidgetId, dialogRowValues, isReadonly, widgetType]);
+  }, [col, cellWidgetId, dialogConditionValues, isReadonly, widgetType]);
 
   return (
     <div className="min-w-0">
@@ -255,6 +299,11 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
   const dialogRowValues = dialogStoreValues;
 
+  const dialogConditionValues = useMemo(
+    () => buildDialogConditionValues(dialogRowValues, columns),
+    [dialogRowValues, columns],
+  );
+
   const collectMergedRowPayload = useCallback(
     () => dialogStoreValues,
     [dialogStoreValues],
@@ -262,10 +311,11 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
   const finalizeDialogRowPayload = useCallback(
     (raw: Record<string, any>) => {
+      const conditionValues = buildDialogConditionValues(raw, columns);
       const result: Record<string, any> = {};
       columns.forEach((col) => {
         const key = col['column-key'];
-        if (!shouldShowWidget(col['widget-data-options'], raw)) {
+        if (!shouldShowWidget(col['widget-data-options'], conditionValues)) {
           return;
         }
         const val = raw[key];
@@ -280,6 +330,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
   const saveDialog = useCallback(() => {
     const payload = collectMergedRowPayload();
+    const conditionValues = buildDialogConditionValues(payload, columns);
     let hasErrors = false;
 
     columns.forEach((col) => {
@@ -288,12 +339,12 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
       const isColReadonly = isReadonly || col['widget-readonly'] === true;
 
       if (isColReadonly) return;
-      if (!shouldShowWidget(col['widget-data-options'], payload)) return;
+      if (!shouldShowWidget(col['widget-data-options'], conditionValues)) return;
 
       const cellValue = payload[key];
       const isRequired = shouldRequireWidget(
         col['widget-data-options'],
-        payload,
+        conditionValues,
         col['widget-required'],
       );
       const validationErrors = validateWidget(
@@ -382,13 +433,40 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
     return String(cellValue);
   }, [rows]);
 
-  const visibleDialogColumns = useMemo(
-    () =>
-      columns.filter((col) =>
-        shouldShowWidget(col['widget-data-options'], dialogRowValues),
-      ),
-    [columns, dialogRowValues],
-  );
+  const dialogColumnSegments = useMemo(() => {
+    return buildDialogColumnSegments(columns)
+      .map((segment) => {
+        if (segment.type === 'single') {
+          if (!shouldShowWidget(segment.col['widget-data-options'], dialogConditionValues)) {
+            return null;
+          }
+          return segment;
+        }
+
+        const visibleCols = segment.cols.filter((col) =>
+          shouldShowWidget(col['widget-data-options'], dialogConditionValues),
+        );
+        if (visibleCols.length === 0) {
+          return null;
+        }
+        return { type: 'group' as const, group: segment.group, cols: visibleCols };
+      })
+      .filter((segment): segment is DialogColumnSegment => segment !== null);
+  }, [columns, dialogConditionValues]);
+
+  const renderDialogField = (col: any) => {
+    const key = col['column-key'];
+    const cellWidgetId = dialogFieldWidgetId(dialogSessionId, key);
+    return (
+      <DialogTableField
+        key={`${dialogSessionId}-${key}`}
+        col={col}
+        cellWidgetId={cellWidgetId}
+        dialogConditionValues={dialogConditionValues}
+        isReadonly={isReadonly}
+      />
+    );
+  };
 
   const tableWidgetId = `dialog-table-widget-${widgetConfig['widget-id']}`;
   const columnSpan = widgetConfig['widget-column-span'] || 2;
@@ -606,17 +684,18 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
               className="grid grid-cols-1 md:grid-cols-2 gap-4"
               style={{ maxHeight: '70vh', overflow: 'auto' }}
             >
-              {visibleDialogColumns.map((col) => {
-                const key = col['column-key'];
-                const cellWidgetId = dialogFieldWidgetId(dialogSessionId, key);
+              {dialogColumnSegments.map((segment) => {
+                if (segment.type === 'single') {
+                  return renderDialogField(segment.col);
+                }
+
                 return (
-                  <DialogTableField
-                    key={`${dialogSessionId}-${key}`}
-                    col={col}
-                    cellWidgetId={cellWidgetId}
-                    dialogRowValues={dialogRowValues}
-                    isReadonly={isReadonly}
-                  />
+                  <div
+                    key={`${dialogSessionId}-group-${segment.group}`}
+                    className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4"
+                  >
+                    {segment.cols.map((col) => renderDialogField(col))}
+                  </div>
                 );
               })}
             </div>

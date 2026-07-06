@@ -5,29 +5,6 @@ import { WidgetRenderer } from '../components/WidgetRenderer';
 import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
-/**
- * Iterable accordion widget - expandable/collapsible container for widgets
- * 
- * Usage in schema:
- * {
- *   "widget": "iterable-accordion",
- *   "widget-type": "group",
- *   "widget-label": "Advanced Options",
- *   "widget-id": "advancedOptions",
- *   "widget-data-path": "person.notes",
- *   "widget-data-collapsed": true,
- *   "widget-item": {
- *     "widget": "text",
- *     "widget-type": "input",
- *     "widget-label": "Additional Notes",
- *     "widget-id": "notes",
- *     ...
- *   }
- * }
- * 
- * Note: widget-item can be any widget config. If it has nested widgets property,
- * those will be rendered as well.
- */
 interface IterableAccordionWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -79,7 +56,6 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
     const defaultValue = itemConfig['widget-data-default'] || (itemConfig.widgets ? {} : '');
     const newItems = [...items, defaultValue];
     onChange(newItems);
-    // New item starts expanded
     setCollapsedItems((prev) => ({
       ...prev,
       [newItems.length - 1]: false,
@@ -149,10 +125,7 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
               'widget-readonly': isReadonly || !operations.edit,
             };
 
-            // If item has widgets (like panel), we need to handle it differently
             if (itemConfig.widgets) {
-              // For complex items with nested widgets, we'd need to handle the value structure
-              // For now, render the widgets directly
               return (
                 <div
                   key={index}
@@ -190,8 +163,6 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
                       <WidgetRenderer
                         config={itemWidgetConfig}
                         onValueChange={(widgetId, newValue) => {
-                          // Update the item value based on widget changes
-                          // This is simplified - in practice, you'd need to merge values properly
                           updateItem(index, newValue);
                         }}
                       />
@@ -201,7 +172,6 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
               );
             }
 
-            // Simple item (single widget)
             return (
               <div
                 key={index}
@@ -252,11 +222,7 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
       {touched && error.length > 0 && (
         <p className="text-red-500 text-sm mt-1">{error[0]}</p>
       )}
-      {/* {widgetConfig['widget-data-helptext'] && (
-        <p className="text-gray-500 text-sm mt-1">
-          {translateConfig(widgetConfig['widget-data-helptext'])}
-        </p>
-      )} */}
+      
     </div>
   );
 };

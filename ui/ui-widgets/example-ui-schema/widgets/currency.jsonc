@@ -1,0 +1,24 @@
+{
+  "widget": "currency",
+  "widget-type": "input",
+  "widget-id": "salary",
+  "widget-label": "Salary",
+  "widget-data-path": "register-id.salary"
+
+  // --- Optional flags ---
+  // "widget-required": false,
+  // "widget-readonly": false,
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "currency": "USD",
+  //   "locale": "en-US",
+  //   "decimals": 2
+  // },
+
+  // --- widget-data-validation ---
+  // "widget-data-validation": {
+  //   "min": 0,
+  //   "max": 1000000
+  // }
+}

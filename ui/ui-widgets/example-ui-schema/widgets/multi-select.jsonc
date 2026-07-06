@@ -1,0 +1,35 @@
+{
+  "widget": "multi-select",
+  "widget-type": "input",
+  "widget-id": "programs",
+  "widget-label": "Programs",
+  "widget-data-path": "register-id.programs",
+  "widget-data-source": {
+    "type": "static",
+    "options": [
+      { "value": "pmt", "label": "PMT" },
+      { "value": "fs", "label": "Food Security" }
+    ]
+  }
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-default": [],
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "sortOptions": true
+  // },
+
+  // --- widget-data-source: API variant ---
+  // "widget-data-source": {
+  //   "type": "api",
+  //   "method": "POST",
+  //   "service": "attributes",
+  //   "endpoint": "values",
+  //   "params": { "attribute_id": "PROGRAM" },
+  //   "labelKey": "value_display",
+  //   "valueKey": "value_code"
+  // }
+}

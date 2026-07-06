@@ -1,0 +1,43 @@
+
+// 3-column section template (3-3-3).
+
+{
+  "section-id": "widget-showcase",
+  "section-title": "Widget Showcase",
+  "section-editable": true,
+
+  // --- Optional section-level ---
+  // "section-column-span": 3,
+  // "section-hide-edit-button": false,
+  // "section-supporting-documents": [],   // see section-with-suporting-documents.jsonc
+
+  "panels": [
+    {
+      "panel-id": "panel_main",
+      "panel-orientation": "horizontal",
+      "panels": [
+        {
+          "panel-id": "panel_column_1",
+          "panel-orientation": "vertical",
+          "widgets": [
+            // e.g. text, number, date
+          ]
+        },
+        {
+          "panel-id": "panel_column_2",
+          "panel-orientation": "vertical",
+          "widgets": [
+            // e.g. select, radio, boolean
+          ]
+        },
+        {
+          "panel-id": "panel_column_3",
+          "panel-orientation": "vertical",
+          "widgets": [
+            // e.g. multi-select, display, phone
+          ]
+        }
+      ]
+    }
+  ]
+}

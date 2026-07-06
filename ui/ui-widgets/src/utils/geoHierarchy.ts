@@ -1,8 +1,3 @@
-/**
- * Geo Hierarchy Builder
- * Manages geo hierarchy state and builds hierarchy JSON structure
- */
-
 import { getWidgetValue, setWidgetValue } from './pathUtils';
 
 export interface GeoLevelData {
@@ -29,7 +24,7 @@ function extractLevelValueFromStored(
     if (levelData) {
       return levelData.level_value_id;
     }
-    // Level absent from hierarchy (e.g. cleared by upstream cascade) — do not use lowest-level fallback
+    // Level cleared upstream — do not fall back to lowest-level id
     return undefined;
   }
 
@@ -50,9 +45,8 @@ function extractLevelValueFromStored(
 }
 
 /**
- * Resolve the display value for a geo level widget.
- * When widgetId is explicitly set in Redux (including cleared undefined/null), do not
- * fall back to shared hierarchy dataPath — that stale path was keeping grandchildren visible.
+ * When `widgetId` is set in Redux (including cleared), do not fall back to the shared
+ * `dataPath` — stale hierarchy there was keeping downstream levels visible.
  */
 export function resolveGeoWidgetLevelValue(
   values: Record<string, any>,
@@ -82,9 +76,6 @@ export function resolveGeoWidgetLevelValue(
   return value;
 }
 
-/**
- * Write the in-memory geo hierarchy builder state into Redux at the shared dataPath.
- */
 export function applySharedGeoHierarchyToValues(
   baseValues: Record<string, any>,
   groupId: string,
@@ -115,16 +106,13 @@ export function applySharedGeoHierarchyToValues(
 }
 
 interface HierarchyState {
-  levels: Map<string, GeoLevelData>; // level -> GeoLevelData
-  order: string[]; // Ordered list of levels
+  levels: Map<string, GeoLevelData>;
+  order: string[];
 }
 
 class GeoHierarchyBuilder {
   private hierarchies: Map<string, HierarchyState> = new Map();
 
-  /**
-   * Get or create hierarchy state for a group
-   */
   private getHierarchy(groupId: string = 'default'): HierarchyState {
     if (!this.hierarchies.has(groupId)) {
       this.hierarchies.set(groupId, {
@@ -135,9 +123,6 @@ class GeoHierarchyBuilder {
     return this.hierarchies.get(groupId)!;
   }
 
-  /**
-   * Add a level to the hierarchy
-   */
   addLevel(
     level: string,
     level_value_id: string,
@@ -145,11 +130,9 @@ class GeoHierarchyBuilder {
     groupId: string = 'default'
   ): void {
     const hierarchy = this.getHierarchy(groupId);
-    
-    // If level already exists, remove it and everything after it
+
     const existingIndex = hierarchy.order.indexOf(level);
     if (existingIndex >= 0) {
-      // Remove this level and all subsequent levels
       const levelsToRemove = hierarchy.order.slice(existingIndex);
       levelsToRemove.forEach((l) => {
         hierarchy.levels.delete(l);
@@ -157,7 +140,6 @@ class GeoHierarchyBuilder {
       });
     }
 
-    // Add new level
     hierarchy.levels.set(level, {
       level,
       level_value_id,
@@ -166,15 +148,11 @@ class GeoHierarchyBuilder {
     hierarchy.order.push(level);
   }
 
-  /**
-   * Remove a level and all levels below it
-   */
   removeLevelAndBelow(level: string, groupId: string = 'default'): void {
     const hierarchy = this.getHierarchy(groupId);
     const index = hierarchy.order.indexOf(level);
-    
+
     if (index >= 0) {
-      // Remove this level and all subsequent levels
       const levelsToRemove = hierarchy.order.slice(index);
       levelsToRemove.forEach((l) => {
         hierarchy.levels.delete(l);
@@ -183,9 +161,6 @@ class GeoHierarchyBuilder {
     }
   }
 
-  /**
-   * Build hierarchy JSON structure
-   */
   buildHierarchyJson(groupId: string = 'default'): {
     geo_lowest_level_value_id: string;
     geo_code_hierarchy_json: {
@@ -198,7 +173,7 @@ class GeoHierarchyBuilder {
     };
   } | null {
     const hierarchy = this.getHierarchy(groupId);
-    
+
     if (hierarchy.order.length === 0) {
       return null;
     }
@@ -224,33 +199,23 @@ class GeoHierarchyBuilder {
     };
   }
 
-  /**
-   * Clear hierarchy for a group
-   */
   clear(groupId: string = 'default'): void {
     this.hierarchies.delete(groupId);
   }
 
-  /**
-   * Clear all hierarchies
-   */
   clearAll(): void {
     this.hierarchies.clear();
   }
 
-  /**
-   * Get current levels for a group
-   */
   getLevels(groupId: string = 'default'): GeoLevelData[] {
     const hierarchy = this.getHierarchy(groupId);
     return hierarchy.order.map((level) => hierarchy.levels.get(level)!);
   }
 }
 
-// Singleton instance
 export const geoHierarchyBuilder = new GeoHierarchyBuilder();
 
-/** Sentinel written to Redux when a geo level is cleared by cascade (distinct from "never set"). */
+/** Written to Redux when a geo level is cleared by cascade (distinct from never set). */
 export const GEO_LEVEL_CLEARED = null;
 
 export interface GeoWidgetRegistration {
@@ -354,7 +319,6 @@ function resolveStoredMnemonic(
   return undefined;
 }
 
-/** Resolve display mnemonic from cached dropdown options, then stored hierarchy. */
 export function createGeoLevelMnemonicResolver(
   values: Record<string, any>,
   dataSources: Record<string, Array<{ value: any; label: string }>>
@@ -369,7 +333,6 @@ export function createGeoLevelMnemonicResolver(
   };
 }
 
-/** Rebuild group hierarchy from widget values in parent→child order; stop at first missing level. */
 export function rebuildGeoHierarchyFromRegistrations(
   groupId: string,
   values: Record<string, any>,
@@ -407,20 +370,15 @@ export function collectGeoWidgetRegistrationsFromWidgets(
     'widget-id': string;
     'widget-data-path'?: string | Record<string, string>;
     'widget-geo-config'?: GeoLevelConfig & { parentWidgetId?: string | null };
-  }>,
-  namespace?: string
+  }>
 ): GeoWidgetRegistration[] {
   return widgets
     .filter((widget) => widget['widget-geo-config'] && typeof widget['widget-data-path'] === 'string')
     .map((widget) => {
-      const originalWidgetId = widget['widget-id'];
-      const originalDataPath = widget['widget-data-path'] as string;
+      const widgetId = widget['widget-id'];
+      const dataPath = widget['widget-data-path'] as string;
       const geoConfig = widget['widget-geo-config']!;
-      const widgetId = namespace ? `${namespace}__${originalWidgetId}` : originalWidgetId;
-      const parentWidgetId = geoConfig.parentWidgetId?.trim()
-        ? (namespace ? `${namespace}__${geoConfig.parentWidgetId}` : geoConfig.parentWidgetId)
-        : null;
-      const dataPath = namespace ? `${namespace}.${originalDataPath}` : originalDataPath;
+      const parentWidgetId = geoConfig.parentWidgetId?.trim() ? geoConfig.parentWidgetId : null;
 
       return {
         widgetId,
@@ -433,7 +391,6 @@ export function collectGeoWidgetRegistrationsFromWidgets(
     });
 }
 
-/** Reconcile all geo groups in section values before save. */
 export function reconcileGeoHierarchiesInValues(
   values: Record<string, any>,
   registrations: GeoWidgetRegistration[],
@@ -469,7 +426,7 @@ export function getGeoWidgetRegistrationsInGroup(groupId: string): GeoWidgetRegi
   );
 }
 
-/** True when changedWidgetId is any upstream geo parent of widgetId (not only immediate parent). */
+/** True when `changedWidgetId` is any upstream ancestor, not only the immediate parent. */
 export function isUpstreamGeoAncestor(
   changedWidgetId: string,
   widgetId: string,
@@ -488,7 +445,6 @@ export function isUpstreamGeoAncestor(
   return false;
 }
 
-/** Group id for geo widgets sharing the same register prefix (e.g. `{registerId}`). */
 export function getGeoGroupId(
   dataPath: string | Record<string, string> | undefined
 ): string {
@@ -498,10 +454,7 @@ export function getGeoGroupId(
   return 'default';
 }
 
-/**
- * Resolve the human-readable label for a geo level from persisted hierarchy JSON.
- * Used in readonly mode when API options are not loaded.
- */
+/** Readonly display when API options are not loaded. */
 export function resolveGeoWidgetLevelLabel(
   values: Record<string, any>,
   widgetId: string,
@@ -525,7 +478,6 @@ export function resolveGeoWidgetLevelLabel(
   return undefined;
 }
 
-/** All registered geo widgets that are descendants of ancestorWidgetId. */
 export function getGeoDescendantWidgetIds(ancestorWidgetId: string): string[] {
   const descendants: string[] = [];
   for (const [childId, parentId] of geoWidgetParentRegistry.entries()) {
@@ -566,7 +518,6 @@ function builderMatchesStored(
   });
 }
 
-/** Seed in-memory builder from persisted hierarchy JSON (edit-mode rehydration). */
 export function seedGeoHierarchyFromValues(
   values: Record<string, any>,
   dataPath: string | Record<string, string> | undefined,
@@ -594,7 +545,7 @@ export function seedGeoHierarchyFromValues(
   });
 }
 
-/** Force-clear builder for a group, then seed from Redux/schema values (e.g. after Cancel). */
+/** Clear builder then rehydrate from Redux (e.g. after Cancel). */
 export function resetAndSeedGeoHierarchyFromValues(
   values: Record<string, any>,
   dataPath: string,

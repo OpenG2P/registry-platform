@@ -7,9 +7,6 @@ export interface WidgetFieldLabelProps {
   title?: string;
 }
 
-/**
- * Field label: long text truncates with ellipsis; required asterisk always stays visible.
- */
 export const WidgetFieldLabel = ({
   label,
   required = false,

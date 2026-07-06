@@ -1,0 +1,12 @@
+{
+  "widget": "display",
+  "widget-type": "input",
+  "widget-id": "functional_id",
+  "widget-label": "Functional ID",
+  "widget-data-path": "register-id.functional_id",
+  "widget-readonly": true
+
+  // --- Optional ---
+  // "widget-data-default": "-",
+  // "widget-data-format": { "dateFormat": "DD/MM/YYYY" }
+}

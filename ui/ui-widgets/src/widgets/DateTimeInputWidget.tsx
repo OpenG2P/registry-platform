@@ -14,41 +14,6 @@ import {
   validateDateTimeConstraints,
 } from '../utils/datetimeInput';
 
-/**
- * DateTime input widget with advanced features
- * 
- * Features:
- * - Configurable datetime format (DD/MM/YYYY HH:mm, MM/DD/YYYY HH:mm:ss, etc.)
- * - Default value (none / now)
- * - DateTime constraints (minDateTime, maxDateTime, any/past only/future only)
- * - Required vs optional
- * - Input method (datetime picker / manual / hybrid)
- * - Placeholder text
- * - Read-only & disabled
- * - Canonical stored format (ISO 8601 with time)
- * 
- * Usage in schema:
- * {
- *   "widget": "datetime",
- *   "widget-type": "input",
- *   "widget-label": "Appointment Time",
- *   "widget-id": "appointment",
- *   "widget-data-path": "appointment.datetime",
- *   "widget-data-default": "now",
- *   "widget-data-format": {
- *     "dateTimeFormat": "DD/MM/YYYY HH:mm",
- *     "inputMethod": "picker",
- *     "dateTimeConstraint": "future-only"
- *   },
- *   "widget-data-options": {
- *     "minDateTime": "2024-01-01T00:00",
- *     "maxDateTime": "now"
- *   },
- *   "widget-data-validation": {},
- *   "widget-required": true,
- *   "widget-data-placeholder": "DD/MM/YYYY HH:mm"
- * }
- */
 interface DateTimeInputWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -56,7 +21,6 @@ interface DateTimeInputWidgetProps {
 export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
   const {
     value,
-    formattedValue,
     error,
     touched,
     isEnabled,
@@ -66,7 +30,7 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { translateConfig } = useWidgetTranslation();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const optionsConfig = widgetConfig['widget-data-options'];
@@ -77,11 +41,9 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
   const maxDateTime = optionsConfig?.maxDateTime;
   const defaultToNow = widgetConfig['widget-data-default'] === 'now';
 
-  // Track manual input value (for manual/hybrid modes)
   const [manualInputValue, setManualInputValue] = useState<string>('');
   const [isFocused, setIsFocused] = useState<boolean>(false);
 
-  // Initialize default value to now if configured
   useEffect(() => {
     if (defaultToNow && (value === null || value === undefined || value === '')) {
       const nowISO = formatDateTimeToISO(new Date());
@@ -89,7 +51,6 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     }
   }, [defaultToNow, value, onChange]);
 
-  // Get effective min/max datetimes
   const effectiveMinDateTime = useMemo(() => {
     return getMinDateTime(dateTimeConstraint, minDateTime);
   }, [dateTimeConstraint, minDateTime]);
@@ -98,15 +59,12 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     return getMaxDateTime(dateTimeConstraint, maxDateTime);
   }, [dateTimeConstraint, maxDateTime]);
 
-  // Convert ISO value to display format
   const getDisplayValue = useCallback((): string => {
-    // For picker mode, always use YYYY-MM-DDTHH:mm
     if (inputMethod === 'picker') {
       if (!value) return '';
       return formatDateTimeToLocalISO(value);
     }
     
-    // For manual/hybrid modes, use custom format
     if (isFocused && manualInputValue) {
       return manualInputValue;
     }
@@ -120,7 +78,6 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     return formatDateTimeToString(value, dateTimeFormat);
   }, [value, inputMethod, dateTimeFormat, isFocused, manualInputValue]);
 
-  // Initialize manual input value
   useEffect(() => {
     if (!isFocused && value) {
       if (dateTimeFormat === 'YYYY-MM-DDTHH:mm' || dateTimeFormat === 'YYYY-MM-DDTHH:mm:ss') {
@@ -131,12 +88,10 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     }
   }, [value, dateTimeFormat, isFocused]);
 
-  // Handle input change
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     
     if (inputMethod === 'picker') {
-      // Picker mode: input is always YYYY-MM-DDTHH:mm
       if (inputValue) {
         const date = parseDateTime(inputValue);
         if (date) {
@@ -148,13 +103,11 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
         onChange('');
       }
     } else {
-      // Manual/hybrid mode: parse custom format
       setManualInputValue(inputValue);
       
       if (inputValue) {
         const date = parseDateTimeFromFormat(inputValue, dateTimeFormat);
         if (date) {
-          // Validate constraints
           const constraintError = validateDateTimeConstraints(
             date,
             minDateTime,
@@ -165,7 +118,6 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
           if (!constraintError) {
             onChange(formatDateTimeToISO(date));
           } else {
-            // Still update the value but validation will catch it
             onChange(formatDateTimeToISO(date));
           }
         }
@@ -175,19 +127,16 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     }
   }, [inputMethod, dateTimeFormat, onChange, minDateTime, maxDateTime, dateTimeConstraint]);
 
-  // Handle blur - validate and format
   const handleBlur = useCallback(() => {
     setIsFocused(false);
     
     if (inputMethod !== 'picker' && manualInputValue) {
       const date = parseDateTimeFromFormat(manualInputValue, dateTimeFormat);
       if (date) {
-        // Format the value according to the format
         const formatted = formatDateTimeToString(date, dateTimeFormat);
         setManualInputValue(formatted);
         onChange(formatDateTimeToISO(date));
       } else {
-        // Invalid datetime, clear it
         setManualInputValue('');
         onChange('');
       }
@@ -196,7 +145,6 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     onBlur();
   }, [inputMethod, manualInputValue, dateTimeFormat, onChange, onBlur]);
 
-  // Handle focus
   const handleFocus = useCallback(() => {
     setIsFocused(true);
     if (value) {
@@ -208,17 +156,14 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     }
   }, [value, dateTimeFormat]);
 
-  // Determine placeholder
   const placeholder = useMemo(() => {
     const hasValue = getDisplayValue() && getDisplayValue().trim().length > 0;
     const placeholderText = translateConfig(widgetConfig['widget-data-placeholder']);
     return hasValue ? undefined : (placeholderText || dateTimeFormat);
   }, [getDisplayValue, widgetConfig, translateConfig, dateTimeFormat]);
 
-  // Determine input type
   const inputType = inputMethod === 'picker' ? 'datetime-local' : 'text';
 
-  // For readonly mode, render as display text
   if (widgetConfig['widget-readonly']) {
     const label = translateConfig(widgetConfig['widget-label']);
     let displayValue = '';
@@ -244,11 +189,7 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
           <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     );
@@ -284,11 +225,7 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     </div>

@@ -1,0 +1,23 @@
+{
+  "section-id": "computation_scores",
+  "section-title": "Score",
+  "section-editable": false,
+  "section-hide-edit-button": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_scores_main",
+      "panel-orientation": "vertical",
+      "panel-column-span": 3,
+      "widgets": [
+        {
+          "widget": "scores-display",
+          "widget-type": "group",
+          "widget-id": "record-scores",
+          "widget-readonly": true,
+          "widget-data-path": "scores"
+        }
+      ]
+    }
+  ]
+}

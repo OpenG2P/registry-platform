@@ -2,15 +2,12 @@ import { WidgetFormat } from '../types';
 import { formatNumber } from './numberInput';
 import { parseDate } from './dateInput';
 
-/**
- * Format date value
- */
 export const formatDate = (value: any, format: WidgetFormat | undefined): string => {
   if (!value) {
     return '';
   }
 
-  const dateFormat = format?.dateFormat || 'DD-MM-YYYY'
+  const dateFormat = format?.dateFormat || 'DD-MM-YYYY';
 
   try {
     const date = typeof value === 'string' ? parseDate(value) : new Date(value);
@@ -18,7 +15,6 @@ export const formatDate = (value: any, format: WidgetFormat | undefined): string
       return value?.toString() || '';
     }
 
-    // Simple date formatting (can be enhanced with date-fns or similar)
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
@@ -33,9 +29,6 @@ export const formatDate = (value: any, format: WidgetFormat | undefined): string
   }
 };
 
-/**
- * Format currency value
- */
 export const formatCurrency = (value: any, format: WidgetFormat | undefined): string => {
   if (value === null || value === undefined || value === '') {
     return '';
@@ -62,18 +55,14 @@ export const formatCurrency = (value: any, format: WidgetFormat | undefined): st
   }
 };
 
-/**
- * Format phone number
- */
 export const formatPhone = (value: any, format: WidgetFormat | undefined): string => {
   if (!value || !format?.pattern) {
     return value?.toString() || '';
   }
 
-  const phoneStr = value.toString().replace(/\D/g, ''); // Remove non-digits
+  const phoneStr = value.toString().replace(/\D/g, '');
   const pattern = format.pattern;
 
-  // Simple pattern matching (XXX) XXX-XXXX
   let formatted = pattern;
   let digitIndex = 0;
 
@@ -87,15 +76,11 @@ export const formatPhone = (value: any, format: WidgetFormat | undefined): strin
   return formatted;
 };
 
-/**
- * Format value based on widget format config
- */
 export const formatValue = (value: any, format: WidgetFormat | undefined, widgetType?: string): string => {
   if (!format) {
     return value?.toString() || '';
   }
 
-  // Determine format type based on widget type or format properties
   if (format.dateFormat || widgetType === 'date') {
     return formatDate(value, format);
   }
@@ -108,11 +93,9 @@ export const formatValue = (value: any, format: WidgetFormat | undefined, widget
     return formatPhone(value, format);
   }
 
-  // Handle number widget formatting
   if (widgetType === 'number' || format.numericType || format.decimalPlaces !== undefined) {
     return formatNumber(value, format);
   }
 
   return value?.toString() || '';
 };
-
