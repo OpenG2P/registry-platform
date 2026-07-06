@@ -3,14 +3,9 @@
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { IntakeFormSubmission } from "../types/intake-form";
-import { toast } from "react-toastify";
-import { useFetch } from "@/shared/hooks/useFetch";
 import { useMemo } from "react";
 import { useIntakeFormDocuments } from "../hooks/useIntakeFormDocuments";
 import { UploadedDocument } from "@/shared/types";
-import { formatDate } from "@/shared/utils/dateUtils";
-import Can from "@/components/shared/Can";
-import { INTAKE_FORM_ACTIONS } from "../utils/intakeForm.actions";
 
 const statusClassMap: Record<string, string> = {
     REJECTED: "text-toast-failed",
@@ -24,13 +19,9 @@ const statusClassMap: Record<string, string> = {
 interface Props {
     submission?: IntakeFormSubmission | null;
     section_payloads?: any[] | null;
-    onActionComplete?: () => void;
 }
 
-export default function SubmissionHeader({ submission, section_payloads, onActionComplete }: Props) {
-    const t = useTranslations();
-    const { execute, loading: loadingAction } = useFetch({ enabled: false });
-
+export default function SubmissionHeader({ submission, section_payloads }: Props) {
     const documents = useMemo(() => {
         const allDocs: UploadedDocument[] = [];
         section_payloads?.forEach(section => {
@@ -39,66 +30,17 @@ export default function SubmissionHeader({ submission, section_payloads, onActio
             }
         });
         return allDocs;
-    }, [submission, section_payloads]);
+    }, [section_payloads]);
 
     const { documents: docsWithUrls } = useIntakeFormDocuments(documents);
-
-    const handleAction = async (type: 'approve' | 'reject') => {
-        if (!submission?.submission_id) return;
-
-        try {
-            const url = type === 'approve'
-                ? '/api/intake-form/approve-intake-form-submission'
-                : '/api/intake-form/reject-intake-form-submission';
-
-            const result = await execute(url, {
-                method: 'POST',
-                body: JSON.stringify({ submission_id: submission.submission_id }),
-            });
-
-            if (result?.approval_status == "APPROVED" || result?.approval_status == "REJECTED") {
-                toast.success(t('toast_submission_success', { type }));
-                onActionComplete?.();
-            } else {
-                toast.error(t('toast_submission_fail', { type }));
-            }
-        } catch (error) {
-            toast.error(t('toast_submission_error', { type }));
-        }
-    };
 
     return (
         <div className="rounded-[10px] bg-primary-first/20 px-10 py-5 flex flex-col border border-dashed border-primary-second">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <InfoSection submission={submission} />
-                <VerificationStats submission={submission} documentsCount={documents.length} />
+                <VerificationStats documentsCount={documents.length} />
                 <AttachedDocuments documents={docsWithUrls} />
             </div>
-
-            {/* Approve / reject hidden from view
-            {submission?.approval_status === "PENDING" && (
-                <Can action={INTAKE_FORM_ACTIONS.approve}>
-                    <div className="my-4 border-t-2 border-primary-first" />
-                    <div className="flex items-center gap-4">
-                        <button
-                            type="button"
-                            onClick={() => handleAction('reject')}
-                            className="px-4 py-2 text-[14px] font-medium rounded-[10px] bg-neutral-second text-neutral-first/50"
-                        >
-                            {t('reject_submission')}
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => handleAction('approve')}
-                            className="px-4 py-2 text-[14px] font-medium rounded-[10px] bg-neutral-first text-neutral-second"
-                        >
-                            {t('approve_submission')}
-                        </button>
-                    </div>
-                </Can>
-            )}
-            */}
         </div>
     );
 }
@@ -144,13 +86,7 @@ const InfoSection = ({ submission }: { submission?: IntakeFormSubmission | null 
     );
 };
 
-const VerificationStats = ({
-    submission,
-    documentsCount
-}: {
-    submission?: IntakeFormSubmission | null;
-    documentsCount: number;
-}) => {
+const VerificationStats = ({ documentsCount }: { documentsCount: number }) => {
     const t = useTranslations();
     return (
         <div className="space-y-2 text-[16px] text-neutral-first/50">
@@ -159,22 +95,6 @@ const VerificationStats = ({
             </h3>
 
             <div className="border-l border-primary-first pl-6 space-y-2">
-                {/* Verifications required / done hidden from view
-                <div className="flex w-full overflow-hidden">
-                    <span className="w-1/2 truncate" title={t('verifications_required')}>{t('verifications_required')}:</span>
-                    <span className="w-1/2 pl-4 text-neutral-first font-medium truncate" title={submission?.number_of_verifications_required !== undefined ? String(submission.number_of_verifications_required) : ''}>
-                        {submission?.number_of_verifications_required}
-                    </span>
-                </div>
-
-                <div className="flex w-full overflow-hidden">
-                    <span className="w-1/2 truncate" title={t('verifications_done')}>{t('verifications_done')}:</span>
-                    <span className="w-1/2 pl-4 text-neutral-first font-medium truncate" title={submission?.number_of_verifications_done !== undefined ? String(submission.number_of_verifications_done) : ''}>
-                        {submission?.number_of_verifications_done}
-                    </span>
-                </div>
-                */}
-
                 <div className="flex w-full overflow-hidden">
                     <span className="w-1/2 truncate" title={t('documents_attached')}>{t('documents_attached')}:</span>
                     <span className="w-1/2 pl-4 text-neutral-first font-medium truncate" title={documentsCount.toString()}>
@@ -208,10 +128,7 @@ const AttachedDocuments = ({ documents = [] }: { documents?: any[] }) => {
             </div>
 
             <div className="border-l border-primary-first pl-6 flex flex-col gap-2 font-semibold min-h-15">
-
-
                 {visibleDocs.map((doc, index) => (
-
                     <a
                         key={index}
                         href={doc.document_url ? doc.document_url : "#"}
@@ -230,7 +147,6 @@ const AttachedDocuments = ({ documents = [] }: { documents?: any[] }) => {
                 {Array.from({ length: placeholdersCount }).map((_, i) => (
                     <span key={i} className="invisible">placeholder</span>
                 ))}
-
             </div>
         </div>
     );
