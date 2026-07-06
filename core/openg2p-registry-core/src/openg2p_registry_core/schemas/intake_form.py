@@ -9,6 +9,7 @@ from .register_payload import DisplayField
 
 class G2PIntakeFormSchemaBase:
     submission_id: Optional[str] = None
+    application_reference: Optional[str] = None
 
 
 class IntakeFormDocumentPayload(BaseModel):
@@ -18,6 +19,7 @@ class IntakeFormDocumentPayload(BaseModel):
 
 class IntakeFormData(BaseModel):
     submission_id: Optional[str] = None
+    application_reference: Optional[str] = None
     form_id: Optional[str] = None
     register_id: Optional[str] = None
     draft_status: Optional[str] = None

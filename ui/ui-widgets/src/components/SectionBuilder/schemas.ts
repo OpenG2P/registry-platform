@@ -331,6 +331,10 @@ const baseWidgetSchema = {
         type: 'object' as const,
         properties: {
           'column-key': { type: 'string' as const },
+          'column-group': {
+            type: 'string' as const,
+            description: 'Groups dialog-table columns in a shared inner grid so conditional fields do not displace other rows',
+          },
           'widget-label': { type: 'string' as const },
           widget: { type: 'string' as const },
           'widget-type': { type: 'string' as const },
