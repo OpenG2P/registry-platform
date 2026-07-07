@@ -118,14 +118,17 @@ function AttributeValueInput({
 }) {
     const t = useTranslations();
     const { attributes, loading: attributesLoading } = useAllAttributes(1, 500);
+
     const attributeId = useMemo(() => {
         const byCode = attributes.find((attribute) => attribute.attribute_code === fieldId);
         if (byCode) return byCode.attribute_id;
         const byId = attributes.find((attribute) => attribute.attribute_id === fieldId);
         return byId?.attribute_id ?? fieldId;
     }, [attributes, fieldId]);
-    const { allAttributeValues, loading: valuesLoading } = useAttributeValues(attributeId, 1, 500);
-    const options = allAttributeValues.map((value) => ({
+
+    const { attributeValues, loading: valuesLoading } = useAttributeValues(attributeId, 1, 500);
+    
+    const options = attributeValues.map((value) => ({
         label: value.value_display || value.value_code,
         value: value.value_code,
     }));
