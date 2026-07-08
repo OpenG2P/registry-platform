@@ -310,7 +310,7 @@ class InputMechanismMetadataController(BaseController):
             )
             return self.helper.construct_error_response(error_exception, import_file_configuration_request)
 
-    # @require_permissions({"intakeSubmission:edit"})
+    @require_permissions({"intakeSubmission:edit"})
     async def create_import_file_configuration(
         self,
         import_file_configuration_request: ImportFileConfigurationRequest,
