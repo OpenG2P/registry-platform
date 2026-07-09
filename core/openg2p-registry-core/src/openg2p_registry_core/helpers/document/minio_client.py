@@ -4,7 +4,6 @@ from typing import BinaryIO
 from minio import Minio
 from minio.error import S3Error
 
-from .minio_client import MinioClient
 from ...models.enum import DocumentBucket
 from .document_handlers import DocumentHandler
 

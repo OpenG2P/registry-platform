@@ -42,8 +42,8 @@ class RegisterChangeRequestPayloadData(BaseModel):
 
 class RegisterChangeRequestDocumentData(BaseModel):
     change_request_id: str
-    document_label: str
-    document_store_id: str
+    section_id: str
+    document_id: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -109,11 +109,6 @@ class ChangePayload(BaseModel):
     model_config = ConfigDict(extra="allow", from_attributes=True)
 
 
-class ChangeRequestDocumentPayload(BaseModel):
-    document_label: str
-    document_store_id: str
-
-
 class ChangeRequestRequestPayload(BaseModel):
     register_id: Optional[str] = None
     register_mnemonic: Optional[str] = None
@@ -122,7 +117,8 @@ class ChangeRequestRequestPayload(BaseModel):
     section_register_id: Optional[str] = None
     internal_record_id: Optional[str] = None
     change_payload: Optional[List[ChangePayload]] = None
-    documents: Optional[List[ChangeRequestDocumentPayload]] = None
+    # document_ids of already-uploaded documents (g2p_registry_documents)
+    document_ids: Optional[List[str]] = None
     change_request_id: Optional[str] = None
     rejection_reason: Optional[str] = None
     created_by: Optional[str] = None
@@ -216,6 +212,7 @@ class ChangeRequestData(BaseModel):
     awe_request_status_summary: Optional[str] = None
     change_payload: Optional[dict | List[dict]] = None
     current_register_data: Optional[dict | List[dict]] = None
+    document_ids: Optional[List[str]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
