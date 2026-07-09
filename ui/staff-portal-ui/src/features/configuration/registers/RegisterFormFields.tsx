@@ -306,7 +306,7 @@ export default function RegisterFormFields({
                                 >
                                     {formData.register_icon ? t('change_icon') : t('upload_icon')}
                                 </button>
-                                <p className="text-[10px] text-secondary-third">{t('max_size_2mb')}</p>
+                                <p className="text-[10px] text-secondary-third">{t('max_size_1mb')}</p>
                             </div>
     
                         </div>
