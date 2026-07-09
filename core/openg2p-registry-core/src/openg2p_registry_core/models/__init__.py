@@ -15,6 +15,7 @@ from .enum import (
     ShapeTypeEnum,
     InputMechanismTypeEnum,
     AwePolicyScopeEnum,
+    DocumentBucket,
 )
 SubmissionSourceEnum = ChangeRequestSourceEnum
 from .data_models import DataModel
