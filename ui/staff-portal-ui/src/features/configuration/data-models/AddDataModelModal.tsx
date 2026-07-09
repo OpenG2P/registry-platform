@@ -7,6 +7,7 @@ import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { useFileUpload } from '../shared/hooks/useFileUpload';
 import { BaseModal, InputField, FileUploadField, CheckboxField, TextAreaField } from '../shared/components';
+import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
 
 interface AddDataModelModalProps {
@@ -36,11 +37,17 @@ export default function AddDataModelModal({
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
         if (!file) return;
 
+        const errorMessage = validateTemplateUpload(file, t);
+        if (errorMessage) {
+            toast.error(errorMessage);
+            return;
+        }
+
         setSelectedFile(file);
-        setUploadedFileName(file.name)
-        e.target.value = '';
+        setUploadedFileName(file.name);
     };
 
     const handleRemoveFile = () => {
@@ -137,6 +144,8 @@ export default function AddDataModelModal({
                     fileName={uploadedFileName}
                     onFileChange={handleFileChange}
                     onRemove={handleRemoveFile}
+                    accept={TEMPLATE_ACCEPT}
+                    helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
                 />
 
                 {/* <CheckboxField

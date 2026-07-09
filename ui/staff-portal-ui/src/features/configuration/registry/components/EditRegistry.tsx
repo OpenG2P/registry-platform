@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { toast } from 'react-toastify';
 import ImageCropper from '@/components/shared/ImageCropper';
 import { InputField } from '../../shared/components';
 import ThemeSelector from './ThemeSelector';
@@ -12,6 +13,7 @@ import { Theme, Language } from '../types';
 import { useLogoDimensions, getLogoDisplaySize } from '@/shared/hooks';
 
 const BLANK_LOGO = '/images/config/blank_image.png';
+const MAX_IMAGE_SIZE_BYTES = 1 * 1024 * 1024;
 
 interface EditRegistryProps {
     initialName: string;
@@ -70,7 +72,15 @@ export default function EditRegistry({
 
     const handleFileChange = (target: CropTarget) => (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
         if (!file) return;
+
+        if (file.size > MAX_IMAGE_SIZE_BYTES) {
+            const label = target === 'favicon' ? t('registry_favicon') : t('registry_logo');
+            toast.error(t('registry_image_size_limit', { label, maxSize: '1MB' }));
+            return;
+        }
+
         const reader = new FileReader();
         reader.onloadend = () => {
             setCropTarget(target);
@@ -78,7 +88,6 @@ export default function EditRegistry({
             setIsCropperOpen(true);
         };
         reader.readAsDataURL(file);
-        e.target.value = '';
     };
 
     const handleCropComplete = (croppedImage: string) => {
@@ -117,7 +126,10 @@ export default function EditRegistry({
         <div className="p-8 pb-12 flex flex-col gap-8">
             <div className="flex flex-col lg:flex-row gap-8 items-start w-full">
                 <div className="flex flex-col gap-3 min-w-0 w-full lg:w-auto lg:max-w-[min(100%,28rem)]">
-                    <span className="text-sm font-semibold text-neutral-first">{t('registry_logo')}</span>
+                    <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-semibold text-neutral-first">{t('registry_logo')}</span>
+                        <span className="text-[10px] text-secondary-third">{t('max_size_1mb')}</span>
+                    </div>
                     <div className="relative group h-30 min-w-30 w-full max-w-full bg-secondary-second rounded-[10px] flex items-center justify-center overflow-hidden border border-secondary-second/30 px-3">
                         <input
                             type="file"
@@ -185,7 +197,10 @@ export default function EditRegistry({
 
                 <div className="flex flex-col md:flex-row gap-6 lg:gap-8 flex-1 min-w-0 w-full items-start">
                     <div className="flex flex-col gap-3 shrink-0">
-                        <span className="text-sm font-semibold text-neutral-first">{t('registry_favicon')}</span>
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-semibold text-neutral-first">{t('registry_favicon')}</span>
+                            <span className="text-[10px] text-secondary-third">{t('max_size_1mb')}</span>
+                        </div>
                         <div className="relative group w-30 h-30 bg-secondary-second rounded-[10px] flex items-center justify-center overflow-hidden border border-secondary-second/30">
                             <input
                                 type="file"
