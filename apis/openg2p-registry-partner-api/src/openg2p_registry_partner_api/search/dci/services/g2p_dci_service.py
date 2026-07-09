@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select, func
 
 from openg2p_registry_core.services import G2PRegisterService
-from openg2p_registry_core.helpers import TemplateHelper, MinioClient
-from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate
+from openg2p_registry_core.helpers import TemplateHelper
+from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate, G2PRegistryDocument
 
 from ..schemas import (
     DciSearchResponseItem,
@@ -54,7 +54,9 @@ class G2PDciService(BaseService):
 
             register_id: str = await self._get_register_id(search_criteria.reg_type)
             data_model_id: str = await self._get_data_model_id()
-            template_file_id: str = await self._get_template_file_id(register_id, data_model_id)
+            template_store_id, template_bucket = await self._get_template_store_id(
+                register_id, data_model_id
+            )
 
             model_class = self._get_model_class(search_criteria.reg_type)
 
@@ -76,7 +78,9 @@ class G2PDciService(BaseService):
                 )
 
             reg_records = [
-                self._render_reg_record_with_template(datum, template_file_id)
+                self._render_reg_record_with_template(
+                    datum, template_store_id, bucket=template_bucket
+                )
                 for datum in search_result_data
             ]
 
@@ -183,18 +187,20 @@ class G2PDciService(BaseService):
     def _render_reg_record_with_template(
         self,
         deep_search_result_data: DeepSearchResultData,
-        template_file_id: str
+        template_store_id: str,
+        bucket=None,
     ) -> Dict[str, Any]:
+        from openg2p_registry_core.models.enum import DocumentBucket
+
         template_helper = TemplateHelper.get_component()
-        minio_client = MinioClient.get_component()
 
         search_result_dict: Dict[str, Any] = self._deep_search_result_data_to_dict(deep_search_result_data)
 
         reg_record: Dict[str, Any] = template_helper.render_with_template(
-            minio_client=minio_client,
-            template_file_id=template_file_id,
+            document_store_id=template_store_id,
             data=search_result_dict,
-            expand_data=False
+            expand_data=False,
+            bucket=bucket or DocumentBucket.TEMPLATES,
         )
 
         return reg_record
@@ -257,14 +263,28 @@ class G2PDciService(BaseService):
             ).scalar_one_or_none()
             return data_model_id
 
-    async def _get_template_file_id(self, register_id: str, data_model_id: str) -> str:
+    async def _get_template_store_id(self, register_id: str, data_model_id: str) -> tuple[str, object]:
+        """Resolve outgoing template document_id → (document_store_id, bucket)."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            template_file_id: str = (
-                await session.execute(
-                    select(OutgoingTemplate.template_file_id)
-                    .where(OutgoingTemplate.register_id == register_id)
-                    .where(OutgoingTemplate.data_model_id == data_model_id)
+            result = await session.execute(
+                select(
+                    G2PRegistryDocument.document_store_id,
+                    G2PRegistryDocument.bucket,
                 )
-            ).scalar_one_or_none()
-            return template_file_id
+                .join(
+                    OutgoingTemplate,
+                    OutgoingTemplate.template_document_id == G2PRegistryDocument.document_id,
+                )
+                .where(
+                    OutgoingTemplate.register_id == register_id,
+                    OutgoingTemplate.data_model_id == data_model_id,
+                )
+            )
+            row = result.one_or_none()
+            if not row:
+                raise ValueError(
+                    f"Template not found for register_id={register_id}, "
+                    f"data_model_id={data_model_id}"
+                )
+            return row.document_store_id, row.bucket
