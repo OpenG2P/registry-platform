@@ -45,11 +45,6 @@ export function captureSectionEditSnapshot(
       path,
       value: cloneValue(getValueByPath(values, path)),
     });
-
-    if (path.endsWith('.geo_code_hierarchy_json')) {
-      const prefix = path.slice(0, -'.geo_code_hierarchy_json'.length);
-      addPath(`${prefix}.geo_lowest_level_value_id`);
-    }
   };
 
   collectWidgets(section.panels).forEach((widget) => {

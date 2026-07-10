@@ -8,8 +8,7 @@ const apiDataSourceInflight = new Map<string, Promise<any[]>>();
 
 function buildApiRequestContext(
   dataSource: ApiDataSource,
-  allValues: Record<string, any>,
-  levelId?: string
+  allValues: Record<string, any>
 ): { service: string; endpoint: string; method: string; requestParams: Record<string, any> } | null {
   let depValue: any = null;
   if (dataSource.dependsOn) {
@@ -30,9 +29,6 @@ function buildApiRequestContext(
     if (!standardFields.includes(key) && value !== undefined && value !== null) {
       staticParams[key] = value;
     }
-  }
-  if (levelId) {
-    staticParams.level_id = levelId;
   }
 
   const requestParams: Record<string, any> = { ...staticParams };
@@ -71,10 +67,9 @@ function buildApiDataSourceCacheKey(
 /** Return cached API options when already fetched (e.g. duplicate table cells). */
 export function getCachedApiDataSource(
   dataSource: ApiDataSource,
-  allValues: Record<string, any>,
-  levelId?: string
+  allValues: Record<string, any>
 ): any[] | undefined {
-  const context = buildApiRequestContext(dataSource, allValues, levelId);
+  const context = buildApiRequestContext(dataSource, allValues);
   if (!context) {
     return undefined;
   }
@@ -101,8 +96,7 @@ export const getStaticDataSource = (dataSource: Extract<DataSource, { type: 'sta
 export const getApiDataSource = async (
   dataSource: Extract<DataSource, { type: 'api' }>,
   allValues: Record<string, any>,
-  dataSourceRequestHandler: DataSourceRequestHandler,
-  levelId?: string // Optional level_id from widget-geo-config.level
+  dataSourceRequestHandler: DataSourceRequestHandler
 ): Promise<any[]> => {
   if (!dataSourceRequestHandler) {
     console.error('[getApiDataSource] dataSourceRequestHandler is required for API data sources');
@@ -110,7 +104,7 @@ export const getApiDataSource = async (
   }
 
   try {
-    const context = buildApiRequestContext(dataSource, allValues, levelId);
+    const context = buildApiRequestContext(dataSource, allValues);
     if (!context) {
       return [];
     }

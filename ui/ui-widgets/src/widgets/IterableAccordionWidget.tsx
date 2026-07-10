@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetRenderer } from '../components/WidgetRenderer';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 interface IterableAccordionWidgetProps {
@@ -20,15 +21,12 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const items: any[] = Array.isArray(value) ? value : [];
   const itemConfig = widgetConfig['widget-item'];
   const operations = widgetConfig['widget-data-operations'] || {};
-  const addLabel = translateConfig(
-    widgetConfig['widget-data-add-label'],
-    translate('common.addItem')
-  );
+  const addLabel = (widgetConfig['widget-data-add-label'] ? tSchema(t, widgetConfig['widget-data-add-label']) : t?.('common.addItem'));
   const defaultCollapsed = widgetConfig['widget-data-collapsed'] ?? false;
   const isReadonly = widgetConfig['widget-readonly'] || false;
 
@@ -83,7 +81,7 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
       <div className="flex flex-col sm:flex-row sm:items-start mb-2">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0 flex justify-between items-center">
@@ -103,7 +101,7 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
 
       {items.length === 0 ? (
         <div className="text-gray-500 text-sm py-4 text-center border border-gray-300 rounded">
-          {translate('common.noItems')}. {operations.add && !isReadonly && translate('common.clickToAdd', { label: addLabel })}
+          {t?.('common.noItems')}. {operations.add && !isReadonly && t?.('common.clickToAdd', { label: addLabel })}
         </div>
       ) : (
         <div className="space-y-2">
@@ -136,7 +134,7 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
                     onClick={() => toggleCollapse(index)}
                   >
                     <span className="font-medium text-sm">
-                      {translateConfig(widgetConfig['widget-label'])} #{index + 1}
+                      {tSchema(t, widgetConfig['widget-label'])} #{index + 1}
                     </span>
                     <div className="flex items-center gap-2">
                       {operations.remove && !isReadonly && (
@@ -150,7 +148,7 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
                           className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50"
                           style={{ borderRadius: '15px' }}
                         >
-                          {translate('common.remove')}
+                          {t?.('common.remove')}
                         </button>
                       )}
                       <span className="text-gray-500">
@@ -182,7 +180,7 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
                   onClick={() => toggleCollapse(index)}
                 >
                   <span className="font-medium text-sm">
-                    {translateConfig(itemConfig['widget-label']) || `${translate('common.item')} ${index + 1}`}
+                    {tSchema(t, itemConfig['widget-label']) || `${t?.('common.item')} ${index + 1}`}
                   </span>
                   <div className="flex items-center gap-2">
                     {operations.remove && !isReadonly && (
@@ -195,7 +193,7 @@ export const IterableAccordionWidget = ({ config }: IterableAccordionWidgetProps
                         disabled={!isEnabled}
                         className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
                       >
-                        {translate('common.remove')}
+                        {t?.('common.remove')}
                       </button>
                     )}
                     <span className="text-gray-500">

@@ -20,8 +20,9 @@ This folder is both a **reference** and a **fallback**:
 here. Each registry implementation provides its own `domain_translation` via the Configuration UI
 or registry deployment.
 
-At runtime: `getLanguageMessages()` merges `{ ...coreFallback, ...apiCore, ...apiDomain }` — API
-values win on duplicate keys; domain keys come from the active registry only.
+At runtime: `getLanguageMessages()` deep-merges fallback → API core → API domain — API values win
+on duplicate keys; nested groups like `common` are merged (not replaced wholesale); domain keys come
+from the active registry only.
 
 ### Rules
 

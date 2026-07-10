@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { tSchema } from '../utils/tSchema';
 import { useDispatch, useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetRenderer } from '../components/WidgetRenderer';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { formatValue } from '../utils/formatting';
 import { getValueByPath } from '../utils/pathUtils';
@@ -19,16 +19,13 @@ import { setValue, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 import { validateWidget } from '../utils/validation';
 
-type TranslateConfigFn = (
-  value: string | undefined | null,
-  fallback?: string
-) => string;
+type ResolveSchemaLabelFn = (value: string | undefined | null) => string;
 
 const getDateColumnConstraintError = (
   column: BaseWidgetConfig,
   cellValue: unknown,
   rowValues: Record<string, any>,
-  translateConfig: TranslateConfigFn
+  resolveSchemaLabel: ResolveSchemaLabelFn,
 ): string | null => {
   const displayValue =
     cellValue && typeof cellValue === 'string' ? cellValue.split('T')[0] : '';
@@ -44,10 +41,10 @@ const getDateColumnConstraintError = (
   const minDateField = optionsConfig?.minDateField as string | undefined;
   const maxDateField = optionsConfig?.maxDateField as string | undefined;
   const minDateMessage = optionsConfig?.minDateMessage
-    ? translateConfig(optionsConfig.minDateMessage)
+    ? resolveSchemaLabel(optionsConfig.minDateMessage)
     : undefined;
   const maxDateMessage = optionsConfig?.maxDateMessage
-    ? translateConfig(optionsConfig.maxDateMessage)
+    ? resolveSchemaLabel(optionsConfig.maxDateMessage)
     : undefined;
 
   const resolveSiblingDate = (fieldRef: string | undefined): string | undefined => {
@@ -80,7 +77,7 @@ const isTableRowDataValid = (
   rowData: Record<string, any>,
   columns: any[],
   tableReadonly: boolean,
-  translateConfig: TranslateConfigFn
+  resolveSchemaLabel: ResolveSchemaLabelFn,
 ): boolean => {
   for (const col of columns) {
     if (tableReadonly || col['widget-readonly'] === true) {
@@ -99,7 +96,7 @@ const isTableRowDataValid = (
     }
 
     if ((col.widget || 'text') === 'date') {
-      const dateError = getDateColumnConstraintError(col, cellValue, rowData, translateConfig);
+      const dateError = getDateColumnConstraintError(col, cellValue, rowData, resolveSchemaLabel);
       if (dateError) {
         return false;
       }
@@ -117,7 +114,7 @@ interface TableCellSelectProps {
 }
 
 const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps) => {
-  const { translate } = useWidgetTranslation();
+  const { t } = useWidgetContext();
   const {
     dataSourceOptions,
     loading,
@@ -139,7 +136,7 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
           backgroundColor: isReadonly || loading ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
         }}
       >
-        <option value="">{translate('common.select') || 'Select'}</option>
+        <option value="">{t?.('common.select') || 'Select'}</option>
         {dataSourceOptions.map((option: any) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -276,7 +273,7 @@ interface TableCellDateProps {
 }
 
 const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDateProps) => {
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
   const isReadonly = config['widget-readonly'] || false;
   const placeholder = config['widget-data-placeholder'] || '';
   const optionsConfig = config['widget-data-options'];
@@ -287,10 +284,10 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
   const minDateField = optionsConfig?.minDateField as string | undefined;
   const maxDateField = optionsConfig?.maxDateField as string | undefined;
   const minDateMessage = optionsConfig?.minDateMessage
-    ? translateConfig(optionsConfig.minDateMessage)
+    ? tSchema(t, optionsConfig.minDateMessage)
     : undefined;
   const maxDateMessage = optionsConfig?.maxDateMessage
-    ? translateConfig(optionsConfig.maxDateMessage)
+    ? tSchema(t, optionsConfig.maxDateMessage)
     : undefined;
 
   const [constraintError, setConstraintError] = useState<string | null>(null);
@@ -373,7 +370,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
         placeholder={placeholder}
         min={effectiveMinDate}
         max={effectiveMaxDate}
-        title={constraintError || translateConfig(config['widget-data-tooltip'])}
+        title={constraintError || tSchema(t, config['widget-data-tooltip'])}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
@@ -425,7 +422,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
+  const resolveSchemaLabel = useCallback(
+    (value: string | undefined | null) =>
+      value ? tSchema(t, value) : '',
+    [t],
+  );
   const { dataSourceRequestHandler } = useWidgetContext();
   const dispatch = useDispatch();
   const storeValues = useSelector((state: WidgetRootState) => state.widget?.values || {});
@@ -455,16 +457,16 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       editingState.currentValue,
       columns,
       isReadonly,
-      translateConfig
+      resolveSchemaLabel,
     );
-  }, [editingState, columns, isReadonly, translateConfig]);
+  }, [editingState, columns, isReadonly, resolveSchemaLabel]);
 
   const canSaveNewRow = useMemo(() => {
     if (!isAdding || !newRowData) {
       return false;
     }
-    return isTableRowDataValid(newRowData, columns, isReadonly, translateConfig);
-  }, [isAdding, newRowData, columns, isReadonly, translateConfig]);
+    return isTableRowDataValid(newRowData, columns, isReadonly, resolveSchemaLabel);
+  }, [isAdding, newRowData, columns, isReadonly, resolveSchemaLabel]);
 
   const showConfirmation = useCallback((message: string, onConfirm: () => void, onCancel: () => void) => {
     setConfirmationState({
@@ -506,7 +508,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   const startEdit = useCallback((rowIndex: number) => {
     if (isAnyRowEditing) {
       showConfirmation(
-        translate('table.unsavedChanges') || 'You have unsaved changes. Do you want to discard them?',
+        t?.('table.unsavedChanges') || 'You have unsaved changes. Do you want to discard them?',
         () => {
           cancelEdit();
           const row = rows[rowIndex];
@@ -527,7 +529,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         currentValue: { ...row },
       });
     }
-  }, [isAnyRowEditing, rows, showConfirmation, cancelEdit, translate]);
+  }, [isAnyRowEditing, rows, showConfirmation, cancelEdit, t]);
 
   const updateCellValue = useCallback((columnKey: string, newValue: any, rowIndex?: number) => {
     if (editingState && rowIndex !== undefined) {
@@ -610,11 +612,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       setEditingState(null);
     } catch (error) {
       console.error('Error saving record:', error);
-      alert(translate('table.saveError') || 'Failed to save record. Please try again.');
+      alert(t?.('table.saveError') || 'Failed to save record. Please try again.');
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [editingState, canSaveEditingRow, rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
+  }, [editingState, canSaveEditingRow, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
 
   const startAdd = useCallback(() => {
     if (isAnyRowEditing) {
@@ -654,16 +656,16 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       setNewRowData(null);
     } catch (error) {
       console.error('Error adding record:', error);
-      alert(translate('table.addError') || 'Failed to add record. Please try again.');
+      alert(t?.('table.addError') || 'Failed to add record. Please try again.');
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [isAdding, newRowData, canSaveNewRow, rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode]);
+  }, [isAdding, newRowData, canSaveNewRow, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode]);
 
   const deleteRow = useCallback(async (rowIndex: number) => {
     if (isAnyRowEditing) {
       showConfirmation(
-        translate('table.unsavedChanges') || 'You have unsaved changes. Do you want to discard them?',
+        t?.('table.unsavedChanges') || 'You have unsaved changes. Do you want to discard them?',
         () => {
           cancelEdit();
           performDelete(rowIndex);
@@ -674,7 +676,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } else {
       performDelete(rowIndex);
     }
-  }, [isAnyRowEditing, showConfirmation, cancelEdit, translate]);
+  }, [isAnyRowEditing, showConfirmation, cancelEdit, t]);
 
   const performDelete = useCallback(async (rowIndex: number) => {
     setLoadingRowIndex(rowIndex);
@@ -698,11 +700,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       }
     } catch (error) {
       console.error('Error deleting record:', error);
-      alert(translate('table.deleteError') || 'Failed to delete record. Please try again.');
+      alert(t?.('table.deleteError') || 'Failed to delete record. Please try again.');
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode]);
+  }, [rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode]);
 
   const getCellValue = useCallback((rowIndex: number, columnKey: string) => {
     if (editingState && editingState.rowIndex === rowIndex) {
@@ -984,7 +986,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="rounded-lg p-6 max-w-md w-full mx-4" style={{ backgroundColor: 'var(--owt-color-bg, #FFFFFF)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--owt-color-text, #011627)' }}>
-              {translate('table.confirm') || 'Confirm Action'}
+              {t?.('table.confirm') || 'Confirm Action'}
             </h3>
             <p className="mb-6" style={{ color: 'var(--owt-color-text, #011627)' }}>
               {confirmationState.message}
@@ -1000,7 +1002,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                   color: 'var(--owt-btn-secondary-color, #011627)',
                 }}
               >
-                {translate('common.cancel') || 'Cancel'}
+                {t?.('common.cancel') || 'Cancel'}
               </button>
               <button
                 onClick={confirmationState.onConfirm}
@@ -1012,7 +1014,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                   color: 'var(--owt-color-bg, #FFFFFF)',
                 }}
               >
-                {translate('table.discard') || 'Discard & Continue'}
+                {t?.('table.discard') || 'Discard & Continue'}
               </button>
             </div>
           </div>
@@ -1032,7 +1034,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
               color: 'var(--owt-color-bg, #FFFFFF)',
             }}
           >
-            {translate('table.addRecord') || 'Add New Record'}
+            {t?.('table.addRecord') || 'Add New Record'}
           </button>
         </div>
       )}
@@ -1047,7 +1049,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                     style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
                   >
-                    {translateConfig(col['widget-label'])}
+                    {tSchema(t, col['widget-label'])}
                   </th>
                 ))}
                 {((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode ? (
@@ -1055,7 +1057,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                     style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
                   >
-                    {translate('common.actions') || 'Actions'}
+                    {t?.('common.actions') || 'Actions'}
                   </th>
                 ) : null}
               </tr>
@@ -1068,8 +1070,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     className="px-4 py-6 text-center text-sm"
                     style={{ color: 'var(--owt-widget-table-empty-color, #727474)' }}
                   >
-                    {translate('table.noData') || 'No records available.'}
-                    {operations.add && !isReadonly && ` ${translate('table.clickToAdd') || 'Click "Add New Record" to add one.'}`}
+                    {t?.('table.noData') || 'No records available.'}
+                    {operations.add && !isReadonly && ` ${t?.('table.clickToAdd') || 'Click "Add New Record" to add one.'}`}
                   </td>
                 </tr>
               )}
@@ -1117,7 +1119,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                 borderRadius: 'var(--owt-btn-border-radius, 10px)',
                               }}
                             >
-                              {translate('common.ok') || 'OK'}
+                              {t?.('common.ok') || 'OK'}
                             </button>
                             <button
                               type="button"
@@ -1133,7 +1135,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                 color: 'var(--owt-btn-secondary-color, #011627)',
                               }}
                             >
-                              {translate('common.cancel') || 'Cancel'}
+                              {t?.('common.cancel') || 'Cancel'}
                             </button>
                           </div>
                         ) : (
@@ -1151,7 +1153,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                   border: 'none',
                                 }}
                               >
-                                {translate('common.edit') || 'Edit'}
+                                {t?.('common.edit') || 'Edit'}
                               </button>
                             )}
                             {operations.remove && (
@@ -1167,7 +1169,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                   border: 'none',
                                 }}
                               >
-                                {translate('common.remove') || 'Delete'}
+                                {t?.('common.remove') || 'Delete'}
                               </button>
                             )}
                           </div>
@@ -1201,7 +1203,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                           border: 'none',
                         }}
                       >
-                        {translate('common.save') || 'Save'}
+                        {t?.('common.save') || 'Save'}
                       </button>
                       <button
                         type="button"
@@ -1218,7 +1220,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                           color: 'var(--owt-btn-secondary-color, #011627)',
                         }}
                       >
-                        {translate('common.cancel') || 'Cancel'}
+                        {t?.('common.cancel') || 'Cancel'}
                       </button>
                     </div>
                   </td>

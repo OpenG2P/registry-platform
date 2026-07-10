@@ -23,6 +23,7 @@ import {
   IdAuthenticationWidget,
   RegisterLookupWidget,
   MultiSelectWidget,
+  GeoHierarchyWidget,
 } from '../widgets';
 
 export const registerDefaultWidgets = () => {
@@ -49,6 +50,7 @@ export const registerDefaultWidgets = () => {
   widgetRegistry.register({ widget: 'id-authentication', component: IdAuthenticationWidget });
   widgetRegistry.register({ widget: 'register-lookup', component: RegisterLookupWidget });
   widgetRegistry.register({ widget: 'multi-select', component: MultiSelectWidget });
+  widgetRegistry.register({ widget: 'geo-hierarchy', component: GeoHierarchyWidget });
 };
 
 registerDefaultWidgets();

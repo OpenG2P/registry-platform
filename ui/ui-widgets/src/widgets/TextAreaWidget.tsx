@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { filterByCharacterType, applyCaseControl } from '../utils/textInput';
 
@@ -23,7 +24,7 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const formatConfig = widgetConfig['widget-data-format'] || {};
   const validationConfig = widgetConfig['widget-data-validation'] || {};
@@ -64,11 +65,11 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
     : `${currentLength}`;
 
   const placeholder = widgetConfig['widget-data-placeholder']
-    ? translateConfig(widgetConfig['widget-data-placeholder'])
+    ? tSchema(t, widgetConfig['widget-data-placeholder'])
     : '';
 
   const label = widgetConfig['widget-label']
-    ? translateConfig(widgetConfig['widget-label'])
+    ? tSchema(t, widgetConfig['widget-label'])
     : '';
 
   const hasError = touched && error && error.length > 0;

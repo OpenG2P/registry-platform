@@ -2,11 +2,6 @@ import { Dispatch } from '@reduxjs/toolkit';
 import { SectionConfig } from '../../../types';
 import { getValueByPath } from '../../../utils/pathUtils';
 import { sectionValidate, collectWidgets } from '../../../utils/sectionValidate';
-import {
-  collectGeoWidgetRegistrationsFromWidgets,
-  reconcileGeoHierarchiesInValues,
-} from '../../../utils/geoHierarchy';
-import { setValues } from '../../../store/widgetSlice';
 import { SectionChanges } from '../types';
 import { trackSectionChanges } from './sectionSnapshot';
 
@@ -66,16 +61,6 @@ export const executeSectionSave = async ({
     };
   }).widget;
   let currentSchemaData = currentState.values || {};
-
-  const geoRegistrations = collectGeoWidgetRegistrationsFromWidgets(sectionWidgets);
-  if (geoRegistrations.length > 0) {
-    currentSchemaData = reconcileGeoHierarchiesInValues(
-      currentSchemaData,
-      geoRegistrations,
-      currentState.dataSources || {},
-    );
-    dispatch(setValues(currentSchemaData));
-  }
 
   const isSectionValid = sectionValidate(section, currentSchemaData, dispatch, true);
   if (!isSectionValid) {

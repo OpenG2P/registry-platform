@@ -21,3 +21,4 @@ export { ScoresDisplayWidget } from './ScoresDisplayWidget';
 export { IdAuthenticationWidget } from './IdAuthenticationWidget';
 export { RegisterLookupWidget } from './RegisterLookupWidget';
 export { MultiSelectWidget } from './MultiSelectWidget';
+export { GeoHierarchyWidget } from './GeoHierarchyWidget';

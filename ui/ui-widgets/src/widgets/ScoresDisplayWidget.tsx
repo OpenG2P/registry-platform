@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { BaseWidgetConfig } from '../types';
 import { useWidgetContext } from '../components/WidgetProvider';
+import { tSchema } from '../utils/tSchema';
 import { WidgetRootState } from '../store';
 import { getValueByPath } from '../utils/pathUtils';
 
@@ -62,7 +63,7 @@ export const ScoresDisplayWidget = ({
   config,
   schemaData: propSchemaData,
 }: ScoresDisplayWidgetProps) => {
-  const { schemaData: ctxSchemaData } = useWidgetContext();
+  const { schemaData: ctxSchemaData, t } = useWidgetContext();
   const schemaData = (propSchemaData || ctxSchemaData || {}) as Record<string, unknown>;
   const values = useSelector((state: WidgetRootState) => state.widget.values);
 
@@ -195,11 +196,13 @@ export const ScoresDisplayWidget = ({
 
       <div className={cls}>
         {sortedScores.length === 0 ? (
-          <div className="scores-subtle">No scores available.</div>
+          <div className="scores-subtle">{t?.('scores.noScoresAvailable') ?? 'No scores available.'}</div>
         ) : (
           <div className="scores-grid">
             {sortedScores.map((s, idx) => {
-              const scoreType = s?.score_type ? String(s.score_type) : '-';
+              const scoreType = s?.score_type
+                ? tSchema(t, String(s.score_type))
+                : '-';
               const scoreValue =
                 s?.computed_score !== undefined &&
                 s?.computed_score !== null &&
@@ -222,7 +225,8 @@ export const ScoresDisplayWidget = ({
                   <hr className="scores-separator" />
                   <div className="scores-meta">
                     <div className="scores-meta-line">
-                      Computed at: <strong>{computedAt}</strong>
+                      {t?.('scores.computedAt') ?? 'Computed at:'}{' '}
+                      <strong>{computedAt}</strong>
                     </div>
                   </div>
                 </div>

@@ -13,7 +13,7 @@ import { useState } from 'react';
 
 import { useRegisterDetail } from '@/features/register/hooks/useRegisterDetail';
 import RegisterDetailsPageSkeleton from '@/features/register/components/RegisterDetailsPageSkeleton';
-import { dataSourceRequestHandler } from '@/features/register/utils/dataSourceRequestHandler';
+import { dataSourceRequestHandler } from '@/shared/services';
 import { VersionHistoryCard } from '@/features/register/components';
 
 
@@ -64,7 +64,7 @@ export default function RegisterDetailPage() {
                                     key={activeTabId}
                                     store={widgetStore}
                                     schemaData={sectionDataMap}
-                                    translate={t}
+                                    t={t}
                                     dataSourceRequestHandler={dataSourceRequestHandler}
                                 >
                                     {orderedTabSections.map((section) => {

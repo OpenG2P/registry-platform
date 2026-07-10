@@ -1,557 +1,398 @@
-import { getWidgetValue, setWidgetValue } from './pathUtils';
+export interface GeoLevel {
+  level_id: string;
+  level_mnemonic: string;
+  parent_level_id: string | null;
+}
 
-export interface GeoLevelData {
-  level: string;
+export interface GeoLevelValue {
   level_value_id: string;
+  level_id: string;
   level_value_mnemonic: string;
+  parent_level_value_id: string | null;
 }
 
-export interface GeoLevelConfig {
-  level: string;
+export interface GeoSelectOption {
+  value: string;
+  label: string;
 }
 
-function extractLevelValueFromStored(
-  value: any,
-  geoConfig: GeoLevelConfig
-): any {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return value;
+export function normalizeApiPayload(response: unknown): unknown[] {
+  if (Array.isArray(response)) {
+    return response;
   }
-
-  const hierarchy = value.hierarchy || value.geo_code_hierarchy_json?.hierarchy;
-  if (Array.isArray(hierarchy)) {
-    const levelData = hierarchy.find((l: any) => l.level === geoConfig.level);
-    if (levelData) {
-      return levelData.level_value_id;
+  if (response && typeof response === 'object') {
+    const body = response as Record<string, unknown>;
+    if (Array.isArray(body.response_payload)) {
+      return body.response_payload;
     }
-    // Level cleared upstream — do not fall back to lowest-level id
-    return undefined;
+    if (body.response_body && typeof body.response_body === 'object') {
+      const nested = body.response_body as Record<string, unknown>;
+      if (Array.isArray(nested.response_payload)) {
+        return nested.response_payload;
+      }
+    }
   }
-
-  if ('geo_lowest_level_value_id' in value) {
-    return value.geo_lowest_level_value_id;
-  }
-  if ('lowest_level_value_id' in value) {
-    return value.lowest_level_value_id;
-  }
-  if (value.geo_code_hierarchy_json?.lowest_level_value_id) {
-    return value.geo_code_hierarchy_json.lowest_level_value_id;
-  }
-  if (value.geo_code_hierarchy_json?.geo_lowest_level_value_id) {
-    return value.geo_code_hierarchy_json.geo_lowest_level_value_id;
-  }
-
-  return undefined;
+  return [];
 }
 
-/**
- * When `widgetId` is set in Redux (including cleared), do not fall back to the shared
- * `dataPath` — stale hierarchy there was keeping downstream levels visible.
- */
-export function resolveGeoWidgetLevelValue(
-  values: Record<string, any>,
-  widgetId: string,
-  dataPath: string | Record<string, string> | undefined,
-  geoConfig: GeoLevelConfig
-): any {
-  if (Object.prototype.hasOwnProperty.call(values, widgetId)) {
-    let value = values[widgetId];
-    if (value === undefined || value === null || value === '') {
-      return value;
-    }
-    if (typeof value === 'object' && !Array.isArray(value)) {
-      return extractLevelValueFromStored(value, geoConfig);
-    }
-    return value;
+/** Order flat levels root → leaf using parent_level_id. */
+export function buildOrderedLevels(flat: GeoLevel[]): GeoLevel[] {
+  if (flat.length === 0) {
+    return [];
   }
 
-  if (!dataPath) {
-    return undefined;
-  }
+  const roots = flat.filter(
+    (level) => level.parent_level_id == null || level.parent_level_id === '',
+  );
 
-  let value = getWidgetValue(values, dataPath, widgetId);
-  if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
-    value = extractLevelValueFromStored(value, geoConfig);
-  }
-  return value;
-}
-
-export function applySharedGeoHierarchyToValues(
-  baseValues: Record<string, any>,
-  groupId: string,
-  dataPath: string | Record<string, string> | undefined,
-  widgetId: string
-): Record<string, any> {
-  const hierarchyJson = geoHierarchyBuilder.buildHierarchyJson(groupId);
-  if (!dataPath || typeof dataPath !== 'string') {
-    return baseValues;
-  }
-
-  const inner = hierarchyJson?.geo_code_hierarchy_json;
-  const lowestId = hierarchyJson?.geo_lowest_level_value_id;
-
-  if (dataPath.endsWith('.geo_code_hierarchy_json')) {
-    const prefix = dataPath.substring(0, dataPath.lastIndexOf('.'));
-    let finalUpdatedValues = setWidgetValue(baseValues, dataPath, widgetId, inner);
-    finalUpdatedValues = setWidgetValue(
-      finalUpdatedValues,
-      `${prefix}.geo_lowest_level_value_id`,
-      widgetId,
-      lowestId
+  if (roots.length !== 1) {
+    throw new Error(
+      roots.length === 0
+        ? 'Geo hierarchy has no root level'
+        : 'Geo hierarchy has multiple root levels',
     );
-    return finalUpdatedValues;
   }
 
-  return setWidgetValue(baseValues, dataPath, widgetId, inner);
+  const ordered: GeoLevel[] = [];
+  const visited = new Set<string>();
+  let current: GeoLevel | undefined = roots[0];
+
+  while (current) {
+    if (visited.has(current.level_id)) {
+      throw new Error('Geo hierarchy contains a cycle');
+    }
+    visited.add(current.level_id);
+    ordered.push(current);
+    current = flat.find((level) => level.parent_level_id === current?.level_id);
+  }
+
+  if (ordered.length !== flat.length) {
+    throw new Error('Geo hierarchy contains disconnected levels');
+  }
+
+  return ordered;
 }
 
-interface HierarchyState {
-  levels: Map<string, GeoLevelData>;
-  order: string[];
+export const GEO_SECTION_COLUMN_SLOTS = 3;
+
+/** Slice ordered levels into section columns per counts, e.g. [3, 2, 0]. */
+export function distributeLevelsToColumns(
+  levels: GeoLevel[],
+  columnCounts: number[],
+): GeoLevel[][] {
+  const columns: GeoLevel[][] = columnCounts.map(() => []);
+  let offset = 0;
+
+  for (let index = 0; index < columnCounts.length; index += 1) {
+    const count = columnCounts[index];
+    if (count > 0) {
+      columns[index] = levels.slice(offset, offset + count);
+      offset += count;
+    }
+  }
+
+  return columns;
 }
 
-class GeoHierarchyBuilder {
-  private hierarchies: Map<string, HierarchyState> = new Map();
-
-  private getHierarchy(groupId: string = 'default'): HierarchyState {
-    if (!this.hierarchies.has(groupId)) {
-      this.hierarchies.set(groupId, {
-        levels: new Map(),
-        order: [],
-      });
-    }
-    return this.hierarchies.get(groupId)!;
-  }
-
-  addLevel(
-    level: string,
-    level_value_id: string,
-    level_value_mnemonic: string,
-    groupId: string = 'default'
-  ): void {
-    const hierarchy = this.getHierarchy(groupId);
-
-    const existingIndex = hierarchy.order.indexOf(level);
-    if (existingIndex >= 0) {
-      const levelsToRemove = hierarchy.order.slice(existingIndex);
-      levelsToRemove.forEach((l) => {
-        hierarchy.levels.delete(l);
-        hierarchy.order = hierarchy.order.filter((o) => o !== l);
-      });
-    }
-
-    hierarchy.levels.set(level, {
-      level,
-      level_value_id,
-      level_value_mnemonic,
-    });
-    hierarchy.order.push(level);
-  }
-
-  removeLevelAndBelow(level: string, groupId: string = 'default'): void {
-    const hierarchy = this.getHierarchy(groupId);
-    const index = hierarchy.order.indexOf(level);
-
-    if (index >= 0) {
-      const levelsToRemove = hierarchy.order.slice(index);
-      levelsToRemove.forEach((l) => {
-        hierarchy.levels.delete(l);
-        hierarchy.order = hierarchy.order.filter((o) => o !== l);
-      });
-    }
-  }
-
-  buildHierarchyJson(groupId: string = 'default'): {
-    geo_lowest_level_value_id: string;
-    geo_code_hierarchy_json: {
-      hierarchy: Array<{
-        level: string;
-        level_value_id: string;
-        level_value_mnemonic: string;
-      }>;
-      lowest_level_value_id: string;
-    };
-  } | null {
-    const hierarchy = this.getHierarchy(groupId);
-
-    if (hierarchy.order.length === 0) {
-      return null;
-    }
-
-    const hierarchyArray = hierarchy.order.map((level) => {
-      const data = hierarchy.levels.get(level)!;
-      return {
-        level: data.level,
-        level_value_id: data.level_value_id,
-        level_value_mnemonic: data.level_value_mnemonic,
-      };
-    });
-
-    const lowestLevel = hierarchy.order[hierarchy.order.length - 1];
-    const lowestLevelData = hierarchy.levels.get(lowestLevel)!;
+export function resolveGeoLevelColumns(
+  levels: GeoLevel[],
+  layout?: { distribution?: 'fixed'; columns?: number[] },
+): { columnCounts: number[]; columns: GeoLevel[][] } {
+  if (layout?.columns?.length) {
+    const columnCounts =
+      layout.distribution === 'fixed'
+        ? padColumnCounts(layout.columns, GEO_SECTION_COLUMN_SLOTS)
+        : layout.columns;
 
     return {
-      geo_lowest_level_value_id: lowestLevelData.level_value_id,
-      geo_code_hierarchy_json: {
-        hierarchy: hierarchyArray,
-        lowest_level_value_id: lowestLevelData.level_value_id,
-      },
+      columnCounts,
+      columns: distributeLevelsToColumns(levels, columnCounts),
     };
   }
 
-  clear(groupId: string = 'default'): void {
-    this.hierarchies.delete(groupId);
-  }
-
-  clearAll(): void {
-    this.hierarchies.clear();
-  }
-
-  getLevels(groupId: string = 'default'): GeoLevelData[] {
-    const hierarchy = this.getHierarchy(groupId);
-    return hierarchy.order.map((level) => hierarchy.levels.get(level)!);
-  }
-}
-
-export const geoHierarchyBuilder = new GeoHierarchyBuilder();
-
-/** Written to Redux when a geo level is cleared by cascade (distinct from never set). */
-export const GEO_LEVEL_CLEARED = null;
-
-export interface GeoWidgetRegistration {
-  widgetId: string;
-  parentWidgetId: string | null;
-  level: string;
-  geoConfig: GeoLevelConfig;
-  dataPath: string;
-  groupId: string;
-}
-
-const geoWidgetParentRegistry = new Map<string, string | null>();
-const geoWidgetConfigRegistry = new Map<string, GeoWidgetRegistration>();
-
-export function registerGeoWidgetParent(widgetId: string, parentWidgetId: string | null): void {
-  geoWidgetParentRegistry.set(widgetId, parentWidgetId || null);
-}
-
-export function unregisterGeoWidgetParent(widgetId: string): void {
-  geoWidgetParentRegistry.delete(widgetId);
-}
-
-export function registerGeoWidget(
-  widgetId: string,
-  geoConfig: GeoLevelConfig & { parentWidgetId?: string | null },
-  dataPath: string
-): void {
-  if (typeof dataPath !== 'string') {
-    return;
-  }
-  const parentWidgetId = geoConfig.parentWidgetId?.trim() ? geoConfig.parentWidgetId : null;
-  registerGeoWidgetParent(widgetId, parentWidgetId);
-  geoWidgetConfigRegistry.set(widgetId, {
-    widgetId,
-    parentWidgetId,
-    level: geoConfig.level,
-    geoConfig,
-    dataPath,
-    groupId: getGeoGroupId(dataPath),
-  });
-}
-
-export function unregisterGeoWidget(widgetId: string): void {
-  unregisterGeoWidgetParent(widgetId);
-  geoWidgetConfigRegistry.delete(widgetId);
-}
-
-export function orderGeoWidgetRegistrations(
-  registrations: GeoWidgetRegistration[]
-): GeoWidgetRegistration[] {
-  if (registrations.length <= 1) {
-    return registrations;
-  }
-
-  const roots = registrations.filter((entry) => !entry.parentWidgetId);
-  if (roots.length === 0) {
-    return registrations;
-  }
-
-  const ordered: GeoWidgetRegistration[] = [];
-  let current: GeoWidgetRegistration | undefined = roots[0];
-  const visited = new Set<string>();
-
-  while (current && !visited.has(current.widgetId)) {
-    visited.add(current.widgetId);
-    ordered.push(current);
-    current = registrations.find((entry) => entry.parentWidgetId === current!.widgetId);
-  }
-
-  return ordered.length > 0 ? ordered : registrations;
-}
-
-function resolveLevelValueId(rawValue: any): string | null {
-  if (rawValue === null || rawValue === undefined || rawValue === '') {
-    return null;
-  }
-  if (typeof rawValue === 'string' || typeof rawValue === 'number') {
-    return String(rawValue);
-  }
-  if (typeof rawValue === 'object') {
-    const id = rawValue.level_value_id || rawValue.id || rawValue.value;
-    return id != null && id !== '' ? String(id) : null;
-  }
-  return null;
-}
-
-function resolveStoredMnemonic(
-  values: Record<string, any>,
-  registration: GeoWidgetRegistration,
-  valueId: string
-): string | undefined {
-  const stored = getWidgetValue(values, registration.dataPath, registration.widgetId);
-  const hierarchy = stored?.hierarchy || stored?.geo_code_hierarchy_json?.hierarchy;
-  if (!Array.isArray(hierarchy)) {
-    return undefined;
-  }
-  const levelData = hierarchy.find((entry: any) => entry.level === registration.level);
-  if (levelData && String(levelData.level_value_id) === String(valueId)) {
-    return levelData.level_value_mnemonic ? String(levelData.level_value_mnemonic) : undefined;
-  }
-  return undefined;
-}
-
-export function createGeoLevelMnemonicResolver(
-  values: Record<string, any>,
-  dataSources: Record<string, Array<{ value: any; label: string }>>
-): (registration: GeoWidgetRegistration, valueId: string) => string | undefined {
-  return (registration, valueId) => {
-    const options = dataSources[registration.widgetId];
-    const option = options?.find((entry) => String(entry.value) === String(valueId));
-    if (option?.label) {
-      return option.label;
-    }
-    return resolveStoredMnemonic(values, registration, valueId);
+  const columnCounts = [3, 0, 0];
+  return {
+    columnCounts,
+    columns: distributeLevelsToColumns(levels, columnCounts),
   };
 }
 
-export function rebuildGeoHierarchyFromRegistrations(
-  groupId: string,
-  values: Record<string, any>,
-  registrations: GeoWidgetRegistration[],
-  resolveMnemonic?: (registration: GeoWidgetRegistration, valueId: string) => string | undefined
-): boolean {
-  const ordered = orderGeoWidgetRegistrations(
-    registrations.filter((entry) => entry.groupId === groupId)
-  );
-  geoHierarchyBuilder.clear(groupId);
+function padColumnCounts(counts: number[], slotCount: number): number[] {
+  if (counts.length >= slotCount) {
+    return counts.slice(0, slotCount);
+  }
+  return [...counts, ...Array.from({ length: slotCount - counts.length }, () => 0)];
+}
 
-  for (const registration of ordered) {
-    const rawValue = resolveGeoWidgetLevelValue(
-      values,
-      registration.widgetId,
-      registration.dataPath,
-      registration.geoConfig
-    );
-    const valueId = resolveLevelValueId(rawValue);
-    if (!valueId) {
-      break;
-    }
-    const mnemonic =
-      resolveMnemonic?.(registration, valueId) ??
-      resolveStoredMnemonic(values, registration, valueId) ??
-      valueId;
-    geoHierarchyBuilder.addLevel(registration.level, valueId, mnemonic, groupId);
+export function formatLevelLabel(mnemonic: string): string {
+  return mnemonic
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+export function transformGeoValueOptions(values: GeoLevelValue[]): GeoSelectOption[] {
+  return values.map((item) => ({
+    value: item.level_value_id,
+    label: formatLevelLabel(item.level_value_mnemonic || item.level_value_id),
+  }));
+}
+
+export interface GeoHierarchyJsonEntry {
+  level_id?: string;
+  /** Alias of level_mnemonic on some backend payloads. */
+  level?: string;
+  level_mnemonic?: string;
+  level_value_id: string;
+  level_value_mnemonic?: string;
+}
+
+export interface GeoHierarchyJson {
+  hierarchy?: GeoHierarchyJsonEntry[];
+  lowest_level_value_id?: string;
+}
+
+/** Read path for geo_code_hierarchy_json from explicit widget config only. */
+export function resolveHierarchyJsonPath(
+  dataPath: string | Record<string, string> | undefined,
+  hierarchyPath?: string,
+): string | null {
+  if (hierarchyPath) {
+    return hierarchyPath;
   }
 
-  return geoHierarchyBuilder.buildHierarchyJson(groupId) !== null;
-}
-
-export function collectGeoWidgetRegistrationsFromWidgets(
-  widgets: Array<{
-    'widget-id': string;
-    'widget-data-path'?: string | Record<string, string>;
-    'widget-geo-config'?: GeoLevelConfig & { parentWidgetId?: string | null };
-  }>
-): GeoWidgetRegistration[] {
-  return widgets
-    .filter((widget) => widget['widget-geo-config'] && typeof widget['widget-data-path'] === 'string')
-    .map((widget) => {
-      const widgetId = widget['widget-id'];
-      const dataPath = widget['widget-data-path'] as string;
-      const geoConfig = widget['widget-geo-config']!;
-      const parentWidgetId = geoConfig.parentWidgetId?.trim() ? geoConfig.parentWidgetId : null;
-
-      return {
-        widgetId,
-        parentWidgetId,
-        level: geoConfig.level,
-        geoConfig,
-        dataPath,
-        groupId: getGeoGroupId(dataPath),
-      };
-    });
-}
-
-export function reconcileGeoHierarchiesInValues(
-  values: Record<string, any>,
-  registrations: GeoWidgetRegistration[],
-  dataSources: Record<string, Array<{ value: any; label: string }>> = {}
-): Record<string, any> {
-  const groupIds = [...new Set(registrations.map((entry) => entry.groupId))];
-  let updatedValues = values;
-  const resolveMnemonic = createGeoLevelMnemonicResolver(updatedValues, dataSources);
-
-  for (const groupId of groupIds) {
-    const groupRegistrations = registrations.filter((entry) => entry.groupId === groupId);
-    const dataPath = groupRegistrations[0]?.dataPath;
-    const widgetId = groupRegistrations[0]?.widgetId;
-    if (!dataPath || !widgetId) {
-      continue;
-    }
-
-    rebuildGeoHierarchyFromRegistrations(
-      groupId,
-      updatedValues,
-      groupRegistrations,
-      resolveMnemonic
-    );
-    updatedValues = applySharedGeoHierarchyToValues(updatedValues, groupId, dataPath, widgetId);
+  if (dataPath && typeof dataPath === 'object' && typeof dataPath.hierarchy === 'string') {
+    return dataPath.hierarchy;
   }
 
-  return updatedValues;
+  return null;
 }
 
-export function getGeoWidgetRegistrationsInGroup(groupId: string): GeoWidgetRegistration[] {
-  return orderGeoWidgetRegistrations(
-    [...geoWidgetConfigRegistry.values()].filter((entry) => entry.groupId === groupId)
-  );
+export function parseHierarchyJson(raw: unknown): GeoHierarchyJsonEntry[] {
+  const body = parseHierarchyRaw(raw);
+  if (Array.isArray(body?.hierarchy)) {
+    return body.hierarchy;
+  }
+
+  return [];
 }
 
-/** True when `changedWidgetId` is any upstream ancestor, not only the immediate parent. */
-export function isUpstreamGeoAncestor(
-  changedWidgetId: string,
-  widgetId: string,
-  immediateParentWidgetId: string | null
-): boolean {
-  if (changedWidgetId === widgetId) {
+function parseHierarchyRaw(raw: unknown): GeoHierarchyJson | null {
+  if (!raw) {
+    return null;
+  }
+
+  let parsed: unknown = raw;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    return null;
+  }
+
+  return parsed as GeoHierarchyJson;
+}
+
+export function normalizeGeoId(id: string): string {
+  return id.trim().toLowerCase();
+}
+
+export function geoIdsMatch(left: string | undefined, right: string | undefined): boolean {
+  if (!left || !right) {
     return false;
   }
-  let cursor: string | null | undefined = immediateParentWidgetId;
-  while (cursor) {
-    if (cursor === changedWidgetId) {
-      return true;
-    }
-    cursor = geoWidgetParentRegistry.get(cursor) ?? null;
-  }
-  return false;
+  return normalizeGeoId(left) === normalizeGeoId(right);
 }
 
-export function getGeoGroupId(
-  dataPath: string | Record<string, string> | undefined
-): string {
-  if (typeof dataPath === 'string' && dataPath.includes('.')) {
-    return dataPath.split('.').slice(0, -1).join('.');
-  }
-  return 'default';
+function buildChainEntry(
+  orderedLevels: GeoLevel[],
+  chain: GeoLevelValue[],
+  index: number,
+  entry: GeoHierarchyJsonEntry,
+): GeoLevelValue {
+  const level = orderedLevels[index];
+  return {
+    level_value_id: entry.level_value_id,
+    level_id: level.level_id,
+    level_value_mnemonic: entry.level_value_mnemonic || '',
+    parent_level_value_id: index > 0 ? chain[index - 1].level_value_id : null,
+  };
 }
 
-/** Readonly display when API options are not loaded. */
-export function resolveGeoWidgetLevelLabel(
-  values: Record<string, any>,
-  widgetId: string,
-  dataPath: string | Record<string, string> | undefined,
-  geoConfig: GeoLevelConfig
-): string | undefined {
-  if (!dataPath || typeof dataPath !== 'string') {
-    return undefined;
-  }
-
-  const stored = getWidgetValue(values, dataPath, widgetId);
-  const hierarchy = stored?.hierarchy || stored?.geo_code_hierarchy_json?.hierarchy;
-  if (!Array.isArray(hierarchy)) {
-    return undefined;
-  }
-
-  const levelData = hierarchy.find((l: any) => l.level === geoConfig.level);
-  if (levelData?.level_value_mnemonic) {
-    return String(levelData.level_value_mnemonic);
-  }
-  return undefined;
-}
-
-export function getGeoDescendantWidgetIds(ancestorWidgetId: string): string[] {
-  const descendants: string[] = [];
-  for (const [childId, parentId] of geoWidgetParentRegistry.entries()) {
-    if (isUpstreamGeoAncestor(ancestorWidgetId, childId, parentId)) {
-      descendants.push(childId);
-    }
-  }
-  return descendants;
-}
-
-function readStoredHierarchyLevels(
-  values: Record<string, any>,
-  dataPath: string,
-  widgetId: string
-): GeoLevelData[] {
-  const stored = getWidgetValue(values, dataPath, widgetId);
-  const hierarchy = stored?.hierarchy || stored?.geo_code_hierarchy_json?.hierarchy;
-  if (!Array.isArray(hierarchy)) {
+/** Map geo_code_hierarchy_json entries onto ordered API levels (root → leaf). */
+export function mapHierarchyToChain(
+  orderedLevels: GeoLevel[],
+  hierarchy: GeoHierarchyJsonEntry[],
+): GeoLevelValue[] {
+  if (orderedLevels.length === 0 || hierarchy.length === 0) {
     return [];
   }
-  return hierarchy.filter((entry) => entry?.level && entry.level_value_id);
+
+  if (hierarchy.length === orderedLevels.length) {
+    const indexChain: GeoLevelValue[] = [];
+    let isComplete = true;
+
+    for (let index = 0; index < orderedLevels.length; index += 1) {
+      const entry = hierarchy[index];
+      if (!entry?.level_value_id) {
+        isComplete = false;
+        break;
+      }
+      indexChain.push(buildChainEntry(orderedLevels, indexChain, index, entry));
+    }
+
+    if (isComplete && indexChain.length === orderedLevels.length) {
+      return indexChain;
+    }
+  }
+
+  const chain: GeoLevelValue[] = [];
+
+  for (let index = 0; index < orderedLevels.length; index += 1) {
+    const level = orderedLevels[index];
+    const entry =
+      hierarchy[index]?.level_value_id &&
+      matchesGeoLevel(hierarchy[index], level)
+        ? hierarchy[index]
+        : hierarchy.find((item) => matchesGeoLevel(item, level));
+
+    if (!entry?.level_value_id) {
+      break;
+    }
+
+    chain.push(buildChainEntry(orderedLevels, chain, index, entry));
+  }
+
+  return chain;
 }
 
-function builderMatchesStored(
-  groupId: string,
-  storedLevels: GeoLevelData[]
+/** True when the resolved chain matches the stored leaf id (or hierarchy lowest_level_value_id). */
+export function chainMatchesStoredValue(
+  chain: GeoLevelValue[],
+  levelValueId: string,
+  hierarchyRaw?: unknown,
 ): boolean {
-  const builderLevels = geoHierarchyBuilder.getLevels(groupId);
-  if (builderLevels.length !== storedLevels.length) {
+  if (chain.length === 0) {
     return false;
   }
-  return storedLevels.every((stored, index) => {
-    const built = builderLevels[index];
-    return (
-      built.level === stored.level &&
-      String(built.level_value_id) === String(stored.level_value_id)
-    );
-  });
+
+  const leaf = chain[chain.length - 1];
+  const document = parseHierarchyRaw(hierarchyRaw);
+  const lowestId = document?.lowest_level_value_id;
+
+  if (
+    geoIdsMatch(leaf.level_value_id, levelValueId) ||
+    geoIdsMatch(leaf.level_value_mnemonic, levelValueId) ||
+    (lowestId &&
+      (geoIdsMatch(leaf.level_value_id, lowestId) ||
+        geoIdsMatch(leaf.level_value_mnemonic, lowestId)))
+  ) {
+    return true;
+  }
+
+  return chain.some(
+    (entry) =>
+      geoIdsMatch(entry.level_value_id, levelValueId) ||
+      geoIdsMatch(entry.level_value_mnemonic, levelValueId),
+  );
 }
 
-export function seedGeoHierarchyFromValues(
-  values: Record<string, any>,
-  dataPath: string | Record<string, string> | undefined,
-  widgetId: string,
-  groupId: string
-): void {
-  if (!dataPath || typeof dataPath !== 'string') {
-    return;
-  }
-  const storedLevels = readStoredHierarchyLevels(values, dataPath, widgetId);
-  if (storedLevels.length === 0) {
-    return;
-  }
-  if (builderMatchesStored(groupId, storedLevels)) {
-    return;
-  }
-  geoHierarchyBuilder.clear(groupId);
-  storedLevels.forEach((entry) => {
-    geoHierarchyBuilder.addLevel(
-      entry.level,
-      String(entry.level_value_id),
-      entry.level_value_mnemonic || String(entry.level_value_id),
-      groupId
-    );
-  });
+function matchesGeoLevel(entry: GeoHierarchyJsonEntry, level: GeoLevel): boolean {
+  return (
+    entry.level_id === level.level_id ||
+    entry.level_mnemonic === level.level_mnemonic ||
+    entry.level === level.level_mnemonic ||
+    entry.level === level.level_id
+  );
 }
 
-/** Clear builder then rehydrate from Redux (e.g. after Cancel). */
-export function resetAndSeedGeoHierarchyFromValues(
-  values: Record<string, any>,
-  dataPath: string,
-  widgetId: string,
-  groupId: string
-): void {
-  geoHierarchyBuilder.clear(groupId);
-  seedGeoHierarchyFromValues(values, dataPath, widgetId, groupId);
+export function getDeepestSelectedValue(
+  orderedLevels: GeoLevel[],
+  selectedValues: Record<string, string>,
+): string | null {
+  let deepest: string | null = null;
+  for (const level of orderedLevels) {
+    const value = selectedValues[level.level_id];
+    if (value) {
+      deepest = value;
+    }
+  }
+  return deepest;
+}
+
+export function clearDescendants(
+  orderedLevels: GeoLevel[],
+  fromIndex: number,
+  selectedValues: Record<string, string>,
+  options: Record<string, GeoSelectOption[]>,
+): {
+  selectedValues: Record<string, string>;
+  options: Record<string, GeoSelectOption[]>;
+} {
+  const nextSelected = { ...selectedValues };
+  const nextOptions = { ...options };
+
+  for (let index = fromIndex + 1; index < orderedLevels.length; index += 1) {
+    const levelId = orderedLevels[index].level_id;
+    delete nextSelected[levelId];
+    delete nextOptions[levelId];
+  }
+
+  return { selectedValues: nextSelected, options: nextOptions };
+}
+
+/** Level is enabled when it is the root, or its parent already has a selection. */
+export function isLevelEnabled(
+  orderedLevels: GeoLevel[],
+  levelIndex: number,
+  selectedValues: Record<string, string>,
+): boolean {
+  if (levelIndex === 0) {
+    return true;
+  }
+  const parent = orderedLevels[levelIndex - 1];
+  return Boolean(selectedValues[parent.level_id]);
+}
+
+/** Map a root→leaf chain onto level_id → level_value_id selections. */
+export function mapChainToSelections(
+  orderedLevels: GeoLevel[],
+  chain: GeoLevelValue[],
+): Record<string, string> {
+  const selectedValues: Record<string, string> = {};
+
+  for (const level of orderedLevels) {
+    const match = chain.find((entry) => entry.level_id === level.level_id);
+    if (match?.level_value_id) {
+      selectedValues[level.level_id] = match.level_value_id;
+    }
+  }
+
+  return selectedValues;
+}
+
+export function buildReadonlyPath(
+  orderedLevels: GeoLevel[],
+  selectedValues: Record<string, string>,
+  options: Record<string, GeoSelectOption[]>,
+  resolvedLabels: Record<string, string>,
+): string {
+  const parts: string[] = [];
+
+  for (const level of orderedLevels) {
+    const selected = selectedValues[level.level_id];
+    if (!selected) {
+      break;
+    }
+    const optionLabel = options[level.level_id]?.find((item) => item.value === selected)?.label;
+    parts.push(optionLabel || resolvedLabels[selected] || selected);
+  }
+
+  return parts.join(' / ');
 }

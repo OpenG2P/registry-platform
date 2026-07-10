@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { tSchema } from '../utils/tSchema';
 import { useSelector, useDispatch } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig, DataSource } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetRootState } from '../store';
 import { setValues } from '../store/widgetSlice';
 import { useWidgetContext } from '../components/WidgetProvider';
@@ -120,7 +120,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   } = useBaseWidget({ config });
 
   const dispatch = useDispatch();
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
   const { schemaData } = useWidgetContext();
   const values = useSelector((state: WidgetRootState) => state.widget.values);
 
@@ -133,14 +133,14 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
       const englishDefault = DEFAULT_LABELS[key] || key;
 
       if (configLabels?.[key]) {
-        const translated = translateConfig(configLabels[key]);
+        const translated = tSchema(t, configLabels[key]);
         if (translated && translated !== configLabels[key]) return translated;
       }
 
-      const translated = translateConfig(englishDefault);
+      const translated = tSchema(t, englishDefault);
       return translated || englishDefault;
     },
-    [configLabels, translateConfig],
+    [configLabels, t],
   );
 
   const fieldConfigMap = useMemo<Record<string, FieldConfig>>(() => {

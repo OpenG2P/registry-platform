@@ -1,8 +1,9 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { WidgetRootState } from '../store';
 import { getValueByPath } from '../utils/pathUtils';
@@ -37,7 +38,7 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
   } = useBaseWidget({ config });
 
   const formValues = useSelector((state: WidgetRootState) => state.widget.values);
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const optionsConfig = widgetConfig['widget-data-options'];
@@ -49,10 +50,10 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
   const minDateField = optionsConfig?.minDateField as string | undefined;
   const maxDateField = optionsConfig?.maxDateField as string | undefined;
   const minDateMessage = optionsConfig?.minDateMessage
-    ? translateConfig(optionsConfig.minDateMessage)
+    ? tSchema(t, optionsConfig.minDateMessage)
     : undefined;
   const maxDateMessage = optionsConfig?.maxDateMessage
-    ? translateConfig(optionsConfig.maxDateMessage)
+    ? tSchema(t, optionsConfig.maxDateMessage)
     : undefined;
   const defaultToToday = widgetConfig['widget-data-default'] === 'today';
 
@@ -249,9 +250,9 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
   const placeholder = useMemo(() => {
     const display = getDisplayValue();
     const hasValue = display && display.trim().length > 0;
-    const placeholderText = translateConfig(widgetConfig['widget-data-placeholder']);
+    const placeholderText = tSchema(t, widgetConfig['widget-data-placeholder']);
     return hasValue ? undefined : placeholderText || dateFormat;
-  }, [getDisplayValue, widgetConfig, translateConfig, dateFormat]);
+  }, [getDisplayValue, widgetConfig, t, dateFormat]);
 
   const inputType = inputMethod === 'picker' ? 'date' : 'text';
 
@@ -260,7 +261,7 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
   const showValidationError = touched && error.length > 0;
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     let displayValue = '';
 
     if (value) {
@@ -298,7 +299,7 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
@@ -318,7 +319,7 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
                 : 'border-gray-300'
             } ${!isEnabled || widgetConfig['widget-readonly'] ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
             style={{ borderRadius: '10px' }}
-            title={translateConfig(widgetConfig['widget-data-tooltip'])}
+            title={tSchema(t, widgetConfig['widget-data-tooltip'])}
           />
           {showValidationError && <p className="text-red-500 text-sm mt-1">{error[0]}</p>}
         </div>

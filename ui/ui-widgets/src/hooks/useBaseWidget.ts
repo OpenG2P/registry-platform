@@ -16,13 +16,6 @@ import {
 } from '../utils/dataSource';
 import { useWidgetEventBus } from './useWidgetEventBus';
 import { useWidgetContext } from '../components/WidgetProvider';
-import { useWidgetTranslation } from './useWidgetTranslation';
-import {
-  resolveGeoWidgetLevelValue,
-  resolveGeoWidgetLevelLabel,
-  getGeoDescendantWidgetIds,
-  GEO_LEVEL_CLEARED,
-} from '../utils/geoHierarchy';
 
 export interface UseBaseWidgetOptions {
   config: BaseWidgetConfig;
@@ -39,7 +32,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   const dispatch = useDispatch();
   const context = useWidgetContext();
   const eventBus = useWidgetEventBus();
-  const { translateConfig } = useWidgetTranslation();
   const widgetId = config['widget-id'];
 
   const dataSourceRequestHandler = propHandler || context.dataSourceRequestHandler;
@@ -72,33 +64,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       return obj;
     }
 
-    const geoConfig = config['widget-geo-config'];
-    if (geoConfig) {
-      const hierarchy = obj.hierarchy || obj.geo_code_hierarchy_json?.hierarchy;
-      if (Array.isArray(hierarchy)) {
-        const levelData = hierarchy.find((l: any) => l.level === geoConfig.level);
-        if (levelData) {
-          return levelData.level_value_id;
-        }
-      }
-    }
-
-    if ('geo_code_hierarchy_json' in obj || 'geo_lowest_level_value_id' in obj || 'hierarchy' in obj) {
-      if ('geo_lowest_level_value_id' in obj) {
-        return obj.geo_lowest_level_value_id;
-      }
-      if ('lowest_level_value_id' in obj) {
-        return obj.lowest_level_value_id;
-      }
-      if (obj.geo_code_hierarchy_json?.lowest_level_value_id) {
-        return obj.geo_code_hierarchy_json.lowest_level_value_id;
-      }
-      if (obj.geo_code_hierarchy_json?.geo_lowest_level_value_id) {
-        return obj.geo_code_hierarchy_json.geo_lowest_level_value_id;
-      }
-      return undefined;
-    }
-
     if ('value' in obj) {
       return obj.value;
     }
@@ -113,28 +78,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     }
 
     return undefined;
-  }, [config]);
+  }, []);
 
   const currentValue = useMemo(() => {
     if (isLayoutWidget) {
       return undefined; // Layout widgets don't have values
-    }
-
-    const geoConfig = config['widget-geo-config'];
-    if (geoConfig) {
-      const value = resolveGeoWidgetLevelValue(
-        values,
-        widgetId,
-        config['widget-data-path'],
-        geoConfig
-      );
-      if (userHasSetValueRef.current) {
-        return value;
-      }
-      if (value === null) {
-        return null;
-      }
-      return value !== undefined ? value : config['widget-data-default'];
     }
 
     let value = values[widgetId];
@@ -171,7 +119,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     }
 
     return value !== undefined ? value : config['widget-data-default'];
-  }, [values, config, widgetId, isLayoutWidget]);
+  }, [values, config, widgetId, isLayoutWidget, extractValueFromObject]);
 
   const lastMirroredValueRef = useRef<any>(null);
 
@@ -267,12 +215,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         }
         lastDispatchedValueRef.current = newValue;
         dispatch(setValue({ widgetId, value: newValue }));
-      } else if (config['widget-geo-config']) {
-        getGeoDescendantWidgetIds(widgetId).forEach((descendantId) => {
-          dispatch(setValue({ widgetId: descendantId, value: GEO_LEVEL_CLEARED }));
-          dispatch(setDataSource({ widgetId: descendantId, data: [] }));
-        });
-        dispatch(setValue({ widgetId, value: newValue }));
       } else {
         const currentValuesWithUpdate = {
           ...valuesRef.current,
@@ -300,10 +242,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         onValueChange(widgetId, newValue);
       }
 
-      const geoConfig = config['widget-geo-config'];
-      const isLastLevelGeo = geoConfig?.isLastLevel === true;
-
-      if (eventBus && !isLastLevelGeo) {
+      if (eventBus) {
         eventBus.publish({
           type: 'widget:change',
           widgetId,
@@ -380,7 +319,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     }
   }, [config['widget-readonly']]);
   const dataSource = config['widget-data-source'];
-  const geoConfig = config['widget-geo-config'];
 
   const handlerRef = useRef(dataSourceRequestHandler);
   useEffect(() => {
@@ -411,9 +349,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       return;
     }
 
-    const loadApiInReadonly =
-      !!geoConfig ||
-      ['select', 'radio', 'checkbox', 'multi-select'].includes(config.widget);
+    const loadApiInReadonly = ['select', 'radio', 'checkbox', 'multi-select'].includes(config.widget);
     if (dataSource.type === 'api' && isReadonly && !loadApiInReadonly) {
       return;
     }
@@ -446,7 +382,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     const loadDataSource = async () => {
       const currentHandler = handlerRef.current || dataSourceRequestHandler;
 
-
       try {
         if (dataSource.type === 'api' && !currentHandler) {
           return;
@@ -456,18 +391,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
           if (dataSource.type === 'static') {
             return { valueKey: undefined, labelKey: undefined };
           }
-          if (geoConfig) {
-            return {
-              valueKey: dataSource.valueKey || 'level_value_id',
-              labelKey: dataSource.labelKey || 'level_value_mnemonic',
-            };
-          }
           return { valueKey: dataSource.valueKey, labelKey: dataSource.labelKey };
         };
 
         if (dataSource.type === 'api') {
-          const levelId = geoConfig?.level;
-          const cached = getCachedApiDataSource(dataSource, valuesRef.current, levelId);
+          const cached = getCachedApiDataSource(dataSource, valuesRef.current);
           if (cached) {
             const { valueKey, labelKey } = resolveOptionKeys();
             dispatch(setDataSource({
@@ -490,8 +418,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
             dispatch(setDataSource({ widgetId, data: [] }));
             return;
           }
-          const levelId = geoConfig?.level;
-          data = await getApiDataSource(dataSource, valuesRef.current, currentHandler, levelId);
+          data = await getApiDataSource(dataSource, valuesRef.current, currentHandler);
         } else if (dataSource.type === 'schema') {
           data = getSchemaDataSource(dataSource, schemaData || {});
         }
@@ -521,23 +448,9 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configKey, dependencyValue, dataSourceRequestHandler, schemaDataKey, widgetId, dispatch]);
 
-  const geoDisplayLabel = useMemo(() => {
-    if (!geoConfig) {
-      return undefined;
-    }
-    const rawLabel = resolveGeoWidgetLevelLabel(
-      values,
-      widgetId,
-      config['widget-data-path'],
-      geoConfig
-    );
-    return rawLabel ? translateConfig(rawLabel) : undefined;
-  }, [values, widgetId, config, geoConfig, translateConfig]);
-
   return {
     widgetId,
     value: currentValue,
-    geoDisplayLabel,
     formattedValue,
     error: errors,
     touched,
@@ -553,4 +466,3 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     config,
   };
 };
-

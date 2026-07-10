@@ -48,33 +48,6 @@ const MOCK_REGISTER_RECORDS = [
   },
 ];
 
-const MOCK_GEO_LEVEL_VALUES: Record<string, Array<{ level_value_id: string; level_value_mnemonic: string }>> = {
-  region: [
-    { level_value_id: 'reg-01', level_value_mnemonic: 'Addis Ababa' },
-    { level_value_id: 'reg-02', level_value_mnemonic: 'Oromia' },
-  ],
-  sub_city: [
-    { level_value_id: 'sub-01', level_value_mnemonic: 'Bole' },
-    { level_value_id: 'sub-02', level_value_mnemonic: 'Kirkos' },
-  ],
-  woreda: [
-    { level_value_id: 'wor-01', level_value_mnemonic: 'Woreda 03' },
-    { level_value_id: 'wor-02', level_value_mnemonic: 'Woreda 07' },
-  ],
-};
-
-const MOCK_GEO_CHILDREN: Record<string, Record<string, Array<{ level_value_id: string; level_value_mnemonic: string }>>> = {
-  sub_city: {
-    'reg-01': MOCK_GEO_LEVEL_VALUES.sub_city,
-    'reg-02': [{ level_value_id: 'sub-03', level_value_mnemonic: 'Adama' }],
-  },
-  woreda: {
-    'sub-01': MOCK_GEO_LEVEL_VALUES.woreda,
-    'sub-02': [{ level_value_id: 'wor-03', level_value_mnemonic: 'Woreda 01' }],
-    'sub-03': [{ level_value_id: 'wor-04', level_value_mnemonic: 'Woreda 02' }],
-  },
-};
-
 /** Mock API handler for examples that use attribute / registry endpoints. */
 export function createExampleDataSourceHandler(): DataSourceRequestHandler {
   return async (service, endpoint, method, params) => {
@@ -112,18 +85,6 @@ export function createExampleDataSourceHandler(): DataSourceRequestHandler {
           page_size: pageSize,
         },
       };
-    }
-
-    if (service === 'master-data' && endpoint === 'geo-level-values') {
-      const levelId = String((params as { level_id?: string })?.level_id ?? '');
-      const parentId = String((params as { parent_level_value_id?: string })?.parent_level_value_id ?? '');
-      if (levelId === 'region') {
-        return MOCK_GEO_LEVEL_VALUES.region;
-      }
-      if (parentId && MOCK_GEO_CHILDREN[levelId]?.[parentId]) {
-        return MOCK_GEO_CHILDREN[levelId][parentId];
-      }
-      return MOCK_GEO_LEVEL_VALUES[levelId] ?? [];
     }
 
     if (service === 'registry' && endpoint === 'authenticate_registrant') {

@@ -21,6 +21,7 @@ export const WIDGET_TYPES = [
   'currency',
   'display',
   'profile',
+  'geo-hierarchy',
 ] as const;
 
 export const ORIENTATIONS = ['horizontal', 'vertical'] as const;

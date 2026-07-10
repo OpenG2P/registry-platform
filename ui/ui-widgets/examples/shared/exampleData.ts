@@ -13,15 +13,6 @@ const baseRecordFields = {
   has_personal_phone: 'yes',
   phone: '+251 911 482 736',
   email: 'daniel.kebede@example.com',
-  geo_code_hierarchy_json: {
-    hierarchy: [
-      { level: 'region', level_value_id: 'reg-01', level_value_mnemonic: 'Addis Ababa' },
-      { level: 'sub_city', level_value_id: 'sub-01', level_value_mnemonic: 'Bole' },
-      { level: 'woreda', level_value_id: 'wor-01', level_value_mnemonic: 'Woreda 03' },
-    ],
-    lowest_level_value_id: 'wor-01',
-  },
-  geo_lowest_level_value_id: 'wor-01',
   kebele_code: 'BOL-04',
   locality_ea_code: 'EA-11827',
   address_descriptor: 'Baro Kefa Street, near Edna Mall, Bole',

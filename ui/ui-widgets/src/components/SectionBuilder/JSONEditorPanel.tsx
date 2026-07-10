@@ -85,7 +85,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
     widgetContext = {
       dataSourceRequestHandler: undefined,
       schemaData: undefined,
-      translate: undefined,
+      t: undefined,
     };
   }
 
@@ -715,7 +715,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
                   store={previewStore}
                   dataSourceRequestHandler={widgetContext.dataSourceRequestHandler}
                   schemaData={widgetContext.schemaData}
-                  translate={widgetContext.translate}
+                  t={widgetContext.t}
                 >
                   <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                     <SectionRenderer

@@ -33,13 +33,6 @@
   //   "valueKey": "value_code"
   // },
 
-  // --- widget-data-source: geo cascade (see geo-cascade-section.jsonc) ---
-  // "widget-geo-config": {
-  //   "level": "region",
-  //   "isLastLevel": false,
-  //   "parentWidgetId": ""
-  // },
-
   // --- widget-data-options (conditional) ---
   // "widget-data-options": {
   //   "action": "show",

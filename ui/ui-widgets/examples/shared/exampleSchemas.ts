@@ -5,7 +5,6 @@ import headerSectionRaw from '../../example-ui-schema/sections/header-section.js
 import idAuthenticationRaw from '../../example-ui-schema/sections/id-authentication-section.jsonc?raw';
 import registerLookupRaw from '../../example-ui-schema/sections/register-lookup-section.jsonc?raw';
 import normalSectionRaw from '../../example-ui-schema/sections/normal-section.jsonc?raw';
-import geoCascadeRaw from '../../example-ui-schema/sections/geo-cascade-section.jsonc?raw';
 import normalSection2Raw from '../../example-ui-schema/sections/normal-section-2.jsonc?raw';
 import scoresDisplayRaw from '../../example-ui-schema/sections/scores-display-section.jsonc?raw';
 import tableSectionRaw from '../../example-ui-schema/sections/table-section.jsonc?raw';
@@ -26,7 +25,6 @@ export const idAuthenticationSection = loadSectionSchema(idAuthenticationRaw, {
 export const registerLookupSection = loadSectionSchema(registerLookupRaw);
 
 export const normalSection = loadSectionSchema(normalSectionRaw);
-export const geoCascadeSection = loadSectionSchema(geoCascadeRaw);
 export const normalSection2 = loadSectionSchema(normalSection2Raw);
 export const scoresDisplaySection = loadSectionSchema(scoresDisplayRaw);
 export const tableSection = loadSectionSchema(tableSectionRaw);
@@ -41,13 +39,11 @@ export const sectionBuilderInitialSection = normalSection;
 
 export const intakeFormSections = [
   normalSection,
-  geoCascadeSection,
   normalSection2,
 ];
 
 export const registerSections = [
   normalSection,
-  geoCascadeSection,
   normalSection2,
   tableSection,
 ];

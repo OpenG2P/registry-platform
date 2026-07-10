@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { filterByCharacterType, applyCaseControl, applyMask, removeMask } from '../utils/textInput';
 
@@ -21,7 +22,7 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const validationConfig = widgetConfig['widget-data-validation'];
@@ -148,12 +149,12 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
 
   const placeholder = useMemo(() => {
     const hasValue = displayValue && displayValue.toString().trim().length > 0;
-    const placeholderText = translateConfig(widgetConfig['widget-data-placeholder']);
+    const placeholderText = tSchema(t, widgetConfig['widget-data-placeholder']);
     return hasValue ? undefined : placeholderText;
-  }, [displayValue, widgetConfig, translateConfig]);
+  }, [displayValue, widgetConfig, t]);
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     return (
       <div className="mb-[10px] TextDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
@@ -175,7 +176,7 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
@@ -201,7 +202,7 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
                   : 'border-gray-300'
               } ${!isEnabled || widgetConfig['widget-readonly'] ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
               style={{ borderRadius: '10px' }}
-              title={translateConfig(widgetConfig['widget-data-tooltip'])}
+              title={tSchema(t, widgetConfig['widget-data-tooltip'])}
             />
             {formatConfig?.showCharCounter && (
               <span className={`text-xs ml-2 flex-shrink-0 ${

@@ -9,7 +9,6 @@ export { useBaseWidget } from './hooks/useBaseWidget';
 export type { UseBaseWidgetOptions } from './hooks/useBaseWidget';
 export { useWidgetEventBus } from './hooks/useWidgetEventBus';
 export { useWidgetCascade } from './hooks/useWidgetCascade';
-export { useGeoWidgetCascade } from './hooks/useGeoWidgetCascade';
 
 export { WidgetRenderer } from './components/WidgetRenderer';
 export { WidgetProvider, useWidgetContext } from './components/WidgetProvider';
@@ -41,7 +40,6 @@ export * from './utils/conditions';
 export * from './utils/dataSource';
 export * from './utils/textInput';
 export * from './utils/numberInput';
-export * from './utils/geoHierarchy';
 
 export { WidgetEventBus } from './events/WidgetEventBus';
 export type { WidgetEventType, WidgetEvent } from './events/WidgetEventBus';
@@ -57,6 +55,5 @@ export type {
 export { defaultTheme, resolveTheme } from './theme';
 export { useWidgetTheme } from './hooks/useWidgetTheme';
 
-export { useWidgetTranslation } from './hooks/useWidgetTranslation';
 export { translateUISchema, translateWidgetConfig, translatePanelConfig } from './utils/schemaTranslation';
 

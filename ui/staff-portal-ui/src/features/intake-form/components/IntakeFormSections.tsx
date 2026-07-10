@@ -5,7 +5,7 @@ import {
   WidgetProvider,
 } from '@openg2p/registry-widgets';
 import type { SectionChanges } from '@openg2p/registry-widgets';
-import { dataSourceRequestHandler } from '@/features/register/utils/dataSourceRequestHandler';
+import { dataSourceRequestHandler } from '@/shared/services';
 import { useTranslations } from 'next-intl';
 
 interface Props {
@@ -37,7 +37,7 @@ export default function IntakeFormSections({
     <WidgetProvider
       store={widgetStore}
       schemaData={schemaData}
-      translate={t}
+      t={t}
       dataSourceRequestHandler={dataSourceRequestHandler}
     >
       <div className="flex flex-col gap-1">

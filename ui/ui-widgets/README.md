@@ -34,7 +34,7 @@ function App() {
         dataSourceRequestHandler={async (service, endpoint, method, params) => {
           return [];
         }}
-        translate={(key) => key}
+        t={(key) => key}
       >
         <SectionsContainer
           sections={sections}
@@ -51,7 +51,7 @@ function App() {
 ## Core concepts
 
 - **UI schema** — Sections contain panels and widgets. Each widget has a `widget-data-path` (e.g. `register-id.birth_date`) resolved against `schemaData`.
-- **WidgetProvider** — Supplies `schemaData`, optional `dataSourceRequestHandler` for API/static/geo selects, and a `translate` function.
+- **WidgetProvider** — Supplies `schemaData`, optional `dataSourceRequestHandler` for API/static selects, and a `t` translation function.
 - **SectionsContainer** — Renders one or more sections. Modes: `RegistryView` (read/edit per section) or `IntakeForm` (accordion flow).
 - **SectionBuilder** — Visual + JSON editor for authoring section schemas at runtime.
 

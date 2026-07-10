@@ -1,6 +1,7 @@
 import { useBaseWidget } from '../hooks/useBaseWidget';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 interface ArrayWidgetProps {
@@ -18,15 +19,12 @@ export const ArrayWidget = ({ config }: ArrayWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const items: any[] = Array.isArray(value) ? value : [];
   const itemConfig = widgetConfig['widget-item'];
   const operations = widgetConfig['widget-data-operations'] || {};
-  const addLabel = translateConfig(
-    widgetConfig['widget-data-add-label'],
-    translate('common.addItem')
-  );
+  const addLabel = (widgetConfig['widget-data-add-label'] ? tSchema(t, widgetConfig['widget-data-add-label']) : t?.('common.addItem'));
   const isReadonly = widgetConfig['widget-readonly'] || false;
 
   if (!itemConfig) {
@@ -55,7 +53,7 @@ export const ArrayWidget = ({ config }: ArrayWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start mb-2">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0 flex justify-between items-center">
@@ -75,7 +73,7 @@ export const ArrayWidget = ({ config }: ArrayWidgetProps) => {
 
       {items.length === 0 ? (
         <div className="text-gray-500 text-sm py-4 text-center border border-gray-300 rounded">
-          {translate('common.noItems')}. {operations.add && !isReadonly && translate('common.clickToAdd', { label: addLabel })}
+          {t?.('common.noItems')}. {operations.add && !isReadonly && t?.('common.clickToAdd', { label: addLabel })}
         </div>
       ) : (
         <div className="space-y-2">
@@ -90,7 +88,7 @@ export const ArrayWidget = ({ config }: ArrayWidgetProps) => {
                     value={itemValue || ''}
                     onChange={(e) => updateItem(index, e.target.value)}
                     disabled={isReadonly || !operations.edit || !isEnabled}
-                    placeholder={translateConfig(itemConfig['widget-data-placeholder']) || translateConfig(itemConfig['widget-label'])}
+                    placeholder={tSchema(t, itemConfig['widget-data-placeholder']) || tSchema(t, itemConfig['widget-label'])}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -102,7 +100,7 @@ export const ArrayWidget = ({ config }: ArrayWidgetProps) => {
                     className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50"
                     style={{ borderRadius: '15px' }}
                   >
-                    {translate('common.remove')}
+                    {t?.('common.remove')}
                   </button>
                 )}
               </div>
