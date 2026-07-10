@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..cache import metadata_key_builder
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..helpers import MinioClient
 from ..models import (
     ApprovalStatusEnum,
     ChangeRequestSourceEnum,
@@ -32,8 +31,6 @@ from ..models import (
     RegisterPurposeEnum,
 )
 from ..schemas import (
-    ChangeRequestDocumentsData,
-    SectionDocumentData,
     AddVerificationPayload,
     ChangePayload,
     ChangeRequestData,
@@ -132,15 +129,19 @@ class G2PRegisterChangeRequestService(BaseService):
             if hasattr(g2p_register_change_request, '_payload'):
                 session.add(g2p_register_change_request._payload)
 
-            # Add documents if provided
-            if change_request_request_payload.documents:
-                for document in change_request_request_payload.documents:
-                    change_request_document = G2PRegisterChangeRequestDocument(
+            # Attach already-uploaded documents (validated against the catalog)
+            if change_request_request_payload.document_ids:
+                from .g2p_document_service import G2PDocumentService
+                document_service = G2PDocumentService.get_component()
+                await document_service.validate_documents_exist(
+                    session, change_request_request_payload.document_ids
+                )
+                for document_id in change_request_request_payload.document_ids:
+                    session.add(G2PRegisterChangeRequestDocument(
                         change_request_id=g2p_register_change_request.change_request_id,
-                        document_label=document.document_label,
-                        document_store_id=document.document_store_id
-                    )
-                    session.add(change_request_document)
+                        document_id=document_id,
+                        section_id=change_request_request_payload.section_id,
+                    ))
 
             serialized_payloads: list[dict] = (
                 [item.model_dump() for item in change_request_request_payload.change_payload]
@@ -1546,6 +1547,12 @@ class G2PRegisterChangeRequestService(BaseService):
 
         change_requests_list: list[ChangeRequestData] = []
 
+        # Batch-fetch attached document_ids for all change requests in the page
+        cr_document_ids_map = await self._get_change_request_document_ids_map(
+            [change_request.change_request_id for change_request, _ in change_requests],
+            session,
+        )
+
         # Convert ORM objects to ChangeRequestData while still in session context
         for change_request, payload in change_requests:
             # Convert datetime objects to strings
@@ -1575,11 +1582,31 @@ class G2PRegisterChangeRequestService(BaseService):
                 approved_by=change_request.approved_by,
                 approved_at=approved_at_str,
                 change_payload=change_payload,
-                current_register_data=None
+                current_register_data=None,
+                document_ids=cr_document_ids_map.get(change_request.change_request_id, [])
             )
             change_requests_list.append(change_request_data)
 
         return change_requests_list, total_items
+
+    async def _get_change_request_document_ids_map(
+        self, change_request_ids: list[str], session
+    ) -> dict[str, list[str]]:
+        """Map change_request_id -> attached document_ids."""
+        if not change_request_ids:
+            return {}
+        docs_result = await session.execute(
+            select(
+                G2PRegisterChangeRequestDocument.change_request_id,
+                G2PRegisterChangeRequestDocument.document_id,
+            ).where(
+                G2PRegisterChangeRequestDocument.change_request_id.in_(change_request_ids)
+            )
+        )
+        document_ids_map: dict[str, list[str]] = {}
+        for change_request_id, document_id in docs_result.all():
+            document_ids_map.setdefault(change_request_id, []).append(document_id)
+        return document_ids_map
 
     async def _fetch_change_request(self, change_request_id: str, session) -> ChangeRequestData:
         """Helper method to fetch a single change request by ID"""
@@ -1751,7 +1778,12 @@ class G2PRegisterChangeRequestService(BaseService):
             awe_request_id=change_request.awe_request_id,
             awe_request_status_summary=change_request.awe_request_status_summary,
             change_payload=change_payloads,
-            current_register_data=current_register_data_list
+            current_register_data=current_register_data_list,
+            document_ids=(
+                await self._get_change_request_document_ids_map(
+                    [change_request.change_request_id], session
+                )
+            ).get(change_request.change_request_id, [])
         )
 
         return change_request_data
@@ -1867,7 +1899,7 @@ class G2PRegisterChangeRequestService(BaseService):
     ) -> None:
         """
         Handle documents when a change request is approved.
-        - Move documents from change request to section documents (replace existing with same label)
+        - Promote change request documents to live section documents
         - Create document history entries
         """
         # Fetch documents attached to this change request
@@ -1883,103 +1915,39 @@ class G2PRegisterChangeRequestService(BaseService):
             return
 
         for cr_doc in change_request_documents:
-             # Create history entry for the old document before replacing
+            # Create history entry for the promoted document
             history_entry = G2PRegisterDocumentHistory(
                 internal_record_id=change_request.internal_record_id,
+                section_id=cr_doc.section_id or section.section_id,
+                document_id=cr_doc.document_id,
                 change_request_id=change_request.change_request_id,
-                section_id=section.section_id,
-                document_label=cr_doc.document_label,
-                document_store_id=cr_doc.document_store_id,
+                change_request_source=change_request.change_request_source,
                 created_by=change_request.created_by,
                 created_at=change_request.created_at,
-                approved_by="system",
-                approved_at=datetime.now()
+                approved_by=change_request.approved_by or "system",
+                approved_at=change_request.approved_at or datetime.now()
             )
             session.add(history_entry)
-            # Check if a document with the same label already exists for this section/record
+
+            # Link the document to the live record section (idempotent on PK)
             existing_doc_result = await session.execute(
                 select(G2PRegisterSectionDocument).where(
                     (G2PRegisterSectionDocument.internal_record_id == change_request.internal_record_id) &
-                    (G2PRegisterSectionDocument.section_id == section.section_id) &
-                    (G2PRegisterSectionDocument.document_label == cr_doc.document_label)
+                    (G2PRegisterSectionDocument.document_id == cr_doc.document_id)
                 )
             )
             existing_doc = existing_doc_result.scalar()
 
             if existing_doc:
-                # Update existing document with new store ID
-                existing_doc.document_store_id = cr_doc.document_store_id
-                _logger.info(f"Replaced document {cr_doc.document_label} for record {change_request.internal_record_id}")
+                existing_doc.section_id = cr_doc.section_id or section.section_id
+                _logger.info(f"Document {cr_doc.document_id} already linked to record {change_request.internal_record_id}")
             else:
-                # Create new section document
-                new_section_doc = G2PRegisterSectionDocument(
+                session.add(G2PRegisterSectionDocument(
                     internal_record_id=change_request.internal_record_id,
-                    register_id=section.register_id,
-                    section_id=section.section_id,
-                    document_label=cr_doc.document_label,
-                    document_store_id=cr_doc.document_store_id
-                )
-                session.add(new_section_doc)
-                _logger.info(f"Created new document {cr_doc.document_label} for record {change_request.internal_record_id}")
-
-    async def get_change_request_documents(
-        self,
-        change_request_id: str
-    ) -> ChangeRequestDocumentsData:
-        """
-        Get documents for a change request.
-
-        Args:
-            change_request_id: The change request ID
-
-        Returns:
-            ChangeRequestDocumentsData with list of documents (label, document_store_id, document_url)
-        """
-
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            # Validate change request exists
-            cr_result = await session.execute(
-                select(G2PRegisterChangeRequest).where(
-                    G2PRegisterChangeRequest.change_request_id == change_request_id
-                )
-            )
-            change_request = cr_result.scalar()
-            if not change_request:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.CHANGE_REQUEST_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.CHANGE_REQUEST_NOT_FOUND.value[0]
-                )
-
-            # Get all documents for this change request
-            docs_result = await session.execute(
-                select(G2PRegisterChangeRequestDocument).where(
-                    G2PRegisterChangeRequestDocument.change_request_id == change_request_id
-                )
-            )
-            g2p_register_change_request_documents = docs_result.scalars().all()
-
-            minio_client: MinioClient = MinioClient.get_component()
-
-            # Get document labels for each document
-            documents = []
-            for g2p_register_change_request_document in g2p_register_change_request_documents:
-
-                # Generate presigned URL for the document
-                document_url = minio_client.get_url(object_name=g2p_register_change_request_document.document_store_id)
-
-                documents.append(
-                    SectionDocumentData(
-                        document_label=g2p_register_change_request_document.document_label,
-                        document_store_id=g2p_register_change_request_document.document_store_id,
-                        document_url=document_url
-                    )
-                )
-
-            return ChangeRequestDocumentsData(
-                change_request_id=change_request_id,
-                documents=documents
-            )
+                    document_id=cr_doc.document_id,
+                    section_id=cr_doc.section_id or section.section_id,
+                ))
+                _logger.info(f"Linked document {cr_doc.document_id} to record {change_request.internal_record_id}")
 
     # =============================================================================
     # Registry Configuration Methods

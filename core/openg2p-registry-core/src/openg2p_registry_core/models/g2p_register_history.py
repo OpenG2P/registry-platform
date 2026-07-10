@@ -42,7 +42,7 @@ class G2PRegisterHistory(BaseORMModel):
     link_internal_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     link_foundational_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     record_name: Mapped[str] = mapped_column(String, nullable=True)
-    record_image_storage_id: Mapped[str] = mapped_column(Text, nullable=True)
+    record_image_document_id: Mapped[str] = mapped_column(Text, nullable=True)
 
     record_status: Mapped[RecordStatusEnum] = mapped_column(String, nullable=False, default=RecordStatusEnum.ACTIVE.value)
     record_status_reason: Mapped[str] = mapped_column(String, nullable=True)
@@ -97,14 +97,17 @@ class G2PGeoShapeHistory(BaseORMModel):
     shape_coordinates_json: Mapped[str] = mapped_column(JSONB, nullable=True)
 
 class G2PRegisterDocumentHistory(BaseORMModel):
+    """Audit trail of documents promoted to live register sections (references g2p_registry_documents)."""
     __tablename__ = "g2p_register_document_history"
 
     document_history_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     internal_record_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    change_request_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     section_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    document_label: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    document_store_id: Mapped[str] = mapped_column(String, nullable=False)
+    document_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # Origin of the promotion: change request approval or intake form ingestion
+    change_request_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    submission_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    change_request_source: Mapped[ChangeRequestSourceEnum] = mapped_column(String, nullable=True)
     created_by: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[str] = mapped_column(DateTime, nullable=False)
     approved_by: Mapped[str] = mapped_column(String, nullable=False)

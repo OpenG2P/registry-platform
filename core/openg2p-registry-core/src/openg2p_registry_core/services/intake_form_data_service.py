@@ -41,7 +41,6 @@ from ..schemas import (
     DeduplicationIntakeFormRegisterResultData,
     DeduplicationIntakeFormIntakeFormResultData,
     DisplayField,
-    IntakeFormDocumentPayload,
     SectionPayloadInput,
     SectionPayloadResponseItem,
     SubmissionResponsePayload,
@@ -64,6 +63,7 @@ class G2PIntakeFormDataService(BaseService):
         form_id: str,
         register_id: str,
         created_by: str,
+        document_ids: list[str] | None = None,
     ) -> SubmissionResponsePayload:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
@@ -76,6 +76,7 @@ class G2PIntakeFormDataService(BaseService):
                 register_id,
                 created_by,
                 session,
+                document_ids=document_ids,
             )
             await session.commit()
             return await self.get_submission_payload(submission.submission_id)
@@ -90,6 +91,7 @@ class G2PIntakeFormDataService(BaseService):
         register_id: str,
         created_by: str,
         session,
+        document_ids: list[str] | None = None,
     ) -> G2PIntakeFormSubmission:
         submission = await self._get_or_create_draft_submission(
             submission_id,
@@ -124,8 +126,60 @@ class G2PIntakeFormDataService(BaseService):
         submission.draft_status = IntakeFormStatusEnum.DRAFT.value
         submission.last_updated_at = datetime.now()
         session.add(submission)
+        await self._upsert_submission_section_documents(
+            submission, section_id, document_ids, session
+        )
         await session.flush()
         return submission
+
+    async def _upsert_submission_section_documents(
+        self,
+        submission: G2PIntakeFormSubmission,
+        section_id: str,
+        document_ids: list[str] | None,
+        session,
+    ) -> None:
+        """
+        Make junction rows match the desired document_ids for this section
+        (same idea as intake row upsert + delete-missing).
+
+        None = no-op; [] = clear; list = desired full set.
+        """
+        if document_ids is None:
+            return
+
+        existing_rows = (
+            await session.execute(
+                select(G2PIntakeFormSubmissionDocument).where(
+                    G2PIntakeFormSubmissionDocument.submission_id == submission.submission_id,
+                    G2PIntakeFormSubmissionDocument.section_id == section_id,
+                )
+            )
+        ).scalars().all()
+        existing_ids = {row.document_id for row in existing_rows}
+        desired_ids = set(document_ids)
+
+        for row in existing_rows:
+            if row.document_id not in desired_ids:
+                await session.delete(row)
+
+        to_add = desired_ids - existing_ids
+        if not to_add:
+            return
+
+        from .g2p_document_service import G2PDocumentService
+
+        await G2PDocumentService.get_component().validate_documents_exist(
+            session, list(to_add)
+        )
+        for document_id in to_add:
+            session.add(
+                G2PIntakeFormSubmissionDocument(
+                    submission_id=submission.submission_id,
+                    section_id=section_id,
+                    document_id=document_id,
+                )
+            )
 
     async def _get_or_create_draft_submission(
         self,
@@ -880,7 +934,7 @@ class G2PIntakeFormDataService(BaseService):
                             self._serialize_model(row, {"submission_id", "section_id"})
                             for row in rows
                         ],
-                        documents=documents_by_section.get(section.section_id),
+                        document_ids=documents_by_section.get(section.section_id),
                     )
                 )
 
@@ -1022,17 +1076,6 @@ class G2PIntakeFormDataService(BaseService):
             for row in existing_rows:
                 await session.delete(row)
 
-            existing_documents = (
-                await session.execute(
-                    select(G2PIntakeFormSubmissionDocument).where(
-                        G2PIntakeFormSubmissionDocument.submission_id == submission.submission_id,
-                        G2PIntakeFormSubmissionDocument.section_id == section.section_id,
-                    )
-                )
-            ).scalars().all()
-            for document in existing_documents:
-                await session.delete(document)
-
             for payload_record in section_payload.intake_form_section_payload or []:
                 intake_record = dict(payload_record or {})
                 action = intake_record.get("edit_action", "ADD")
@@ -1078,15 +1121,12 @@ class G2PIntakeFormDataService(BaseService):
                 )
                 session.add(intake_class(**record_data))
 
-            for document in section_payload.documents or []:
-                session.add(
-                    G2PIntakeFormSubmissionDocument(
-                        submission_id=submission.submission_id,
-                        section_id=section.section_id,
-                        document_label=document.document_label,
-                        document_store_id=document.document_store_id,
-                    )
-                )
+            await self._upsert_submission_section_documents(
+                submission,
+                section.section_id,
+                section_payload.document_ids,
+                session,
+            )
 
             await session.flush()
 
@@ -1157,7 +1197,7 @@ class G2PIntakeFormDataService(BaseService):
                         self._serialize_model(row, {"submission_id", "section_id"})
                         for row in rows
                     ],
-                    documents=documents_by_section.get(section.section_id),
+                    document_ids=documents_by_section.get(section.section_id),
                 )
             )
 
@@ -1167,7 +1207,8 @@ class G2PIntakeFormDataService(BaseService):
         self,
         submission_id: str,
         session,
-    ) -> dict[str, list[IntakeFormDocumentPayload]]:
+    ) -> dict[str, list[str]]:
+        """Map section_id -> attached document_ids for a submission."""
         document_rows = (
             await session.execute(
                 select(G2PIntakeFormSubmissionDocument).where(
@@ -1175,14 +1216,9 @@ class G2PIntakeFormDataService(BaseService):
                 )
             )
         ).scalars().all()
-        documents_by_section: dict[str, list[IntakeFormDocumentPayload]] = {}
+        documents_by_section: dict[str, list[str]] = {}
         for row in document_rows:
-            documents_by_section.setdefault(row.section_id, []).append(
-                IntakeFormDocumentPayload(
-                    document_label=row.document_label,
-                    document_store_id=row.document_store_id,
-                )
-            )
+            documents_by_section.setdefault(row.section_id, []).append(row.document_id)
         return documents_by_section
 
     async def _count_submission_records(self, submission: G2PIntakeFormSubmission, session) -> int:
@@ -1323,10 +1359,10 @@ class G2PIntakeFormDataService(BaseService):
         submission: G2PIntakeFormSubmission,
         section: G2PRegisterSection,
         internal_record_id: str,
-        documents: list[IntakeFormDocumentPayload],
+        document_ids: list[str],
         session,
     ) -> None:
-        for document in documents:
+        for document_id in document_ids:
             session.add(
                 G2PRegisterDocumentHistory(
                     internal_record_id=internal_record_id,
@@ -1334,8 +1370,7 @@ class G2PIntakeFormDataService(BaseService):
                     submission_id=submission.submission_id,
                     change_request_source=ChangeRequestSourceEnum.INTAKE_FORM.value,
                     section_id=section.section_id,
-                    document_label=document.document_label,
-                    document_store_id=document.document_store_id,
+                    document_id=document_id,
                     created_by=submission.created_by,
                     created_at=submission.first_created_at,
                     approved_by=submission.approved_by or "system",
@@ -1347,21 +1382,18 @@ class G2PIntakeFormDataService(BaseService):
                 await session.execute(
                     select(G2PRegisterSectionDocument).where(
                         G2PRegisterSectionDocument.internal_record_id == internal_record_id,
-                        G2PRegisterSectionDocument.section_id == section.section_id,
-                        G2PRegisterSectionDocument.document_label == document.document_label,
+                        G2PRegisterSectionDocument.document_id == document_id,
                     )
                 )
             ).scalar_one_or_none()
             if existing:
-                existing.document_store_id = document.document_store_id
+                existing.section_id = section.section_id
             else:
                 session.add(
                     G2PRegisterSectionDocument(
                         internal_record_id=internal_record_id,
-                        register_id=section.register_id,
+                        document_id=document_id,
                         section_id=section.section_id,
-                        document_label=document.document_label,
-                        document_store_id=document.document_store_id,
                     )
                 )
 

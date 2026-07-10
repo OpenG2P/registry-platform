@@ -165,17 +165,20 @@ class G2POutgestionConfigurationService(BaseService):
     async def create_template(
         self, template_payload: OutgoingTemplatePayload
     ) -> OutgoingTemplateData:
-        """Create a new outgoing template"""
+        """Create a new outgoing template (stores pre-uploaded template_document_id)."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             await self._validate_register_id_exists(session, template_payload.register_id)
             await self._validate_data_model_id_exists(session, template_payload.data_model_id)
             await self._check_outgoing_template_exists(session, template_payload)
+            await self._validate_template_document_id(
+                session, template_payload.template_document_id
+            )
 
             template = OutgoingTemplate(
                 register_id=template_payload.register_id,
                 data_model_id=template_payload.data_model_id,
-                template_file_id=template_payload.template_file_id,
+                template_document_id=template_payload.template_document_id,
             )
             session.add(template)
             await session.commit()
@@ -228,8 +231,17 @@ class G2POutgestionConfigurationService(BaseService):
                 session, template_update_payload.template_id
             )
 
-            if template_update_payload.template_file_id is not None:
-                template_obj.template_file_id = template_update_payload.template_file_id
+            if template_update_payload.template_document_id is not None:
+                await self._validate_template_document_id(
+                    session, template_update_payload.template_document_id
+                )
+                old_document_id = template_obj.template_document_id
+                if (
+                    old_document_id
+                    and old_document_id != template_update_payload.template_document_id
+                ):
+                    await self._delete_template_file(old_document_id)
+                template_obj.template_document_id = template_update_payload.template_document_id
 
             await session.commit()
             await session.refresh(template_obj)
@@ -243,8 +255,11 @@ class G2POutgestionConfigurationService(BaseService):
             deleted_template_data = await self._build_template_data_with_mnemonics(
                 session, template_obj
             )
+            document_id = template_obj.template_document_id
             await session.delete(template_obj)
             await session.commit()
+            if document_id:
+                await self._delete_template_file(document_id)
             return deleted_template_data
     
 
@@ -368,8 +383,20 @@ class G2POutgestionConfigurationService(BaseService):
             register_mnemonic=register_obj.register_mnemonic,
             data_model_id=template_obj.data_model_id,
             data_model_mnemonic=data_model_obj.data_model_mnemonic,
-            template_file_id=template_obj.template_file_id,
+            template_document_id=template_obj.template_document_id,
         )
+
+    async def _validate_template_document_id(self, session, document_id: str) -> None:
+        from .g2p_document_service import G2PDocumentService
+
+        await G2PDocumentService.get_component().validate_template_documents_exist(
+            session, [document_id]
+        )
+
+    async def _delete_template_file(self, template_document_id: str) -> None:
+        from .g2p_template_service import G2PTemplateService
+
+        await G2PTemplateService.get_component().delete_template_file(template_document_id)
 
     async def _get_outgoing_topic(self, topic_id: str, session: AsyncSession) -> OutgoingTopic:
         if not topic_id:

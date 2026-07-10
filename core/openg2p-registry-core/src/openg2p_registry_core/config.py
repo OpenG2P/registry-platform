@@ -19,14 +19,16 @@ class Settings(IamSettings):
         """
     openapi_version: str = __version__
 
+    # Document Storage Configuration
+    # Backend for the DocumentHandler factory. Bucket names are hard-set by
+    # the DocumentBucket enum and are not configurable.
+    document_storage_backend: str = "minio"
+
     # MinIO Configuration
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "admin"
     minio_secret_key: str = "secret"
     minio_secure: bool = False
-    minio_bucket_name: str = "default"
-
-    template_bucket_name: str = "template"
 
     # Master Data Database Configuration
     master_data_db_driver: str = "postgresql+asyncpg"

@@ -61,12 +61,16 @@ class InputMechanismDataController(BaseController):
         request: Request,
         enqueue_import_file_request: EnqueueImportFileRequest,
     ) -> EnqueueImportFileResponse:
+        enqueue_import_file_request.request_body.request_payload.queued_by = getattr(
+            request.state.auth, "name", "Unknown"
+        )
+        payload = enqueue_import_file_request.request_body.request_payload
         import_file_process_queue = await self.input_mechanism_data_service.enqueue_import_file(
-            document_store_id=enqueue_import_file_request.request_body.request_payload.document_store_id,
-            data_model_id=enqueue_import_file_request.request_body.request_payload.data_model_id,
-            register_id=enqueue_import_file_request.request_body.request_payload.register_id,
-            intake_form_id=enqueue_import_file_request.request_body.request_payload.intake_form_id,
-            queued_by=getattr(request.state.auth, "name", "Unknown"),
+            document_id=payload.document_id,
+            data_model_id=payload.data_model_id,
+            register_id=payload.register_id,
+            intake_form_id=payload.intake_form_id,
+            queued_by=payload.queued_by or "Unknown",
         )
         response = EnqueueImportFileResponse(
             response_header=G2PResponseHeader(
@@ -90,13 +94,13 @@ class InputMechanismDataController(BaseController):
         register_id: Optional[str] = None,
         intake_form_id: Optional[str] = None,
     ) -> Response:
-        response_template_file_id: str | None = None
+        response_template_store_id: str | None = None
         try:
             body: Dict = await ingest_data_request.json()
             headers: Dict = dict(ingest_data_request.headers)
             ingest_data: Dict = {"headers": headers, "body": body}
 
-            ingest_data_payload, response_template_file_id = await self.ingest_controller_service.ingest_data(
+            ingest_data_payload, response_template_store_id = await self.ingest_controller_service.ingest_data(
                 data_model,
                 ingest_data,
                 register_id=register_id,
