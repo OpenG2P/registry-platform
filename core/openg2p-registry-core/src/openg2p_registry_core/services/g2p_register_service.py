@@ -20,7 +20,7 @@ from .g2p_completion_score_service import G2PCompletionScoreService
 
 from ..helpers.register_field_metadata import iter_register_orm_field_metadata
 from ..helpers.file_validation import validate_base64_file
-from ..helpers.file_validation_profiles import IMAGE_ICON_PROFILE
+from ..helpers.file_validation_profiles import DASHBOARD_IMAGE_PROFILE, IMAGE_ICON_PROFILE
 
 from ..cache import metadata_key_builder
 
@@ -3058,10 +3058,14 @@ class G2PRegisterService(BaseService):
             await session.flush()
 
             for item in theme_values:
+                attribute_value = self._validate_theme_attribute_value(
+                    item.attribute_name,
+                    item.attribute_value,
+                )
                 theme_value = G2PRegistryThemeValue(
                     theme_id=theme.theme_id,
                     attribute_name=RegistryThemeAttributeNameEnum(item.attribute_name),
-                    attribute_value=item.attribute_value
+                    attribute_value=attribute_value,
                 )
                 session.add(theme_value)
 
@@ -3127,17 +3131,30 @@ class G2PRegisterService(BaseService):
                 await session.delete(value_row)
 
             for item in theme_attribute_values:
+                attribute_value = self._validate_theme_attribute_value(
+                    item.attribute_name,
+                    item.attribute_value,
+                )
                 session.add(
                     G2PRegistryThemeValue(
                         theme_id=theme_id,
                         attribute_name=RegistryThemeAttributeNameEnum(item.attribute_name),
-                        attribute_value=item.attribute_value
+                        attribute_value=attribute_value,
                     )
                 )
 
             await session.commit()
             theme_operation_data: ThemeOperationData = ThemeOperationData(theme_id=theme_id, success=True)
             return theme_operation_data
+
+    @staticmethod
+    def _validate_theme_attribute_value(attribute_name: str, attribute_value: str) -> str:
+        if (
+            attribute_name == RegistryThemeAttributeNameEnum.dashboard_image.value
+            and attribute_value
+        ):
+            return validate_base64_file(attribute_value, DASHBOARD_IMAGE_PROFILE)
+        return attribute_value
 
     async def get_theme_values(self, theme_id: str) -> list[RegistryThemeValueData]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -3240,6 +3257,14 @@ class G2PRegisterService(BaseService):
                 if existing_default:
                     existing_default.is_default = False
 
+            if language_flag_base64:
+                language_flag_base64 = validate_base64_file(
+                    language_flag_base64,
+                    IMAGE_ICON_PROFILE,
+                )
+            else:
+                language_flag_base64 = None
+
             language = G2PRegistryLanguage(
                 language_code=language_code,
                 language_label=language_label,
@@ -3297,8 +3322,13 @@ class G2PRegisterService(BaseService):
 
             if language_label is not None:
                 language.language_label = language_label
-            if language_flag_base64 is not None:
-                language.language_flag_base64 = language_flag_base64
+            if language_flag_base64:
+                language.language_flag_base64 = validate_base64_file(
+                    language_flag_base64,
+                    IMAGE_ICON_PROFILE,
+                )
+            elif language_flag_base64 is not None:
+                language.language_flag_base64 = None
             if core_translation is not None:
                 language.core_translation = core_translation
             if domain_translation is not None:

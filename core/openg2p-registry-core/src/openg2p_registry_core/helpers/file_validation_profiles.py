@@ -24,6 +24,18 @@ IMAGE_ICON_PROFILE = FileValidationProfile(
     content_mode="image",
 )
 
+# Language flags reuse IMAGE_ICON_PROFILE (same rules as register icons).
+# Dashboard images allow the UI-documented 1200x600 bound.
+DASHBOARD_IMAGE_PROFILE = FileValidationProfile(
+    allowed_mime_types=frozenset({"image/png", "image/jpeg", "image/webp"}),
+    allowed_extensions=frozenset({"png", "jpg", "jpeg", "webp"}),
+    max_bytes=1 * 1024 * 1024,
+    max_width=1200,
+    max_height=600,
+    require_filename=False,
+    content_mode="image",
+)
+
 
 def get_upload_validation_profile(
     bucket: "DocumentBucket",
