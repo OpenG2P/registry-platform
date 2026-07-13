@@ -1,4 +1,3 @@
-import React from 'react';
 import { tSchema } from '../utils/tSchema';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { BaseWidgetConfig } from '../types';
@@ -140,9 +139,9 @@ function renderLevelRows({
                 </option>
               ))}
             </select>
-            {isLoading && (
+            {/* {isLoading && (
               <p className="text-sm text-gray-500 mt-1">{t?.('common.loadingOptions')}</p>
-            )}
+            )} */}
           </div>
         </div>
       </div>
@@ -204,25 +203,39 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
         columnLevels: visibleColumns[0]?.levels ?? levels,
       })
     ) : (
-      <div className="flex flex-col lg:flex-row w-full">
-        {visibleColumns.map((column, columnPosition) => (
-          <div
-            key={`geo-column-${column.index}`}
-            className="flex flex-col flex-1 min-w-0 relative px-0 lg:px-4 first:lg:pl-0 last:lg:pr-0"
-          >
-            {columnPosition < visibleColumns.length - 1 && (
-              <div
-                className="hidden lg:block absolute right-0 top-0 bottom-1 w-px"
-                style={{
-                  backgroundColor: isReadonly
-                    ? 'var(--owt-color-border, #C4C4C4)'
-                    : 'var(--owt-color-primary, #F5BB1A)',
-                }}
-              />
-            )}
-            {renderLevelRows({ ...rowProps, columnLevels: column.levels })}
-          </div>
-        ))}
+      <div
+        className="flex flex-col lg:grid w-full"
+        style={{
+          gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(200px, 1fr))`,
+        }}
+      >
+        {visibleColumns.map((column, position) => {
+          const isLast = position === visibleColumns.length - 1;
+          const columnClassName = [
+            'flex flex-col min-w-0 relative',
+            position > 0 ? 'lg:pl-10' : '',
+            isLast ? '' : 'lg:pr-10',
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <div key={`geo-column-${column.index}`} className={columnClassName}>
+              {!isLast && (
+                <div
+                  className="hidden lg:block absolute right-0 top-0 w-px"
+                  style={{
+                    bottom: '5px',
+                    backgroundColor: isReadonly
+                      ? 'var(--owt-panel-divider-color, #C4C4C4)'
+                      : 'var(--owt-color-primary, #F5BB1A)',
+                  }}
+                />
+              )}
+              {renderLevelRows({ ...rowProps, columnLevels: column.levels })}
+            </div>
+          );
+        })}
       </div>
     );
 

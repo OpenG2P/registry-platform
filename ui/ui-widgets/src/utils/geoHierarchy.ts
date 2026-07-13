@@ -94,6 +94,25 @@ export function distributeLevelsToColumns(
   return columns;
 }
 
+export function distributeLevelsContiguous(
+  levels: GeoLevel[],
+  columnCount: number,
+): GeoLevel[][] {
+  const safeCount = Math.max(columnCount, 1);
+  const rowsPerColumn = Math.ceil(levels.length / safeCount);
+  const columns: GeoLevel[][] = Array.from({ length: safeCount }, () => []);
+
+  if (rowsPerColumn === 0) {
+    return columns;
+  }
+
+  for (let index = 0; index < safeCount; index += 1) {
+    columns[index] = levels.slice(index * rowsPerColumn, (index + 1) * rowsPerColumn);
+  }
+
+  return columns;
+}
+
 export function resolveGeoLevelColumns(
   levels: GeoLevel[],
   layout?: { distribution?: 'fixed'; columns?: number[] },
@@ -110,10 +129,15 @@ export function resolveGeoLevelColumns(
     };
   }
 
-  const columnCounts = [3, 0, 0];
+  // Default (no explicit layout): fill top-to-bottom across up to
+  // GEO_SECTION_COLUMN_SLOTS columns, each holding a contiguous block of levels
+  // so the order stays correct when columns stack on small screens.
+  const columnCount = Math.min(GEO_SECTION_COLUMN_SLOTS, Math.max(levels.length, 1));
+  const columns = distributeLevelsContiguous(levels, columnCount);
+
   return {
-    columnCounts,
-    columns: distributeLevelsToColumns(levels, columnCounts),
+    columnCounts: columns.map((column) => column.length),
+    columns,
   };
 }
 

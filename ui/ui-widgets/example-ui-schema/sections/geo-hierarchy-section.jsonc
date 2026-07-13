@@ -17,10 +17,6 @@
             "value": "register-id.geo_lowest_level_value_id",
             "hierarchy": "register-id.geo_code_hierarchy_json"
           },
-          "widget-geo-layout": {
-            "distribution": "fixed",
-            "columns": [1, 1, 1]
-          },
           "widget-data-source": {
             "type": "api",
             "service": "master-data",

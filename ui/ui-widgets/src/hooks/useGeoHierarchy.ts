@@ -106,6 +106,7 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
   const lastInitializedKeyRef = useRef<string | undefined>(undefined);
   const initializingRef = useRef(false);
   const hydratingRef = useRef(false);
+  const selfPersistedValueRef = useRef<string | null>(null);
   const baseHierarchyRef = useRef(baseHierarchyJson);
   const baseStoredValueRef = useRef(baseStoredValue);
 
@@ -209,9 +210,17 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
       }
 
       const deepest = getDeepestSelectedValue(orderedLevels, nextSelectedValues);
-      base.onChange(deepest ?? null);
+      selfPersistedValueRef.current = deepest ? String(deepest) : '';
+
+      const rawDataPath = config['widget-data-path'];
+      const nextValue = deepest ?? null;
+      if (rawDataPath && typeof rawDataPath === 'object') {
+        base.onChange({ value: nextValue });
+      } else {
+        base.onChange(nextValue);
+      }
     },
-    [base, isReadonly],
+    [base, config, isReadonly],
   );
 
   const loadOptionsForLevel = useCallback(
@@ -264,13 +273,13 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
   );
 
   const hydrateFromStoredValue = useCallback(
-    async (orderedLevels: GeoLevel[], levelValueId: string) => {
+    async (orderedLevels: GeoLevel[], levelValueId: string): Promise<boolean> => {
       hydratingRef.current = true;
 
       try {
         const chain = resolveStoredChain(orderedLevels, levelValueId);
         if (chain.length === 0) {
-          return;
+          return false;
         }
 
         const nextSelectedValues = mapChainToSelections(orderedLevels, chain);
@@ -286,6 +295,7 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
         setSelectedValues(nextSelectedValues);
         setOptions(nextOptions);
         setResolvedLabels(labelMap);
+        return true;
       } finally {
         hydratingRef.current = false;
       }
@@ -314,8 +324,10 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
         storedValue !== null && storedValue !== undefined && String(storedValue).trim() !== '';
 
       if (hasStoredValue) {
-        await hydrateFromStoredValue(orderedLevels, String(storedValue));
-        return;
+        const hydrated = await hydrateFromStoredValue(orderedLevels, String(storedValue));
+        if (hydrated) {
+          return;
+        }
       }
 
       setSelectedValues({});
@@ -353,6 +365,14 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     const initKey = `${isReadonly ? 'view' : 'edit'}|${normalizedValue}|${hierarchyKey}`;
 
     if (lastInitializedKeyRef.current === initKey) {
+      return;
+    }
+
+    if (
+      selfPersistedValueRef.current !== null &&
+      normalizedValue === selfPersistedValueRef.current
+    ) {
+      lastInitializedKeyRef.current = initKey;
       return;
     }
 
