@@ -19,7 +19,8 @@ from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
 from .g2p_completion_score_service import G2PCompletionScoreService
 
 from ..helpers.register_field_metadata import iter_register_orm_field_metadata
-from ..helpers.file_validation import IMAGE_ICON_PROFILE, validate_base64_image
+from ..helpers.file_validation import validate_base64_file
+from ..helpers.file_validation_profiles import IMAGE_ICON_PROFILE
 
 from ..cache import metadata_key_builder
 
@@ -2424,7 +2425,7 @@ class G2PRegisterService(BaseService):
                     raise ValueError(f"Master register with id '{master_register_id}' does not exist.")
 
             if register_icon:
-                register_icon = validate_base64_image(register_icon, IMAGE_ICON_PROFILE)
+                register_icon = validate_base64_file(register_icon, IMAGE_ICON_PROFILE)
             else:
                 register_icon = None
 
@@ -2512,7 +2513,7 @@ class G2PRegisterService(BaseService):
 
             validated_register_icon = register_icon
             if register_icon:
-                validated_register_icon = validate_base64_image(register_icon, IMAGE_ICON_PROFILE)
+                validated_register_icon = validate_base64_file(register_icon, IMAGE_ICON_PROFILE)
             elif register_icon is not None:
                 validated_register_icon = None
 

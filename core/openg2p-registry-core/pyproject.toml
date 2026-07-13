@@ -27,6 +27,7 @@ dependencies = [
   "redis",
   "httpx",
   "Pillow",
+  "filetype",
 ]
 dynamic = ["version"]
 

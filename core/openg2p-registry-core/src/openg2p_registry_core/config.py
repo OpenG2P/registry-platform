@@ -30,6 +30,23 @@ class Settings(IamSettings):
     minio_secret_key: str = "secret"
     minio_secure: bool = False
 
+    # Document upload validation (`documents` / `default` buckets)
+    document_upload_allowed_extensions: str = "png,jpg,jpeg,webp,pdf"
+    document_upload_allowed_mime_types: str = (
+        "image/png,image/jpeg,image/webp,application/pdf"
+    )
+    document_upload_max_bytes: int = 10 * 1024 * 1024
+    document_upload_max_bytes_by_mime: str = (
+        '{"image/png":5242880,"image/jpeg":5242880,'
+        '"image/webp":5242880,"application/pdf":10485760}'
+    )
+
+    # Template upload validation (`templates` bucket)
+    template_upload_allowed_extensions: str = "json.j2"
+    template_upload_allowed_mime_types: str = "text/plain,application/json"
+    template_upload_max_bytes: int = 1 * 1024 * 1024
+    template_upload_max_bytes_by_mime: str = "{}"
+
     # Master Data Database Configuration
     master_data_db_driver: str = "postgresql+asyncpg"
     master_data_db_username: str = "postgres"
