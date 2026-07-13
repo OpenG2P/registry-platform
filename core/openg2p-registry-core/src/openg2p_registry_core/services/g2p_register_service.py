@@ -19,6 +19,7 @@ from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
 from .g2p_completion_score_service import G2PCompletionScoreService
 
 from ..helpers.register_field_metadata import iter_register_orm_field_metadata
+from ..helpers.file_validation import IMAGE_ICON_PROFILE, validate_base64_image
 
 from ..cache import metadata_key_builder
 
@@ -2422,6 +2423,11 @@ class G2PRegisterService(BaseService):
                 if not master_register:
                     raise ValueError(f"Master register with id '{master_register_id}' does not exist.")
 
+            if register_icon:
+                register_icon = validate_base64_image(register_icon, IMAGE_ICON_PROFILE)
+            else:
+                register_icon = None
+
             # Create the register definition
             register_id: str = str(uuid.uuid4())
             register_definition = G2PRegisterDefinition(
@@ -2504,6 +2510,12 @@ class G2PRegisterService(BaseService):
             # Check if register has data
             has_data = await self._check_register_has_data(register_definition, session)
 
+            validated_register_icon = register_icon
+            if register_icon:
+                validated_register_icon = validate_base64_image(register_icon, IMAGE_ICON_PROFILE)
+            elif register_icon is not None:
+                validated_register_icon = None
+
             if has_data:
                 # Register has data — only update allowed (display) fields,
                 # silently ignoring restricted fields like register_mnemonic,
@@ -2512,7 +2524,7 @@ class G2PRegisterService(BaseService):
                     register_definition.register_description = register_description
 
                 if register_icon is not None:
-                    register_definition.register_icon = register_icon
+                    register_definition.register_icon = validated_register_icon
 
                 if register_rank is not None:
                     register_definition.register_rank = register_rank
@@ -2567,7 +2579,7 @@ class G2PRegisterService(BaseService):
                     register_definition.dedup_threshold_score = dedup_threshold_score
 
                 if register_icon is not None:
-                    register_definition.register_icon = register_icon
+                    register_definition.register_icon = validated_register_icon
 
                 if register_rank is not None:
                     register_definition.register_rank = register_rank
