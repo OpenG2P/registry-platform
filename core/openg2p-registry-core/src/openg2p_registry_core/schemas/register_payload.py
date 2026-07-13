@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, model_validator, Field
 from enum import Enum
 
 from ..models import ApprovalStatusEnum
+from .file_payload import DocumentAttachment, DocumentData
 
 
 # =============================================================================
@@ -266,7 +267,8 @@ class RecordData(BaseModel):
     actual_score: float = 0.0
     ideal_score: float = 0.0
     completion_score_required: bool = False
-    
+    documents: Optional[List[DocumentData]] = None
+
 
 
 # =============================================================================
@@ -337,8 +339,8 @@ class ChangeRequestRequestPayload(RegisterPayload):
     section_register_id: Optional[str] = None
     internal_record_id: Optional[str] = None
     change_payload: Optional[List[ChangePayload]] = None
-    # document_ids of already-uploaded documents (g2p_registry_documents)
-    document_ids: Optional[List[str]] = None
+    # Already-uploaded catalog documents with display labels
+    documents: Optional[List[DocumentAttachment]] = None
     # For approve/reject operations
     change_request_id: Optional[str] = None
     rejection_reason: Optional[str] = None
@@ -402,7 +404,7 @@ class SectionPayloadResponseItem(BaseModel):
     is_list: bool
     section_order: Optional[int] = None
     records: List[dict]
-    document_ids: Optional[List[str]] = None
+    documents: Optional[List[DocumentData]] = None
 
 class SubmissionResponsePayload(IntakeFormData):
     """Submission response payload."""
@@ -414,8 +416,8 @@ class SectionPayloadInput(BaseModel):
     section_id: str
     intake_form_section_payload: List[dict]
     # Desired document set for the section (g2p_registry_documents).
-    # None = no-op; [] = clear; list = full desired set (diff-synced).
-    document_ids: Optional[List[str]] = None
+    # None = no-op; [] = clear; list = full desired set (diff-synced by document_id).
+    documents: Optional[List[DocumentAttachment]] = None
 
 
 class SaveSubmissionDraftRequestPayload(BaseModel):

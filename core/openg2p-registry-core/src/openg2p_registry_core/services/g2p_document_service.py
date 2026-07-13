@@ -134,71 +134,165 @@ class G2PDocumentService(BaseService):
     ) -> ChangeRequestDocumentsData:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            result = await session.execute(
-                select(G2PRegistryDocument, G2PRegisterChangeRequestDocument.section_id)
-                .join(
-                    G2PRegisterChangeRequestDocument,
-                    G2PRegisterChangeRequestDocument.document_id
-                    == G2PRegistryDocument.document_id,
-                )
-                .where(
-                    G2PRegisterChangeRequestDocument.change_request_id
-                    == change_request_id
+            return await self.get_change_request_documents_with_session(
+                session, change_request_id
+            )
+
+    async def get_change_request_documents_with_session(
+        self, session: AsyncSession, change_request_id: str
+    ) -> ChangeRequestDocumentsData:
+        result = await session.execute(
+            select(
+                G2PRegistryDocument,
+                G2PRegisterChangeRequestDocument.section_id,
+                G2PRegisterChangeRequestDocument.label,
+            )
+            .join(
+                G2PRegisterChangeRequestDocument,
+                G2PRegisterChangeRequestDocument.document_id
+                == G2PRegistryDocument.document_id,
+            )
+            .where(
+                G2PRegisterChangeRequestDocument.change_request_id
+                == change_request_id
+            )
+        )
+        documents = [
+            self._to_document_data(
+                row, with_url=True, section_id=section_id, label=label
+            )
+            for row, section_id, label in result.all()
+        ]
+        return ChangeRequestDocumentsData(
+            change_request_id=change_request_id, documents=documents
+        )
+
+    async def get_change_request_documents_map(
+        self, session: AsyncSession, change_request_ids: Iterable[str]
+    ) -> dict[str, list[DocumentData]]:
+        """Batch map change_request_id -> List[DocumentData]."""
+        change_request_ids = [c for c in set(change_request_ids or []) if c]
+        if not change_request_ids:
+            return {}
+        result = await session.execute(
+            select(
+                G2PRegisterChangeRequestDocument.change_request_id,
+                G2PRegistryDocument,
+                G2PRegisterChangeRequestDocument.section_id,
+                G2PRegisterChangeRequestDocument.label,
+            )
+            .join(
+                G2PRegistryDocument,
+                G2PRegistryDocument.document_id
+                == G2PRegisterChangeRequestDocument.document_id,
+            )
+            .where(
+                G2PRegisterChangeRequestDocument.change_request_id.in_(
+                    change_request_ids
                 )
             )
-            documents = [
-                self._to_document_data(row, with_url=True, section_id=section_id)
-                for row, section_id in result.all()
-            ]
-            return ChangeRequestDocumentsData(
-                change_request_id=change_request_id, documents=documents
+        )
+        documents_map: dict[str, list[DocumentData]] = {
+            cr_id: [] for cr_id in change_request_ids
+        }
+        for change_request_id, row, section_id, label in result.all():
+            documents_map.setdefault(change_request_id, []).append(
+                self._to_document_data(
+                    row, with_url=True, section_id=section_id, label=label
+                )
             )
+        return documents_map
 
     async def get_intake_form_documents(
         self, submission_id: str
     ) -> IntakeFormDocumentsData:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            result = await session.execute(
-                select(G2PRegistryDocument, G2PIntakeFormSubmissionDocument.section_id)
-                .join(
-                    G2PIntakeFormSubmissionDocument,
-                    G2PIntakeFormSubmissionDocument.document_id
-                    == G2PRegistryDocument.document_id,
-                )
-                .where(G2PIntakeFormSubmissionDocument.submission_id == submission_id)
+            return await self.get_intake_form_documents_with_session(
+                session, submission_id
             )
-            documents = [
-                self._to_document_data(row, with_url=True, section_id=section_id)
-                for row, section_id in result.all()
-            ]
-            return IntakeFormDocumentsData(
-                submission_id=submission_id, documents=documents
+
+    async def get_intake_form_documents_with_session(
+        self, session: AsyncSession, submission_id: str
+    ) -> IntakeFormDocumentsData:
+        result = await session.execute(
+            select(
+                G2PRegistryDocument,
+                G2PIntakeFormSubmissionDocument.section_id,
+                G2PIntakeFormSubmissionDocument.label,
             )
+            .join(
+                G2PIntakeFormSubmissionDocument,
+                G2PIntakeFormSubmissionDocument.document_id
+                == G2PRegistryDocument.document_id,
+            )
+            .where(G2PIntakeFormSubmissionDocument.submission_id == submission_id)
+        )
+        documents = [
+            self._to_document_data(
+                row, with_url=True, section_id=section_id, label=label
+            )
+            for row, section_id, label in result.all()
+        ]
+        return IntakeFormDocumentsData(
+            submission_id=submission_id, documents=documents
+        )
 
     async def get_section_documents(
         self, internal_record_id: str
     ) -> SectionDocumentsData:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            result = await session.execute(
-                select(G2PRegistryDocument, G2PRegisterSectionDocument.section_id)
-                .join(
-                    G2PRegisterSectionDocument,
-                    G2PRegisterSectionDocument.document_id
-                    == G2PRegistryDocument.document_id,
-                )
-                .where(
-                    G2PRegisterSectionDocument.internal_record_id == internal_record_id
+            return await self.get_section_documents_with_session(
+                session, internal_record_id
+            )
+
+    async def get_section_documents_with_session(
+        self, session: AsyncSession, internal_record_id: str
+    ) -> SectionDocumentsData:
+        documents_map = await self.get_section_documents_map(
+            session, [internal_record_id]
+        )
+        return SectionDocumentsData(
+            internal_record_id=internal_record_id,
+            documents=documents_map.get(internal_record_id, []),
+        )
+
+    async def get_section_documents_map(
+        self, session: AsyncSession, internal_record_ids: Iterable[str]
+    ) -> dict[str, list[DocumentData]]:
+        """Batch map internal_record_id -> List[DocumentData]."""
+        internal_record_ids = [r for r in set(internal_record_ids or []) if r]
+        if not internal_record_ids:
+            return {}
+        result = await session.execute(
+            select(
+                G2PRegisterSectionDocument.internal_record_id,
+                G2PRegistryDocument,
+                G2PRegisterSectionDocument.section_id,
+                G2PRegisterSectionDocument.label,
+            )
+            .join(
+                G2PRegistryDocument,
+                G2PRegistryDocument.document_id
+                == G2PRegisterSectionDocument.document_id,
+            )
+            .where(
+                G2PRegisterSectionDocument.internal_record_id.in_(
+                    internal_record_ids
                 )
             )
-            documents = [
-                self._to_document_data(row, with_url=True, section_id=section_id)
-                for row, section_id in result.all()
-            ]
-            return SectionDocumentsData(
-                internal_record_id=internal_record_id, documents=documents
+        )
+        documents_map: dict[str, list[DocumentData]] = {
+            record_id: [] for record_id in internal_record_ids
+        }
+        for internal_record_id, row, section_id, label in result.all():
+            documents_map.setdefault(internal_record_id, []).append(
+                self._to_document_data(
+                    row, with_url=True, section_id=section_id, label=label
+                )
             )
+        return documents_map
 
     # =========================================================================
     # Helpers for other services
@@ -319,6 +413,7 @@ class G2PDocumentService(BaseService):
         row: G2PRegistryDocument,
         with_url: bool = False,
         section_id: Optional[str] = None,
+        label: Optional[str] = None,
     ) -> DocumentData:
         presigned_url = None
         if with_url:
@@ -334,4 +429,5 @@ class G2PDocumentService(BaseService):
             created_at=row.created_at,
             presigned_url=presigned_url,
             section_id=section_id,
+            label=label,
         )

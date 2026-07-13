@@ -6,6 +6,13 @@ from pydantic import BaseModel
 from ..models.enum import DocumentBucket
 
 
+class DocumentAttachment(BaseModel):
+    """Reference to an already-uploaded catalog document with a required display label."""
+
+    document_id: str
+    label: str
+
+
 class DocumentData(BaseModel):
     """g2p_registry_documents model attributes + presigned URL."""
 
@@ -18,6 +25,8 @@ class DocumentData(BaseModel):
     presigned_url: Optional[str] = None
     # Populated by the per-entity document queries (CR / intake / section)
     section_id: Optional[str] = None
+    # From junction tables on entity GETs; absent on plain upload / get_documents
+    label: Optional[str] = None
 
     class Config:
         from_attributes: bool = True

@@ -5,6 +5,7 @@ from openg2p_fastapi_common.schemas import G2PRequest, G2PRequestBody, G2PRespon
 from pydantic import BaseModel, ConfigDict
 
 from .register_payload import DisplayField
+from .file_payload import DocumentAttachment, DocumentData
 
 
 class G2PIntakeFormSchemaBase:
@@ -53,7 +54,7 @@ class SectionPayloadResponseItem(BaseModel):
     is_list: bool
     section_order: Optional[int] = None
     records: List[dict]
-    document_ids: Optional[List[str]] = None
+    documents: Optional[List[DocumentData]] = None
 
 
 class SubmissionResponsePayload(IntakeFormData):
@@ -66,8 +67,8 @@ class SectionPayloadInput(BaseModel):
     section_id: str
     intake_form_section_payload: List[dict]
     # Desired document set for the section (g2p_registry_documents).
-    # None = no-op; [] = clear; list = full desired set (diff-synced).
-    document_ids: Optional[List[str]] = None
+    # None = no-op; [] = clear; list = full desired set (diff-synced by document_id).
+    documents: Optional[List[DocumentAttachment]] = None
 
 
 class SaveIntakeFormSubmissionRequestPayload(BaseModel):
@@ -79,8 +80,8 @@ class SaveIntakeFormSubmissionRequestPayload(BaseModel):
     register_id: str
     created_by: Optional[str] = None
     # Desired document set for the section (g2p_registry_documents).
-    # None = no-op; [] = clear; list = full desired set (diff-synced).
-    document_ids: Optional[List[str]] = None
+    # None = no-op; [] = clear; list = full desired set (diff-synced by document_id).
+    documents: Optional[List[DocumentAttachment]] = None
 
 
 class SaveIntakeFormSubmissionRequestBody(G2PRequestBody):

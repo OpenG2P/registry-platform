@@ -79,7 +79,7 @@ async def _process_submission_async(submission_id: str) -> None:
                         session,
                     )
                     intake_rows = await _get_intake_rows(intake_class, submission.submission_id, session)
-                    section_document_ids = documents_by_section.get(section.section_id, [])
+                    section_documents = documents_by_section.get(section.section_id, [])
                     for intake_row in intake_rows:
                         register_row = await _insert_register_row(
                             submission,
@@ -95,12 +95,12 @@ async def _process_submission_async(submission_id: str) -> None:
                             history_class,
                             session,
                         )
-                        if section_document_ids:
+                        if section_documents:
                             await _upsert_live_documents(
                                 submission,
                                 section,
                                 register_row.internal_record_id,
-                                section_document_ids,
+                                section_documents,
                                 session,
                             )
                         await _run_post_ingest_hook(register_definition, register_row, session)
@@ -195,8 +195,8 @@ async def _get_intake_rows(intake_class, submission_id: str, session) -> list[ob
 async def _get_submission_documents(
     submission_id: str,
     session,
-) -> dict[str, list[str]]:
-    """Map section_id -> attached document_ids for a submission."""
+) -> dict[str, list[tuple[str, str]]]:
+    """Map section_id -> list of (document_id, label) for a submission."""
     document_rows = (
         await session.execute(
             select(G2PIntakeFormSubmissionDocument).where(
@@ -204,9 +204,11 @@ async def _get_submission_documents(
             )
         )
     ).scalars().all()
-    documents_by_section: dict[str, list[str]] = {}
+    documents_by_section: dict[str, list[tuple[str, str]]] = {}
     for row in document_rows:
-        documents_by_section.setdefault(row.section_id, []).append(row.document_id)
+        documents_by_section.setdefault(row.section_id, []).append(
+            (row.document_id, row.label)
+        )
     return documents_by_section
 
 
@@ -214,11 +216,11 @@ async def _upsert_live_documents(
     submission: G2PIntakeFormSubmission,
     section: G2PRegisterSection,
     internal_record_id: str,
-    document_ids: list[str],
+    documents: list[tuple[str, str]],
     session,
 ) -> None:
     """Promote intake submission documents onto the live register section."""
-    for document_id in document_ids:
+    for document_id, label in documents:
         session.add(
             G2PRegisterDocumentHistory(
                 internal_record_id=internal_record_id,
@@ -227,6 +229,7 @@ async def _upsert_live_documents(
                 change_request_source=ChangeRequestSourceEnum.INTAKE_FORM.value,
                 section_id=section.section_id,
                 document_id=document_id,
+                label=label,
                 created_by=submission.created_by,
                 created_at=submission.first_created_at,
                 approved_by=submission.approved_by or "system",
@@ -244,12 +247,14 @@ async def _upsert_live_documents(
         ).scalar_one_or_none()
         if existing:
             existing.section_id = section.section_id
+            existing.label = label
         else:
             session.add(
                 G2PRegisterSectionDocument(
                     internal_record_id=internal_record_id,
                     document_id=document_id,
                     section_id=section.section_id,
+                    label=label,
                 )
             )
 

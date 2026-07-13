@@ -1751,6 +1751,11 @@ class G2PRegisterService(BaseService):
                     # Add to extra_fields if not a base field
                     extra_fields[column_name] = value
 
+            section_documents = await document_service.get_section_documents_with_session(
+                session, internal_record_id
+            )
+            extra_fields["documents"] = section_documents.documents
+
             # Create RecordData object with flattened extra fields
             record_data: RecordData = RecordData(
                 **extra_fields
