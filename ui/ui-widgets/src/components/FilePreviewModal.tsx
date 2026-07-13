@@ -122,7 +122,7 @@ export const FilePreviewModal = ({
       style={{ position: 'fixed', zIndex: 9999 }}
     >
       <div
-        className="relative bg-white rounded-lg shadow-xl max-w-7xl max-h-[90vh] w-full m-4 flex flex-col"
+        className="relative bg-white rounded-lg shadow-xl max-w-7xl h-[90vh] w-full m-4 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -142,7 +142,7 @@ export const FilePreviewModal = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto p-4 bg-gray-50">
+        <div className="flex-1 min-h-0 overflow-auto p-4 bg-gray-50">
           {!canPreview ? (
             <div className="flex items-center justify-center h-full min-h-[400px]">
               <div className="text-center">
@@ -165,9 +165,9 @@ export const FilePreviewModal = ({
               />
             </div>
           ) : previewType === 'pdf' && previewUrl ? (
-            <div className="h-full min-h-[600px]">
+            <div className="h-full w-full">
               <iframe
-                src={previewUrl}
+                src={`${previewUrl}#view=FitH`}
                 className="w-full h-full border-0"
                 title={fileName}
               />

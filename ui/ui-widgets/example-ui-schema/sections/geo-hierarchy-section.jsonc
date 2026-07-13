@@ -1,0 +1,35 @@
+{
+  "section-id": "individual_geo_hierarchy",
+  "section-title": "Location Hierarchy",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_geo_main",
+      "widgets": [
+        {
+          "widget": "geo-hierarchy",
+          "widget-type": "input",
+          "widget-id": "individual_geo_hierarchy",
+          "widget-label": "Location Hierarchy",
+          "widget-required": true,
+          "widget-data-path": {
+            "value": "register-id.geo_lowest_level_value_id",
+            "hierarchy": "register-id.geo_code_hierarchy_json"
+          },
+          "widget-geo-layout": {
+            "distribution": "fixed",
+            "columns": [1, 1, 1]
+          },
+          "widget-data-source": {
+            "type": "api",
+            "service": "master-data",
+            "method": "POST",
+            "levelsEndpoint": "geo-levels",
+            "valuesEndpoint": "geo-level-values"
+          }
+        }
+      ]
+    }
+  ]
+}

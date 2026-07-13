@@ -1,0 +1,36 @@
+{
+  "widget": "geo-hierarchy",
+  "widget-type": "input",
+  "widget-id": "individual_geo_hierarchy",
+  "widget-label": "Location Hierarchy",
+  "widget-required": true,
+  "widget-data-path": {
+    "value": "register-id.geo_lowest_level_value_id",
+    "hierarchy": "register-id.geo_code_hierarchy_json"
+  },
+  "widget-geo-layout": {
+    "distribution": "fixed",
+    "columns": [1, 1, 1]
+  },
+  "widget-data-source": {
+    "type": "api",
+    "service": "master-data",
+    "method": "POST",
+    "levelsEndpoint": "geo-levels",
+    "valuesEndpoint": "geo-level-values"
+  }
+
+  // --- Notes ---
+  // Cascading location selects (e.g. Region -> Zone -> Woreda). Only the deepest
+  // selected level value id is persisted to "value"; "hierarchy" is a read path
+  // for the stored geo_code_hierarchy_json used to hydrate read/edit mode.
+  //
+  // "widget-geo-layout.columns" distributes the geo levels across section
+  // columns (e.g. [3, 0, 0] = all levels in one column). Omit it for the default
+  // single-column layout.
+  //
+  // The data source is resolved through the SectionsContainer
+  // dataSourceRequestHandler:
+  //   levelsEndpoint -> [{ level_id, level_mnemonic, parent_level_id }]
+  //   valuesEndpoint -> [{ level_value_id, level_id, level_value_mnemonic, parent_level_value_id }]
+}

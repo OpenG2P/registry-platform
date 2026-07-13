@@ -26,13 +26,6 @@
               "widget-label": "Checkbox",
               "widget-data-path": "register-id.consent",
               "widget-data-default": false
-            },
-            {
-              "widget": "currency",
-              "widget-type": "input",
-              "widget-id": "salary",
-              "widget-label": "Currency",
-              "widget-data-path": "register-id.salary"
             }
           ]
         },

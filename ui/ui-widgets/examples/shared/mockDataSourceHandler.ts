@@ -21,6 +21,24 @@ const ATTRIBUTE_VALUES: Record<string, Array<{ value_code: string; value_display
   ],
 };
 
+const GEO_LEVELS = [
+  { level_id: 'L1', level_mnemonic: 'region', parent_level_id: null },
+  { level_id: 'L2', level_mnemonic: 'zone', parent_level_id: 'L1' },
+  { level_id: 'L3', level_mnemonic: 'woreda', parent_level_id: 'L2' },
+];
+
+const GEO_LEVEL_VALUES = [
+  { level_value_id: 'R1', level_id: 'L1', level_value_mnemonic: 'addis_ababa', parent_level_value_id: null },
+  { level_value_id: 'R2', level_id: 'L1', level_value_mnemonic: 'oromia', parent_level_value_id: null },
+  { level_value_id: 'Z1', level_id: 'L2', level_value_mnemonic: 'bole', parent_level_value_id: 'R1' },
+  { level_value_id: 'Z2', level_id: 'L2', level_value_mnemonic: 'kirkos', parent_level_value_id: 'R1' },
+  { level_value_id: 'Z3', level_id: 'L2', level_value_mnemonic: 'east_shewa', parent_level_value_id: 'R2' },
+  { level_value_id: 'W1', level_id: 'L3', level_value_mnemonic: 'woreda_03', parent_level_value_id: 'Z1' },
+  { level_value_id: 'W2', level_id: 'L3', level_value_mnemonic: 'woreda_04', parent_level_value_id: 'Z1' },
+  { level_value_id: 'W3', level_id: 'L3', level_value_mnemonic: 'woreda_01', parent_level_value_id: 'Z2' },
+  { level_value_id: 'W4', level_id: 'L3', level_value_mnemonic: 'adama', parent_level_value_id: 'Z3' },
+];
+
 const MOCK_REGISTER_RECORDS = [
   {
     internal_record_id: 'rec-001',
@@ -53,6 +71,23 @@ export function createExampleDataSourceHandler(): DataSourceRequestHandler {
   return async (service, endpoint, method, params) => {
     // eslint-disable-next-line no-console
     console.log('[examples] dataSourceRequestHandler', { service, endpoint, method, params });
+
+    if (service === 'master-data' && endpoint === 'geo-levels') {
+      return { response_body: { response_payload: GEO_LEVELS } };
+    }
+
+    if (service === 'master-data' && endpoint === 'geo-level-values') {
+      const levelId = String((params as { level_id?: string })?.level_id ?? '');
+      const parentValueId = String(
+        (params as { parent_level_value_id?: string })?.parent_level_value_id ?? '',
+      );
+      const values = GEO_LEVEL_VALUES.filter(
+        (item) =>
+          item.level_id === levelId &&
+          (item.parent_level_value_id ?? '') === parentValueId,
+      );
+      return { response_body: { response_payload: values } };
+    }
 
     if (service === 'attributes' && endpoint === 'values') {
       const attributeId = (params as { attribute_id?: string })?.attribute_id ?? '';

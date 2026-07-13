@@ -53,6 +53,20 @@ export interface GeoHierarchyDataSource {
 
 export type DataSource = StaticDataSource | ApiDataSource | SchemaDataSource;
 
+/** Configuration for a single upload slot inside a `docs` widget. */
+export interface DocsWidgetDocumentConfig {
+  /** Unique key used to store this file under the widget's data-path object. */
+  'document-key': string;
+  /** Display label shown above the upload button. */
+  'document-label': string;
+  /** Whether uploading this document is required for validation. */
+  'document-required'?: boolean;
+  /** Required: allowed file types for this slot (e.g. "image/*", ".pdf,.jpg"). */
+  'document-accept': string;
+  /** Required: maximum file size in bytes for this slot. */
+  'document-max-size': number;
+}
+
 export interface GeoHierarchyLayout {
   /** fixed = section uses a 3-column slot grid; columns[] defines geo levels per slot */
   distribution?: 'fixed';
@@ -275,6 +289,10 @@ export interface BaseWidgetConfig {
   'widget-data-add-label'?: string;
   'widget-data-collapsed'?: boolean;
   'widget-column-span'?: number;
+  /** Number of columns for the docs widget grid (default 3). */
+  'widget-docs-columns'?: number;
+  /** Upload slot definitions for the `docs` widget. */
+  documents?: DocsWidgetDocumentConfig[];
   _comment?: string;
   [key: string]: any;
 }

@@ -57,9 +57,9 @@ function App() {
 
 ## Widgets
 
-Input: `text`, `textarea`, `number`, `boolean`, `date`, `datetime`, `select`, `radio`, `checkbox`, `multi-select`, `phone`, `currency`, `file`, `display`.
+Input: `text`, `textarea`, `number`, `boolean`, `date`, `datetime`, `select`, `radio`, `checkbox`, `multi-select`, `phone`, `file`, `display`.
 
-Collections: `table`, `dialog-table`, `array-widget`, `iterable-accordion`.
+Collections: `table`, `dialog-table`.
 
 Special: `profile`, `header-section`, `scores-display`, `id-authentication`, `register-lookup`.
 

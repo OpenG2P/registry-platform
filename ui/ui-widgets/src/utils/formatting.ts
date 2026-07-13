@@ -85,7 +85,7 @@ export const formatValue = (value: any, format: WidgetFormat | undefined, widget
     return formatDate(value, format);
   }
 
-  if (format.currency || widgetType === 'currency') {
+  if (format.currency) {
     return formatCurrency(value, format);
   }
 

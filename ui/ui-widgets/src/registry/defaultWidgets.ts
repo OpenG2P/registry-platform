@@ -9,10 +9,7 @@ import {
   RadioWidget,
   CheckboxWidget,
   FileInputWidget,
-  ArrayWidget,
-  IterableAccordionWidget,
   PhoneInputWidget,
-  CurrencyInputWidget,
   DisplayWidget,
   TableWidget,
   DialogTableWidget,
@@ -24,6 +21,7 @@ import {
   RegisterLookupWidget,
   MultiSelectWidget,
   GeoHierarchyWidget,
+  DocsWidget,
 } from '../widgets';
 
 export const registerDefaultWidgets = () => {
@@ -39,10 +37,7 @@ export const registerDefaultWidgets = () => {
   widgetRegistry.register({ widget: 'file', component: FileInputWidget });
   widgetRegistry.register({ widget: 'table', component: TableWidget });
   widgetRegistry.register({ widget: 'dialog-table', component: DialogTableWidget });
-  widgetRegistry.register({ widget: 'array-widget', component: ArrayWidget });
-  widgetRegistry.register({ widget: 'iterable-accordion', component: IterableAccordionWidget });
   widgetRegistry.register({ widget: 'phone', component: PhoneInputWidget });
-  widgetRegistry.register({ widget: 'currency', component: CurrencyInputWidget });
   widgetRegistry.register({ widget: 'display', component: DisplayWidget });
   widgetRegistry.register({ widget: 'profile', component: ProfileWidget });
   widgetRegistry.register({ widget: 'header-section', component: HeaderSectionWidget });
@@ -51,6 +46,7 @@ export const registerDefaultWidgets = () => {
   widgetRegistry.register({ widget: 'register-lookup', component: RegisterLookupWidget });
   widgetRegistry.register({ widget: 'multi-select', component: MultiSelectWidget });
   widgetRegistry.register({ widget: 'geo-hierarchy', component: GeoHierarchyWidget });
+  widgetRegistry.register({ widget: 'docs', component: DocsWidget });
 };
 
 registerDefaultWidgets();

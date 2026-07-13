@@ -227,12 +227,9 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
           'checkbox': 'input',
           'file': 'input',
           'phone': 'input',
-          'currency': 'input',
           'display': 'input',
           'table': 'table',
           'dialog-table': 'table',
-          'array-widget': 'group',
-          'iterable-accordion': 'group',
           'profile': 'layout',
         };
 

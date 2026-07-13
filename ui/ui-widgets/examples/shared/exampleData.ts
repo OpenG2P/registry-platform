@@ -130,10 +130,38 @@ const householdMembers = [
   },
 ];
 
+const sampleSupportingDocuments = {
+  national_id_front: 'https://example.com/docs/national-id-front.pdf',
+  national_id_back: 'https://example.com/docs/national-id-back.pdf',
+  passport: null,
+  birth_certificate: 'https://example.com/docs/birth-certificate.pdf',
+  proof_of_address: null,
+  photo: 'https://example.com/docs/passport-photo.png',
+  bank_statement: null,
+  employment_letter: null,
+  other: null,
+};
+
+const sampleGeoHierarchy = {
+  geo_lowest_level_value_id: 'W2',
+  geo_code_hierarchy_json: {
+    hierarchy: [
+      { level_id: 'L1', level_mnemonic: 'region', level_value_id: 'R1', level_value_mnemonic: 'addis_ababa' },
+      { level_id: 'L2', level_mnemonic: 'zone', level_value_id: 'Z1', level_value_mnemonic: 'bole' },
+      { level_id: 'L3', level_mnemonic: 'woreda', level_value_id: 'W2', level_value_mnemonic: 'woreda_04' },
+    ],
+    lowest_level_value_id: 'W2',
+  },
+};
+
 /** Nested shape so getValueByPath can resolve register-id.field paths. */
 export const recordSampleSchemaData: Record<string, unknown> = {
   scores: sampleScores,
-  [DEFAULT_REGISTER_ID]: { ...baseRecordFields },
+  [DEFAULT_REGISTER_ID]: {
+    ...baseRecordFields,
+    ...sampleGeoHierarchy,
+    supporting_documents: sampleSupportingDocuments,
+  },
 };
 
 export const changeRequestOldData: Record<string, unknown> = {
