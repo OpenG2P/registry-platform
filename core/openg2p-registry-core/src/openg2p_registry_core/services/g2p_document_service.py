@@ -11,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models.enum import DocumentBucket
 from ..helpers.document import get_document_handler
+from ..helpers.file_validation import validate_file_bytes
+from ..helpers.file_validation_profiles import get_upload_validation_profile
+from ..config import Settings
 from ..models import (
     G2PIntakeFormSubmissionDocument,
     G2PRegisterChangeRequestDocument,
@@ -28,6 +31,7 @@ from ..schemas import (
 )
 
 _logger = logging.getLogger("g2p-document-service")
+_config = Settings.get_config(strict=False)
 
 
 class G2PDocumentService(BaseService):
@@ -53,11 +57,21 @@ class G2PDocumentService(BaseService):
             uploaded: list[DocumentData] = []
             for document in documents:
                 document_content = await document.read()
+                profile = get_upload_validation_profile(bucket, _config)
+                if profile is not None:
+                    validation = validate_file_bytes(
+                        document_content,
+                        profile,
+                        filename=document.filename,
+                    )
+                    content_type = validation.mime_type
+                else:
+                    content_type = document.content_type or "application/octet-stream"
                 document_store_id = handler.upload(
                     data=io.BytesIO(document_content),
                     length=len(document_content),
                     bucket=bucket,
-                    content_type=document.content_type or "application/octet-stream",
+                    content_type=content_type,
                 )
                 document_row = G2PRegistryDocument(
                     document_store_id=document_store_id,
