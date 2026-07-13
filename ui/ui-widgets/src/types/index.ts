@@ -55,27 +55,16 @@ export type DataSource = StaticDataSource | ApiDataSource | SchemaDataSource;
 
 /** Configuration for a single upload slot inside a `docs` widget. */
 export interface DocsWidgetDocumentConfig {
-  /** Unique key used to store this file under the widget's data-path object. */
   'document-key': string;
-  /** Display label shown above the upload button. */
   'document-label': string;
-  /** Whether uploading this document is required for validation. */
   'document-required'?: boolean;
-  /** Required: allowed file types for this slot (e.g. "image/*", ".pdf,.jpg"). */
   'document-accept': string;
-  /** Required: maximum file size in bytes for this slot. */
   'document-max-size': number;
 }
 
 export interface GeoHierarchyLayout {
-  /** fixed = section uses a 3-column slot grid; columns[] defines geo levels per slot */
   distribution?: 'fixed';
-  /**
-   * Geo levels per section column, e.g. [3, 2, 0] → 3 levels in col 1, 2 in col 2, col 3 for other widgets.
-   * 0 means that column has no geo selects (address/GPS panels use that slot).
-   */
   columns?: number[];
-  /** When set, this widget instance only renders the slice for that section column index. */
   columnIndex?: number;
 }
 
@@ -289,9 +278,7 @@ export interface BaseWidgetConfig {
   'widget-data-add-label'?: string;
   'widget-data-collapsed'?: boolean;
   'widget-column-span'?: number;
-  /** Number of columns for the docs widget grid (default 3). */
-  'widget-docs-columns'?: number;
-  /** Upload slot definitions for the `docs` widget. */
+  'widget-total-docs'?: number;
   documents?: DocsWidgetDocumentConfig[];
   _comment?: string;
   [key: string]: any;

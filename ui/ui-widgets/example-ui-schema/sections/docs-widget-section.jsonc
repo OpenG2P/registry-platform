@@ -13,7 +13,7 @@
           "widget-id": "individual_docs",
           "widget-label": "Supporting Documents",
           "widget-data-path": "register-id.supporting_documents",
-          "widget-docs-columns": 3,
+          "widget-total-docs": 9,
           "documents": [
             {
               "document-key": "national_id_front",

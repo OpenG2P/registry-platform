@@ -10,7 +10,25 @@ import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { FilePreviewModal } from '../components/FilePreviewModal';
 import { canPreviewInWeb } from '../utils/filePreview';
 import { serializeFile, deserializeFile, isSerializedFile, SerializedFile } from '../utils/fileSerialization';
-import { uploadIcon, fileIcon, closeSign} from '../assets';
+const distributeDocsToColumns = (
+  docs: DocSlotConfig[],
+  totalDocs: number,
+): DocSlotConfig[][] => {
+  const total = totalDocs > 0 ? totalDocs : docs.length;
+  const rowsPerColumn = Math.ceil(total / 3);
+  if (rowsPerColumn <= 0) {
+    return [];
+  }
+
+  const columns: DocSlotConfig[][] = [];
+  for (let index = 0; index < 3; index += 1) {
+    const column = docs.slice(index * rowsPerColumn, (index + 1) * rowsPerColumn);
+    if (column.length > 0) {
+      columns.push(column);
+    }
+  }
+  return columns;
+};
 
 export interface DocSlotConfig {
   'document-key': string;
@@ -42,7 +60,8 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
   const { t } = useWidgetContext();
 
   const documents: DocSlotConfig[] = widgetConfig['documents'] || [];
-  const columns: number = widgetConfig['widget-docs-columns'] || 3;
+  const totalDocs: number = widgetConfig['widget-total-docs'] || documents.length;
+  const docColumns = distributeDocsToColumns(documents, totalDocs);
   const isReadonly = Boolean(widgetConfig['widget-readonly']);
   const widgetId = widgetConfig['widget-id'];
   const dataPath = widgetConfig['widget-data-path'];
@@ -129,7 +148,6 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
     const file = getDocValue(docKey);
     const hasFile = !!file;
     const fileName = file ? getFileName(file) : '';
-    const canPreview = file ? canPreviewInWeb(file) : false;
 
     if (isReadonly) {
       return (
@@ -149,14 +167,13 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
               <button
                 type="button"
                 onClick={(e) => handlePreview(file!, e)}
-                className="text-base font-medium hover:underline focus:outline-none"
-                style={{ color: 'var(--owt-color-info, #2563eb)' }}
+                className="inline-flex items-center px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-900 bg-gray-50 focus:outline-none"
                 title={fileName}
               >
                 {t?.('common.view') ?? 'View'}
               </button>
             ) : (
-              <span className="text-base text-gray-900 font-medium"></span>
+              <span className="text-base text-gray-900 font-medium">-</span>
             )}
           </div>
         </div>
@@ -164,81 +181,57 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
     }
 
     return (
-      <div
-        key={docKey}
-        className="flex flex-col gap-2 rounded-[10px] border border-gray-200 p-3 bg-white"
-      >
-        <WidgetFieldLabel
-          label={tSchema(t, label)}
-          required={isRequired}
-          className="text-sm font-medium text-gray-700"
-        />
-        <div className="flex flex-col gap-1">
-          <label
-            className={`cursor-pointer inline-flex items-center justify-between gap-2 border border-gray-300 shadow-sm bg-white hover:bg-gray-50 ${
-              !isEnabled ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-            style={{
-              width: '100%',
-              maxWidth: 180,
-              height: 30,
-              paddingLeft: 12,
-              paddingRight: 12,
-              borderRadius: 10,
-            }}
-          >
-            <span
-              style={{
-                color: 'rgba(0,0,0,0.50)',
-                fontFamily: 'Roboto',
-                fontSize: 16,
-                fontWeight: 400,
-                lineHeight: '24px',
-              }}
-            >
-              {t?.('common.uploadFile') ?? 'Upload File'}
-            </span>
-            <img src={uploadIcon} alt="Upload" style={{ width: 18, height: 18, flexShrink: 0 }} />
-            <input
-              type="file"
-              accept={accept}
-              onChange={(e) => void handleFileChange(docKey, e)}
-              onBlur={onBlur}
-              disabled={!isEnabled}
-              className="hidden"
-              ref={(el) => {
-                fileInputRefs.current[docKey] = el;
-              }}
-            />
-          </label>
-          {hasFile && (
-            <div className="flex items-center gap-1 min-w-0 mt-1">
-              <img src={fileIcon} alt="" style={{ width: 14, height: 17, flexShrink: 0 }} />
-              {canPreview ? (
-                <button
-                  type="button"
-                  onClick={(e) => handlePreview(file!, e)}
-                  className="text-sm hover:underline focus:outline-none truncate flex-1"
-                  style={{ color: 'var(--owt-color-info, #2563eb)' }}
-                  title={fileName}
+      <div key={docKey} className="mb-[10px]">
+        <div className="flex flex-col sm:flex-row sm:items-start">
+          <WidgetFieldLabel
+            className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+            label={tSchema(t, label)}
+            required={isRequired}
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              {!hasFile && (
+                <label
+                  className={`cursor-pointer inline-flex items-center px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-900 bg-gray-50 ${
+                    !isEnabled ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                 >
-                  {fileName}
-                </button>
-              ) : (
-                <span className="text-sm text-gray-700 truncate flex-1" title={fileName}>
-                  {fileName}
-                </span>
+                  {t?.('common.upload') ?? 'Upload'}
+                  <input
+                    type="file"
+                    accept={accept}
+                    onChange={(e) => void handleFileChange(docKey, e)}
+                    onBlur={onBlur}
+                    disabled={!isEnabled}
+                    className="hidden"
+                    ref={(el) => {
+                      fileInputRefs.current[docKey] = el;
+                    }}
+                  />
+                </label>
               )}
-              <button
-                type="button"
-                onClick={() => handleRemove(docKey)}
-                className="shrink-0 text-gray-400 hover:text-red-500 focus:outline-none ml-1"
-                title="Remove"
-              >
-                <img src={closeSign} alt="Remove" style={{ width: 12, height: 12 }} />
-              </button>
+              {hasFile && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => handlePreview(file!, e)}
+                    className="inline-flex items-center px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-900 bg-gray-50 focus:outline-none"
+                    title={fileName}
+                  >
+                    {t?.('common.view') ?? 'View'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(docKey)}
+                    className="inline-flex items-center px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-900 bg-gray-50 focus:outline-none"
+                    title="Remove"
+                  >
+                    {t?.('common.remove') ?? 'Remove'}
+                  </button>
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
@@ -247,10 +240,14 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
   return (
     <div className={isReadonly ? 'DocsDisplayWidget mb-[10px]' : 'DocsWidget mb-[10px]'}>
       <div
-        className={`grid ${isReadonly ? 'gap-x-8 gap-y-0' : 'gap-4'}`}
-        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+        className="flex flex-col lg:grid gap-x-8 gap-y-0"
+        style={{ gridTemplateColumns: `repeat(${docColumns.length || 1}, minmax(0, 1fr))` }}
       >
-        {documents.map((doc) => renderSlot(doc))}
+        {docColumns.map((column, columnIndex) => (
+          <div key={`docs-column-${columnIndex}`} className="flex flex-col">
+            {column.map((doc) => renderSlot(doc))}
+          </div>
+        ))}
       </div>
       <FilePreviewModal
         file={previewFile}
