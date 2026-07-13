@@ -5,6 +5,7 @@ from openg2p_fastapi_common.schemas import G2PRequest, G2PRequestBody, G2PRespon
 from pydantic import BaseModel, ConfigDict
 
 from ..models import ApprovalStatusEnum
+from .file_payload import DocumentAttachment, DocumentData
 
 
 # =============================================================================
@@ -44,6 +45,7 @@ class RegisterChangeRequestDocumentData(BaseModel):
     change_request_id: str
     section_id: str
     document_id: str
+    label: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -117,8 +119,8 @@ class ChangeRequestRequestPayload(BaseModel):
     section_register_id: Optional[str] = None
     internal_record_id: Optional[str] = None
     change_payload: Optional[List[ChangePayload]] = None
-    # document_ids of already-uploaded documents (g2p_registry_documents)
-    document_ids: Optional[List[str]] = None
+    # Already-uploaded catalog documents with display labels
+    documents: Optional[List[DocumentAttachment]] = None
     change_request_id: Optional[str] = None
     rejection_reason: Optional[str] = None
     created_by: Optional[str] = None
@@ -212,7 +214,7 @@ class ChangeRequestData(BaseModel):
     awe_request_status_summary: Optional[str] = None
     change_payload: Optional[dict | List[dict]] = None
     current_register_data: Optional[dict | List[dict]] = None
-    document_ids: Optional[List[str]] = None
+    documents: Optional[List[DocumentData]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

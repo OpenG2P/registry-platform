@@ -324,7 +324,7 @@ class G2PRegisterHierarchicalService(BaseService):
     async def _convert_records_to_record_data(
         self, records: list, session
     ) -> list[RecordData]:
-        """Convert ORM records to RecordData, batch-resolving record image URLs."""
+        """Convert ORM records to RecordData, batch-resolving images and section documents."""
         if not records:
             return []
 
@@ -335,6 +335,13 @@ class G2PRegisterHierarchicalService(BaseService):
             session,
             [
                 getattr(record, "record_image_document_id", None)
+                for record in records
+            ],
+        )
+        section_documents_map = await document_service.get_section_documents_map(
+            session,
+            [
+                getattr(record, "internal_record_id", None)
                 for record in records
             ],
         )
@@ -356,6 +363,11 @@ class G2PRegisterHierarchicalService(BaseService):
             document_id = getattr(record, "record_image_document_id", None)
             if document_id:
                 extra_fields["record_image_url"] = record_image_urls.get(document_id)
+
+            internal_record_id = getattr(record, "internal_record_id", None)
+            extra_fields["documents"] = section_documents_map.get(
+                internal_record_id, []
+            )
 
             result.append(RecordData(**extra_fields))
 

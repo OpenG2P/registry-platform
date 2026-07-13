@@ -69,3 +69,4 @@ class G2PRegisterSectionDocument(BaseORMModel):
         nullable=False,
         index=True
     )
+    label: Mapped[str] = mapped_column(String, nullable=False)

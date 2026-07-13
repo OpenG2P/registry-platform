@@ -104,6 +104,7 @@ class G2PRegisterDocumentHistory(BaseORMModel):
     internal_record_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     section_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     document_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String, nullable=False)
     # Origin of the promotion: change request approval or intake form ingestion
     change_request_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     submission_id: Mapped[str] = mapped_column(String, nullable=True, index=True)

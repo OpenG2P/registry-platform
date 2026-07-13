@@ -130,17 +130,19 @@ class G2PRegisterChangeRequestService(BaseService):
                 session.add(g2p_register_change_request._payload)
 
             # Attach already-uploaded documents (validated against the catalog)
-            if change_request_request_payload.document_ids:
+            if change_request_request_payload.documents:
                 from .g2p_document_service import G2PDocumentService
                 document_service = G2PDocumentService.get_component()
                 await document_service.validate_documents_exist(
-                    session, change_request_request_payload.document_ids
+                    session,
+                    [doc.document_id for doc in change_request_request_payload.documents],
                 )
-                for document_id in change_request_request_payload.document_ids:
+                for doc in change_request_request_payload.documents:
                     session.add(G2PRegisterChangeRequestDocument(
                         change_request_id=g2p_register_change_request.change_request_id,
-                        document_id=document_id,
+                        document_id=doc.document_id,
                         section_id=change_request_request_payload.section_id,
+                        label=doc.label,
                     ))
 
             serialized_payloads: list[dict] = (
@@ -1547,10 +1549,12 @@ class G2PRegisterChangeRequestService(BaseService):
 
         change_requests_list: list[ChangeRequestData] = []
 
-        # Batch-fetch attached document_ids for all change requests in the page
-        cr_document_ids_map = await self._get_change_request_document_ids_map(
-            [change_request.change_request_id for change_request, _ in change_requests],
+        # Batch-fetch attached documents for all change requests in the page
+        from .g2p_document_service import G2PDocumentService
+
+        cr_documents_map = await G2PDocumentService.get_component().get_change_request_documents_map(
             session,
+            [change_request.change_request_id for change_request, _ in change_requests],
         )
 
         # Convert ORM objects to ChangeRequestData while still in session context
@@ -1583,30 +1587,11 @@ class G2PRegisterChangeRequestService(BaseService):
                 approved_at=approved_at_str,
                 change_payload=change_payload,
                 current_register_data=None,
-                document_ids=cr_document_ids_map.get(change_request.change_request_id, [])
+                documents=cr_documents_map.get(change_request.change_request_id, [])
             )
             change_requests_list.append(change_request_data)
 
         return change_requests_list, total_items
-
-    async def _get_change_request_document_ids_map(
-        self, change_request_ids: list[str], session
-    ) -> dict[str, list[str]]:
-        """Map change_request_id -> attached document_ids."""
-        if not change_request_ids:
-            return {}
-        docs_result = await session.execute(
-            select(
-                G2PRegisterChangeRequestDocument.change_request_id,
-                G2PRegisterChangeRequestDocument.document_id,
-            ).where(
-                G2PRegisterChangeRequestDocument.change_request_id.in_(change_request_ids)
-            )
-        )
-        document_ids_map: dict[str, list[str]] = {}
-        for change_request_id, document_id in docs_result.all():
-            document_ids_map.setdefault(change_request_id, []).append(document_id)
-        return document_ids_map
 
     async def _fetch_change_request(self, change_request_id: str, session) -> ChangeRequestData:
         """Helper method to fetch a single change request by ID"""
@@ -1756,6 +1741,8 @@ class G2PRegisterChangeRequestService(BaseService):
             )
         ).scalar()
 
+        from .g2p_document_service import G2PDocumentService
+
         # Create ChangeRequestData object
         change_request_data: ChangeRequestData = ChangeRequestData(
             change_request_id=change_request.change_request_id,
@@ -1779,11 +1766,11 @@ class G2PRegisterChangeRequestService(BaseService):
             awe_request_status_summary=change_request.awe_request_status_summary,
             change_payload=change_payloads,
             current_register_data=current_register_data_list,
-            document_ids=(
-                await self._get_change_request_document_ids_map(
-                    [change_request.change_request_id], session
+            documents=(
+                await G2PDocumentService.get_component().get_change_request_documents_with_session(
+                    session, change_request.change_request_id
                 )
-            ).get(change_request.change_request_id, [])
+            ).documents,
         )
 
         return change_request_data
@@ -1920,6 +1907,7 @@ class G2PRegisterChangeRequestService(BaseService):
                 internal_record_id=change_request.internal_record_id,
                 section_id=cr_doc.section_id or section.section_id,
                 document_id=cr_doc.document_id,
+                label=cr_doc.label,
                 change_request_id=change_request.change_request_id,
                 change_request_source=change_request.change_request_source,
                 created_by=change_request.created_by,
@@ -1940,12 +1928,14 @@ class G2PRegisterChangeRequestService(BaseService):
 
             if existing_doc:
                 existing_doc.section_id = cr_doc.section_id or section.section_id
+                existing_doc.label = cr_doc.label
                 _logger.info(f"Document {cr_doc.document_id} already linked to record {change_request.internal_record_id}")
             else:
                 session.add(G2PRegisterSectionDocument(
                     internal_record_id=change_request.internal_record_id,
                     document_id=cr_doc.document_id,
                     section_id=cr_doc.section_id or section.section_id,
+                    label=cr_doc.label,
                 ))
                 _logger.info(f"Linked document {cr_doc.document_id} to record {change_request.internal_record_id}")
 

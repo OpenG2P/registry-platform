@@ -88,6 +88,7 @@ class G2PIntakeFormSubmissionDocument(BaseORMModel):
     submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, index=True)
     document_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
     section_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String, nullable=False)
 
 
 G2PIntakeFormSectionPayload = G2PIntakeFormSubmissionPayload
