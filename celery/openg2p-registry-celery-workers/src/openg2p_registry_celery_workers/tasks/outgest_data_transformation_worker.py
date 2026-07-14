@@ -11,7 +11,8 @@ from openg2p_registry_core.models import (
     OutgoingRawDataPayload,
     OutgoingTransformedDataPayload,
 )
-from openg2p_registry_core.helpers import TemplateHelper, MinioClient
+from openg2p_registry_core.helpers import TemplateHelper
+from openg2p_registry_core.models import G2PRegistryDocument
 
 from ..app import celery_app
 from ..config import Settings
@@ -109,13 +110,21 @@ def _transform_outgoing_raw_data_json(
             f"Template not found data_model_id {outgoing_raw_data.data_model_id}, register_id {outgoing_raw_data.register_id} combination"
         )
 
-    minio_client = MinioClient.get_component()
+    template_doc: G2PRegistryDocument | None = session.get(
+        G2PRegistryDocument, outgoing_template.template_document_id
+    )
+    if not template_doc:
+        raise Exception(
+            f"Template document not found for document_id "
+            f"{outgoing_template.template_document_id}"
+        )
+
     template_helper = TemplateHelper.get_component()
 
     transformed_data_json: Dict = template_helper.render_with_template(
-        minio_client=minio_client,
-        template_file_id=outgoing_template.template_file_id,
+        document_store_id=template_doc.document_store_id,
         data=outgoing_raw_data_payload.raw_data_json,
         expand_data=False,
+        bucket=template_doc.bucket,
     )
     return transformed_data_json

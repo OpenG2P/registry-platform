@@ -37,24 +37,24 @@ class G2PIngestController(BaseController):
         register_id: Optional[str] = None,
         intake_form_id: Optional[str] = None,
     ) -> Response:
-        response_template_file_id: str | None = None
+        response_template_store_id: str | None = None
         try:
             _logger.info(f"Data ingestion request received for data_model: {data_model if data_model else 'No data_model detected in query params...'}")
 
             ingest_data: Dict = await self.request_response_helper.construct_http_request(ingest_data_request)
 
-            ingest_data_payload, response_template_file_id = await self.g2p_ingest_controller_service.ingest_data(
+            ingest_data_payload, response_template_store_id = await self.g2p_ingest_controller_service.ingest_data(
                 data_model,
                 ingest_data,
                 register_id=register_id,
                 intake_form_id=intake_form_id,
             )
-            injest_data_response = self.request_response_helper.construct_ingest_data_success_response(ingest_data_payload, response_template_file_id)
+            injest_data_response = self.request_response_helper.construct_ingest_data_success_response(ingest_data_payload, response_template_store_id)
             return injest_data_response
 
         except Exception as error_exception:
             # Raise exception for testing
             # raise error_exception 
             _logger.error(f"Error in ingest_data: {str(error_exception)}")
-            error_response: G2PResponse = self.request_response_helper.construct_error_response(error_exception, response_template_file_id)
+            error_response: G2PResponse = self.request_response_helper.construct_error_response(error_exception, response_template_store_id)
             return error_response

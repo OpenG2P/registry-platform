@@ -18,20 +18,20 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
 from .g2p_completion_score_service import G2PCompletionScoreService
 
-from ..helpers import MinioClient
 from ..helpers.register_field_metadata import iter_register_orm_field_metadata
+from ..helpers.file_validation import validate_base64_file
+from ..helpers.file_validation_profiles import DASHBOARD_IMAGE_PROFILE, IMAGE_ICON_PROFILE
 
 from ..cache import metadata_key_builder
 
 from ..models import (
-    G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload, G2PRegisterChangeRequestDocument,
+    G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload,
     G2PRegisterDefinition, G2PRegisterSection, G2PRegisterVerification, ApprovalStatusEnum,
     DeduplicationRegisterResult, DeduplicationChangerequestResult, G2PRegisterSchema,
     G2PRegisterUITab, G2PRegisterUITabSection, RegisterPurposeEnum, ChangeRequestSourceEnum,
-    G2PRegisterSectionDocument, G2PRegisterDocumentHistory,
     G2PRegistryConfiguration, G2PRegistryTheme, G2PRegistryThemeValue, RegistryThemeAttributeNameEnum,
     G2PRegistryLanguage,
-    G2PRegistryDocument, G2PFunctionalIdGenerationQueue, RecordStatusEnum
+    G2PFunctionalIdGenerationQueue, RecordStatusEnum
 )
 from ..schemas import (
     ChangeRequestRequestPayload, RegisterSummaryData, ChangeRequestSummaryData, RegisterData, AllRegistersRegisterData, ChildRegisterData,
@@ -44,11 +44,10 @@ from ..schemas import (
     DeduplicationRegisterResultsData, DeduplicationChangerequestResultsData,
     DeduplicationRegisterResultData, DeduplicationChangerequestResultData,
     RegisterSchemaData, RegisterFieldsData, RegisterSectionData, RegisterSectionUISchemaData, DisplayField,
-    UploadedDocumentData, UploadDocumentsResponseData,
     RegistryConfigurationData, RegistryThemeData, RegistryThemeValueData, ThemeAttributeValueInput, ThemeOperationData,
     RegistryLanguageData, LanguageOperationData,
     EarliestPendingChangeRequestData,
-    ChangePayload, ChangeActionEnum, ChangeRequestDocumentsData, SectionDocumentData, SectionDocumentsData,
+    ChangePayload, ChangeActionEnum,
     RegisterRelationEnum
 )
 from .g2p_register_domain_service import G2PRegisterDomainService
@@ -1234,9 +1233,16 @@ class G2PRegisterService(BaseService):
 
         search_results_list: list[SearchResultData] = []
 
-        # Get MinIO client for generating presigned URLs
-        from ..helpers import MinioClient
-        minio_client: MinioClient = MinioClient.get_component()
+        # Batch-resolve presigned URLs for record images through the document catalog
+        from .g2p_document_service import G2PDocumentService
+        document_service: G2PDocumentService = G2PDocumentService.get_component()
+        record_image_urls = await document_service.get_document_urls(
+            session,
+            [
+                getattr(result, 'record_image_document_id', None)
+                for result in search_results
+            ],
+        )
 
         # Convert ORM objects to SearchResultData while still in session context
         for result in search_results:
@@ -1258,10 +1264,10 @@ class G2PRegisterService(BaseService):
                         order=field_config.get("order", 999)
                     ))
 
-            # Generate presigned URL for record image if it exists
+            # Presigned URL for record image if it exists
             record_image_url = None
-            if hasattr(result, 'record_image_storage_id') and result.record_image_storage_id:
-                record_image_url = minio_client.get_url(object_name=result.record_image_storage_id)
+            if getattr(result, 'record_image_document_id', None):
+                record_image_url = record_image_urls.get(result.record_image_document_id)
 
             # Create SearchResultData object
             search_result_data: SearchResultData = SearchResultData(
@@ -1831,9 +1837,8 @@ class G2PRegisterService(BaseService):
             mapper = inspect(record.__class__)
             extra_fields: dict = {}
 
-            # Get MinIO client for generating presigned URLs
-            from ..helpers import MinioClient
-            minio_client: MinioClient = MinioClient.get_component()
+            from .g2p_document_service import G2PDocumentService
+            document_service: G2PDocumentService = G2PDocumentService.get_component()
 
             for column in mapper.columns:
                 column_name: str = column.name
@@ -1843,12 +1848,18 @@ class G2PRegisterService(BaseService):
                 if value is not None and hasattr(value, 'isoformat'):
                     value = value.isoformat()
 
-                # Convert image field to record_image_url with presigned URL
-                if column_name == 'record_image_storage_id' and value:
-                    extra_fields['record_image_url'] = minio_client.get_url(object_name=value)
+                # Resolve record image document to a presigned URL
+                if column_name == 'record_image_document_id' and value:
+                    extra_fields['record_image_url'] = await document_service.get_document_url(session, value)
+                    extra_fields[column_name] = value
                 else:
                     # Add to extra_fields if not a base field
                     extra_fields[column_name] = value
+
+            section_documents = await document_service.get_section_documents_with_session(
+                session, internal_record_id
+            )
+            extra_fields["documents"] = section_documents.documents
 
             # Create RecordData object with flattened extra fields
             record_data: RecordData = RecordData(
@@ -2464,6 +2475,11 @@ class G2PRegisterService(BaseService):
                 if not master_register:
                     raise ValueError(f"Master register with id '{master_register_id}' does not exist.")
 
+            if register_icon:
+                register_icon = validate_base64_file(register_icon, IMAGE_ICON_PROFILE)
+            else:
+                register_icon = None
+
             # Create the register definition
             register_id: str = str(uuid.uuid4())
             register_definition = G2PRegisterDefinition(
@@ -2546,6 +2562,12 @@ class G2PRegisterService(BaseService):
             # Check if register has data
             has_data = await self._check_register_has_data(register_definition, session)
 
+            validated_register_icon = register_icon
+            if register_icon:
+                validated_register_icon = validate_base64_file(register_icon, IMAGE_ICON_PROFILE)
+            elif register_icon is not None:
+                validated_register_icon = None
+
             if has_data:
                 # Register has data — only update allowed (display) fields,
                 # silently ignoring restricted fields like register_mnemonic,
@@ -2554,7 +2576,7 @@ class G2PRegisterService(BaseService):
                     register_definition.register_description = register_description
 
                 if register_icon is not None:
-                    register_definition.register_icon = register_icon
+                    register_definition.register_icon = validated_register_icon
 
                 if register_rank is not None:
                     register_definition.register_rank = register_rank
@@ -2609,7 +2631,7 @@ class G2PRegisterService(BaseService):
                     register_definition.dedup_threshold_score = dedup_threshold_score
 
                 if register_icon is not None:
-                    register_definition.register_icon = register_icon
+                    register_definition.register_icon = validated_register_icon
 
                 if register_rank is not None:
                     register_definition.register_rank = register_rank
@@ -2889,130 +2911,6 @@ class G2PRegisterService(BaseService):
 
             return await self._build_register_section_data(primary_section, session)
 
-    # =========================================================================
-    # Document Upload and Handling Methods
-    # =========================================================================
-
-    async def upload_documents(
-        self,
-        document_label: str,
-        documents: list,  # List of documents
-    ) -> UploadDocumentsResponseData:
-        """
-        Upload documents to MinIO and return document store IDs with label.
-
-        Args:
-            document_label: The label for the documents being uploaded
-            documents: List of UploadFile objects (documents) to upload
-
-        Returns:
-            UploadDocumentsResponseData with list of uploaded document info
-        """
-        from ..helpers import MinioClient
-
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-           
-            minio_client: MinioClient = MinioClient.get_component()
-            uploaded_documents: list[UploadedDocumentData] = []
-
-            for document in documents:
-                
-                # Read file content
-                document_content = await document.read()
-
-                # Generate unique object name
-                object_name = f"{document_label.lower()}/{uuid.uuid4().hex}_{document.filename}"
-
-                # Upload to MinIO
-                import io
-                document_store_id = minio_client.put_object(
-                    object_name=object_name,
-                    data=io.BytesIO(document_content),
-                    length=len(document_content),
-                    content_type=document.content_type or "intake_form/octet-stream",
-                )
-
-                # Generate presigned URL for the uploaded document
-                document_url = minio_client.get_url(object_name=document_store_id)
-
-                # Persist document metadata (without URL, which is regenerated when needed)
-                session.add(G2PRegistryDocument(
-                    document_store_id=document_store_id,
-                    document_label=document_label,
-                    filename=document.filename,
-                ))
-
-                uploaded_documents.append(UploadedDocumentData(
-                    document_store_id=document_store_id,
-                    document_label=document_label,
-                    filename=document.filename,
-                    document_url=document_url
-                ))
-
-            await session.commit()
-
-            return UploadDocumentsResponseData(uploaded_documents=uploaded_documents)
-
-
-    async def get_section_documents(
-        self,
-        register_id: str,
-        record_id: str,
-        section_id: str
-    ) -> SectionDocumentsData:
-        """
-        Get documents for a section record.
-
-        Args:
-            register_id: The register ID
-            record_id: The internal record ID
-            section_id: The section ID
-
-        Returns:
-            SectionDocumentsData with list of documents (label, document_store_id, document_url)
-        """
-
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            # Validate section exists
-            await self.validate_section(section_id, session)
-
-            # Get all documents for this record/section
-            docs_result = await session.execute(
-                select(G2PRegisterSectionDocument).where(
-                    (G2PRegisterSectionDocument.register_id == register_id) &
-                    (G2PRegisterSectionDocument.internal_record_id == record_id) &
-                    (G2PRegisterSectionDocument.section_id == section_id)
-                )
-            )
-            g2p_register_section_documents = docs_result.scalars().all()
-
-            minio_client: MinioClient = MinioClient.get_component()
-
-            # Get document labels for each document
-            documents = []
-            for g2p_register_section_document in g2p_register_section_documents:    
-
-                # Generate presigned URL for the document
-                document_url = minio_client.get_url(object_name=g2p_register_section_document.document_store_id)
-
-                documents.append(
-                    SectionDocumentData(
-                        document_label=g2p_register_section_document.document_label,
-                        document_store_id=g2p_register_section_document.document_store_id,
-                        document_url=document_url
-                    )
-                )
-
-            return SectionDocumentsData(
-                register_id=register_id,
-                record_id=record_id,
-                section_id=section_id,
-                documents=documents
-            )
-
-
     async def create_registry_configuration(
         self,
         registry_name: str,
@@ -3219,10 +3117,14 @@ class G2PRegisterService(BaseService):
             await session.flush()
 
             for item in theme_values:
+                attribute_value = self._validate_theme_attribute_value(
+                    item.attribute_name,
+                    item.attribute_value,
+                )
                 theme_value = G2PRegistryThemeValue(
                     theme_id=theme.theme_id,
                     attribute_name=RegistryThemeAttributeNameEnum(item.attribute_name),
-                    attribute_value=item.attribute_value
+                    attribute_value=attribute_value,
                 )
                 session.add(theme_value)
 
@@ -3288,17 +3190,30 @@ class G2PRegisterService(BaseService):
                 await session.delete(value_row)
 
             for item in theme_attribute_values:
+                attribute_value = self._validate_theme_attribute_value(
+                    item.attribute_name,
+                    item.attribute_value,
+                )
                 session.add(
                     G2PRegistryThemeValue(
                         theme_id=theme_id,
                         attribute_name=RegistryThemeAttributeNameEnum(item.attribute_name),
-                        attribute_value=item.attribute_value
+                        attribute_value=attribute_value,
                     )
                 )
 
             await session.commit()
             theme_operation_data: ThemeOperationData = ThemeOperationData(theme_id=theme_id, success=True)
             return theme_operation_data
+
+    @staticmethod
+    def _validate_theme_attribute_value(attribute_name: str, attribute_value: str) -> str:
+        if (
+            attribute_name == RegistryThemeAttributeNameEnum.dashboard_image.value
+            and attribute_value
+        ):
+            return validate_base64_file(attribute_value, DASHBOARD_IMAGE_PROFILE)
+        return attribute_value
 
     async def get_theme_values(self, theme_id: str) -> list[RegistryThemeValueData]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -3401,6 +3316,14 @@ class G2PRegisterService(BaseService):
                 if existing_default:
                     existing_default.is_default = False
 
+            if language_flag_base64:
+                language_flag_base64 = validate_base64_file(
+                    language_flag_base64,
+                    IMAGE_ICON_PROFILE,
+                )
+            else:
+                language_flag_base64 = None
+
             language = G2PRegistryLanguage(
                 language_code=language_code,
                 language_label=language_label,
@@ -3458,8 +3381,13 @@ class G2PRegisterService(BaseService):
 
             if language_label is not None:
                 language.language_label = language_label
-            if language_flag_base64 is not None:
-                language.language_flag_base64 = language_flag_base64
+            if language_flag_base64:
+                language.language_flag_base64 = validate_base64_file(
+                    language_flag_base64,
+                    IMAGE_ICON_PROFILE,
+                )
+            elif language_flag_base64 is not None:
+                language.language_flag_base64 = None
             if core_translation is not None:
                 language.core_translation = core_translation
             if domain_translation is not None:

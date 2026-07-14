@@ -67,9 +67,10 @@ class G2PRegisterChangeRequestPayload(BaseORMModel):
     )
 
 class G2PRegisterChangeRequestDocument(BaseORMModel):
-    __tablename__ = "g2p_register_change_request_documents"
+    """Junction: documents attached to a change request (references g2p_registry_documents)."""
+    __tablename__ = "g2p_change_request_documents"
 
-    document_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    change_request_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    document_label: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    document_store_id: Mapped[str] = mapped_column(String, nullable=False)
+    change_request_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
+    document_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
+    section_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String, nullable=False)

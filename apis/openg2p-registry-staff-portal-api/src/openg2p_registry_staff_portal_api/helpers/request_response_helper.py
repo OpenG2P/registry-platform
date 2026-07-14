@@ -56,8 +56,9 @@ from openg2p_registry_core.schemas import (
     RegisterSectionMetadataUISchemaDataResponse, RegisterSectionMetadataUISchemaDataResponseBody,
     SectionRecordsDataResponse, SectionRecordsDataResponseBody,
     RegisterTabRecordData, RegisterTabRecordsDataResponse, RegisterTabRecordsDataResponseBody,
-    UploadDocumentsResponseData, UploadDocumentsResponse, UploadDocumentsResponseBody,
-    UploadRecordImageData, UploadRecordImageResponse, UploadRecordImageResponseBody,
+    DocumentsData, DocumentsResponse, DocumentsResponseBody,
+    DeleteDocumentsData, DeleteDocumentsResponse, DeleteDocumentsResponseBody,
+    IntakeFormDocumentsData, IntakeFormDocumentsResponse, IntakeFormDocumentsResponseBody,
     RegistryConfigurationData, RegistryConfigurationDataResponse, RegistryConfigurationDataResponseBody,
     RegistryThemeData, RegistryThemesResponse, RegistryThemesResponseBody,
     RegistryThemeValueData, RegistryThemeValuesResponse, RegistryThemeValuesResponseBody,
@@ -73,8 +74,6 @@ from openg2p_registry_core.schemas import (
     IngestionDataPayloadResponse, IngestionDataPayloadResponseBody,
     IngestionDataSearchResultsResponse, IngestionDataSearchResultsResponseBody, IngestionDataSearchResultData,
     IngestionDataPayload,
-    FileUrlData, FileUrlResponse, FileUrlResponseBody,
-    DeleteFileData, DeleteFileResponse, DeleteFileResponseBody,
     VcConfigurationResponse, VcConfigurationResponseBody, VcConfigurationData,
     ImportFileConfigurationResponse, ImportFileConfigurationResponseBody, ImportFileConfigurationData,
     G2PInputMechanismResponse, G2PInputMechanismResponseBody, G2PInputMechanismData,
@@ -1630,34 +1629,89 @@ class RequestResponseHelper(BaseService):
         )
         return tab_records_response
 
-    def construct_upload_documents_success_response(
+    def construct_documents_success_response(
         self,
-        upload_response_data: UploadDocumentsResponseData
-    ) -> UploadDocumentsResponse:
-        """Construct success response for upload_change_request_documents endpoint."""
+        documents_data: DocumentsData,
+        g2p_request: G2PRequest = None
+    ) -> DocumentsResponse:
+        """Construct success response for upload_documents / get_documents endpoints."""
+        request_id = g2p_request.request_header.request_id if g2p_request else ""
+
         g2p_response_header: G2PResponseHeader = G2PResponseHeader(
-            request_id="",
+            request_id=request_id,
             response_status=G2PResponseStatus.SUCCESS,
             response_error_code="",
             response_error_message="",
             response_timestamp=datetime.now()
         )
 
-        response_body: UploadDocumentsResponseBody = UploadDocumentsResponseBody(
-            response_payload=upload_response_data
+        response_body: DocumentsResponseBody = DocumentsResponseBody(
+            response_payload=documents_data
         )
 
-        upload_response: UploadDocumentsResponse = UploadDocumentsResponse(
+        return DocumentsResponse(
             response_header=g2p_response_header,
             response_body=response_body
         )
-        return upload_response
 
-    def construct_upload_documents_error_response(
+    def construct_documents_error_response(
         self,
         error_exception: Exception
-    ) -> UploadDocumentsResponse:
-        """Construct error response for upload_change_request_documents endpoint."""
+    ) -> DocumentsResponse:
+        """Construct error response for upload_documents / get_documents endpoints."""
+        error_code = ""
+        error_message = str(error_exception)
+
+        if isinstance(error_exception, G2PRegistryException):
+            error_code = error_exception.code
+            error_message = error_exception.message
+
+        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
+            request_id="",
+            response_status=G2PResponseStatus.ERROR,
+            response_error_code=error_code,
+            response_error_message=error_message,
+            response_timestamp=datetime.now()
+        )
+
+        return DocumentsResponse(
+            response_header=g2p_response_header,
+            response_body=None
+        )
+
+    def construct_delete_documents_success_response(
+        self,
+        delete_documents_data: DeleteDocumentsData,
+        g2p_request: G2PRequest = None
+    ) -> DeleteDocumentsResponse:
+        """Construct success response for delete_documents endpoint."""
+        request_id = g2p_request.request_header.request_id if g2p_request else ""
+
+        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
+            request_id=request_id,
+            response_status=G2PResponseStatus.SUCCESS,
+            response_error_code="",
+            response_error_message="",
+            response_timestamp=datetime.now()
+        )
+
+        response_body: DeleteDocumentsResponseBody = DeleteDocumentsResponseBody(
+            response_payload=delete_documents_data
+        )
+
+        return DeleteDocumentsResponse(
+            response_header=g2p_response_header,
+            response_body=response_body
+        )
+
+    def construct_delete_documents_error_response(
+        self,
+        error_exception: Exception
+    ) -> DeleteDocumentsResponse:
+        """Construct error response for delete_documents endpoint."""
+        error_code = ""
+        error_message = str(error_exception)
+
         if isinstance(error_exception, G2PRegistryException):
             error_code = error_exception.code
             error_message = error_exception.message
@@ -1673,11 +1727,10 @@ class RequestResponseHelper(BaseService):
             response_timestamp=datetime.now()
         )
 
-        upload_response: UploadDocumentsResponse = UploadDocumentsResponse(
+        return DeleteDocumentsResponse(
             response_header=g2p_response_header,
             response_body=None
         )
-        return upload_response
 
     def construct_registry_configuration_data_success_response(
         self,
@@ -1961,13 +2014,13 @@ class RequestResponseHelper(BaseService):
             response_header=g2p_response_header,
             response_body=None
         )
-    
-    def construct_file_url_success_response(
+
+    def construct_intake_form_documents_success_response(
         self,
-        file_url_data: FileUrlData,
+        intake_form_documents_data: IntakeFormDocumentsData,
         g2p_request: G2PRequest = None
-    ) -> FileUrlResponse:
-        """Construct success response for get_file_url endpoint."""
+    ) -> IntakeFormDocumentsResponse:
+        """Construct success response for get_intake_form_documents endpoint."""
         request_id = g2p_request.request_header.request_id if g2p_request else ""
 
         g2p_response_header: G2PResponseHeader = G2PResponseHeader(
@@ -1978,21 +2031,22 @@ class RequestResponseHelper(BaseService):
             response_timestamp=datetime.now()
         )
 
-        response_body: FileUrlResponseBody = FileUrlResponseBody(
-            response_payload=file_url_data
+        response_body: IntakeFormDocumentsResponseBody = IntakeFormDocumentsResponseBody(
+            response_payload=intake_form_documents_data
         )
 
-        response: FileUrlResponse = FileUrlResponse(
+        return IntakeFormDocumentsResponse(
             response_header=g2p_response_header,
             response_body=response_body
         )
-        return response
 
-    def construct_file_url_error_response(
+    def construct_intake_form_documents_error_response(
         self,
         error_exception: Exception
-    ) -> FileUrlResponse:
-        """Construct error response for get_file_url endpoint."""
+    ) -> IntakeFormDocumentsResponse:
+        """Construct error response for get_intake_form_documents endpoint."""
+        error_code = ""
+        error_message = str(error_exception)
         if isinstance(error_exception, G2PRegistryException):
             error_code = error_exception.code
             error_message = error_exception.message
@@ -2008,104 +2062,7 @@ class RequestResponseHelper(BaseService):
             response_timestamp=datetime.now()
         )
 
-        return FileUrlResponse(
-            response_header=g2p_response_header,
-            response_body=None
-        )
-
-    def construct_delete_file_success_response(
-        self,
-        delete_file_data: DeleteFileData,
-        g2p_request: G2PRequest = None
-    ) -> DeleteFileResponse:
-        request_id = g2p_request.request_header.request_id if g2p_request else ""
-
-        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
-            request_id=request_id,
-            response_status=G2PResponseStatus.SUCCESS,
-            response_error_code="",
-            response_error_message="",
-            response_timestamp=datetime.now()
-        )
-
-        response_body: DeleteFileResponseBody = DeleteFileResponseBody(
-            response_payload=delete_file_data
-        )
-
-        return DeleteFileResponse(
-            response_header=g2p_response_header,
-            response_body=response_body
-        )
-
-    def construct_delete_file_error_response(
-        self,
-        error_exception: Exception
-    ) -> DeleteFileResponse:
-        if isinstance(error_exception, G2PRegistryException):
-            error_code = error_exception.code
-            error_message = error_exception.message
-        else:
-            error_code = G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1]
-            error_message = G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[0]
-
-        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
-            request_id="",
-            response_status=G2PResponseStatus.ERROR,
-            response_error_code=error_code,
-            response_error_message=error_message,
-            response_timestamp=datetime.now()
-        )
-
-        return DeleteFileResponse(
-            response_header=g2p_response_header,
-            response_body=None
-        )
-
-
-    def construct_upload_record_image_success_response(
-        self,
-        upload_record_image_data: UploadRecordImageData
-    ) -> UploadRecordImageResponse:
-        """Construct success response for upload_record_image endpoint."""
-        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
-            request_id="",
-            response_status=G2PResponseStatus.SUCCESS,
-            response_error_code="",
-            response_error_message="",
-            response_timestamp=datetime.now()
-        )
-
-        response_body: UploadRecordImageResponseBody = UploadRecordImageResponseBody(
-            response_payload=upload_record_image_data
-        )
-
-        response: UploadRecordImageResponse = UploadRecordImageResponse(
-            response_header=g2p_response_header,
-            response_body=response_body
-        )
-        return response
-
-    def construct_upload_record_image_error_response(
-        self,
-        error_exception: Exception
-    ) -> UploadRecordImageResponse:
-        """Construct error response for upload_record_image endpoint."""
-        if isinstance(error_exception, G2PRegistryException):
-            error_code = error_exception.code
-            error_message = error_exception.message
-        else:
-            error_code = G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1]
-            error_message = G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[0]
-
-        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
-            request_id="",
-            response_status=G2PResponseStatus.ERROR,
-            response_error_code=error_code,
-            response_error_message=error_message,
-            response_timestamp=datetime.now()
-        )
-
-        return UploadRecordImageResponse(
+        return IntakeFormDocumentsResponse(
             response_header=g2p_response_header,
             response_body=None
         )

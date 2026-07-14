@@ -89,13 +89,13 @@ G2PIntakeFormSubmissions = G2PIntakeFormSubmission
 
 
 class G2PIntakeFormSubmissionDocument(BaseORMModel):
-    __tablename__ = "g2p_intake_form_submission_documents"
+    """Junction: documents attached to an intake form submission section (references g2p_registry_documents)."""
+    __tablename__ = "g2p_intake_section_documents"
 
-    document_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, index=True)
+    document_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
     section_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    document_label: Mapped[str] = mapped_column(String, nullable=False)
-    document_store_id: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str] = mapped_column(String, nullable=False)
 
 
 G2PIntakeFormSectionDocuments = G2PIntakeFormSubmissionDocument

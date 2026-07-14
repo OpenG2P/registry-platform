@@ -203,7 +203,7 @@ class G2PRegisterHierarchicalService(BaseService):
                 message=f"Record {record_id} not found in register {register.register_mnemonic}"
             )
 
-        return [self._convert_record_to_record_data(record)]
+        return [await self._convert_record_to_record_data(record, session)]
 
     async def _validate_register_definition(
         self,
@@ -378,44 +378,69 @@ class G2PRegisterHierarchicalService(BaseService):
                 message=f"Register implementation not found for {register_mnemonic}"
             )
 
-    def _convert_record_to_record_data(self, record) -> RecordData:
+    async def _convert_record_to_record_data(self, record, session) -> RecordData:
         """
         Convert an ORM record object to RecordData schema.
         Extra fields from the implementation table are flattened at root level.
 
-        Args:
-            record: SQLAlchemy ORM record
-
-        Returns:
-            RecordData object with flattened extra fields
+        Resolves record_image_document_id to a presigned record_image_url via the
+        document catalog (same pattern as G2PRegisterService.get_record).
         """
-        from ..helpers import MinioClient
+        records = await self._convert_records_to_record_data([record], session)
+        return records[0]
 
-        mapper = sa_inspect(record.__class__)
-        extra_fields: dict = {}
+    async def _convert_records_to_record_data(
+        self, records: list, session
+    ) -> list[RecordData]:
+        """Convert ORM records to RecordData, batch-resolving images and section documents."""
+        if not records:
+            return []
 
-        # Get MinIO client for generating presigned URLs
-        minio_client: MinioClient = MinioClient.get_component()
+        from .g2p_document_service import G2PDocumentService
 
-        for column in mapper.columns:
-            column_name: str = column.name
-            value = getattr(record, column_name, None)
-
-            if value is not None and hasattr(value, 'isoformat'):
-                value = value.isoformat()
-
-            # Convert image field to record_image_url with presigned URL
-            if column_name == 'record_image_storage_id' and value:
-                extra_fields['record_image_url'] = minio_client.get_url(object_name=value)
-            else:
-                extra_fields[column_name] = value
-
-        record_data: RecordData = RecordData(
-            **extra_fields
+        document_service = G2PDocumentService.get_component()
+        record_image_urls = await document_service.get_document_urls(
+            session,
+            [
+                getattr(record, "record_image_document_id", None)
+                for record in records
+            ],
+        )
+        section_documents_map = await document_service.get_section_documents_map(
+            session,
+            [
+                getattr(record, "internal_record_id", None)
+                for record in records
+            ],
         )
 
-        return record_data
-    
+        result: list[RecordData] = []
+        for record in records:
+            mapper = sa_inspect(record.__class__)
+            extra_fields: dict = {}
+
+            for column in mapper.columns:
+                column_name: str = column.name
+                value = getattr(record, column_name, None)
+
+                if value is not None and hasattr(value, "isoformat"):
+                    value = value.isoformat()
+
+                extra_fields[column_name] = value
+
+            document_id = getattr(record, "record_image_document_id", None)
+            if document_id:
+                extra_fields["record_image_url"] = record_image_urls.get(document_id)
+
+            internal_record_id = getattr(record, "internal_record_id", None)
+            extra_fields["documents"] = section_documents_map.get(
+                internal_record_id, []
+            )
+
+            result.append(RecordData(**extra_fields))
+
+        return result
+
     async def _traverse_peer_hierarchy(
         self,
         subject_register: G2PRegisterDefinition,
@@ -452,7 +477,7 @@ class G2PRegisterHierarchicalService(BaseService):
         )
         peer_records = peer_records.scalars().all()
 
-        return [self._convert_record_to_record_data(record) for record in peer_records]
+        return await self._convert_records_to_record_data(peer_records, session)
 
 
     async def _traverse_down_hierarchy(
@@ -539,7 +564,7 @@ class G2PRegisterHierarchicalService(BaseService):
 
             # If this is the last level (related_register), convert to RecordData
             if i == len(path_reversed) - 1:
-                return [self._convert_record_to_record_data(r) for r in records]
+                return await self._convert_records_to_record_data(records, session)
 
             # Otherwise, get the internal_record_ids for the next iteration
             current_record_ids = [r.internal_record_id for r in records]
@@ -608,7 +633,7 @@ class G2PRegisterHierarchicalService(BaseService):
         record = result.scalar()
 
         if record:
-            return [self._convert_record_to_record_data(record)]
+            return [await self._convert_record_to_record_data(record, session)]
 
         return []
 
@@ -744,12 +769,16 @@ class G2PRegisterHierarchicalService(BaseService):
         
         if register_definition.register_id in current_visited:
              # Just return base record if already visited to break cycle
-             return self._convert_record_to_record_data(record).model_dump(exclude_unset=True)
+             return (
+                 await self._convert_record_to_record_data(record, session)
+             ).model_dump(exclude_unset=True)
              
         current_visited.add(register_definition.register_id)
 
         # Base Data
-        record_data = self._convert_record_to_record_data(record).model_dump(exclude_unset=True)
+        record_data = (
+            await self._convert_record_to_record_data(record, session)
+        ).model_dump(exclude_unset=True)
 
         # 1. Fetch Children (Down)
         child_registers = (await session.execute(

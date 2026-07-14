@@ -39,6 +39,7 @@ class G2PIntakeFormDataControllerService(BaseService):
             form_id=payload.form_id,
             register_id=payload.register_id,
             created_by=payload.created_by or "Unknown",
+            documents=payload.documents,
         )
 
     async def finalize_intake_form_submission(

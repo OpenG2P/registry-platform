@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select, func
 
 from openg2p_registry_core.services import G2PRegisterService
-from openg2p_registry_core.helpers import TemplateHelper, MinioClient
-from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate
+from openg2p_registry_core.helpers import TemplateHelper
+from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate, G2PRegistryDocument
 
 from ..schemas import (
     DciSearchResponseItem,
@@ -36,7 +36,17 @@ class G2PDciService(BaseService):
         super().__init__(**kwargs)
         self.register_service = G2PRegisterService.get_component()
 
-    async def search(self, signature: str, header: DciRequestHeader, message: DciSearchRequest) -> List[DciSearchResponseItem]:
+    async def search(
+        self,
+        signature: str,
+        header: DciRequestHeader,
+        message: DciSearchRequest,
+        consent_scopes_by_ref: Optional[Dict[str, Optional[List[str]]]] = None,
+    ) -> List[DciSearchResponseItem]:
+        # consent_scopes_by_ref maps reference_id -> effective_data_scopes the
+        # response must be clamped to (the PEP field-level enforcement). It is
+        # None when consent enforcement is disabled (return all fields); an
+        # entry's value being None likewise means "no clamp" for that item.
 
         dci_search_response_items: List[DciSearchResponseItem] = []
         for search_request_item in message.search_request:
@@ -44,7 +54,9 @@ class G2PDciService(BaseService):
 
             register_id: str = await self._get_register_id(search_criteria.reg_type)
             data_model_id: str = await self._get_data_model_id()
-            template_file_id: str = await self._get_template_file_id(register_id, data_model_id)
+            template_store_id, template_bucket = await self._get_template_store_id(
+                register_id, data_model_id
+            )
 
             model_class = self._get_model_class(search_criteria.reg_type)
 
@@ -65,13 +77,27 @@ class G2PDciService(BaseService):
                     sort_by=sort_by,
                 )
 
+            reg_records = [
+                self._render_reg_record_with_template(
+                    datum, template_store_id, bucket=template_bucket
+                )
+                for datum in search_result_data
+            ]
+
+            # PEP field-level enforcement: clamp each record to the effective
+            # data scopes the Consent Manager permitted for this reference_id.
+            if consent_scopes_by_ref is not None:
+                allowed_scopes = consent_scopes_by_ref.get(search_request_item.reference_id)
+                if allowed_scopes is not None:
+                    reg_records = [
+                        self._clamp_record_fields(record, allowed_scopes)
+                        for record in reg_records
+                    ]
+
             dci_deep_search_result_data = DciSearchResultData(
                 reg_type = search_criteria.reg_type,
                 reg_record_type = search_criteria.reg_record_type,
-                reg_records = [
-                    self._render_reg_record_with_template(datum, template_file_id)
-                    for datum in search_result_data
-                ]
+                reg_records = reg_records
             )
 
             pagination = DciSearchResultPagination(
@@ -135,6 +161,21 @@ class G2PDciService(BaseService):
 
             return search_results, total_count
 
+    @staticmethod
+    def _clamp_record_fields(record: Dict[str, Any], allowed_scopes: List[str]) -> Dict[str, Any]:
+        """Return a copy of a rendered registry record keeping only the fields
+        the Consent Manager permitted (``effective_data_scopes``).
+
+        Scope names are matched against the record's TOP-LEVEL keys (the
+        template output field names — i.e. the shared scope<->field catalog).
+        Strict allow-list: any field not in the effective scopes is dropped, so
+        a narrower policy or consent can only ever remove fields, never add.
+        """
+        if not isinstance(record, dict):
+            return record
+        allowed = set(allowed_scopes or [])
+        return {key: value for key, value in record.items() if key in allowed}
+
     def _get_model_class(self, register_mnemonic: str):
         module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
         class_name = f"G2PRegister{register_mnemonic}"
@@ -146,18 +187,20 @@ class G2PDciService(BaseService):
     def _render_reg_record_with_template(
         self,
         deep_search_result_data: DeepSearchResultData,
-        template_file_id: str
+        template_store_id: str,
+        bucket=None,
     ) -> Dict[str, Any]:
+        from openg2p_registry_core.models.enum import DocumentBucket
+
         template_helper = TemplateHelper.get_component()
-        minio_client = MinioClient.get_component()
 
         search_result_dict: Dict[str, Any] = self._deep_search_result_data_to_dict(deep_search_result_data)
 
         reg_record: Dict[str, Any] = template_helper.render_with_template(
-            minio_client=minio_client,
-            template_file_id=template_file_id,
+            document_store_id=template_store_id,
             data=search_result_dict,
-            expand_data=False
+            expand_data=False,
+            bucket=bucket or DocumentBucket.TEMPLATES,
         )
 
         return reg_record
@@ -220,14 +263,28 @@ class G2PDciService(BaseService):
             ).scalar_one_or_none()
             return data_model_id
 
-    async def _get_template_file_id(self, register_id: str, data_model_id: str) -> str:
+    async def _get_template_store_id(self, register_id: str, data_model_id: str) -> tuple[str, object]:
+        """Resolve outgoing template document_id → (document_store_id, bucket)."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            template_file_id: str = (
-                await session.execute(
-                    select(OutgoingTemplate.template_file_id)
-                    .where(OutgoingTemplate.register_id == register_id)
-                    .where(OutgoingTemplate.data_model_id == data_model_id)
+            result = await session.execute(
+                select(
+                    G2PRegistryDocument.document_store_id,
+                    G2PRegistryDocument.bucket,
                 )
-            ).scalar_one_or_none()
-            return template_file_id
+                .join(
+                    OutgoingTemplate,
+                    OutgoingTemplate.template_document_id == G2PRegistryDocument.document_id,
+                )
+                .where(
+                    OutgoingTemplate.register_id == register_id,
+                    OutgoingTemplate.data_model_id == data_model_id,
+                )
+            )
+            row = result.one_or_none()
+            if not row:
+                raise ValueError(
+                    f"Template not found for register_id={register_id}, "
+                    f"data_model_id={data_model_id}"
+                )
+            return row.document_store_id, row.bucket

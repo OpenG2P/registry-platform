@@ -1,8 +1,7 @@
 import logging
 import uuid
-from typing import Optional, List
+from typing import Optional
 import httpx
-from fastapi import UploadFile
 
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
@@ -35,9 +34,6 @@ from ..schemas import (
     IncomingTemplatePayload,
     IncomingTemplateUpdatePayload,
     IncomingTemplateData,
-    DataModelPayload,
-    DataModelUpdatePayload,
-    DataModelData,
     SubscriptionActivityLogPayload,
     SubscriptionActivityLogData,
 )
@@ -551,17 +547,20 @@ class G2PIngestionConfigurationService(BaseService):
     async def create_template(
         self, template_payload: IncomingTemplatePayload
     ) -> IncomingTemplateData:
-        """Create a new template"""
+        """Create a new template (stores pre-uploaded template_document_id)."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             await self._validate_register_id_exists(session, template_payload.register_id)
             await self._validate_data_model_id_exists(session, template_payload.data_model_id)
             await self._check_incoming_template_exists(session, template_payload)
+            await self._validate_template_document_id(
+                session, template_payload.template_document_id
+            )
 
             template: IncomingTemplate = IncomingTemplate(
                 register_id=template_payload.register_id,
                 data_model_id=template_payload.data_model_id,
-                template_file_id=template_payload.template_file_id,
+                template_document_id=template_payload.template_document_id,
                 jsonld_expansion_required=template_payload.jsonld_expansion_required,
             )
             session.add(template)
@@ -614,8 +613,17 @@ class G2PIngestionConfigurationService(BaseService):
                 session, template_update_payload.template_id
             )
 
-            if template_update_payload.template_file_id is not None:
-                template_obj.template_file_id = template_update_payload.template_file_id
+            if template_update_payload.template_document_id is not None:
+                await self._validate_template_document_id(
+                    session, template_update_payload.template_document_id
+                )
+                old_document_id = template_obj.template_document_id
+                if (
+                    old_document_id
+                    and old_document_id != template_update_payload.template_document_id
+                ):
+                    await self._delete_template_file(old_document_id)
+                template_obj.template_document_id = template_update_payload.template_document_id
             if template_update_payload.jsonld_expansion_required is not None:
                 template_obj.jsonld_expansion_required = (
                     template_update_payload.jsonld_expansion_required
@@ -633,8 +641,11 @@ class G2PIngestionConfigurationService(BaseService):
             deleted_template_data = await self._build_template_data_with_mnemonics(
                 session, template_obj
             )
+            document_id = template_obj.template_document_id
             await session.delete(template_obj)
             await session.commit()
+            if document_id:
+                await self._delete_template_file(document_id)
             return deleted_template_data
 
     async def _get_incoming_template(self, session: AsyncSession, template_id: str) -> IncomingTemplate:
@@ -690,171 +701,9 @@ class G2PIngestionConfigurationService(BaseService):
             register_mnemonic=register_obj.register_mnemonic,
             data_model_id=template_obj.data_model_id,
             data_model_mnemonic=data_model_obj.data_model_mnemonic,
-            template_file_id=template_obj.template_file_id,
+            template_document_id=template_obj.template_document_id,
             jsonld_expansion_required=template_obj.jsonld_expansion_required,
         )
-
-    # DataModel Methods
-    async def create_data_model(
-        self, data_model_payload: DataModelPayload, response_template_file: Optional[UploadFile] = None
-    ) -> DataModelData:
-        """Create a new data model"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            # Check if data model mnemonic already exists
-            existing = await session.execute(
-                select(DataModel).where(
-                    DataModel.data_model_mnemonic == data_model_payload.data_model_mnemonic
-                )
-            )
-            if existing.scalar_one_or_none():
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.DATA_MODEL_ALREADY_EXISTS.value[1],
-                    message=G2PRegistryErrorCodes.DATA_MODEL_ALREADY_EXISTS.value[0],
-                )
-
-            data_model_id = data_model_payload.data_model_id or str(uuid.uuid4())
-
-            response_template_file_id = None
-            if response_template_file:
-                response_template_file_id = await self._upload_template_file(response_template_file)
-
-            data_model = DataModel(
-                data_model_id=data_model_id,
-                data_model_mnemonic=data_model_payload.data_model_mnemonic,
-                pattern_for_data_model=data_model_payload.pattern_for_data_model,
-                response_template_file_id=response_template_file_id,
-                is_active=data_model_payload.is_active,
-            )
-            session.add(data_model)
-            await session.commit()
-            await session.refresh(data_model)
-            return DataModelData.model_validate(data_model)
-
-    async def get_data_model(self, data_model_id: str) -> DataModelData:
-        """Get data model by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            data_model = await session.execute(
-                select(DataModel).where(DataModel.data_model_id == data_model_id)
-            )
-            data_model_obj = data_model.scalar_one_or_none()
-            if not data_model_obj:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[0],
-                )
-            return DataModelData.model_validate(data_model_obj)
-
-    async def get_all_data_models(self) -> List[DataModelData]:
-        """Get all data models"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            result = await session.execute(select(DataModel))
-            data_models = result.scalars().all()
-            return [DataModelData.model_validate(dm) for dm in data_models]
-
-    async def delete_data_model(self, data_model_id: str) -> DataModelData:
-        """Delete a data model by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            data_model = await session.execute(
-                select(DataModel).where(DataModel.data_model_id == data_model_id)
-            )
-            data_model_obj = data_model.scalar_one_or_none()
-            if not data_model_obj:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[0],
-                )
-            data_model_data = DataModelData.model_validate(data_model_obj)
-            # Delete associated template file if exists
-            if data_model_obj.response_template_file_id:
-                await self._delete_template_file(data_model_obj.response_template_file_id)
-            await session.delete(data_model_obj)
-            await session.commit()
-            return data_model_data
-
-    async def update_data_model(
-        self, data_model_id: str, data_model_payload: DataModelUpdatePayload, response_template_file: Optional[UploadFile] = None
-    ) -> DataModelData:
-        """Update data model - only updates provided fields"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            data_model = await session.execute(
-                select(DataModel).where(DataModel.data_model_id == data_model_id)
-            )
-            data_model_obj = data_model.scalar_one_or_none()
-            if not data_model_obj:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[0],
-                )
-
-            if response_template_file:
-                if data_model_obj.response_template_file_id:
-                    await self._delete_template_file(data_model_obj.response_template_file_id)
-                data_model_obj.response_template_file_id = await self._upload_template_file(response_template_file)
-            if data_model_payload.data_model_mnemonic is not None:
-                data_model_obj.data_model_mnemonic = data_model_payload.data_model_mnemonic
-            if data_model_payload.pattern_for_data_model is not None:
-                data_model_obj.pattern_for_data_model = data_model_payload.pattern_for_data_model
-
-            await session.commit()
-            await session.refresh(data_model_obj)
-            return DataModelData.model_validate(data_model_obj)
-
-    async def change_response_template_file(
-        self, data_model_id: str, response_template_file: Optional[UploadFile] = None
-    ) -> DataModelData:
-        """Change the response template file for a data model"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            data_model = await session.execute(
-                select(DataModel).where(DataModel.data_model_id == data_model_id)
-            )
-            data_model_obj = data_model.scalar_one_or_none()
-            if not data_model_obj:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[0],
-                )
-
-            # Delete old template file if exists
-            if data_model_obj.response_template_file_id:
-                await self._delete_template_file(data_model_obj.response_template_file_id)
-
-            # Upload new template file if provided
-            if response_template_file:
-                data_model_obj.response_template_file_id = await self._upload_template_file(response_template_file)
-            else:
-                data_model_obj.response_template_file_id = None
-
-            await session.commit()
-            await session.refresh(data_model_obj)
-            return DataModelData.model_validate(data_model_obj)
-
-    async def change_active_status(
-        self, data_model_id: str, is_active: bool
-    ) -> DataModelData:
-        """Change the active status of a data model"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as session:
-            data_model = await session.execute(
-                select(DataModel).where(DataModel.data_model_id == data_model_id)
-            )
-            data_model_obj = data_model.scalar_one_or_none()
-            if not data_model_obj:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.DATA_MODEL_NOT_FOUND.value[0],
-                )
-
-            data_model_obj.is_active = is_active
-
-            await session.commit()
-            await session.refresh(data_model_obj)
-            return DataModelData.model_validate(data_model_obj)
 
     # SubscriptionActivityLog Methods
     async def create_subscription_activity_log(
@@ -934,11 +783,13 @@ class G2PIngestionConfigurationService(BaseService):
             number_of_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 0
             return [SubscriptionActivityLogData.model_validate(log) for log in activity_logs], total_items, number_of_pages
 
+    async def _delete_template_file(self, template_document_id: str) -> None:
+        g2p_template_service = G2PTemplateService.get_component()
+        return await g2p_template_service.delete_template_file(template_document_id)
 
-    async def _upload_template_file(self, template_file: UploadFile, template_file_id: Optional[str] = None) -> str:
-        g2p_template_service = G2PTemplateService.get_component()
-        return await g2p_template_service.upload_template_file(template_file, template_file_id)
-    
-    async def _delete_template_file(self, template_file_id: str) -> None:
-        g2p_template_service = G2PTemplateService.get_component()
-        return await g2p_template_service.delete_template_file(template_file_id)
+    async def _validate_template_document_id(self, session, document_id: str) -> None:
+        from .g2p_document_service import G2PDocumentService
+
+        await G2PDocumentService.get_component().validate_template_documents_exist(
+            session, [document_id]
+        )

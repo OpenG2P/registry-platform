@@ -18,7 +18,6 @@ from .controller_services import (
     G2PIntakeFormDataControllerService,
     G2PIntakeFormMetadataControllerService,
     G2POutgestionConfigurationControllerService,
-    G2PTemplateFileControllerService,
     G2PRegisterChangerequestControllerService,
     G2PChangeRequestCoreControllerService,
     G2PRegisterDataControllerService,
@@ -41,7 +40,8 @@ from .controller_services import (
     G2PAweProxyControllerService,
     G2PDataPolicyControllerService,
 )
-from .helpers import AweHelper, ApplicationReferenceGenerator, MinioClient, PatternMatcher, TemplateHelper
+from .helpers import AweHelper, ApplicationReferenceGenerator, PatternMatcher, TemplateHelper, get_document_handler
+
 from .models import (
     DataModel,
     DeduplicationChangerequestResult,
@@ -106,6 +106,7 @@ from .models import (
 )
 from .services import (
     G2PDataModelService,
+    G2PDocumentService,
     G2PAttributeService,
     G2PChangeRequestWorkerService,
     G2PIngestionConfigurationService,
@@ -123,7 +124,6 @@ from .services import (
     G2PRegisterChangeRequestService,
     G2PRegisterVerificationService,
     G2PTemplateService,
-    G2PTemplateFileService,
     G2PVcConfigurationService,
     G2PChangeRequestCoreService,
     G2PScoreComputeService,
@@ -151,22 +151,15 @@ class Initializer(BaseInitializer):
         init_cache()
 
         # Helpers
-        MinioClient(
-            _config.minio_endpoint,
-            _config.minio_access_key,
-            _config.minio_secret_key,
-            _config.minio_secure,
-            _config.minio_bucket_name,
-        )
-        TemplateHelper(
-            _config.template_bucket_name
-        )
+        get_document_handler()
+        TemplateHelper()
         PatternMatcher()
         ApplicationReferenceGenerator(_config.application_reference_format)
         KeymanagerCryptoHelper()
         AweHelper()
 
         # Services
+        G2PDocumentService()
         G2PDataModelService()
         G2PRegisterDomainService()
         G2PIngestService()
@@ -180,7 +173,6 @@ class Initializer(BaseInitializer):
         G2POutgestionDataService()
         G2POutgestionConfigurationService()
         G2PTemplateService()
-        G2PTemplateFileService()
         G2PAttributeService()
         G2PVcConfigurationService()
         InputMechanismMetadataService()
@@ -214,7 +206,6 @@ class Initializer(BaseInitializer):
         G2POutgestionDataControllerService()
         G2POutgestionConfigurationControllerService()
         G2PDocumentControllerService()
-        G2PTemplateFileControllerService()
         G2PRegistryConfigurationControllerService()
         G2PRegistryThemeControllerService()
         G2PRegistryLanguageControllerService()

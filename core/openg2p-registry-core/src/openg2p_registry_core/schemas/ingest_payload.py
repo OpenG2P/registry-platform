@@ -43,7 +43,7 @@ class IngestionDataSearchResultData(BaseModel):
     change_request_id: Optional[str] = None
 
     template_id: Optional[str] = None
-    template_file_id: Optional[str] = None
+    template_document_id: Optional[str] = None
     transformation_status: Optional[str] = None
     transformation_date_time: Optional[datetime] = None
     transformation_number_of_attempts: Optional[int] = None
@@ -276,7 +276,7 @@ class IncomingModelRegisterSemanticPatternData(BaseModel):
 class IncomingTemplatePayload(BaseModel):
     register_id: str
     data_model_id: str
-    template_file_id: str
+    template_document_id: str
     jsonld_expansion_required: bool = False
 
     class Config:
@@ -286,7 +286,7 @@ class IncomingTemplatePayload(BaseModel):
 class IncomingTemplateUpdatePayload(BaseModel):
     """Update payload for IncomingTemplate - only allows updating specific fields."""
     template_id: str
-    template_file_id: Optional[str] = None
+    template_document_id: Optional[str] = None
     jsonld_expansion_required: Optional[bool] = None
 
     class Config:
@@ -307,7 +307,7 @@ class IncomingTemplateData(BaseModel):
     register_mnemonic: Optional[str] = None
     data_model_id: str
     data_model_mnemonic: Optional[str] = None
-    template_file_id: str
+    template_document_id: str
     jsonld_expansion_required: bool
 
     class Config:
@@ -322,7 +322,7 @@ class DataModelPayload(BaseModel):
     data_model_id: Optional[str] = None
     data_model_mnemonic: str
     pattern_for_data_model: str
-    response_template_file_id: Optional[str] = None
+    response_template_document_id: Optional[str] = None
     is_active: bool = True
 
     class Config:
@@ -334,7 +334,7 @@ class DataModelUpdatePayload(BaseModel):
     data_model_id: str
     data_model_mnemonic: Optional[str] = None
     pattern_for_data_model: Optional[str] = None
-    response_template_file_id: Optional[str] = None
+    response_template_document_id: Optional[str] = None
     is_active: Optional[bool] = None
 
     class Config:
@@ -352,7 +352,7 @@ class DataModelData(BaseModel):
     data_model_id: str
     data_model_mnemonic: str
     pattern_for_data_model: str
-    response_template_file_id: Optional[str] = None
+    response_template_document_id: Optional[str] = None
     is_active: bool
 
     class Config:

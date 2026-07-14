@@ -16,7 +16,8 @@ from .search import (
     G2PDciController,
     G2PDciService,
     DciRequestResponseHelper,
-    DciKeymanagerHelper
+    DciKeymanagerHelper,
+    DciConsentHelper
 )
 
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -33,6 +34,7 @@ class Initializer(BaseInitializer):
         G2PDciController().post_init()
         G2PDciService()
         DciKeymanagerHelper()
+        DciConsentHelper()
         DciRequestResponseHelper()
 
     def migrate_database(self, args):

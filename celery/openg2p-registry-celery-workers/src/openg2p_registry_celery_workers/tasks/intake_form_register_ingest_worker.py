@@ -12,10 +12,13 @@ from openg2p_registry_core.models import (
     ChangeRequestSourceEnum,
     G2PFunctionalIdGenerationQueue,
     G2PIntakeFormSubmission,
+    G2PIntakeFormSubmissionDocument,
     G2PIntakeFormUITab,
     G2PIntakeFormUITabSection,
     G2PRegisterDefinition,
+    G2PRegisterDocumentHistory,
     G2PRegisterSection,
+    G2PRegisterSectionDocument,
     IntakeFormStatusEnum,
     ProcessStatusEnum,
     RegisterPurposeEnum,
@@ -66,6 +69,9 @@ async def _process_submission_async(submission_id: str) -> None:
             async with session.begin():
                 submission = await _get_submission(submission_id, session)
                 sections = await _get_unique_form_sections(submission.form_id, session)
+                documents_by_section = await _get_submission_documents(
+                    submission.submission_id, session
+                )
                 inserted_records: list[tuple[G2PRegisterDefinition, object]] = []
                 for section in sections:
                     register_definition, intake_class, register_class, history_class = await _resolve_classes(
@@ -73,6 +79,7 @@ async def _process_submission_async(submission_id: str) -> None:
                         session,
                     )
                     intake_rows = await _get_intake_rows(intake_class, submission.submission_id, session)
+                    section_documents = documents_by_section.get(section.section_id, [])
                     for intake_row in intake_rows:
                         register_row = await _insert_register_row(
                             submission,
@@ -88,6 +95,14 @@ async def _process_submission_async(submission_id: str) -> None:
                             history_class,
                             session,
                         )
+                        if section_documents:
+                            await _upsert_live_documents(
+                                submission,
+                                section,
+                                register_row.internal_record_id,
+                                section_documents,
+                                session,
+                            )
                         await _run_post_ingest_hook(register_definition, register_row, session)
                         inserted_records.append((register_definition, register_row))
                 await _fanout_outgest_rows(submission, inserted_records, session)
@@ -175,6 +190,73 @@ async def _get_intake_rows(intake_class, submission_id: str, session) -> list[ob
     return (
         await session.execute(select(intake_class).where(intake_class.submission_id == submission_id))
     ).scalars().all()
+
+
+async def _get_submission_documents(
+    submission_id: str,
+    session,
+) -> dict[str, list[tuple[str, str]]]:
+    """Map section_id -> list of (document_id, label) for a submission."""
+    document_rows = (
+        await session.execute(
+            select(G2PIntakeFormSubmissionDocument).where(
+                G2PIntakeFormSubmissionDocument.submission_id == submission_id
+            )
+        )
+    ).scalars().all()
+    documents_by_section: dict[str, list[tuple[str, str]]] = {}
+    for row in document_rows:
+        documents_by_section.setdefault(row.section_id, []).append(
+            (row.document_id, row.label)
+        )
+    return documents_by_section
+
+
+async def _upsert_live_documents(
+    submission: G2PIntakeFormSubmission,
+    section: G2PRegisterSection,
+    internal_record_id: str,
+    documents: list[tuple[str, str]],
+    session,
+) -> None:
+    """Promote intake submission documents onto the live register section."""
+    for document_id, label in documents:
+        session.add(
+            G2PRegisterDocumentHistory(
+                internal_record_id=internal_record_id,
+                change_request_id=None,
+                submission_id=submission.submission_id,
+                change_request_source=ChangeRequestSourceEnum.INTAKE_FORM.value,
+                section_id=section.section_id,
+                document_id=document_id,
+                label=label,
+                created_by=submission.created_by,
+                created_at=submission.first_created_at,
+                approved_by=submission.approved_by or "system",
+                approved_at=submission.approved_at or submission.last_updated_at,
+            )
+        )
+
+        existing = (
+            await session.execute(
+                select(G2PRegisterSectionDocument).where(
+                    G2PRegisterSectionDocument.internal_record_id == internal_record_id,
+                    G2PRegisterSectionDocument.document_id == document_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing:
+            existing.section_id = section.section_id
+            existing.label = label
+        else:
+            session.add(
+                G2PRegisterSectionDocument(
+                    internal_record_id=internal_record_id,
+                    document_id=document_id,
+                    section_id=section.section_id,
+                    label=label,
+                )
+            )
 
 
 async def _insert_register_row(
