@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { ConfigLayout, type ConfigActiveOption } from '@/features/configuration/shared';
 import RequireAction from '@/components/shared/RequireAction';
-import { CONFIG_VIEW_ACTIONS } from '@/features/configuration/shared/utils/configurationView.actions';
+import { CONFIG_NAV_ACTIONS } from '@/features/configuration/shared/utils/configurationView.actions';
 
 const SIDEBAR_OPTIONS: ConfigActiveOption[] = [
     'registry', 'registry-details', 'registry-themes', 'registry-languages', 'registers',
@@ -63,7 +63,7 @@ export default function ConfigurationLayout({
     const activeOption = getActiveOptionFromPathname(pathname);
 
     return (
-        <RequireAction anyOf={CONFIG_VIEW_ACTIONS}>
+        <RequireAction anyOf={CONFIG_NAV_ACTIONS}>
             <ConfigLayout activeOption={activeOption}>
                 {children}
             </ConfigLayout>

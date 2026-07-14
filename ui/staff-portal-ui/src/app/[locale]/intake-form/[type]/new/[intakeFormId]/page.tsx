@@ -35,7 +35,7 @@ export default function NewIntakeFormSubmissionPage() {
                         label: t("register_intake_form", { subject: currentRegister?.register_subject || t("register") }),
                         href: `/intake-form/${registerType}`
                     },
-                    { label: recordName || "—" }
+                    { label: recordName || "" }
                 ]}
 
                 showFilters={false}
