@@ -6,7 +6,7 @@ from jinja2 import Environment, Template
 from pyld import jsonld
 from openg2p_fastapi_common.service import BaseService
 
-from ...models.enum import DocumentBucket
+from ..models.enum import DocumentBucket
 from .document import get_document_handler
 
 
