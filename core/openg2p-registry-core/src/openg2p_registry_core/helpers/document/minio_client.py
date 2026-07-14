@@ -24,11 +24,11 @@ class MinioClient(DocumentHandler):
             secure=secure,
         )
 
-    def _ensure_bucket(self, bucket: DocumentBucket) -> str:
-        bucket_name = bucket.value
-        if not self.client.bucket_exists(bucket_name):
-            self.client.make_bucket(bucket_name)
-        return bucket_name
+    def _ensure_bucket(self, bucket: DocumentBucket) -> DocumentBucket:
+        # DocumentBucket is a StrEnum, so it can be passed directly as the bucket name.
+        if not self.client.bucket_exists(bucket):
+            self.client.make_bucket(bucket)
+        return bucket
 
     def upload(
         self,
@@ -50,7 +50,7 @@ class MinioClient(DocumentHandler):
 
     def download(self, document_store_id: str, bucket: DocumentBucket) -> bytes:
         try:
-            response = self.client.get_object(bucket.value, document_store_id)
+            response = self.client.get_object(bucket, document_store_id)
             data = response.read()
             response.close()
             response.release_conn()
@@ -59,7 +59,7 @@ class MinioClient(DocumentHandler):
             raise RuntimeError(f"Failed to download: {exc}") from exc
 
     def delete(self, document_store_id: str, bucket: DocumentBucket) -> None:
-        self.client.remove_object(bucket.value, document_store_id)
+        self.client.remove_object(bucket, document_store_id)
 
     def get_url(
         self,
@@ -68,7 +68,7 @@ class MinioClient(DocumentHandler):
         expires: timedelta = timedelta(hours=1),
     ) -> str:
         return self.client.presigned_get_object(
-            bucket_name=bucket.value,
+            bucket_name=bucket,
             object_name=document_store_id,
             expires=expires,
         )

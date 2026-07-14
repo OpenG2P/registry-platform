@@ -40,7 +40,7 @@ class G2PDocumentControllerService(BaseService):
         _logger.info(
             "Uploading %s documents to bucket: %s",
             len(documents),
-            payload.bucket.value,
+            payload.bucket,
         )
         return await self.document_service.upload_documents(
             documents=documents,
