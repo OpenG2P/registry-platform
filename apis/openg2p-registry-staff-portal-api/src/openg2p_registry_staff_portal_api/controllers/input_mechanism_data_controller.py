@@ -7,8 +7,6 @@ from fastapi.responses import JSONResponse
 
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_fastapi_common.schemas import (
-    G2PResponse,
-    G2PResponseBody,
     G2PResponseHeader,
     G2PResponseStatus,
 )
@@ -26,6 +24,7 @@ from openg2p_registry_core.services import InputMechanismDataService
 from iam_core.user_auth.decorators import require_permissions
 
 from ..config import Settings
+from ..helpers import RequestResponseHelper
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -39,6 +38,7 @@ class InputMechanismDataController(BaseController):
 
         self.ingest_controller_service = G2PIngestControllerService.get_component()
         self.input_mechanism_data_service = InputMechanismDataService.get_component()
+        self.helper = RequestResponseHelper.get_component()
 
         self.router.add_api_route(
             "/enqueue_import_file",
@@ -122,19 +122,6 @@ class InputMechanismDataController(BaseController):
             return JSONResponse(content=response.model_dump(mode="json"))
         except Exception as error_exception:
             _logger.error("Error in ingest_data: %s", str(error_exception), exc_info=True)
-            g2p_response_header = G2PResponseHeader(
-                request_id="",
-                response_status=G2PResponseStatus.ERROR,
-                response_error_code="500",
-                response_error_message=str(error_exception),
-                response_timestamp=datetime.now(),
-            )
-            error_response = G2PResponse(
-                response_header=g2p_response_header,
-                response_body=G2PResponseBody(
-                    pagination_response=None,
-                    response_payload=None,
-                ),
-            )
+            error_response = self.helper.construct_error_response(error_exception)
             return JSONResponse(content=error_response.model_dump(mode="json"))
 
