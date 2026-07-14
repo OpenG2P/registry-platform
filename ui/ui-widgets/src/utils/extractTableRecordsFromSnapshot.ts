@@ -3,14 +3,11 @@ import type { BaseWidgetConfig } from '../types';
 /** Table-style widgets that bind to an array path in the store / schema. */
 export function isTableLikeWidget(widget: BaseWidgetConfig): boolean {
   const w = widget.widget as string | undefined;
-  /** widget-type union in types omits legacy values like simple-table still used at runtime */
   const t = widget['widget-type'] as string | undefined;
   return (
     w === 'table' ||
     w === 'dialog-table' ||
-    w === 'simple-table' ||
-    t === 'table' ||
-    t === 'simple-table'
+    t === 'table'
   );
 }
 

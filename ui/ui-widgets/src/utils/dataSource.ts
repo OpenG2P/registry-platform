@@ -8,8 +8,7 @@ const apiDataSourceInflight = new Map<string, Promise<any[]>>();
 
 function buildApiRequestContext(
   dataSource: ApiDataSource,
-  allValues: Record<string, any>,
-  levelId?: string
+  allValues: Record<string, any>
 ): { service: string; endpoint: string; method: string; requestParams: Record<string, any> } | null {
   let depValue: any = null;
   if (dataSource.dependsOn) {
@@ -30,9 +29,6 @@ function buildApiRequestContext(
     if (!standardFields.includes(key) && value !== undefined && value !== null) {
       staticParams[key] = value;
     }
-  }
-  if (levelId) {
-    staticParams.level_id = levelId;
   }
 
   const requestParams: Record<string, any> = { ...staticParams };
@@ -71,10 +67,9 @@ function buildApiDataSourceCacheKey(
 /** Return cached API options when already fetched (e.g. duplicate table cells). */
 export function getCachedApiDataSource(
   dataSource: ApiDataSource,
-  allValues: Record<string, any>,
-  levelId?: string
+  allValues: Record<string, any>
 ): any[] | undefined {
-  const context = buildApiRequestContext(dataSource, allValues, levelId);
+  const context = buildApiRequestContext(dataSource, allValues);
   if (!context) {
     return undefined;
   }
@@ -101,8 +96,7 @@ export const getStaticDataSource = (dataSource: Extract<DataSource, { type: 'sta
 export const getApiDataSource = async (
   dataSource: Extract<DataSource, { type: 'api' }>,
   allValues: Record<string, any>,
-  dataSourceRequestHandler: DataSourceRequestHandler,
-  levelId?: string // Optional level_id from widget-geo-config.level
+  dataSourceRequestHandler: DataSourceRequestHandler
 ): Promise<any[]> => {
   if (!dataSourceRequestHandler) {
     console.error('[getApiDataSource] dataSourceRequestHandler is required for API data sources');
@@ -110,7 +104,7 @@ export const getApiDataSource = async (
   }
 
   try {
-    const context = buildApiRequestContext(dataSource, allValues, levelId);
+    const context = buildApiRequestContext(dataSource, allValues);
     if (!context) {
       return [];
     }
@@ -149,14 +143,10 @@ export const getApiDataSource = async (
       apiDataSourceInflight.delete(cacheKey);
     }
   } catch (error) {
-    // Rethrow so useBaseWidget's catch can log it with full widget context
     throw error;
   }
 };
 
-/**
- * Get schema reference data source options
- */
 export const getSchemaDataSource = (
   dataSource: Extract<DataSource, { type: 'schema' }>,
   schemaData: Record<string, any>
@@ -165,16 +155,13 @@ export const getSchemaDataSource = (
   return Array.isArray(data) ? data : [];
 };
 
-/**
- * Transform data source options to { value, label } format
- */
+
 export const transformDataSourceOptions = (
   data: any[],
   valueKey?: string,
   labelKey?: string
 ): Array<{ value: any; label: string }> => {
   if (!valueKey || !labelKey) {
-    // Assume data is already in { value, label } format
     return data.map((item) => {
       if (typeof item === 'object' && 'value' in item && 'label' in item) {
         return item;
@@ -185,7 +172,6 @@ export const transformDataSourceOptions = (
 
   return data.map((item) => {
     const value = item[valueKey];
-    // Try multiple common label keys if the primary one is missing
     const label = item[labelKey] || item.name || item.label || item.mnemonic || item.level_value_mnemonic || String(value);
     return { value, label };
   });

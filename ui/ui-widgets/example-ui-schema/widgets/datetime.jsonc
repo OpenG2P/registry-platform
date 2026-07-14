@@ -1,0 +1,26 @@
+{
+  "widget": "datetime",
+  "widget-type": "input",
+  "widget-id": "appointment_time",
+  "widget-label": "Appointment Time",
+  "widget-data-path": "register-id.appointment_time"
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-default": "now",
+  // "widget-data-placeholder": "DD/MM/YYYY HH:mm",
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "dateTimeFormat": "DD/MM/YYYY HH:mm",
+  //   "inputMethod": "picker",
+  //   "dateTimeConstraint": "future-only"
+  // },
+
+  // --- widget-data-options ---
+  // "widget-data-options": {
+  //   "minDateTime": "2024-01-01T00:00",
+  //   "maxDateTime": "now"
+  // }
+}

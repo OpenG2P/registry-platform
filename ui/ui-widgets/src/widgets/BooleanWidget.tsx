@@ -1,37 +1,10 @@
 import React, { useMemo, useCallback, useId } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig, BooleanRepresentation } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
-/**
- * Boolean widget with advanced features
- * 
- * Features:
- * - Boolean representation (true/false, yes/no, on/off, custom labels)
- * - Control type (checkbox, radio buttons, toggle/switch)
- * - Default value (true, false, unset/null)
- * - Required vs optional
- * - Layout options (horizontal/vertical)
- * 
- * Usage in schema:
- * {
- *   "widget": "boolean",
- *   "widget-type": "input",
- *   "widget-label": "Is Married",
- *   "widget-id": "married",
- *   "widget-data-path": "person.married",
- *   "widget-data-default": false,
- *   "widget-data-format": {
- *     "booleanRepresentation": "yes-no",
- *     "booleanControlType": "radio",
- *     "allowUnset": true
- *   },
- *   "widget-data-validation": {},
- *   "widget-required": false,
- *   "widget-orientation": "horizontal"
- * }
- */
 interface BooleanWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -48,7 +21,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const representation = formatConfig?.booleanRepresentation || 'true-false';
@@ -56,12 +29,13 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
   const allowUnset = formatConfig?.allowUnset ?? (widgetConfig['widget-required'] ? false : true);
   const orientation = widgetConfig['widget-orientation'] || 'horizontal';
 
-  // Get labels based on representation
   const getLabels = useCallback((): { trueLabel: string; falseLabel: string } => {
     if (representation === 'custom') {
+      const trueKey = formatConfig?.booleanTrueLabel || 'Yes';
+      const falseKey = formatConfig?.booleanFalseLabel || 'No';
       return {
-        trueLabel: translateConfig(formatConfig?.booleanTrueLabel || 'Yes'),
-        falseLabel: translateConfig(formatConfig?.booleanFalseLabel || 'No'),
+        trueLabel: t?.(trueKey, { defaultValue: trueKey }) ?? trueKey,
+        falseLabel: t?.(falseKey, { defaultValue: falseKey }) ?? falseKey,
       };
     }
 
@@ -73,18 +47,17 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     };
 
     return labels[representation];
-  }, [representation, formatConfig, translateConfig]);
+  }, [representation, formatConfig, t]);
 
   const { trueLabel, falseLabel } = getLabels();
 
-  const unsetLabel = useMemo(
-    () => translateConfig(formatConfig?.booleanUnsetLabel || 'Not set'),
-    [formatConfig?.booleanUnsetLabel, translateConfig]
-  );
+  const unsetLabel = useMemo(() => {
+    const key = formatConfig?.booleanUnsetLabel || 'Not set';
+    return t?.(key, { defaultValue: key }) ?? key;
+  }, [formatConfig?.booleanUnsetLabel, t]);
 
   const radioGroupName = `${widgetConfig['widget-id'] ?? 'boolean'}__${useId().replace(/:/g, '')}`;
 
-  // Determine current value (handle null/undefined)
   const currentValue = useMemo(() => {
     if (value === null || value === undefined) {
       return null;
@@ -92,30 +65,25 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     return Boolean(value);
   }, [value]);
 
-  // Handle value change
   const handleChange = useCallback((newValue: boolean | null) => {
     onChange(newValue);
   }, [onChange]);
 
-  // Handle checkbox change
   const handleCheckboxChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const checked = e.target.checked;
     if (allowUnset && !checked && currentValue === true) {
-      // If allowUnset and unchecking, set to null
       handleChange(null);
     } else {
       handleChange(checked);
     }
   }, [allowUnset, currentValue, handleChange]);
 
-  // Handle radio change
   const handleRadioChange = useCallback((selectedValue: boolean | null) => {
     handleChange(selectedValue);
   }, [handleChange]);
 
-  // For readonly mode, render as display text
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     let displayValue = '';
     
     if (currentValue === null) {
@@ -137,24 +105,19 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
           <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     );
   }
 
-  // Render based on control type
   if (controlType === 'checkbox') {
     return (
       <div className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
             className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
-            label={translateConfig(widgetConfig['widget-label'])}
+            label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
           <div className="flex-1 min-w-0">
@@ -176,11 +139,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
             {touched && error.length > 0 && (
               <p className="text-red-500 text-sm mt-1">{error[0]}</p>
             )}
-            {/* {widgetConfig['widget-data-helptext'] && (
-              <p className="text-gray-500 text-sm mt-1">
-                {translateConfig(widgetConfig['widget-data-helptext'])}
-              </p>
-            )} */}
+            
           </div>
         </div>
       </div>
@@ -201,7 +160,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
             className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
-            label={translateConfig(widgetConfig['widget-label'])}
+            label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
           <div className="flex-1 min-w-0">
@@ -245,24 +204,19 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
             {touched && error.length > 0 && (
               <p className="text-red-500 text-sm mt-1">{error[0]}</p>
             )}
-            {/* {widgetConfig['widget-data-helptext'] && (
-              <p className="text-gray-500 text-sm mt-1">
-                {translateConfig(widgetConfig['widget-data-helptext'])}
-              </p>
-            )} */}
+            
           </div>
         </div>
       </div>
     );
   }
 
-  // Toggle/switch control type
   return (
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-baseline">
         <WidgetFieldLabel
           className="text-base font-medium leading-normal text-gray-700 sm:min-w-[150px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
@@ -312,11 +266,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
-          {/* {widgetConfig['widget-data-helptext'] && (
-            <p className="text-gray-500 text-sm mt-1">
-              {translateConfig(widgetConfig['widget-data-helptext'])}
-            </p>
-          )} */}
+          
         </div>
       </div>
     </div>

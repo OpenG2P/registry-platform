@@ -57,13 +57,6 @@ export const parseDataPath = (
   return dataPath;
 };
 
-/**
- * Get value from widget state using data path
- */
-/**
- * Resolve a widget-id reference in Redux values.
- * Supports namespaced ids (e.g. "rv-section-0__region_code" when ref is "region_code").
- */
 export const resolveWidgetIdValue = (
   values: Record<string, any>,
   ref: string
@@ -77,12 +70,6 @@ export const resolveWidgetIdValue = (
   if (Object.prototype.hasOwnProperty.call(values, ref)) {
     return values[ref];
   }
-  const suffix = `__${ref}`;
-  for (const [key, val] of Object.entries(values)) {
-    if (key.endsWith(suffix)) {
-      return val;
-    }
-  }
   return undefined;
 };
 
@@ -92,14 +79,12 @@ export const getWidgetValue = (
   widgetId: string
 ): any => {
   if (!dataPath) {
-    // Fallback to widget-id if no data path
     return values[widgetId];
   }
   if (typeof dataPath === 'string') {
     return getValueByPath(values, dataPath);
   }
 
-  // Multi-path: return object with all paths
   const result: Record<string, any> = {};
   for (const [key, path] of Object.entries(dataPath)) {
     result[key] = getValueByPath(values, path);
@@ -117,7 +102,6 @@ export const setWidgetValue = (
   value: any
 ): Record<string, any> => {
   if (!dataPath) {
-    // Fallback to widget-id if no data path
     return { ...currentValues, [widgetId]: value };
   }
 
@@ -125,7 +109,6 @@ export const setWidgetValue = (
     return setValueByPath(currentValues, dataPath, value);
   }
 
-  // Multi-path: set each path from value object
   let newValues = { ...currentValues };
   for (const [key, path] of Object.entries(dataPath)) {
     if (value && typeof value === 'object' && key in value) {

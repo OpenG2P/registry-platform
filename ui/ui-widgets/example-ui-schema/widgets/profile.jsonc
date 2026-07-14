@@ -1,0 +1,20 @@
+{
+  "widget": "profile",
+  "widget-type": "group",
+  "widget-id": "user_profile",
+  "widget-data-path": {
+    "image": "register-id.photo",
+    "name": "register-id.display_name",
+    "id": "register-id.national_id"
+  }
+
+  // --- Optional flags ---
+  // "widget-readonly": true,
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "imageSize": 80,
+  //   "nameColor": "#F07B1A",
+  //   "showIdLabel": true
+  // }
+}

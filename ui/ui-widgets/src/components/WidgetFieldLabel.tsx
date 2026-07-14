@@ -1,24 +1,22 @@
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 
+import { useWidgetContext } from './WidgetProvider';
+import { tSchema } from '../utils/tSchema';
 export interface WidgetFieldLabelProps {
-  label: string;
+  label?: string | null;
   required?: boolean;
   className?: string;
-  title?: string;
+  title?: string | null;
 }
 
-/**
- * Field label: long text truncates with ellipsis; required asterisk always stays visible.
- */
 export const WidgetFieldLabel = ({
   label,
   required = false,
   className = '',
   title,
 }: WidgetFieldLabelProps) => {
-  const { translateConfig } = useWidgetTranslation();
-  const translatedLabel = translateConfig(label);
-  const tooltip = title !== undefined ? translateConfig(title) : translatedLabel;
+  const { t } = useWidgetContext();
+  const translatedLabel = tSchema(t, label);
+  const tooltip = title !== undefined ? tSchema(t, title) : translatedLabel;
 
   return (
     <label

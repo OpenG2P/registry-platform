@@ -1,27 +1,15 @@
 import { UISchema, SectionConfig, PanelConfig, BaseWidgetConfig } from '../types';
 
-/**
- * Recursively translate widget configuration using translation keys
- * This utility helps transform a schema with translation keys into translated strings
- * 
- * @param widgetConfig - Widget configuration that may contain translation keys
- * @param translate - Translation function (from useWidgetTranslation or i18next)
- * @returns Translated widget configuration
- */
 export const translateWidgetConfig = (
   widgetConfig: BaseWidgetConfig,
   translate: (key: string, options?: any) => string
 ): BaseWidgetConfig => {
   const translated: BaseWidgetConfig = { ...widgetConfig };
 
-  // Helper to check if a string is a translation key
   const isTranslationKey = (str: string): boolean => {
-    // Translation keys contain dots (e.g., "sections.personalDetails", "fields.name", "common.addItem")
-    // or namespace prefix with colon (e.g., "namespace:key" for backward compatibility)
     return str.includes('.') || str.includes(':');
   };
 
-  // Translate widget-label if it's a translation key
   if (translated['widget-label'] && typeof translated['widget-label'] === 'string') {
     const label = translated['widget-label'];
     if (isTranslationKey(label)) {
@@ -29,7 +17,6 @@ export const translateWidgetConfig = (
     }
   }
 
-  // Translate placeholder
   if (translated['widget-data-placeholder'] && typeof translated['widget-data-placeholder'] === 'string') {
     const placeholder = translated['widget-data-placeholder'];
     if (isTranslationKey(placeholder)) {
@@ -37,7 +24,6 @@ export const translateWidgetConfig = (
     }
   }
 
-  // Translate helptext
   if (translated['widget-data-helptext'] && typeof translated['widget-data-helptext'] === 'string') {
     const helptext = translated['widget-data-helptext'];
     if (isTranslationKey(helptext)) {
@@ -45,7 +31,6 @@ export const translateWidgetConfig = (
     }
   }
 
-  // Translate tooltip
   if (translated['widget-data-tooltip'] && typeof translated['widget-data-tooltip'] === 'string') {
     const tooltip = translated['widget-data-tooltip'];
     if (isTranslationKey(tooltip)) {
@@ -53,7 +38,6 @@ export const translateWidgetConfig = (
     }
   }
 
-  // Translate add-label
   if (translated['widget-data-add-label'] && typeof translated['widget-data-add-label'] === 'string') {
     const addLabel = translated['widget-data-add-label'];
     if (isTranslationKey(addLabel)) {
@@ -61,7 +45,6 @@ export const translateWidgetConfig = (
     }
   }
 
-  // Translate column labels in table widgets
   if (translated['widget-data-columns'] && Array.isArray(translated['widget-data-columns'])) {
     translated['widget-data-columns'] = translated['widget-data-columns'].map((col) => {
       if (col['widget-label'] && typeof col['widget-label'] === 'string') {
@@ -77,19 +60,16 @@ export const translateWidgetConfig = (
     });
   }
 
-  // Translate nested widgets
   if (translated.widgets && Array.isArray(translated.widgets)) {
     translated.widgets = translated.widgets.map((widget) =>
       translateWidgetConfig(widget, translate)
     );
   }
 
-  // Translate widget-item (for array/accordion widgets)
   if (translated['widget-item']) {
     translated['widget-item'] = translateWidgetConfig(translated['widget-item'], translate);
   }
 
-  // Translate static data source labels
   const dataSource = translated['widget-data-source'];
   if (dataSource && typeof dataSource === 'object' && 'type' in dataSource) {
     if (dataSource.type === 'static' && 'options' in dataSource && Array.isArray(dataSource.options)) {
@@ -111,21 +91,16 @@ export const translateWidgetConfig = (
   return translated;
 };
 
-/**
- * Recursively translate panel configuration
- */
 export const translatePanelConfig = (
   panel: PanelConfig,
   translate: (key: string, options?: any) => string
 ): PanelConfig => {
   const translated: PanelConfig = { ...panel };
 
-  // Translate nested panels
   if (translated.panels && Array.isArray(translated.panels)) {
     translated.panels = translated.panels.map((p) => translatePanelConfig(p, translate));
   }
 
-  // Translate widgets in panel
   if (translated.widgets && Array.isArray(translated.widgets)) {
     translated.widgets = translated.widgets.map((widget) =>
       translateWidgetConfig(widget, translate)
@@ -135,13 +110,6 @@ export const translatePanelConfig = (
   return translated;
 };
 
-/**
- * Translate entire UI Schema
- * 
- * @param schema - UI Schema with potential translation keys
- * @param translate - Translation function
- * @returns Translated UI Schema
- */
 export const translateUISchema = (
   schema: UISchema,
   translate: (key: string, options?: any) => string
@@ -151,16 +119,13 @@ export const translateUISchema = (
     sections: schema.sections.map((section) => {
       const translatedSection: SectionConfig = { ...section };
 
-      // Translate section-title
       if (translatedSection['section-title'] && typeof translatedSection['section-title'] === 'string') {
         const title = translatedSection['section-title'];
-        // Check if it's a translation key (contains dots or namespace prefix)
         if (title.includes('.') || title.includes(':')) {
           translatedSection['section-title'] = translate(title, { defaultValue: title });
         }
       }
 
-      // Translate panels
       if (translatedSection.panels && Array.isArray(translatedSection.panels)) {
         translatedSection.panels = translatedSection.panels.map((panel) =>
           translatePanelConfig(panel, translate)

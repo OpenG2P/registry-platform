@@ -1,49 +1,16 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { filterByCharacterType, applyCaseControl } from '../utils/textInput';
 
-/**
- * TextArea widget for multi-line text input
- * Supports 2 rows by default with configurable rows
- * 
- * Features:
- * - Multi-line text input
- * - Character type filtering (any, alphabetic, alphanumeric, numeric, etc.)
- * - Case control (none, lowercase, uppercase, capitalize)
- * - Length constraints with live character counter
- * - Regular expression validation with custom messages
- * - Placeholder text with i18n support
- * 
- * Usage in schema:
- * {
- *   "widget": "textarea",
- *   "widget-type": "input",
- *   "widget-label": "Description",
- *   "widget-id": "description",
- *   "widget-data-path": "person.description",
- *   "widget-data-format": {
- *     "characterType": "any",
- *     "caseControl": "none",
- *     "showCharCounter": true,
- *     "rows": 2
- *   },
- *   "widget-data-validation": {
- *     "minLength": 10,
- *     "maxLength": 500
- *   },
- *   "widget-required": true,
- *   "widget-data-placeholder": "Enter description"
- * }
- */
 interface TextAreaWidgetProps {
   config: BaseWidgetConfig;
 }
 
 export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
-  // Check readonly early from original config
   const isReadonly = config['widget-readonly'] || false;
 
   const {
@@ -57,37 +24,31 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
-  
+  const { t } = useWidgetContext();
+
   const formatConfig = widgetConfig['widget-data-format'] || {};
   const validationConfig = widgetConfig['widget-data-validation'] || {};
-  
-  // Get number of rows (default to 2)
+
   const rows = formatConfig.rows || 2;
-  
-  // Get current string value for processing
+
   const getStringValue = useCallback(() => {
     if (value === null || value === undefined) return '';
     return String(value);
   }, [value]);
 
-  // Handle input change with character filtering and case control
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     let newValue = e.target.value;
 
-    // Apply character type filtering
     const characterType = formatConfig?.characterType || 'any';
     if (characterType !== 'any') {
       newValue = filterByCharacterType(newValue, characterType, formatConfig?.customCharset);
     }
 
-    // Apply case control
     const caseControl = formatConfig?.caseControl || 'none';
     if (caseControl !== 'none') {
       newValue = applyCaseControl(newValue, caseControl);
     }
 
-    // Apply max length if specified
     const maxLength = validationConfig?.maxLength;
     if (maxLength && newValue.length > maxLength) {
       newValue = newValue.slice(0, maxLength);
@@ -96,31 +57,24 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
     onChange(newValue);
   }, [formatConfig, validationConfig, onChange]);
 
-  // Character counter
   const showCharCounter = formatConfig?.showCharCounter || false;
   const currentLength = getStringValue().length;
   const maxLength = validationConfig?.maxLength;
-  const charCounterText = maxLength 
+  const charCounterText = maxLength
     ? `${currentLength}/${maxLength}`
     : `${currentLength}`;
 
-  // Get placeholder text
   const placeholder = widgetConfig['widget-data-placeholder']
-    ? translateConfig(widgetConfig['widget-data-placeholder'])
+    ? tSchema(t, widgetConfig['widget-data-placeholder'])
     : '';
 
-  // Get label
   const label = widgetConfig['widget-label']
-    ? translateConfig(widgetConfig['widget-label'])
+    ? tSchema(t, widgetConfig['widget-label'])
     : '';
 
-  // Check if required
-
-  // Error display
   const hasError = touched && error && error.length > 0;
   const errorMessage = hasError ? error[0] : '';
 
-  // For readonly mode, render as preformatted text using <pre> tag
   if (isReadonly) {
     const displayValue = getStringValue() || '-';
     return (
@@ -143,10 +97,8 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
               height: '56px',
               minHeight: '56px',
               maxHeight: '56px',
-
               lineHeight: '20px',
               padding: '8px 0',
-
               backgroundColor: 'transparent',
               border: 'none',
             }}
@@ -181,13 +133,13 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
                   ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
                   : 'border-gray-300'
               } ${!isEnabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
-              style={{ 
+              style={{
                 borderRadius: '10px',
                 fontFamily: 'Roboto, sans-serif',
                 fontSize: '14px',
                 lineHeight: '1.5',
                 resize: 'vertical',
-                minHeight: `${rows * 1.5 * 14 + 16}px`, // Approximate height based on rows
+                minHeight: `${rows * 1.5 * 14 + 16}px`,
               }}
             />
             {showCharCounter && (

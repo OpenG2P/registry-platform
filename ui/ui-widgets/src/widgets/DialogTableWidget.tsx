@@ -1,9 +1,10 @@
 import { memo, useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useDispatch, useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetRenderer } from '../components/WidgetRenderer';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { formatValue } from '../utils/formatting';
 import { WidgetRootState } from '../store';
 import { resetWidget, setError, setTouched, setValues } from '../store/widgetSlice';
@@ -82,7 +83,6 @@ const getRowCellStyle = (editAction?: string): CSSProperties => {
   return {};
 };
 
-// Display select value label in view mode
 const SelectDisplayValue = ({ config, value }: { config: BaseWidgetConfig; value: any }) => {
   const { dataSourceOptions, loading } = useBaseWidget({ config });
 
@@ -144,7 +144,7 @@ const DialogTableField = memo(function DialogTableField({
  */
 export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
   const { value, error, touched, isEnabled, onChange, config: widgetConfig } = useBaseWidget({ config });
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
   const dispatch = useDispatch();
 
   const rows: any[] = Array.isArray(value) ? value : [];
@@ -173,12 +173,12 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
   const membersWidgetId = widgetConfig['widget-id'];
 
   const addDialogTitle =
-    translateConfig(widgetConfig['widget-data-dialog-title-add']) ||
-    translate('table.addRecordDialog') ||
+    tSchema(t, widgetConfig['widget-data-dialog-title-add']) ||
+    t?.('table.addRecordDialog') ||
     'Add record';
   const editDialogTitle =
-    translateConfig(widgetConfig['widget-data-dialog-title-edit']) ||
-    translate('table.editRecordDialog') ||
+    tSchema(t, widgetConfig['widget-data-dialog-title-edit']) ||
+    t?.('table.editRecordDialog') ||
     'Edit record';
 
   const buildEmptyRow = useCallback(() => {
@@ -507,7 +507,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                 color: 'var(--owt-color-bg, #FFFFFF)',
               }}
             >
-              {translate('table.addRecord') || 'Add New Record'}
+              {t?.('table.addRecord') || 'Add New Record'}
             </button>
           </div>
         )}
@@ -528,7 +528,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                     style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
                   >
-                    {translateConfig(col['widget-label'])}
+                    {tSchema(t, col['widget-label'])}
                   </th>
                 ))}
                 {((operations.edit || operations.remove) && !isReadonly) && (
@@ -536,7 +536,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                     style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
                   >
-                    {translate('common.actions') || 'Actions'}
+                    {t?.('common.actions') || 'Actions'}
                   </th>
                 )}
               </tr>
@@ -550,8 +550,8 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                     className="px-4 py-6 text-center text-sm"
                     style={{ color: 'var(--owt-widget-table-empty-color, #727474)' }}
                   >
-                    {translate('table.noData') || 'No records available.'}
-                    {operations.add && !isReadonly && ` ${translate('table.clickToAdd') || 'Click "Add New Record" to add one.'}`}
+                    {t?.('table.noData') || 'No records available.'}
+                    {operations.add && !isReadonly && ` ${t?.('table.clickToAdd') || 'Click "Add New Record" to add one.'}`}
                   </td>
                 </tr>
               )}
@@ -613,7 +613,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                               border: 'none',
                             }}
                           >
-                            {translate('common.edit') || 'Edit'}
+                            {t?.('common.edit') || 'Edit'}
                           </button>
                         )}
                         {operations.remove && (
@@ -629,7 +629,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                               border: 'none',
                             }}
                           >
-                            {translate('common.remove') || 'Delete'}
+                            {t?.('common.remove') || 'Delete'}
                           </button>
                         )}
                       </div>
@@ -713,7 +713,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                   color: 'var(--owt-btn-secondary-color, #011627)',
                 }}
               >
-                {translate('common.cancel') || 'Cancel'}
+                {t?.('common.cancel') || 'Cancel'}
               </button>
               <button
                 type="button"
@@ -727,7 +727,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                   color: 'var(--owt-color-bg, #FFFFFF)',
                 }}
               >
-                {translate('common.save') || 'Save'}
+                {t?.('common.save') || 'Save'}
               </button>
             </div>
           </div>

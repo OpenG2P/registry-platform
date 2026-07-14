@@ -14,14 +14,11 @@ export const WIDGET_TYPES = [
   'radio',
   'checkbox',
   'file',
-  'simple-table',
   'table',
-  'array-widget',
-  'iterable-accordion',
   'phone',
-  'currency',
   'display',
   'profile',
+  'geo-hierarchy',
 ] as const;
 
 export const ORIENTATIONS = ['horizontal', 'vertical'] as const;

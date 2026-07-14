@@ -1,0 +1,92 @@
+{
+  "section-id": "widget_explore_section_2",
+  "section-title": "Widget Explore — Profile & Selection",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_widget_explore_2_main",
+      "panel-orientation": "horizontal",
+      "panels": [
+        {
+          "panel-id": "panel_widget_explore_2_col1",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "profile",
+              "widget-type": "group",
+              "widget-id": "user_profile",
+              "widget-label": "Profile",
+              "widget-data-path": {
+                "image": "register-id.photo",
+                "name": "register-id.display_name",
+                "id": "register-id.national_id"
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_widget_explore_2_col2",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "multi-select",
+              "widget-type": "input",
+              "widget-id": "programs",
+              "widget-label": "Multi-select",
+              "widget-data-path": "register-id.programs",
+              "widget-data-source": {
+                "type": "static",
+                "options": [
+                  { "value": "pmt", "label": "PMT" },
+                  { "value": "fs", "label": "Food Security" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_widget_explore_2_col3",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "radio",
+              "widget-type": "input",
+              "widget-id": "gender",
+              "widget-label": "Radio",
+              "widget-data-path": "register-id.gender",
+              "widget-data-source": {
+                "type": "static",
+                "options": [
+                  { "value": "male", "label": "Male" },
+                  { "value": "female", "label": "Female" }
+                ]
+              }
+            },
+            {
+              "widget": "select",
+              "widget-type": "input",
+              "widget-id": "country",
+              "widget-label": "Select",
+              "widget-data-path": "register-id.country",
+              "widget-data-source": {
+                "type": "static",
+                "options": [
+                  { "value": "us", "label": "United States" },
+                  { "value": "in", "label": "India" }
+                ]
+              }
+            },
+            {
+              "widget": "text",
+              "widget-type": "input",
+              "widget-id": "full_name",
+              "widget-label": "Text",
+              "widget-data-path": "register-id.full_name"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

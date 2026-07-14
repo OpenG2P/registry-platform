@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { tSchema } from '../utils/tSchema';
 import { useSelector, useDispatch } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig, DataSource } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetRootState } from '../store';
 import { setValues } from '../store/widgetSlice';
 import { useWidgetContext } from '../components/WidgetProvider';
@@ -14,135 +14,6 @@ import {
   transformDataSourceOptions,
 } from '../utils/dataSource';
 import { dummyProfile } from '../assets';
-
-/**
- * Header Section Widget - full-width header card for registry views
- *
- * Displays a profile image, record name, functional ID, status, and metadata
- * in a two-column internal layout that spans the entire section.
- *
- * ── widget-data-path (object, required) ──────────────────────────
- *   Maps logical field keys to data paths in the store / schemaData.
- *
- *   Key             | Description
- *   --------------- | -----------------------------------------------
- *   imageUrl        | Image URL for display (e.g. "record_image_url"). Upload replaces
- *                     with a File; delete sets undefined. Storage ID is handled on save
- *                     by the host app (e.g. staff-portal-ui).
- *   name            | Record display name      (e.g. "record_name")
- *   functionalId    | Functional record ID     (e.g. "functional_record_id")
- *   status          | Record status value      (e.g. "record_status")
- *   statusReason    | Reason for the status    (e.g. "record_status_reason")
- *   createdBy       | Creator name             (e.g. "created_by")
- *   createdAt       | Creation date            (e.g. "created_at")
- *   lastApprovedBy  | Last approver name       (e.g. "last_approved_by")
- *   lastApprovedAt  | Last approval date       (e.g. "last_approved_at")
- *   completionScore | Completion score number  (e.g. "completion_score")
- *   idealScore      | Ideal score number       (e.g. "ideal_score")
- *
- * ── widget-field-config (object, optional) ───────────────────────
- *   Per-field configuration. Each key matches a widget-data-path key.
- *   Currently supported sub-properties:
- *
- *   "data-source"  – A standard DataSource object (static / api / schema)
- *                    that provides options for that field's control when
- *                    the widget is in edit mode.
- *
- *   Example:
- *     "widget-field-config": {
- *       "status": {
- *         "data-source": {
- *           "type": "static",
- *           "options": [
- *             { "value": "active",   "label": "Active" },
- *             { "value": "inactive", "label": "Inactive" },
- *             { "value": "archived", "label": "Archived" }
- *           ]
- *         }
- *       }
- *     }
- *
- * ── Editable fields (when widget-readonly is false) ──────────────
- *   - status        → <select> dropdown, options from widget-field-config.status.data-source
- *   - statusReason  → <input type="text">
- *
- * ── widget-labels (object, optional) ──────────────────────────────
- *   Allows the host to override field labels with custom strings or
- *   i18n translation keys. Each value is passed through the host's
- *   translate function (via WidgetProvider), enabling full i18n support.
- *   If a key is omitted, the built-in English default is used.
- *
- *   Key             | Default
- *   --------------- | ---------------------------
- *   functionalId    | "Functional Record ID"
- *   status          | "Record Status"
- *   statusReason    | "Status Reason"
- *   select          | "Select"
- *   enterReason     | "Enter Reason"
- *   createdBy       | "Created by"
- *   createdAt       | "Created at"
- *   lastApprovedBy  | "Last Approved by"
- *   lastApprovedAt  | "Last Approved at"
- *
- * ── widget-data-format (object, optional) ────────────────────────
- *   Key           | Type                     | Default
- *   ------------- | ------------------------ | ----------------------------
- *   imageSize     | number (px)              | 90
- *   nameColor     | CSS colour string        | '#F07B1A'
- *   statusColors  | Record<string, string>   | green/red/amber defaults
- *
- * ── Full example ─────────────────────────────────────────────────
- * ```json
- * {
- *   "widget": "header-section",
- *   "widget-type": "group",
- *   "widget-id": "registry-header",
- *   "widget-data-path": {
- *     "imageUrl": "record_image_url",
- *     "name": "record_name",
- *     "functionalId": "functional_record_id",
- *     "status": "record_status",
- *     "statusReason": "record_status_reason",
- *     "createdBy": "created_by",
- *     "createdAt": "created_at",
- *     "lastApprovedBy": "last_approved_by",
- *     "lastApprovedAt": "last_approved_at"
- *   },
- *   "widget-labels": {
- *     "functionalId": "header.functionalRecordId",
- *     "status": "header.recordStatus",
- *     "statusReason": "header.statusReason",
- *     "select": "common.select",
- *     "enterReason": "header.enterReason",
- *     "createdBy": "header.createdBy",
- *     "createdAt": "header.createdAt",
- *     "lastApprovedBy": "header.lastApprovedBy",
- *     "lastApprovedAt": "header.lastApprovedAt"
- *   },
- *   "widget-field-config": {
- *     "status": {
- *       "data-source": {
- *         "type": "static",
- *         "options": [
- *           { "value": "active",   "label": "Active" },
- *           { "value": "inactive", "label": "Inactive" },
- *           { "value": "archived", "label": "Archived" }
- *         ]
- *       }
- *     }
- *   },
- *   "widget-data-format": {
- *     "imageSize": 90,
- *     "nameColor": "#F07B1A",
- *     "statusColors": {
- *       "active":   "#16A34A",
- *       "inactive": "#D97706",
- *       "archived": "#6B7280"
- *     }
- *   }
- * }
- * ```
- */
 
 interface FieldConfig {
   'data-source'?: DataSource;
@@ -171,7 +42,6 @@ const DEFAULT_LABELS: Record<string, string> = {
   lastApprovedAt: 'Last Approved at',
 };
 
-// ── Hook: load data-source options for a single field ────────────
 // Options are loaded in both view and edit modes because view mode
 // needs them to resolve display labels (e.g. "active" → "Active").
 // For API data sources, loading is deferred to edit mode to avoid
@@ -197,7 +67,6 @@ function useFieldDataSource(
       return;
     }
 
-    // API sources: only fetch when editable to avoid unnecessary calls
     if (dataSource.type === 'api' && isReadonly) {
       return;
     }
@@ -245,54 +114,45 @@ function useFieldDataSource(
   return options;
 }
 
-// ── Main component ───────────────────────────────────────────────
 export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   const {
     config: widgetConfig,
-    getFieldValue,
   } = useBaseWidget({ config });
 
   const dispatch = useDispatch();
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
   const { schemaData } = useWidgetContext();
   const values = useSelector((state: WidgetRootState) => state.widget.values);
 
   const isReadonly = widgetConfig['widget-readonly'] !== false;
   const dataPath = widgetConfig['widget-data-path'];
 
-  // ── Resolve labels ──────────────────────────────────────────────
-  // Priority: widget-labels override → translateConfig(English default) → English default
-  // The host's locale JSON files should use the English text as keys,
-  // e.g. { "Functional Record ID": "ID fonctionnel" }
   const configLabels = (widgetConfig as any)['widget-labels'] as Record<string, string> | undefined;
   const getLabel = useCallback(
     (key: string): string => {
       const englishDefault = DEFAULT_LABELS[key] || key;
 
       if (configLabels?.[key]) {
-        const translated = translateConfig(configLabels[key]);
+        const translated = tSchema(t, configLabels[key]);
         if (translated && translated !== configLabels[key]) return translated;
       }
 
-      const translated = translateConfig(englishDefault);
+      const translated = tSchema(t, englishDefault);
       return translated || englishDefault;
     },
-    [configLabels, translateConfig],
+    [configLabels, t],
   );
 
-  // ── Per-field config map ──────────────────────────────────────
   const fieldConfigMap = useMemo<Record<string, FieldConfig>>(() => {
     return (widgetConfig as any)['widget-field-config'] || {};
   }, [(widgetConfig as any)['widget-field-config']]);
 
-  // ── Load data source options for the status field ─────────────
   const statusOptions = useFieldDataSource(
     'status',
     fieldConfigMap['status'],
     isReadonly,
   );
 
-  // ── Resolve field values ──────────────────────────────────────
   const paths = useMemo(() => {
     if (!dataPath || typeof dataPath !== 'object') return {} as Record<string, string>;
     return dataPath as Record<string, string>;
@@ -349,17 +209,12 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   const lastApprovedBy = findValue('lastApprovedBy') || '';
   const lastApprovedAt = findValue('lastApprovedAt') || '';
 
-  // ── Validation: status change requires reason ──────────────────
-  // Behavior:
-  // - When status changes away from its initial value, clear reason and require it.
-  // - When status returns to initial value (or a parent "Cancel" restores it), restore initial reason.
   const initialStatusRef = useRef<string | null>(null);
   const initialReasonRef = useRef<string | null>(null);
   const prevStatusRef = useRef<string | null>(null);
   const [showReasonRequired, setShowReasonRequired] = useState(false);
 
   useEffect(() => {
-    // Capture initial status once when it becomes available.
     if (initialStatusRef.current === null) {
       const v = statusValue === undefined || statusValue === null ? '' : String(statusValue);
       initialStatusRef.current = v;
@@ -367,7 +222,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   }, [statusValue]);
 
   useEffect(() => {
-    // Capture initial reason once when it becomes available.
     if (initialReasonRef.current === null) {
       const v = statusReason === undefined || statusReason === null ? '' : String(statusReason);
       initialReasonRef.current = v;
@@ -386,9 +240,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   }, [isStatusChanged, statusReason]);
 
   useEffect(() => {
-    // When status changes:
-    // - If moved away from initial → clear reason.
-    // - If returned to initial → restore initial reason.
     if (isReadonly) return;
     if (initialStatusRef.current === null) return;
 
@@ -400,7 +251,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
     const initialReason = initialReasonRef.current ?? '';
 
     if (currentStatus === initialStatus) {
-      // Reverted / cancelled back to original
       if (String(statusReason || '') !== String(initialReason || '')) {
         updateFieldValue('statusReason', initialReason);
       }
@@ -408,7 +258,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
       return;
     }
 
-    // Status changed to a new value: clear reason (so user must re-enter)
     if (String(statusReason || '').trim().length > 0) {
       updateFieldValue('statusReason', '');
     }
@@ -432,7 +281,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
     return { completion, ideal, completionDisplay, idealDisplay, percent };
   }, [completionScoreRaw, idealScoreRaw]);
 
-  // ── Format options ────────────────────────────────────────────
   const format = (widgetConfig['widget-data-format'] || {}) as Record<string, any>;
   const imageSize = format.imageSize || 120;
   const nameColor = format.nameColor || 'var(--owt-color-primary-dark, #F07B1A)';
@@ -441,7 +289,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
     ...(format.statusColors || {}),
   };
 
-  // ── Value change helpers ──────────────────────────────────────
   const updateFieldValue = useCallback(
     (fieldKey: string, newValue: any) => {
       const path = (paths as Record<string, string>)[fieldKey];
@@ -452,7 +299,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
     [paths, values, dispatch],
   );
 
-  // ── Status helpers ────────────────────────────────────────────
   const statusLabel = useMemo(() => {
     if (!statusValue) return '';
     const opt = statusOptions.find(
@@ -464,7 +310,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   const statusColor =
     statusColors[String(statusValue).toLowerCase()] || 'var(--owt-color-text-muted, #6B7280)';
 
-  // ── Image edit helpers ───────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = useCallback(
@@ -482,10 +327,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
     dispatch(setValues(setValueByPath({ ...values }, paths.imageUrl, null)));
   }, [paths.imageUrl, values, dispatch]);
 
-  // ── Scoped class for CSS isolation ────────────────────────────
   const cls = `header-section-widget-${widgetConfig['widget-id']}`;
 
-  // ── RENDER ────────────────────────────────────────────────────
   return (
     <>
       <style>{`
@@ -790,9 +633,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
       `}</style>
 
       <div className={cls}>
-        {/* ─── LEFT COLUMN ─── */}
         <div className="hdr-left">
-          {/* Avatar */}
           <div className="hdr-avatar-wrapper">
             {displayImageUrl ? (
               <img
@@ -851,20 +692,14 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
               </>
             )}
           </div>
-
-          {/* Info fields */}
           <div className="hdr-info">
             {displayName && <div className="hdr-name">{displayName}</div>}
-
-            {/* Functional Record ID */}
             <div className="hdr-field-row">
               <span className="hdr-field-label" title={`${getLabel('functionalId')} :`}>
                 {getLabel('functionalId')} :
               </span>
               <span className="hdr-field-value" title={functionalId || '-'}>{functionalId || '-'}</span>
             </div>
-
-            {/* Record Status */}
             <div className="hdr-field-row">
               <span className="hdr-field-label" title={getLabel('status')}>
                 {getLabel('status')}
@@ -898,8 +733,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
                 </select>
               )}
             </div>
-
-            {/* Status Reason */}
             <div className="hdr-field-row">
               <span className="hdr-field-label" title={`${getLabel('statusReason')} :`}>
                 {getLabel('statusReason')} :
@@ -936,8 +769,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
             </div>
           </div>
         </div>
-
-        {/* ─── RIGHT COLUMN ─── */}
         <div className="hdr-right">
           <div className="hdr-right-top">
             <div className="hdr-meta-col">

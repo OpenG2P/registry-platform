@@ -85,7 +85,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
     widgetContext = {
       dataSourceRequestHandler: undefined,
       schemaData: undefined,
-      translate: undefined,
+      t: undefined,
     };
   }
 
@@ -227,12 +227,9 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
           'checkbox': 'input',
           'file': 'input',
           'phone': 'input',
-          'currency': 'input',
           'display': 'input',
           'table': 'table',
-          'simple-table': 'table',
-          'array-widget': 'group',
-          'iterable-accordion': 'group',
+          'dialog-table': 'table',
           'profile': 'layout',
         };
 
@@ -715,7 +712,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
                   store={previewStore}
                   dataSourceRequestHandler={widgetContext.dataSourceRequestHandler}
                   schemaData={widgetContext.schemaData}
-                  translate={widgetContext.translate}
+                  t={widgetContext.t}
                 >
                   <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                     <SectionRenderer

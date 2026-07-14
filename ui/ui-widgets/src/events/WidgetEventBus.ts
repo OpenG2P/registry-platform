@@ -1,9 +1,3 @@
-/**
- * Widget Event Bus
- * Provides a publish/subscribe mechanism for widget communication
- * Supports debounce and throttle for performance optimization
- */
-
 export type WidgetEventType =
   | 'widget:change'
   | 'widget:blur'
@@ -32,13 +26,6 @@ export class WidgetEventBus {
   private subscriptions: Map<WidgetEventType, Map<string, Subscription[]>> = new Map();
   private throttleTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
-  /**
-   * Subscribe to an event type
-   * @param eventType The type of event to listen to
-   * @param handler The handler function
-   * @param options Debounce/throttle options
-   * @returns Unsubscribe function
-   */
   subscribe(
     eventType: WidgetEventType,
     handler: EventHandler,
@@ -61,7 +48,6 @@ export class WidgetEventBus {
     }
     eventSubscriptions.get(subscriptionId)!.push(subscription);
 
-    // Return unsubscribe function
     return () => {
       const subs = eventSubscriptions.get(subscriptionId);
       if (subs) {
@@ -76,10 +62,6 @@ export class WidgetEventBus {
     };
   }
 
-  /**
-   * Publish an event
-   * @param event The event to publish
-   */
   publish(event: WidgetEvent): void {
     const eventSubscriptions = this.subscriptions.get(event.type);
     if (!eventSubscriptions) {
@@ -93,27 +75,21 @@ export class WidgetEventBus {
     });
   }
 
-  /**
-   * Execute handler with debounce/throttle support
-   */
   private executeHandler(subscription: Subscription, event: WidgetEvent): void {
     const { handler, debounce, throttle } = subscription;
 
-    // Clear existing debounce timer if any
     if (subscription.debounceTimer) {
       clearTimeout(subscription.debounceTimer);
     }
 
-    // Handle throttle
     if (throttle && throttle > 0) {
       const throttleKey = `${event.type}-${event.widgetId}`;
       const now = Date.now();
       const lastCallTime = subscription.lastCallTime || 0;
 
       if (now - lastCallTime < throttle) {
-        // Still in throttle period, schedule for later
         if (this.throttleTimers.has(throttleKey)) {
-          return; // Already scheduled
+          return;
         }
 
         const remainingTime = throttle - (now - lastCallTime);
@@ -130,7 +106,6 @@ export class WidgetEventBus {
       subscription.lastCallTime = now;
     }
 
-    // Handle debounce
     if (debounce && debounce > 0) {
       subscription.debounceTimer = setTimeout(() => {
         handler(event);
@@ -139,15 +114,10 @@ export class WidgetEventBus {
       return;
     }
 
-    // Execute immediately if no debounce/throttle
     handler(event);
   }
 
-  /**
-   * Clear all subscriptions
-   */
   clear(): void {
-    // Clear all timers
     this.subscriptions.forEach((eventSubscriptions) => {
       eventSubscriptions.forEach((subscriptions) => {
         subscriptions.forEach((sub) => {

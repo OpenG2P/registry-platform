@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Upload } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Register } from '../shared/types';
 import { InputField, TextAreaField, CustomDropdown } from '../shared/components';
@@ -299,14 +299,35 @@ export default function RegisterFormFields({
                                     accept="image/*"
                                     className="hidden"
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="text-sm text-primary-second font-medium hover:underline"
-                                >
-                                    {formData.register_icon ? t('change_icon') : t('upload_icon')}
-                                </button>
-                                <p className="text-[10px] text-secondary-third">{t('max_size_1mb')}</p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="text-sm text-primary-second font-medium hover:underline"
+                                    >
+                                        {formData.register_icon ? t('change_icon') : t('upload_icon')}
+                                    </button>
+                                    {formData.register_icon && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    register_icon: '',
+                                                }));
+                                                if (fileInputRef.current) {
+                                                    fileInputRef.current.value = '';
+                                                }
+                                            }}
+                                            className="shrink-0 text-red-500 hover:text-red-600"
+                                            title={t('remove')}
+                                            aria-label={t('remove')}
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="text-[10px] text-secondary-third">{t('max_size_2mb')}</p>
                             </div>
     
                         </div>

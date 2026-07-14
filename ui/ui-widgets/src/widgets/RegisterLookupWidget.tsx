@@ -1,41 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { tSchema } from '../utils/tSchema';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { WidgetRenderer } from '../components/WidgetRenderer';
 import { searchIcon, closeIcon } from '../assets';
 
-/**
- * Register lookup widget — searchable popup to select a record from any register.
- * Reads ID from widget-data-path, finds matching register row by internal_record_id, shows display fields.
- *
- * Example (individual → household link):
- *
- * {
- *   "widget": "register-lookup",
- *   "widget-id": "link_internal_record_id",
- *   "widget-type": "input",
- *   "widget-label": "Household",
- *   "widget-required": true,
- *   "widget-data-path": "<section_register_ids>.link_internal_record_id",
- *   "widget-data-source": {
- *     "type": "api",
- *     "method": "POST",
- *     "params": {
- *       "register_id": "<target_register_id>"
- *     },
- *     "service": "register",
- *     "endpoint": "records"
- *   },
- *   "widget-lookup-config": {
- *     "page_size": 10,
- *     "action_label": "Click to Search Household",
- *     "search_placeholder": "Search by name or ID...",
- *     "select_record_label": "Select Household"
- *   }
- * }
- */
 const normalizeDisplayFields = (row: Record<string, any>) => {
   if (!Array.isArray(row.display_fields)) return [];
   return [...row.display_fields]
@@ -72,7 +42,7 @@ const RecordDisplayPanel = ({
   widgetIdPrefix: string;
   className?: string;
 }) => {
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const columnFields = normalizeDisplayFields(row).filter(
     (f) => f.label !== 'record_name' && f.label !== 'functional_record_id' && f.label !== 'internal_record_id',
@@ -96,7 +66,7 @@ const RecordDisplayPanel = ({
 
   const optionalSlot = (field: { label: string; value: string } | undefined, slot: string) =>
     field
-      ? fieldSlot(`${widgetIdPrefix}-${field.label}`, translateConfig(field.label), field.value)
+      ? fieldSlot(`${widgetIdPrefix}-${field.label}`, tSchema(t, field.label), field.value)
       : <div key={slot} className="mb-[10px] invisible text-base">&nbsp;</div>;
 
   const column = (showDivider: boolean, isFirst: boolean, children: React.ReactNode) => (
@@ -149,12 +119,12 @@ const RecordDisplayPanel = ({
           <>
             {fieldSlot(
               `${widgetIdPrefix}-record_name`,
-              translateConfig('record_name'),
+              tSchema(t, 'record_name'),
               row.record_name == null || row.record_name === '' ? '-' : String(row.record_name),
             )}
             {fieldSlot(
               `${widgetIdPrefix}-functional_record_id`,
-              translateConfig('functional_record_id'),
+              tSchema(t, 'functional_record_id'),
               row.functional_record_id == null || row.functional_record_id === '' ? '-' : String(row.functional_record_id),
             )}
           </>
@@ -174,7 +144,6 @@ const PaginationFooter = ({
   onPageChange,
   onPrev,
   onNext,
-  translate,
   embedded,
 }: {
   currentPage: number;
@@ -184,9 +153,9 @@ const PaginationFooter = ({
   onPageChange: (page: number) => void;
   onPrev: () => void;
   onNext: () => void;
-  translate: ReturnType<typeof useWidgetTranslation>['translate'];
   embedded?: boolean;
 }) => {
+  const { t } = useWidgetContext();
   const [pageInput, setPageInput] = useState(String(currentPage));
 
   useEffect(() => {
@@ -217,8 +186,8 @@ const PaginationFooter = ({
     >
       <span className="text-sm text-gray-600">
         {totalCount === 1
-          ? translate('common.record', { count: totalCount, defaultValue: `${totalCount} record` })
-          : translate('common.records', { count: totalCount, defaultValue: `${totalCount} records` })}
+          ? t?.('common.record', { count: totalCount, defaultValue: `${totalCount} record` })
+          : t?.('common.records', { count: totalCount, defaultValue: `${totalCount} records` })}
         {totalCount > 0 && ` · ${pageStart}-${pageEnd}`}
       </span>
       <div className="flex items-center gap-2">
@@ -228,10 +197,10 @@ const PaginationFooter = ({
           disabled={currentPage <= 1}
           className="px-3 h-8 text-sm font-medium rounded-[10px] bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {translate('common.previous', { defaultValue: 'Prev' })}
+          {t?.('common.previous', { defaultValue: 'Prev' })}
         </button>
         <div className="flex items-center gap-1.5 text-sm text-gray-600">
-          <span>{translate('common.page', { defaultValue: 'Page' })}</span>
+          <span>{t?.('common.page', { defaultValue: 'Page' })}</span>
           <input
             type="text"
             inputMode="numeric"
@@ -245,10 +214,10 @@ const PaginationFooter = ({
             }}
             onBlur={commitPage}
             className="w-10 h-8 text-center text-sm text-gray-900 outline-none rounded-[10px] border border-gray-300 bg-white"
-            aria-label={translate('common.pageNumber', { defaultValue: 'Page number' })}
+            aria-label={t?.('common.pageNumber', { defaultValue: 'Page number' })}
           />
           <span>
-            {translate('common.ofPages', { total: totalPages, defaultValue: `of ${totalPages}` })}
+            {t?.('common.ofPages', { total: totalPages, defaultValue: `of ${totalPages}` })}
           </span>
         </div>
         <button
@@ -257,7 +226,7 @@ const PaginationFooter = ({
           disabled={currentPage >= totalPages}
           className="px-3 h-8 text-sm font-medium rounded-[10px] bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {translate('common.next', { defaultValue: 'Next' })}
+          {t?.('common.next', { defaultValue: 'Next' })}
         </button>
       </div>
     </div>
@@ -275,7 +244,7 @@ const ResultsTable = ({
   onRowClick: (row: Record<string, any>) => void;
   onRowDoubleClick?: (row: Record<string, any>) => void;
 }) => {
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
   const columns =
     rows.length === 0
       ? []
@@ -294,7 +263,7 @@ const ResultsTable = ({
                 key={col.key}
                 className="text-left px-4 py-2 text-sm font-medium text-gray-600 whitespace-nowrap border-b border-gray-200 bg-gray-50"
               >
-                {translateConfig(col.header)}
+                {tSchema(t, col.header)}
               </th>
             ))}
           </tr>
@@ -346,7 +315,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
   const { dataSourceRequestHandler } = useWidgetContext();
 
   const dataSource = widgetConfig['widget-data-source'] as Record<string, any> | undefined;
@@ -519,18 +488,18 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
   }, [hasValue, value, dataSource, dataSourceRequestHandler, findRecordByValue]);
 
   const isReadonly = !!widgetConfig['widget-readonly'];
-  const label = translateConfig(widgetConfig['widget-label']);
+  const label = tSchema(t, widgetConfig['widget-label']);
   const hasError =
     (touched && error.length > 0) ||
     (widgetConfig['widget-required'] && !hasValue);
     
-  const actionLabel = translateConfig(String(lookupConfig?.action_label ?? `Select ${label}`));
-  const searchPlaceholder = translateConfig(String(lookupConfig?.search_placeholder ?? 'Search...'));
-  const selectRecordLabel = translateConfig(String(lookupConfig?.select_record_label ?? `Select ${label}`));
+  const actionLabel = tSchema(t, String(lookupConfig?.action_label ?? `Select ${label}`));
+  const searchPlaceholder = tSchema(t, String(lookupConfig?.search_placeholder ?? 'Search...'));
+  const selectRecordLabel = tSchema(t, String(lookupConfig?.select_record_label ?? `Select ${label}`));
 
   const hydratedPanel =
     isHydrating ? (
-      <p className="text-sm text-gray-500">{translate('common.loading', { defaultValue: 'Loading...' })}</p>
+      <p className="text-sm text-gray-500">{t?.('common.loading', { defaultValue: 'Loading...' })}</p>
     ) : appliedRecord ? (
       <RecordDisplayPanel
         row={appliedRecord}
@@ -551,7 +520,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                 className="text-sm underline p-0 border-0 bg-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
                 style={{ color: 'var(--owt-color-info, #2563eb)' }}
               >
-                {translate('common.change', { defaultValue: 'Change' })}
+                {t?.('common.change', { defaultValue: 'Change' })}
               </button>
               <button
                 type="button"
@@ -564,7 +533,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                 }}
                 className="text-sm underline text-red-500 p-0 border-0 bg-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 rounded"
               >
-                {translate('common.remove', { defaultValue: 'Remove' })}
+                {t?.('common.remove', { defaultValue: 'Remove' })}
               </button>
             </div>
           )}
@@ -625,14 +594,14 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               className="flex items-center justify-between px-5 py-4 flex-shrink-0 select-none border-b border-gray-200 cursor-grab"
             >
               <h3 className="text-lg font-semibold text-gray-900">
-                {translate('common.selectTitle', { label, defaultValue: `Select ${label}` })}
+                {t?.('common.selectTitle', { label, defaultValue: `Select ${label}` })}
               </h3>
               <button
                 type="button"
                 onClick={() => { setIsOpen(false); onBlur(); }}
                 onMouseDown={(e) => e.stopPropagation()}
                 className="p-0 border-0 bg-transparent cursor-pointer"
-                aria-label={translate('common.close', { defaultValue: 'Close' })}
+                aria-label={t?.('common.close', { defaultValue: 'Close' })}
               >
                 <img src={closeIcon} alt="" className="w-5 h-5 opacity-60" />
               </button>
@@ -657,7 +626,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                 <button
                   type="button"
                   onClick={() => runSearch(searchText, 1)}
-                  aria-label={translate('common.search', { defaultValue: 'Search' })}
+                  aria-label={t?.('common.search', { defaultValue: 'Search' })}
                   className="flex-shrink-0 p-0 border-0 bg-transparent cursor-pointer"
                 >
                   <img src={searchIcon} alt="" className="w-4 h-4 opacity-40" />
@@ -669,8 +638,8 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               {searchResults.length === 0 ? (
                 <p className="text-center text-sm text-gray-500 py-10">
                   {searchText
-                    ? translate('common.noResults', { defaultValue: 'No results found' })
-                    : translate('common.searchHint', { defaultValue: 'Type and press Enter or click search' })}
+                    ? t?.('common.noResults', { defaultValue: 'No results found' })
+                    : t?.('common.searchHint', { defaultValue: 'Type and press Enter or click search' })}
                 </p>
               ) : (
                 <ResultsTable
@@ -697,7 +666,6 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                   onPageChange={(page) => runSearch(searchText, page)}
                   onPrev={() => currentPage > 1 && runSearch(searchText, currentPage - 1)}
                   onNext={() => currentPage < totalPages && runSearch(searchText, currentPage + 1)}
-                  translate={translate}
                 />
               )}
               <button
