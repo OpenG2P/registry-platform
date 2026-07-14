@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import Can from '@/components/shared/Can';
 import { toast } from 'react-toastify';
 import { useAllOutgestTemplates } from '@/features/configuration/shared/hooks/useAllOutgestTemplates';
-import { CONFIGURATION_OUTGESTION_TEMPLATES_ACTIONS } from '@/features/configuration/shared/utils/configurationOutgestionTemplates.actions';
+import { CONFIGURATION_OUTGESTION_TEMPLATES_ACTIONS } from '@/features/shared/permissions';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { AddOutgestionTemplateModal, EditOutgestionTemplateModal, ViewOutgestionTemplateModal } from '@/features/configuration/outgest';
 import { DeleteButton, EditButton, ViewButton, DataTable, FileLink } from '@/features/configuration/shared/components';

@@ -7,12 +7,12 @@ import { useRegisterTabs } from "@/context/RegisterTabsContext";
 import { useRegisterRecord } from "@/context/RegisterRecordContext";
 import {
     TabSection,
-    RegisterFlattenedRecord,
     TabSectionData,
 } from "@/features/register/types";
 import { useSectionSave } from "./useSectionSave";
 import { useRbac } from "@/context/RbacContext";
-import { CHANGE_REQUEST_ACTIONS } from "@/features/change-request/utils/changeRequest.actions";
+import { CHANGE_REQUEST_ACTIONS } from "@/features/shared/permissions";
+import { buildSectionsDataMap } from "@/features/shared/utils";
 
 export const useRegisterSections = (onChangeRequestCreated: () => void) => {
     const router = useRouter();
@@ -57,27 +57,16 @@ export const useRegisterSections = (onChangeRequestCreated: () => void) => {
     }, [isRecordAccessDenied, router]);
 
     const sectionDataMap = useMemo(() => {
-        if (!tabSectionsData || isRecordAccessDenied || !Array.isArray(tabSectionsData)) {
+        if (
+            !tabSectionsData ||
+            isRecordAccessDenied ||
+            !Array.isArray(tabSectionsData)
+        ) {
             return undefined;
         }
 
-        const map: Record<
-            string,
-            RegisterFlattenedRecord | { records: RegisterFlattenedRecord[] }
-        > = {};
-
-        for (const section of tabSectionsData) {
-            if (!section.records?.length) continue;
-
-            if (section.is_list === true) {
-                map[section.section_register_id] = { records: section.records };
-            } else {
-                map[section.section_register_id] = section.records[0];
-            }
-        }
-
-        return map;
-    }, [tabSectionsData]);
+        return buildSectionsDataMap(tabSectionsData);
+    }, [tabSectionsData, isRecordAccessDenied]);
 
     const orderedTabSections = useMemo(() => {
         if (!tabSections) return [];

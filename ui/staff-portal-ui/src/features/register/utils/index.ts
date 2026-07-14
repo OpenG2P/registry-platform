@@ -1,4 +1,4 @@
-import { deserializeFile } from '@/shared/types';
+import { deserializeFile } from '@/features/shared/utils';
 import { DisplayField } from '../types';
 
 export const sortedDisplayFields = (fields: DisplayField[]): DisplayField[] => {
@@ -43,7 +43,7 @@ export const extractFilesFromSection = (files?: unknown[]) => {
 export function normalizeEditActions(
     records: any[],
     linkInternalRecordId = "",
-    document_store_id?: string,
+    document_id?: string,
 ) {
     if (!Array.isArray(records)) return [];
 
@@ -64,8 +64,8 @@ export function normalizeEditActions(
             result.record_image_storage_id = '';
         }
         // update the profile image
-        if (document_store_id) {
-            result.record_image_storage_id = document_store_id;
+        if (document_id) {
+            result.record_image_document_id = document_id;
         }
 
         return result;

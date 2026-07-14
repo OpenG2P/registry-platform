@@ -5,7 +5,7 @@ import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { useFileUpload } from '../shared/hooks/useFileUpload';
+import { useFileUpload } from '@/features/shared/hooks';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useAllRegister } from '../shared';
 import { useAllDataModels } from '../shared/hooks/useAllDataModels';
@@ -51,7 +51,7 @@ export default function AddOutgestionTemplateModal({
     });
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload();
+    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload('templates');
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -81,7 +81,14 @@ export default function AddOutgestionTemplateModal({
 
         let documentId = formData.template_document_id;
         if (selectedFile) {
-            documentId = await uploadFile(selectedFile);
+            const result = await uploadFile([selectedFile]);
+            const uploadedDocumentId = Array.isArray(result) ? result[0]?.document_id : undefined;
+            if (!uploadedDocumentId) {
+                toast.error(t('failed_to_upload_file'));
+                return;
+            }
+            toast.success(t('file_uploaded_successfully'));
+            documentId = uploadedDocumentId;
         }
 
         const result = await createOutgestionTemplate(

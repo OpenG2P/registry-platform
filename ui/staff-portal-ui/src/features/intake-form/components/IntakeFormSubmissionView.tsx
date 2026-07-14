@@ -11,10 +11,10 @@ import { REGISTRY_INTAKE_FORM_ARTIFACT } from '@/features/approval/constants';
 import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import { useIntakeFormSectionAction } from '@/features/intake-form/hooks/useIntakeFormSectionAction';
-import { RegisterFlattenedRecord } from '@/features/register/types';
+import { buildIntakeSectionsDataMap } from '@/features/shared/utils/intakeFormSectionDataMap';
 import { useRegister } from '@/context/RegisterContext';
 import { useRbac } from '@/context/RbacContext';
-import { INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/intakeForm.actions';
+import { INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 
 interface BreadcrumbItem {
     label: string;
@@ -55,9 +55,6 @@ export default function IntakeFormSubmissionView({
         };
     }, [submission?.submission_id, submission?.awe_request_status_summary]);
 
-
-    console.log(submission, 'submission');
-
     const intakeFormId = submission?.form_id;
     const { sections, form_name, form_description, loading: loadingSections } =
         useIntakeFormDetails(intakeFormId);
@@ -96,37 +93,12 @@ export default function IntakeFormSubmissionView({
         t,
     ]);
 
-    const sectionDataMap = useMemo(() => {
-        if (!section_payloads) return {};
+    const sectionDataMap = useMemo(
+        () => buildIntakeSectionsDataMap(section_payloads),
+        [section_payloads]
+    );
 
-        const map: Record<
-            string,
-            RegisterFlattenedRecord | { records: RegisterFlattenedRecord[] }
-        > = {};
-
-        for (const section of section_payloads) {
-            if (!section.records?.length) continue;
-
-            const existing = map[section.section_register_id];
-
-            if (section.is_list === true) {
-                if (existing && 'records' in existing) {
-                    const existingList = existing as { records: RegisterFlattenedRecord[] };
-                    existingList.records = [...existingList.records, ...section.records];
-                } else {
-                    map[section.section_register_id] = { records: [...section.records] };
-                }
-            } else {
-                if (existing && !('records' in existing)) {
-                    map[section.section_register_id] = { ...existing, ...section.records[0] };
-                } else if (!existing) {
-                    map[section.section_register_id] = { ...section.records[0] };
-                }
-            }
-        }
-
-        return map;
-    }, [section_payloads]);
+    console.log(sectionDataMap, 'sectionDataMap');
 
     return (
         <div className="min-h-screen mx-auto bg-secondary-first">
@@ -148,7 +120,6 @@ export default function IntakeFormSubmissionView({
                             {!isDraft && (
                                 <SubmissionHeader
                                     submission={submission}
-                                    section_payloads={section_payloads}
                                 />
                             )}
 

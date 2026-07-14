@@ -9,7 +9,7 @@ import { useLogoDimensions, getLogoDisplaySize } from '@/shared/hooks';
 import { convertImageToBase64 } from '@/features/configuration/shared';
 import { toast } from 'react-toastify';
 import Can from '@/components/shared/Can';
-import { CONFIGURATION_REGISTRY_ACTIONS } from '@/features/configuration/shared/utils/configurationRegistry.actions';
+import { CONFIGURATION_REGISTRY_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
 import { useTheme } from '@/features/configuration/registry/hooks/useTheme';
 import { useLang } from '@/features/configuration/registry/hooks/useLang';

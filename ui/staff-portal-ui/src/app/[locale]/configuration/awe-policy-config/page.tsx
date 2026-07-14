@@ -12,7 +12,7 @@ import ConfirmRemovePopup from '@/features/configuration/shared/components/Confi
 import { DeleteButton, EditButton, DataTable, ViewButton } from '@/features/configuration/shared/components';
 import { useAllAwePolicyConfigurations, type AwePolicyConfiguration } from '@/features/configuration/shared/hooks/useAllAwePolicyConfigurations';
 import { useAllRegister } from '@/features/configuration/shared/hooks/useAllRegister';
-import { CONFIGURATION_AWE_POLICY_ACTIONS } from '@/features/configuration/shared/utils/configurationAwePolicy.actions';
+import { CONFIGURATION_AWE_POLICY_ACTIONS } from '@/features/shared/permissions';
 import {
     AWE_POLICY_SCOPE_OPTIONS,
     getAwePolicyTypeLabelKey,

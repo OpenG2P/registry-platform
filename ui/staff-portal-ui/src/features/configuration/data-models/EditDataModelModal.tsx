@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { useFileUpload } from '../shared/hooks/useFileUpload';
-import { useDocuments } from '../shared/hooks/useDocuments';
+import { useFileUpload, useDocuments } from '@/features/shared/hooks';
 import { BaseModal, InputField, FileUploadField, CheckboxField, TextAreaField } from '../shared/components';
 import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
@@ -34,7 +33,7 @@ export default function EditDataModelModal({
     });
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload();
+    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload('templates');
 
     useEffect(() => {
         if (!data) return;
@@ -86,7 +85,14 @@ export default function EditDataModelModal({
 
         let documentId = formData.response_template_document_id;
         if (selectedFile) {
-            documentId = await uploadFile(selectedFile);
+            const result = await uploadFile([selectedFile]);
+            const uploadedDocumentId = Array.isArray(result) ? result[0]?.document_id : undefined;
+            if (!uploadedDocumentId) {
+                toast.error(t('failed_to_upload_file'));
+                return;
+            }
+            toast.success(t('file_uploaded_successfully'));
+            documentId = uploadedDocumentId;
         }
 
         const result = await updateDataModel(

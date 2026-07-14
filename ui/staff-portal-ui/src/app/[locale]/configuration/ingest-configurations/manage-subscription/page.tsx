@@ -8,7 +8,7 @@ import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useTranslations } from 'next-intl';
 import { SubscriptionActivityLog } from '@/features/configuration/shared/hooks/useAllSubscriptionActivityLogs';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_SUBSCRIPTION_ACTIONS } from '@/features/configuration/shared/utils/configurationSubscription.actions';
+import { CONFIGURATION_SUBSCRIPTION_ACTIONS } from '@/features/shared/permissions';
 import AddSubscriptionActivityLogModal from '@/features/configuration/ingest/AddSubscriptionActivityLogModal';
 import ViewSubscriptionActivityLogModal from '@/features/configuration/ingest/ViewSubscriptionActivityLogModal';
 import { DataTable, ViewButton } from '@/features/configuration/shared/components';

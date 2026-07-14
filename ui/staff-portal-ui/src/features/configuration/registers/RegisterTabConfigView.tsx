@@ -9,7 +9,7 @@ import { useParams } from 'next/navigation';
 import { useConfigTabs } from '../shared/hooks/useConfigTabs';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { CONFIGURATION_TABS_ACTIONS } from '../shared/utils/configurationTabs.actions';
+import { CONFIGURATION_TABS_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton } from '../shared/components';
 import ConfirmRemovePopup from '../shared/components/ConfirmRemovePopup';

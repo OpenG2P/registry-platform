@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { CONFIGURATION_REGISTRY_ACTIONS } from "@/features/configuration/shared/utils/configurationRegistry.actions";
+import { CONFIGURATION_REGISTRY_ACTIONS } from "@/features/shared/permissions";
 
 export default function RegistryThemeConfigLayout({ children }: { children: React.ReactNode }) {
     return (

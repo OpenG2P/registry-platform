@@ -6,8 +6,9 @@ import { IntakeFormSection } from '../types/intake-form';
 import ActionModal from '@/components/shared/ActionModal';
 import type { SectionChanges } from '@openg2p/registry-widgets';
 import { extractFilesFromSection, intakeNormalisedRecords } from '@/features/register/utils';
-import { UploadedDocument } from '@/shared/types';
+import { UploadedDocument } from '@/features/shared/types';
 import { useTranslations } from 'next-intl';
+import { useFileUpload } from '@/features/shared/hooks';
 
 interface UseIntakeFormSectionActionProps {
     registerId?: string;
@@ -31,7 +32,7 @@ export const useIntakeFormSectionAction = ({
     const t = useTranslations();
     const router = useRouter();
     const { execute: executeSave } = useFetch();
-    const { execute: uploadDocumentRequest } = useFetch();
+    const { uploadFile } = useFileUpload();
 
     const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(submissionId);
     const [sectionInternalIds, setSectionInternalIds] = useState<Record<string, string>>({});
@@ -108,44 +109,32 @@ export const useIntakeFormSectionAction = ({
 
 
         const files = change?.files ?? [];
-        const { filesToUpload = [], fileLabels = [] } =
-            extractFilesFromSection(files) || {};
+        const { filesToUpload = [],fileLabels } = extractFilesFromSection(files) || {};
 
         let documentsResponse: UploadedDocument[] = [];
 
         if (filesToUpload.length > 0) {
             try {
-                for (let j = 0; j < filesToUpload.length; j++) {
-                    const formData = new FormData();
-                    formData.append("document_label", fileLabels[j]);
-                    formData.append("documents", filesToUpload[j]);
-
-                    const uploadResult = await uploadDocumentRequest(
-                        "/api/change-request/upload-document",
-                        {
-                            method: "POST",
-                            body: formData,
-                        }
-                    );
-
-                    if (Array.isArray(uploadResult)) {
-                        documentsResponse.push(...uploadResult);
-                    } else if (uploadResult) {
-                        documentsResponse.push(uploadResult);
-                    }
+                const uploadResult = await uploadFile(filesToUpload);
+                if ( !uploadResult || uploadResult.length === 0) {
+                    toast.error(t('toast_upload_failed'), {
+                        position: "top-right",
+                        autoClose: 6000,
+                    });
+                    return false;
                 }
+                documentsResponse.push(...uploadResult);
             } catch (error) {
                 toast.error(t('toast_upload_failed'), {
                     position: "top-right",
                     autoClose: 6000,
                 });
-                console.error("File upload error:", error);
                 return false;
             }
         }
 
         // Keep existing documents that are already uploaded
-        const existingDocuments = (change?.files || []).filter(file => file && typeof file === 'object' && ('document_store_id' in file));
+        const existingDocuments = (change?.files || []).filter(file => file && typeof file === 'object' && ('document_id' in file));
         documentsResponse = [...existingDocuments as UploadedDocument[], ...documentsResponse];
 
         const savePayload = {
@@ -155,8 +144,11 @@ export const useIntakeFormSectionAction = ({
             section_register_id: activeSection.section_register_id,
             form_id: formId,
             register_id: registerId,
-            created_by: "TEST_USER" //TODO:add here original user name.
-
+            created_by: "TEST_USER", //TODO:add here original user name.
+            documents:documentsResponse.map((document, index) => ({
+                document_id: document.document_id,
+                label: fileLabels[index] || "unknown_label",
+            }))
         };
 
         try {

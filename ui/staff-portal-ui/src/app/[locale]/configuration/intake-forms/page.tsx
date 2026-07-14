@@ -12,7 +12,7 @@ import { DataTable, DeleteButton } from '@/features/configuration/shared/compone
 import { toast } from 'react-toastify';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { useRouter } from '@/i18n/navigation';
-import { CONFIGURATION_INTAKE_FORM_ACTIONS } from '@/features/configuration/shared/utils/configurationIntakeForm.actions';
+import { CONFIGURATION_INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 
 const IntakeFormPage = () => {

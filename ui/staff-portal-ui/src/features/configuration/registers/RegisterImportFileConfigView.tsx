@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import Can from '@/components/shared/Can';
-import { CONFIGURATION_TABS_ACTIONS } from '../shared/utils/configurationTabs.actions';
+import { CONFIGURATION_TABS_ACTIONS } from '@/features/shared/permissions';
 import { DataTable, DeleteButton, EditButton } from '../shared/components';
 import {
     ImportFileConfiguration,

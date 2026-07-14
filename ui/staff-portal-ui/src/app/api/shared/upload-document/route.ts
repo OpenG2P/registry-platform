@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { proxyToBackend } from "@/app/api/_lib/backend-proxy";
-import { UploadedDocument } from "@/shared";
 
 export async function POST(request: NextRequest) {
     return proxyToBackend({
@@ -8,13 +7,9 @@ export async function POST(request: NextRequest) {
         targetEndpoint: "/documents/upload_documents",
         transformResponse: (responseBody) => {
             const payload = responseBody.response_payload || {};
-            const uploadedDocuments = payload.uploaded_documents || [];
-            return uploadedDocuments.map(
-                ({ document_store_id, document_label }: UploadedDocument) => ({
-                    document_store_id,
-                    document_label,
-                })
-            );
+            // Backend may return uploaded_documents (change-request shape)
+            // or documents (configuration shape) depending on the request context
+            return payload.uploaded_documents ?? payload.documents ?? [];
         },
     });
 }

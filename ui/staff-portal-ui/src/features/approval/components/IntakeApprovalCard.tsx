@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import ApprovalCard from '@/features/approval/components/ApprovalCard';
 import { useApprovals, ApprovalArtifactContext } from '@/features/approval/hooks/useApprovals';
-import { VERIFICATION_INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/verificationIntakeForm.actions';
+import { VERIFICATION_INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import ApprovalListSkeleton from '@/features/approval/components/ApprovalListSkeleton';
 

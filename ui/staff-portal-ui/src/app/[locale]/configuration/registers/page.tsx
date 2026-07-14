@@ -7,7 +7,7 @@ import { useAllRegister } from '@/features/configuration/shared';
 import { usePagination } from '@/shared/hooks';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/configuration/shared/utils/configurationRegisters.actions';
+import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
 
 const RegistersConfigurationPage = () => {

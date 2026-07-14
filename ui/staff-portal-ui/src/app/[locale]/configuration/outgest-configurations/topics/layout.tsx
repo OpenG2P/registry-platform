@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { CONFIGURATION_OUTGESTION_TOPICS_ACTIONS } from "@/features/configuration/shared/utils/configurationOutgestionTopics.actions";
+import { CONFIGURATION_OUTGESTION_TOPICS_ACTIONS } from "@/features/shared/permissions";
 
 export default function OutgestTopicsLayout({ children }: { children: React.ReactNode }) {
     return (

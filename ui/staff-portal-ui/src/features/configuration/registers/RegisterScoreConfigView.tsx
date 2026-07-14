@@ -7,7 +7,7 @@ import { useRouter } from '@/i18n/navigation';
 import { useScoreDefinitions } from '../shared/hooks/useScoreDefinitions';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { CONFIGURATION_SCORES_ACTIONS } from '../shared/utils/configurationScores.actions';
+import { CONFIGURATION_SCORES_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, EditButton } from '../shared/components';
 import AddScoreModal from './AddScoreModal';

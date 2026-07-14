@@ -3,9 +3,7 @@
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { IntakeFormSubmission } from "../types/intake-form";
-import { useMemo } from "react";
 import { useIntakeFormDocuments } from "../hooks/useIntakeFormDocuments";
-import { UploadedDocument } from "@/shared/types";
 
 const statusClassMap: Record<string, string> = {
     REJECTED: "text-toast-failed",
@@ -21,25 +19,17 @@ interface Props {
     section_payloads?: any[] | null;
 }
 
-export default function SubmissionHeader({ submission, section_payloads }: Props) {
-    const documents = useMemo(() => {
-        const allDocs: UploadedDocument[] = [];
-        section_payloads?.forEach(section => {
-            if (section.documents) {
-                allDocs.push(...section.documents);
-            }
-        });
-        return allDocs;
-    }, [section_payloads]);
+export default function SubmissionHeader({ submission }: Props) {
+    const documents = useIntakeFormDocuments(submission?.submission_id);
 
-    const { documents: docsWithUrls } = useIntakeFormDocuments(documents);
+    if (documents?.loading) return null;
 
     return (
         <div className="rounded-[10px] bg-primary-first/20 px-10 py-5 flex flex-col border border-dashed border-primary-second">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <InfoSection submission={submission} />
-                <VerificationStats documentsCount={documents.length} />
-                <AttachedDocuments documents={docsWithUrls} />
+                <VerificationStats documentsCount={documents?.documents.length || 0} />
+                <AttachedDocuments documents={documents?.documents || []} />
             </div>
         </div>
     );
@@ -109,7 +99,7 @@ const VerificationStats = ({ documentsCount }: { documentsCount: number }) => {
 const AttachedDocuments = ({ documents = [] }: { documents?: any[] }) => {
     const t = useTranslations();
 
-    const visibleDocs = documents.slice(0, 3);
+    const visibleDocs = documents?.slice(0, 3) || [];
     const placeholdersCount = Math.max(0, 3 - visibleDocs.length);
 
     return (
@@ -131,15 +121,15 @@ const AttachedDocuments = ({ documents = [] }: { documents?: any[] }) => {
                 {visibleDocs.map((doc, index) => (
                     <a
                         key={index}
-                        href={doc.document_url ? doc.document_url : "#"}
+                        href={doc.presigned_url ? doc.presigned_url : "#"}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`flex items-center gap-2 ${doc.document_url
+                        className={`flex items-center gap-2 ${doc.presigned_url
                             ? 'cursor-pointer hover:underline text-neutral-first'
                             : 'opacity-50 pointer-events-none'
                             }`}
                     >
-                        {doc.document_label}
+                        {doc.label}
                         <Image src="/images/common/arrow_next_01.png" alt={t('arrow')} width={14} height={14} />
                     </a>
                 ))}

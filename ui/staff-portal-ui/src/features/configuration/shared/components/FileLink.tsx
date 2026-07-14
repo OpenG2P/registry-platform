@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-toastify';
-import { useDocuments } from '@/features/configuration/shared/hooks/useDocuments';
+import { useDocuments } from '@/features/shared/hooks';
 
 interface Props {
     documentId?: string;

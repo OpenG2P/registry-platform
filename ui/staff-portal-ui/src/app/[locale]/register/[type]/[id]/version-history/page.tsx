@@ -18,7 +18,7 @@ import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRegisterSectionsFromCR';
 import { useRegisterRecord } from '@/context/RegisterRecordContext';
-import { RegisterFlattenedRecord } from '@/features/register/types';
+import { buildSectionDataMap } from '@/features/shared/utils';
 import VersionHistoryPageSkeleton from '@/features/register/components/VersionHistoryPageSkeleton';
 import { dataSourceRequestHandler } from '@/shared/services';
 
@@ -251,25 +251,15 @@ export default function VersionHistoryPage() {
         prevSectionUISchema.current = undefined;
     };
 
-    const newSectionData = useMemo(() => {
-        if (!changeRequestData?.change_payload?.length) return undefined;
-
-        const map: Record<
-            string,
-            RegisterFlattenedRecord | { records: RegisterFlattenedRecord[] }
-        > = {};
-
-        if (changeRequestData.is_list) {
-            map[changeRequestData.section_register_id] = {
-                records: changeRequestData.change_payload,
-            };
-        } else {
-            map[changeRequestData.section_register_id] =
-                changeRequestData.change_payload[0];
-        }
-
-        return map;
-    }, [changeRequestData]);
+    const newSectionData = useMemo(
+        () =>
+            buildSectionDataMap(
+                changeRequestData?.section_register_id ?? '',
+                changeRequestData?.change_payload,
+                !!changeRequestData?.is_list
+            ),
+        [changeRequestData]
+    );
 
     if (newSectionData) prevSectionData.current = newSectionData;
     if (sectionUISchema) prevSectionUISchema.current = sectionUISchema;

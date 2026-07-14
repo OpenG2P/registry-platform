@@ -8,7 +8,7 @@ import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import Can from '@/components/shared/Can';
 import { toast } from 'react-toastify';
-import { CONFIGURATION_OUTGESTION_TOPICS_ACTIONS } from '@/features/configuration/shared/utils/configurationOutgestionTopics.actions';
+import { CONFIGURATION_OUTGESTION_TOPICS_ACTIONS } from '@/features/shared/permissions';
 import AddOutgestionTopicModal from '@/features/configuration/outgest/AddOutgestionTopicModal';
 import EditOutgestionTopicModal from '@/features/configuration/outgest/EditOutgestionTopicModal';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';

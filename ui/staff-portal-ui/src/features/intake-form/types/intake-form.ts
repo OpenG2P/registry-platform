@@ -1,4 +1,4 @@
-import { UploadedDocument } from '@/shared/types';
+import { UploadedDocument } from '@/features/shared/types';
 
 
 export type IntakeFormStatus = 'DRAFT' | 'SUBMITTED' | 'FINALIZED';
@@ -109,7 +109,7 @@ export interface SectionPayload {
     section_register_id: string;
     is_list: boolean;
     records: any[];
-    documents?: UploadedDocument[];
+    documents: UploadedDocument[] | null;
 }
 
 export interface SectionChanges {

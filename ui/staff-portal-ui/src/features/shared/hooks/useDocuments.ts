@@ -3,7 +3,7 @@
 import { useFetch } from '@/shared/hooks';
 import { useCallback, useState } from 'react';
 
-export type ConfigurationDocument = {
+export type SharedDocument = {
     document_id: string;
     document_store_id: string;
     bucket: string;
@@ -15,11 +15,9 @@ export type ConfigurationDocument = {
     label: string;
 };
 
-const GET_DOCUMENTS_PATH = '/api/configuration/shared/get-documents';
-
 export function useDocuments() {
-    const { execute, loading, error } = useFetch<ConfigurationDocument[]>();
-    const [documents, setDocuments] = useState<ConfigurationDocument[]>([]);
+    const { execute, loading, error } = useFetch<SharedDocument[]>();
+    const [documents, setDocuments] = useState<SharedDocument[]>([]);
 
     const getDocuments = useCallback(async (documentIds: string[]) => {
         const ids = documentIds.filter(Boolean);
@@ -28,7 +26,7 @@ export function useDocuments() {
             return [];
         }
 
-        const result = await execute(GET_DOCUMENTS_PATH, {
+        const result = await execute('/api/shared/get-documents', {
             method: 'POST',
             body: JSON.stringify({ document_ids: ids }),
         });

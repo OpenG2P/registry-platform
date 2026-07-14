@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { BreadcrumbBar } from "@/components/shared";
-import { TabsResponse } from "@/shared/types";
+import { TabsResponse } from "@/features/shared/types";
 import { useTranslations } from "next-intl";
 
 interface Props {

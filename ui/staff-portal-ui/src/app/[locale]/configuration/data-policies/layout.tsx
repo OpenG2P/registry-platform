@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { CONFIGURATION_REGISTERS_ACTIONS } from "@/features/configuration/shared/utils/configurationRegisters.actions";
+import { CONFIGURATION_REGISTERS_ACTIONS } from "@/features/shared/permissions";
 
 export default function DataPoliciesConfigLayout({ children }: { children: React.ReactNode }) {
     return (

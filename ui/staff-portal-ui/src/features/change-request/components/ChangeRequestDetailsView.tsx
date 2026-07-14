@@ -11,12 +11,12 @@ import {
     createWidgetStore,
 } from "@openg2p/registry-widgets";
 import { useTranslations } from "next-intl";
-import { RegisterFlattenedRecord } from "@/features/register/types";
 import { useChangeRequestManager, useRegisterSectionsFromCR } from "@/features/change-request/hooks";
 import { useApprovals } from "@/features/approval/hooks/useApprovals";
 import { parseAweCurrentStage } from "@/features/approval/utils/aweStatusSummary";
 import { REGISTRY_CHANGE_REQUEST_ARTIFACT } from "@/features/approval/constants";
 import { useFetch } from "@/shared/hooks/useFetch";
+import { buildSectionDataMap } from "@/features/shared/utils";
 import { ChangeRequestValuesTabs } from "./ChangeRequestValuesTabs";
 import CRHeaderSkeleton from "./CRHeaderSkeleton";
 import SectionSchemaSkeleton from "./SectionSchemaSkeleton";
@@ -86,43 +86,25 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
 
     const { sectionUISchema, loadingSchema } = useRegisterSectionsFromCR({ sectionId });
 
-    const newSectionData = useMemo(() => {
-        if (!details?.change_payload?.length) return undefined;
+    const newSectionData = useMemo(
+        () =>
+            buildSectionDataMap(
+                sectionRegisterId,
+                details?.change_payload,
+                isListSection
+            ),
+        [details?.change_payload, isListSection, sectionRegisterId]
+    );
 
-        const map: Record<
-            string,
-            RegisterFlattenedRecord | { records: RegisterFlattenedRecord[] }
-        > = {};
-
-        if (isListSection === true) {
-            map[sectionRegisterId] = {
-                records: details.change_payload,
-            };
-        } else {
-            map[sectionRegisterId] = details.change_payload[0];
-        }
-
-        return map;
-    }, [details]);
-
-    const oldSectionData = useMemo(() => {
-        if (!details?.current_register_data?.length) return undefined;
-
-        const map: Record<
-            string,
-            RegisterFlattenedRecord | { records: RegisterFlattenedRecord[] }
-        > = {};
-
-        if (isListSection === true) {
-            map[sectionRegisterId] = {
-                records: details.current_register_data,
-            };
-        } else {
-            map[sectionRegisterId] = details.current_register_data[0];
-        }
-
-        return map;
-    }, [details, isListSection, sectionRegisterId]);
+    const oldSectionData = useMemo(
+        () =>
+            buildSectionDataMap(
+                sectionRegisterId,
+                details?.current_register_data,
+                isListSection
+            ),
+        [details?.current_register_data, isListSection, sectionRegisterId]
+    );
 
     return (
         <TabsLayout breadcrumb={breadcrumb}>

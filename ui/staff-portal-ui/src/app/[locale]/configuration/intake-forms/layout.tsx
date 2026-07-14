@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { CONFIGURATION_INTAKE_FORM_ACTIONS } from "@/features/configuration/shared/utils/configurationIntakeForm.actions";
+import { CONFIGURATION_INTAKE_FORM_ACTIONS } from "@/features/shared/permissions";
 
 export default function IntakeFormConfigLayout({ children }: { children: React.ReactNode }) {
     return (
