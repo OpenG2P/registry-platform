@@ -14,6 +14,7 @@ import { CONFIGURATION_REGISTRY_ACTIONS } from '@/features/configuration/shared/
 
 const LanguagesConfigurationPage = () => {
     const t = useTranslations();
+    const router = useRouter();
     const { languages, languagesLoading, fetchLanguages } = useLang();
     const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,6 +73,7 @@ const LanguagesConfigurationPage = () => {
                     }}
                     onSaved={async () => {
                         await fetchLanguages();
+                        router.refresh();
                     }}
                 />
             </div>

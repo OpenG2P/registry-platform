@@ -8,10 +8,17 @@ from sqlalchemy.dialects.postgresql import UUID
 from .enum import ApprovalStatusEnum, ChangeRequestSourceEnum, DeduplicationStatusEnum, IntakeFormStatusEnum, ProcessStatusEnum
 
 
+def _default_application_reference() -> str:
+    from ..helpers.application_reference_generator import generate_application_reference
+
+    return generate_application_reference()
+
+
 class G2PIntakeForm(BaseORMModel):
     __abstract__ = True
 
     submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    application_reference: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
 
     async def get_link_internal_record_id(self, session=None):
         pass
@@ -20,6 +27,13 @@ class G2PIntakeFormSubmission(BaseORMModel):
     __tablename__ = "g2p_intake_form_submissions"
 
     submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
+    application_reference: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+        unique=True,
+        index=True,
+        default=_default_application_reference,
+    )
     form_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     register_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     draft_status: Mapped[IntakeFormStatusEnum] = mapped_column(
@@ -74,22 +88,14 @@ class G2PIntakeFormSubmission(BaseORMModel):
 G2PIntakeFormSubmissions = G2PIntakeFormSubmission
 
 
-class G2PIntakeFormSubmissionPayload(BaseORMModel):
-    __tablename__ = "g2p_intake_form_submission_payloads"
-
-    submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True)
-    search_text: Mapped[str] = mapped_column(Text, nullable=True)
-
-
 class G2PIntakeFormSubmissionDocument(BaseORMModel):
-    __tablename__ = "g2p_intake_form_submission_documents"
+    """Junction: documents attached to an intake form submission section (references g2p_registry_documents)."""
+    __tablename__ = "g2p_intake_section_documents"
 
-    document_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
-    submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), nullable=False, index=True)
+    submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, index=True)
+    document_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
     section_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    document_label: Mapped[str] = mapped_column(String, nullable=False)
-    document_store_id: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str] = mapped_column(String, nullable=False)
 
 
-G2PIntakeFormSectionPayload = G2PIntakeFormSubmissionPayload
 G2PIntakeFormSectionDocuments = G2PIntakeFormSubmissionDocument

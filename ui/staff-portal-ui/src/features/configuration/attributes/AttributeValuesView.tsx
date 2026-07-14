@@ -46,7 +46,6 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
 
     const {
         attributeValues,
-        allAttributeValues,
         pagination,
         loading,
         refresh,
@@ -80,7 +79,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
     }, [attribute.attribute_id]);
 
     const handleDrillIntoValue = (value: AttributeValue) => {
-        if (!isHierarchical || !valueHasChildren(value.value_id, allAttributeValues)) {
+        if (!isHierarchical || !valueHasChildren(value.value_id, attributeValues)) {
             return;
         }
         setParentValueId(value.value_id);
@@ -161,15 +160,16 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
 
     const columns = useMemo(
         () => [
-            { key: 'value_code', label: t('value_code') },
             {
-                key: 'value_display',
-                label: t('value_display'),
+                key: 'value_code',
+                label: t('value_code'),
                 render: (item: AttributeValue) => (
                     <div className="flex items-center gap-2">
-                        <span className="truncate">{item.value_display}</span>
+                        <span className="truncate">
+                            {item.value_code ? t(item.value_code) : item.value_code}
+                        </span>
                         {isHierarchical &&
-                            valueHasChildren(item.value_id, allAttributeValues) && (
+                            valueHasChildren(item.value_id, attributeValues) && (
                                 <ChevronRight
                                     size={16}
                                     className="text-neutral-first/40 shrink-0"
@@ -180,7 +180,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
             },
             { key: 'sort_order', label: t('sort_order') },
         ],
-        [t, isHierarchical, allAttributeValues],
+        [t, isHierarchical, attributeValues],
     );
 
     return (
@@ -212,7 +212,9 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                                                 onClick={() => handleBreadcrumbClick(index)}
                                                 className="hover:text-primary-second transition-colors truncate max-w-40"
                                             >
-                                                {crumb.value_display}
+                                                {crumb.value_code
+                                                    ? t(crumb.value_code)
+                                                    : crumb.value_code}
                                             </button>
                                         </span>
                                     ))}
@@ -258,7 +260,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                 onRowClick={
                     isHierarchical
                         ? (item) => {
-                              if (valueHasChildren(item.value_id, allAttributeValues)) {
+                              if (valueHasChildren(item.value_id, attributeValues)) {
                                   handleDrillIntoValue(item);
                               }
                           }

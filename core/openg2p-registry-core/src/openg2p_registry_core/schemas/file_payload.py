@@ -1,87 +1,81 @@
+from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel
 
+from ..models.enum import DocumentBucket
 
-class UploadedDocumentData(BaseModel):
+
+class DocumentAttachment(BaseModel):
+    """Reference to an already-uploaded catalog document with a required display label."""
+
+    document_id: str
+    label: str
+
+
+class DocumentData(BaseModel):
+    """g2p_registry_documents model attributes + presigned URL."""
+
+    document_id: str
     document_store_id: str
-    document_label: str
-    filename: str
-    document_url: Optional[str] = None
+    bucket: DocumentBucket
+    source_filename: str
+    created_by: str
+    created_at: datetime
+    presigned_url: Optional[str] = None
+    # Populated by the per-entity document queries (CR / intake / section)
+    section_id: Optional[str] = None
+    # From junction tables on entity GETs; absent on plain upload / get_documents
+    label: Optional[str] = None
 
     class Config:
         from_attributes: bool = True
 
 
-class UploadDocumentsResponseData(BaseModel):
-    uploaded_documents: List[UploadedDocumentData]
+class DocumentsData(BaseModel):
+    documents: List[DocumentData]
 
 
-class UploadRecordImageData(BaseModel):
-    document_store_id: str
-    filename: str
-    document_url: Optional[str] = None
-
-    class Config:
-        from_attributes: bool = True
-
-
-class FileUrlData(BaseModel):
-    file_url: Optional[str] = None
-
-
-class DeleteFileData(BaseModel):
-    document_store_id: str
-
-    class Config:
-        from_attributes: bool = True
-
-
-class DocumentLabelData(BaseModel):
-    document_label: str
-
-    class Config:
-        from_attributes: bool = True
-
-
-class SectionDocumentData(BaseModel):
-    document_label: str
-    document_store_id: str
-    document_url: Optional[str] = None
-
-    class Config:
-        from_attributes: bool = True
-
-
-class SectionDocumentsData(BaseModel):
-    register_id: str
-    record_id: str
-    section_id: str
-    documents: List[SectionDocumentData]
-
-
-class ChangeRequestDocumentsData(BaseModel):
+class ChangeRequestDocumentsData(DocumentsData):
     change_request_id: str
-    documents: List[SectionDocumentData]
 
 
-class GetDocumentLabelsForSectionRequestPayload(BaseModel):
-    register_id: str
-    section_id: str
+class IntakeFormDocumentsData(DocumentsData):
+    submission_id: str
+
+
+class SectionDocumentsData(DocumentsData):
+    internal_record_id: str
+
+
+class DeleteDocumentsData(BaseModel):
+    deleted_document_ids: List[str]
+
+
+class UploadDocumentsRequestPayload(BaseModel):
+    bucket: DocumentBucket = DocumentBucket.DOCUMENTS
+    created_by: Optional[str] = None
+
+
+class UploadTemplateRequestPayload(BaseModel):
+    created_by: Optional[str] = None
+
+
+class GetDocumentsRequestPayload(BaseModel):
+    document_ids: List[str]
+
+
+class DeleteDocumentsRequestPayload(BaseModel):
+    document_ids: List[str]
+
+
+class GetChangeRequestDocumentsRequestPayload(BaseModel):
+    change_request_id: str
+
+
+class GetIntakeFormDocumentsRequestPayload(BaseModel):
+    submission_id: str
 
 
 class GetSectionDocumentsRequestPayload(BaseModel):
-    register_id: str
-    record_id: str
-    section_id: str
-
-
-class GetSectionDocumentsForChangeRequestRequestPayload(BaseModel):
-    change_request_id: str
-
-
-class FileUrlRequestPayload(BaseModel):
-    document_store_id: str
-
-    class Config:
-        from_attributes: bool = True
+    internal_record_id: str

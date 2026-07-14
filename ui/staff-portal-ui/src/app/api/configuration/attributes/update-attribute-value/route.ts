@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 				value_id: body.value_id,
 				attribute_id: body.attribute_id,
 				value_code: body.value_code,
-				value_display: body.value_display,
+				value_display: body.value_display || body.value_code,
 				parent_value_id: body.parent_value_id ?? "",
 				sort_order: body.sort_order ?? 0,
 			},

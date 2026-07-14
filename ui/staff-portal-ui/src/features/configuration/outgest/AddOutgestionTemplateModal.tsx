@@ -10,6 +10,7 @@ import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useAllRegister } from '../shared';
 import { useAllDataModels } from '../shared/hooks/useAllDataModels';
 import { BaseModal, CustomDropdown, FileUploadField } from '../shared/components';
+import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
 
 interface AddOutgestionTemplateModalProps {
@@ -54,11 +55,17 @@ export default function AddOutgestionTemplateModal({
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
         if (!file) return;
 
+        const errorMessage = validateTemplateUpload(file, t);
+        if (errorMessage) {
+            toast.error(errorMessage);
+            return;
+        }
+
         setSelectedFile(file);
-        setUploadedFileName(file.name)
-        e.target.value = '';
+        setUploadedFileName(file.name);
     };
 
     const handleRemoveFile = () => {
@@ -159,6 +166,8 @@ export default function AddOutgestionTemplateModal({
                 fileName={uploadedFileName}
                 onFileChange={handleFileChange}
                 onRemove={handleRemoveFile}
+                accept={TEMPLATE_ACCEPT}
+                helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
             />
         </BaseModal>
     );

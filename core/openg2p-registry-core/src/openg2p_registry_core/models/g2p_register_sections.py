@@ -51,23 +51,17 @@ class G2PRegisterSection(BaseORMModel):
 
     
 class G2PRegisterSectionDocument(BaseORMModel):
+    """Junction: live documents of a register record section (references g2p_registry_documents)."""
     __tablename__ = "g2p_register_section_documents"
 
-    document_id: Mapped[str] = mapped_column(
-        String,
-        nullable=False,
-        primary_key=True,
-        index=True,
-        default=lambda: str(uuid.uuid4())
-    )
     internal_record_id: Mapped[str] = mapped_column(
         String,
-        nullable=False,
+        primary_key=True,
         index=True
     )
-    register_id: Mapped[str] = mapped_column(
+    document_id: Mapped[str] = mapped_column(
         String,
-        nullable=False,
+        primary_key=True,
         index=True
     )
     section_id: Mapped[str] = mapped_column(
@@ -75,9 +69,4 @@ class G2PRegisterSectionDocument(BaseORMModel):
         nullable=False,
         index=True
     )
-    document_label: Mapped[str] = mapped_column(
-        String,
-        nullable=False,
-        index=True
-    )
-    document_store_id: Mapped[str] = mapped_column(String, nullable=False)
+    label: Mapped[str] = mapped_column(String, nullable=False)

@@ -58,15 +58,21 @@ class G2PChangeRequestWorkerService(BaseService):
         if hasattr(g2p_register_change_request, '_payload'):
             session.add(g2p_register_change_request._payload)
 
-        # Add documents if provided
+        # Attach already-uploaded documents (validated against the catalog)
         if change_request_request_payload.documents:
+            from .g2p_document_service import G2PDocumentService
+            document_service = G2PDocumentService.get_component()
+            await document_service.validate_documents_exist(
+                session,
+                [doc.document_id for doc in change_request_request_payload.documents],
+            )
             for doc in change_request_request_payload.documents:
-                change_request_doc = G2PRegisterChangeRequestDocument(
+                session.add(G2PRegisterChangeRequestDocument(
                     change_request_id=g2p_register_change_request.change_request_id,
-                    document_label=doc.document_label,
-                    document_store_id=doc.document_store_id
-                )
-                session.add(change_request_doc)
+                    document_id=doc.document_id,
+                    section_id=change_request_request_payload.section_id,
+                    label=doc.label,
+                ))
 
         # Ensure `change_request_id` and relationship rows are persisted within the caller's transaction.
         await session.flush()

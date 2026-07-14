@@ -2,11 +2,8 @@
 
 import { useMemo } from "react";
 
-import { TabsLayout, ActionModal } from "@/components/shared";
-import {
-    ChangeRequestHeader,
-    RejectReasonPopup,
-} from "@/features/change-request/components";
+import { TabsLayout } from "@/components/shared";
+import { ChangeRequestHeader } from "@/features/change-request/components";
 import { ApprovalList, ApprovalListSkeleton } from "@/features/approval/components";
 
 
@@ -44,13 +41,6 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
         documents,
         loadingDetails,
         loadingDocuments,
-        loadingAction,
-        popupVisible,
-        popupType,
-        setPopupVisible,
-        handleApprove,
-        handleReject,
-        submitReject,
         refetchDetails,
     } = useChangeRequestManager(changeId);
 
@@ -146,9 +136,6 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
                                 details={details}
                                 verificationCount={details.no_of_verifications_done ?? 0}
                                 documents={documents}
-                                onApprove={handleApprove}
-                                onReject={handleReject}
-                                loadingAction={loadingAction}
                             />
                         )
                     )}
@@ -185,13 +172,6 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
                     )}
                 </div>
             </div>
-            {popupVisible && popupType === "reject-input" && (
-                <RejectReasonPopup
-                    onSubmit={(reason) => submitReject(reason)}
-                    onClose={() => setPopupVisible(false)}
-                    loading={loadingAction}
-                />
-            )}
         </TabsLayout>
     );
 }

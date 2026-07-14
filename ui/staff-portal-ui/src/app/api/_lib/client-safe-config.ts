@@ -18,6 +18,7 @@ class ClientSafeConfig {
             pageSize: env.pageSize,
             registryName: "",
             registryLogo: "",
+            registryFavicon: "",
             registry_theme_id: "",
             registry_language_id: "",
             branding: {},
@@ -147,6 +148,7 @@ class ClientSafeConfig {
                 this.setMany({
                     registryName: payload?.registry_name ?? "",
                     registryLogo: payload?.registry_logo ?? "",
+                    registryFavicon: payload?.registry_favicon ?? "",
                     registry_theme_id: theme_id ?? "",
                     registry_language_id: language_id ?? "",
                     branding,

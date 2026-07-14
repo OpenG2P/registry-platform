@@ -39,6 +39,7 @@ class G2PIntakeFormDataControllerService(BaseService):
             form_id=payload.form_id,
             register_id=payload.register_id,
             created_by=payload.created_by or "Unknown",
+            documents=payload.documents,
         )
 
     async def finalize_intake_form_submission(
@@ -85,25 +86,31 @@ class G2PIntakeFormDataControllerService(BaseService):
     async def get_intake_form_submission(
         self,
         request: GetSubmissionRequest,
-        data_policy_mnemonics: list[str] | None = None,
+        policy_mnemonics: list[str] | None = None,
     ) -> SubmissionResponsePayload:
         payload = request.request_body.request_payload
         return await G2PIntakeFormDataService.get_component().get_intake_form_submission(
             payload.submission_id,
-            data_policy_mnemonics=data_policy_mnemonics,
+            policy_mnemonics=policy_mnemonics,
         )
 
     async def get_tab_records(
         self,
         request: GetIntakeFormTabRecordsRequest,
+        policy_mnemonics: list[str] | None = None,
     ) -> list[SectionPayloadResponseItem]:
         payload = request.request_body.request_payload
         return await G2PIntakeFormDataService.get_component().get_tab_records(
             payload.submission_id,
             payload.tab_id,
+            policy_mnemonics=policy_mnemonics,
         )
 
-    async def search_in_intake_form_submissions(self, request: SearchInSubmissionRequest):
+    async def search_in_intake_form_submissions(
+        self,
+        request: SearchInSubmissionRequest,
+        policy_mnemonics: list[str] | None = None,
+    ):
         payload = request.request_body.request_payload
         pagination = request.request_body.pagination_request
         records, total_items = await G2PIntakeFormDataService.get_component().search_submissions(
@@ -113,6 +120,7 @@ class G2PIntakeFormDataControllerService(BaseService):
             pagination.page_size if pagination else 10,
             pagination.sort_by if pagination else None,
             pagination.filter_by if pagination else None,
+            policy_mnemonics=policy_mnemonics,
         )
         page_size = pagination.page_size if pagination else 10
         return records, total_items, math.ceil(total_items / page_size) if page_size else 0
@@ -136,9 +144,13 @@ class G2PIntakeFormDataControllerService(BaseService):
         )
     
     async def get_intake_form_submissions_summary(
-        self, get_intake_form_submissions_summary_request: GetIntakeFormSubmissionsSummaryRequest
+        self,
+        get_intake_form_submissions_summary_request: GetIntakeFormSubmissionsSummaryRequest,
+        policy_mnemonics: list[str] | None = None,
     ) -> IntakeFormSubmissionsSummaryData:
         _ = get_intake_form_submissions_summary_request
         _logger.info("Getting intake form submissions summary through controller service")
         g2p_intake_form_data_service = G2PIntakeFormDataService.get_component()
-        return await g2p_intake_form_data_service.get_intake_form_submissions_summary()
+        return await g2p_intake_form_data_service.get_intake_form_submissions_summary(
+            policy_mnemonics=policy_mnemonics,
+        )

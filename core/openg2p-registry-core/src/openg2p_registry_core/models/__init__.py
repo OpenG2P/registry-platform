@@ -15,6 +15,7 @@ from .enum import (
     ShapeTypeEnum,
     InputMechanismTypeEnum,
     AwePolicyScopeEnum,
+    DocumentBucket,
 )
 SubmissionSourceEnum = ChangeRequestSourceEnum
 from .data_models import DataModel
@@ -32,9 +33,7 @@ from .g2p_intake_form import (
     G2PIntakeFormSubmission,
     G2PIntakeFormSubmissions,
     G2PIntakeFormSubmissionDocument,
-    G2PIntakeFormSubmissionPayload,
     G2PIntakeFormSectionDocuments,
-    G2PIntakeFormSectionPayload,
 )
 from .g2p_intake_form_metadata import (
     G2PIntakeFormDefinition,

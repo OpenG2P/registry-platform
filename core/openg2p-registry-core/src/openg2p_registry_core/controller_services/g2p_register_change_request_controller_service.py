@@ -106,7 +106,11 @@ class G2PRegisterChangerequestControllerService(BaseService):
         cross_register_changes: list[CrossRegisterChangeRequestData] = await service.get_cross_register_changes(subject_register_id, subject_record_id)
         return cross_register_changes
 
-    async def get_change_requests(self, get_change_requests_request: GetChangeRequestsRequest) -> tuple[list[dict], G2PPaginationResponse]:
+    async def get_change_requests(
+        self,
+        get_change_requests_request: GetChangeRequestsRequest,
+        policy_mnemonics: list[str] | None = None,
+    ) -> tuple[list[dict], G2PPaginationResponse]:
         payload = get_change_requests_request.request_body.request_payload
         pagination = get_change_requests_request.request_body.pagination_request
         subject_register_id = payload.subject_register_id
@@ -116,7 +120,14 @@ class G2PRegisterChangerequestControllerService(BaseService):
         service = G2PRegisterChangeRequestService.get_component()
         # Use flattened version to return change_payload fields at root level
         change_requests_list, total_items = await service.get_change_requests_flattened(
-            subject_register_id, subject_record_id, tab_id, pagination.current_page, pagination.page_size, pagination.sort_by, pagination.filter_by
+            subject_register_id,
+            subject_record_id,
+            tab_id,
+            pagination.current_page,
+            pagination.page_size,
+            pagination.sort_by,
+            pagination.filter_by,
+            policy_mnemonics=policy_mnemonics,
         )
         pagination_response = self._build_pagination_response(total_items, pagination.page_size)
         return change_requests_list, pagination_response
@@ -124,13 +135,14 @@ class G2PRegisterChangerequestControllerService(BaseService):
     async def get_change_request(
         self,
         get_change_request_request: GetChangeRequestRequest,
-        data_policy_mnemonics: list[str] | None = None,
+        policy_mnemonics: list[str] | None = None,
     ) -> ChangeRequestData:
         change_request_id = get_change_request_request.request_body.request_payload.change_request_id
         _logger.info(f"Getting change request for change_request_id: {change_request_id} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
         change_request_data: ChangeRequestData = await service.get_change_request(
-            change_request_id, data_policy_mnemonics=data_policy_mnemonics
+            change_request_id,
+            policy_mnemonics=policy_mnemonics,
         )
         return change_request_data
 
@@ -195,18 +207,33 @@ class G2PRegisterChangerequestControllerService(BaseService):
         verification_data: VerificationData = await verification_service.add_verification(add_verification_payload)
         return verification_data
 
-    async def get_change_request_summary_data(self, get_change_request_summary_data_request: GetChangeRequestSummaryDataRequest) -> ChangeRequestSummaryData:
+    async def get_change_request_summary_data(
+        self,
+        get_change_request_summary_data_request: GetChangeRequestSummaryDataRequest,
+        policy_mnemonics: list[str] | None = None,
+    ) -> ChangeRequestSummaryData:
         _logger.info("Fetching change_request summary data through controller service")
         service = G2PRegisterChangeRequestService.get_component()
-        change_request_summary_data: ChangeRequestSummaryData = await service.get_change_request_summary_data()
+        change_request_summary_data: ChangeRequestSummaryData = await service.get_change_request_summary_data(
+            policy_mnemonics=policy_mnemonics,
+        )
         return change_request_summary_data
     
-    async def search_in_change_request(self, search_change_request_request: SearchChangeRequestRequest) -> tuple[list[ChangeRequestSearchResultData], G2PPaginationResponse]:
+    async def search_in_change_request(
+        self,
+        search_change_request_request: SearchChangeRequestRequest,
+        policy_mnemonics: list[str] | None = None,
+    ) -> tuple[list[ChangeRequestSearchResultData], G2PPaginationResponse]:
         pagination = search_change_request_request.request_body.pagination_request
         _logger.info(f"Searching in change requests with search_text: {pagination.search_text} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
         search_results_list, total_items = await service.search_in_change_request(
-            pagination.search_text, pagination.current_page, pagination.page_size, pagination.sort_by, pagination.filter_by
+            pagination.search_text,
+            pagination.current_page,
+            pagination.page_size,
+            pagination.sort_by,
+            pagination.filter_by,
+            policy_mnemonics=policy_mnemonics,
         )
         pagination_response = self._build_pagination_response(total_items, pagination.page_size)
         return search_results_list, pagination_response

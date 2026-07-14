@@ -1,8 +1,6 @@
 import Image from "next/image";
 import { ChangeRequest } from "../types/change-request";
 import { useTranslations } from "next-intl";
-import { CHANGE_REQUEST_ACTIONS } from "../utils/changeRequest.actions";
-import Can from "@/components/shared/Can";
 
 export interface ChangeRequestDocument {
     document_label: string;
@@ -14,9 +12,6 @@ interface Props {
     details: ChangeRequest;
     verificationCount: number;
     documents?: ChangeRequestDocument[];
-    onApprove: () => void;
-    onReject: () => void;
-    loadingAction: boolean;
 }
 
 const statusClassMap: Record<string, string> = {
@@ -29,9 +24,6 @@ export default function ChangeRequestHeader({
     details,
     verificationCount,
     documents = [],
-    onApprove,
-    onReject,
-    loadingAction,
 }: Props) {
     const t = useTranslations();
     const rawTitle = details?.section_mnemonic?.trim();
@@ -53,33 +45,6 @@ export default function ChangeRequestHeader({
                 />
                 <AttachedDocuments documents={documents} />
             </div>
-
-            {/* Approve / reject hidden from view
-            {details.approval_status === "PENDING" && (
-                <Can action={CHANGE_REQUEST_ACTIONS.approve}>
-                    <div className="my-3 border-t border-primary-first" />
-                    <div className="flex items-center gap-4">
-                        <button
-                            type="button"
-                            disabled={loadingAction}
-                            onClick={onReject}
-                            className="px-4 py-1.5 text-[14px] font-medium rounded-[10px] bg-neutral-second text-neutral-first/50"
-                        >
-                            {t('reject_change')}
-                        </button>
-
-                        <button
-                            type="button"
-                            disabled={loadingAction}
-                            onClick={onApprove}
-                            className="px-4 py-1.5 text-[14px] font-medium rounded-[10px] bg-neutral-first text-neutral-second"
-                        >
-                            {t('approve_change')}
-                        </button>
-                    </div>
-                </Can>
-            )}
-            */}
         </div>
     );
 };

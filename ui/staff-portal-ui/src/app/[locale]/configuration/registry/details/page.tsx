@@ -5,6 +5,7 @@ import { TopBar } from '@/components/shared';
 import Image from 'next/image';
 import { ArrowRight, ImageIcon, Palette, Languages, SquarePen } from 'lucide-react';
 import { useFetch } from '@/shared/hooks/useFetch';
+import { useLogoDimensions, getLogoDisplaySize } from '@/shared/hooks';
 import { convertImageToBase64 } from '@/features/configuration/shared';
 import { toast } from 'react-toastify';
 import Can from '@/components/shared/Can';
@@ -27,6 +28,7 @@ const RegistryConfigurationPage = () => {
 	const [configurationId, setConfigurationId] = useState<string | null>(null);
 	const [registryName, setRegistryName] = useState(t('registry_name'));
 	const [image, setImage] = useState(BLANK_LOGO);
+	const [favicon, setFavicon] = useState(BLANK_LOGO);
 	const [themeId, setThemeId] = useState<string | null>(null);
 	const [languageId, setLanguageId] = useState<string | null>(null);
 
@@ -36,6 +38,7 @@ const RegistryConfigurationPage = () => {
 	const resolvedThemeId = registryData?.registry_theme_id ?? themeId;
 	const resolvedLanguageId = registryData?.registry_language_id ?? languageId;
 	const resolvedLogo = registryData?.registry_logo || image;
+	const resolvedFavicon = registryData?.registry_favicon || favicon;
 	const resolvedName = registryData?.registry_name || registryName;
 
 	const selectedTheme = useMemo(
@@ -49,6 +52,14 @@ const RegistryConfigurationPage = () => {
 	);
 
 	const hasCustomLogo = Boolean(resolvedLogo && resolvedLogo !== BLANK_LOGO);
+	const hasCustomFavicon = Boolean(resolvedFavicon && resolvedFavicon !== BLANK_LOGO);
+	const logoDimensions = useLogoDimensions(hasCustomLogo ? resolvedLogo : null);
+	const logoDisplaySize = getLogoDisplaySize(logoDimensions, {
+		squareHeight: 120,
+		horizontalHeight: 120,
+		maxHorizontalWidth: 720,
+	});
+	const isHorizontalLogo = logoDisplaySize.isHorizontal;
 	const isLoading = registryLoading || themesLoading || languagesLoading;
 
 	const startEditing = () => {
@@ -56,6 +67,7 @@ const RegistryConfigurationPage = () => {
 			setConfigurationId(registryData.configuration_id);
 			setRegistryName(registryData.registry_name || t('registry_name'));
 			setImage(registryData.registry_logo || BLANK_LOGO);
+			setFavicon(registryData.registry_favicon || BLANK_LOGO);
 			setThemeId(registryData.registry_theme_id || null);
 			setLanguageId(registryData.registry_language_id || null);
 		}
@@ -65,10 +77,12 @@ const RegistryConfigurationPage = () => {
 	const handleSave = async (
 		newName: string,
 		newImage: string,
+		newFavicon: string,
 		newThemeId: string | null,
 		newLanguageId: string | null
 	) => {
 		const base64Logo = await convertImageToBase64(newImage);
+		const base64Favicon = await convertImageToBase64(newFavicon);
 
 		const endpoint =
 			configurationId || registryData?.configuration_id
@@ -81,12 +95,14 @@ const RegistryConfigurationPage = () => {
 						configuration_id: configurationId || registryData?.configuration_id,
 						registry_name: newName,
 						registry_logo: base64Logo,
+						registry_favicon: base64Favicon,
 						registry_theme_id: newThemeId,
 						registry_language_id: newLanguageId,
 					}
 				: {
 						registry_name: newName,
 						registry_logo: base64Logo,
+						registry_favicon: base64Favicon,
 						registry_theme_id: newThemeId,
 						registry_language_id: newLanguageId,
 					};
@@ -100,6 +116,7 @@ const RegistryConfigurationPage = () => {
 			setConfigurationId(result.configuration_id);
 			setRegistryName(newName);
 			setImage(newImage);
+			setFavicon(newFavicon);
 			setThemeId(newThemeId);
 			setLanguageId(newLanguageId);
 			setIsEditing(false);
@@ -126,7 +143,7 @@ const RegistryConfigurationPage = () => {
 				showAddNewButton={false}
 			/>
 
-			<div className="mx-7.5 pb-10 max-w-4xl">
+			<div className="mx-7.5 pb-10 max-w-5xl">
 				{isLoading ? (
 					<div className="bg-neutral-second rounded-[10px] p-12 flex justify-center shadow-sm border border-secondary-second/40">
 						<Image src="/images/common/loading.gif" alt="Loading" width={48} height={48} />
@@ -136,6 +153,7 @@ const RegistryConfigurationPage = () => {
 						embedded
 						initialName={registryName}
 						initialImage={image}
+						initialFavicon={favicon}
 						initialThemeId={registryData?.registry_theme_id || themeId}
 						initialLanguageId={registryData?.registry_language_id || languageId}
 						themes={themes}
@@ -158,32 +176,61 @@ const RegistryConfigurationPage = () => {
 							</button>
 						</Can>
 
-						<div className="flex flex-col md:flex-row md:items-center gap-4 pb-6 border-b border-secondary-second pr-4 md:pr-56">
-							<div className="flex flex-col md:flex-row md:items-center gap-6 min-w-0">
-								<div className="w-30 h-30 relative shrink-0 rounded-[10px] overflow-hidden flex items-center justify-center border border-secondary-second/40 bg-secondary-first/30 p-3">
-									{hasCustomLogo ? (
-										<Image
-											src={resolvedLogo}
-											alt={t('registry_logo_alt')}
-											width={120}
-											height={120}
-											className="object-contain w-full h-full"
-											unoptimized
-										/>
-									) : (
-										<div className="flex flex-col items-center justify-center text-neutral-first/40 gap-1">
-											<ImageIcon size={40} strokeWidth={1.5} />
-											<span className="text-xs">{t('no_file_selected')}</span>
-										</div>
-									)}
+						<div className="flex flex-col gap-6 pb-6 border-b border-secondary-second pr-4 md:pr-56">
+							<div className="flex flex-col sm:flex-row gap-8 items-start">
+								<div className="flex flex-col gap-2 min-w-0 w-full sm:w-auto sm:max-w-[min(100%,28rem)]">
+									<span className="text-sm text-neutral-first/60">{t('registry_logo')}</span>
+									<div className="h-30 min-w-30 w-full max-w-full relative rounded-[10px] overflow-hidden flex items-center justify-center border border-secondary-second/40 bg-secondary-first/30 px-3">
+										{hasCustomLogo ? (
+											<Image
+												src={resolvedLogo}
+												alt={t('registry_logo_alt')}
+												width={logoDisplaySize.width}
+												height={logoDisplaySize.height}
+												className={
+													isHorizontalLogo
+														? "h-30 w-auto max-w-full object-contain"
+														: "h-24 w-24 object-contain"
+												}
+												unoptimized
+											/>
+										) : (
+											<div className="w-30 h-30 flex flex-col items-center justify-center text-neutral-first/40 gap-1">
+												<ImageIcon size={40} strokeWidth={1.5} />
+												<span className="text-xs">{t('no_file_selected')}</span>
+											</div>
+										)}
+									</div>
 								</div>
+								<div className="flex flex-col gap-2 shrink-0">
+									<span className="text-sm text-neutral-first/60">{t('registry_favicon')}</span>
+									<div className="w-30 h-30 relative rounded-[10px] overflow-hidden flex items-center justify-center border border-secondary-second/40 bg-secondary-first/30 p-3">
+										{hasCustomFavicon ? (
+											<Image
+												src={resolvedFavicon}
+												alt={t('registry_favicon_alt')}
+												width={120}
+												height={120}
+												className="h-24 w-24 object-contain"
+												unoptimized
+											/>
+										) : (
+											<div className="w-full h-full flex flex-col items-center justify-center text-neutral-first/40 gap-1">
+												<ImageIcon size={40} strokeWidth={1.5} />
+												<span className="text-xs">{t('no_file_selected')}</span>
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+							{!isHorizontalLogo && (
 								<div className="flex flex-col gap-2 min-w-0">
 									<span className="text-sm text-neutral-first/60">{t('registry_name')}</span>
 									<h2 className="text-[26px] font-bold text-primary-second m-0 truncate">
 										{resolvedName}
 									</h2>
 								</div>
-							</div>
+							)}
 						</div>
 
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">

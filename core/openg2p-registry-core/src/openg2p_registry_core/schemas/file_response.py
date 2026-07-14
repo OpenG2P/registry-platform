@@ -4,52 +4,27 @@ from openg2p_fastapi_common.schemas import G2PResponse, G2PResponseBody
 
 from .file_payload import (
     ChangeRequestDocumentsData,
-    DeleteFileData,
-    FileUrlData,
+    DeleteDocumentsData,
+    DocumentsData,
+    IntakeFormDocumentsData,
     SectionDocumentsData,
-    UploadDocumentsResponseData,
-    UploadRecordImageData,
 )
 
 
-class UploadDocumentsResponseBody(G2PResponseBody):
-    response_payload: Optional[UploadDocumentsResponseData] = None
+class DocumentsResponseBody(G2PResponseBody):
+    response_payload: Optional[DocumentsData] = None
 
 
-class UploadDocumentsResponse(G2PResponse):
-    response_body: Optional[UploadDocumentsResponseBody] = None
+class DocumentsResponse(G2PResponse):
+    response_body: Optional[DocumentsResponseBody] = None
 
 
-class UploadRecordImageResponseBody(G2PResponseBody):
-    response_payload: Optional[UploadRecordImageData] = None
+class DeleteDocumentsResponseBody(G2PResponseBody):
+    response_payload: Optional[DeleteDocumentsData] = None
 
 
-class UploadRecordImageResponse(G2PResponse):
-    response_body: Optional[UploadRecordImageResponseBody] = None
-
-
-class FileUrlResponseBody(G2PResponseBody):
-    response_payload: Optional[FileUrlData] = None
-
-
-class FileUrlResponse(G2PResponse):
-    response_body: Optional[FileUrlResponseBody] = None
-
-
-class DeleteFileResponseBody(G2PResponseBody):
-    response_payload: Optional[DeleteFileData] = None
-
-
-class DeleteFileResponse(G2PResponse):
-    response_body: Optional[DeleteFileResponseBody] = None
-
-
-class SectionDocumentsResponseBody(G2PResponseBody):
-    response_payload: Optional[SectionDocumentsData] = None
-
-
-class SectionDocumentsResponse(G2PResponse):
-    response_body: Optional[SectionDocumentsResponseBody] = None
+class DeleteDocumentsResponse(G2PResponse):
+    response_body: Optional[DeleteDocumentsResponseBody] = None
 
 
 class ChangeRequestDocumentsResponseBody(G2PResponseBody):
@@ -58,3 +33,19 @@ class ChangeRequestDocumentsResponseBody(G2PResponseBody):
 
 class ChangeRequestDocumentsResponse(G2PResponse):
     response_body: Optional[ChangeRequestDocumentsResponseBody] = None
+
+
+class IntakeFormDocumentsResponseBody(G2PResponseBody):
+    response_payload: Optional[IntakeFormDocumentsData] = None
+
+
+class IntakeFormDocumentsResponse(G2PResponse):
+    response_body: Optional[IntakeFormDocumentsResponseBody] = None
+
+
+class SectionDocumentsResponseBody(G2PResponseBody):
+    response_payload: Optional[SectionDocumentsData] = None
+
+
+class SectionDocumentsResponse(G2PResponse):
+    response_body: Optional[SectionDocumentsResponseBody] = None

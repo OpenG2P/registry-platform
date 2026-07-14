@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
 			request_payload: {
 				registry_name: body.registry_name,
 				registry_logo: body.registry_logo,
+				registry_favicon: body.registry_favicon,
 				registry_theme_id: body.registry_theme_id,
 				registry_language_id: body.registry_language_id,
 			},

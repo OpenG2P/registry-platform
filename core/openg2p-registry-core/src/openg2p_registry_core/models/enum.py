@@ -46,6 +46,12 @@ class RegistryDataPolicyTypeEnum(StrEnum):
     DISALLOW = "DISALLOW"
 
 
+class PolicyTargetEnum(StrEnum):
+    REGISTER_RECORD = "REGISTER_RECORD"
+    GEO = "GEO"
+    ATTRIBUTE = "ATTRIBUTE"
+
+
 class GenderEnum(StrEnum):
     MALE = "MALE"
     FEMALE = "FEMALE"
@@ -117,3 +123,15 @@ class InputMechanismTypeEnum(StrEnum):
     INTAKE_FORM = "INTAKE_FORM"
     IMPORT_FILE = "IMPORT_FILE"
     VERIFIABLE_CREDENTIAL = "VERIFIABLE_CREDENTIAL"
+
+
+class DocumentBucket(StrEnum):
+    """
+    Logical buckets for document storage. Bucket names are hard-set:
+    the physical bucket name is always the enum value.
+    """
+
+    DEFAULT = "default"
+    TEMPLATES = "templates"
+    DOCUMENTS = "documents"
+    DATA_IMPORT_FILES = "data_import_files"
