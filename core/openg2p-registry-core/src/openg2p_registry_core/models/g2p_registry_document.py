@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 from openg2p_fastapi_common.models import BaseORMModel
 
@@ -28,11 +28,17 @@ class G2PRegistryDocument(BaseORMModel):
         index=True,
         unique=True
     )
+    # Stored as VARCHAR; SQLAlchemy coerces to/from DocumentBucket StrEnum.
     bucket: Mapped[DocumentBucket] = mapped_column(
-        String,
+        Enum(
+            DocumentBucket,
+            name="document_bucket",
+            native_enum=False,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
         nullable=False,
         index=True,
-        default=DocumentBucket.DEFAULT.value,
+        default=DocumentBucket.DEFAULT,
     )
     source_filename: Mapped[str] = mapped_column(
         String,
