@@ -22,7 +22,7 @@ type DataModel = {
     data_model_id: string;
     data_model_mnemonic: string;
     pattern_for_data_model: string;
-    response_template_file_id: string;
+    response_template_document_id: string;
     is_active: boolean;
 };
 
@@ -104,11 +104,11 @@ const DataModelsConfigurationPage = () => {
             label: t('data_model_mnemonic'),
         },
         {
-            key: 'response_template_file_id',
-            label: t('template_id'),
+            key: 'response_template_document_id',
+            label: t('template'),
             render: (item: DataModel) => (
                 <FileLink
-                    documentId={item.response_template_file_id}
+                    documentId={item.response_template_document_id}
                 />
             ),
         },

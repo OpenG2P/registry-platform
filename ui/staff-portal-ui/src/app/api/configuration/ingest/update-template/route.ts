@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
             },
             request_payload: {
                 template_id: body.template_id,
-                template_file_id: body.template_file_id ?? "",
+                template_document_id: body.template_document_id ?? "",
                 jsonld_expansion_required: body.jsonld_expansion_required ?? false
             },
         }),

@@ -19,7 +19,7 @@ type OutgestTemplate = {
     template_id: string;
     register_id: string;
     data_model_id: string;
-    template_file_id: string;
+    template_document_id: string;
 }
 
 
@@ -108,11 +108,11 @@ const OutgestTemplatesPage = () => {
             label: t('register_mnemonic')
         },
         {
-            key: 'template_file_id',
-            label: t('template_file_id'),
+            key: 'template_document_id',
+            label: t('template'),
             render: (item: OutgestTemplate) => (
                 <FileLink
-                    documentId={item.template_file_id}
+                    documentId={item.template_document_id}
                 />
             ),
         },

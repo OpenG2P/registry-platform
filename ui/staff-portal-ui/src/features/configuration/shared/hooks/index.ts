@@ -24,3 +24,5 @@ export * from './useAttributeValues';
 export * from './useGeoLevels';
 export * from './useG2pGeoLevels';
 export * from './useGeoLevelValues';
+export * from './useFileUpload';
+export * from './useDocuments';

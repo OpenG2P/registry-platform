@@ -20,7 +20,7 @@ type IngestTemplate = {
     register_mnemonic: string;
     data_model_id: string;
     data_model_mnemonic: string;
-    template_file_id: string;
+    template_document_id: string;
     jsonld_expansion_required: boolean;
 }
 
@@ -100,10 +100,6 @@ const IngestTemplatesPage = () => {
     };
 
     const templateColumns = [
-        // {
-        //     key: 'template_id',
-        //     label: t('template_id'),
-        // },
         {
             key: 'data_model_mnemonic',
             label: t('data_model_mnemonic'),
@@ -113,11 +109,11 @@ const IngestTemplatesPage = () => {
             label: t('register_mnemonic'),
         },
         {
-            key: 'template_file_id',
-            label: t('template_file_id'),
+            key: 'template_document_id',
+            label: t('template'),
             render: (item: IngestTemplate) => (
                 <FileLink
-                    documentId={item.template_file_id}
+                    documentId={item.template_document_id}
                 />
             ),
         }

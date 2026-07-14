@@ -5,7 +5,9 @@ import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { useTranslations } from 'next-intl';
 
-export const useFileUpload = (apiPath: string) => {
+const UPLOAD_DOCUMENT_PATH = '/api/configuration/shared/upload-document';
+
+export const useFileUpload = () => {
     const { execute } = useFetch();
     const [uploading, setUploading] = useState(false);
     const [uploadedFileName, setUploadedFileName] = useState('');
@@ -16,9 +18,10 @@ export const useFileUpload = (apiPath: string) => {
             setUploading(true);
 
             const formData = new FormData();
-            formData.append('template_file', file);
+            formData.append('documents', file);
+            formData.append('bucket', 'templates');
 
-            const result = await execute(apiPath, {
+            const result = await execute(UPLOAD_DOCUMENT_PATH, {
                 method: 'POST',
                 body: formData,
             });
@@ -26,12 +29,12 @@ export const useFileUpload = (apiPath: string) => {
             if (
                 !Array.isArray(result) ||
                 result.length === 0 ||
-                !result[0]?.document_store_id
+                !result[0]?.document_id
             ) {
                 throw new Error('Upload failed: unexpected response');
             }
 
-            const documentId = result[0].document_store_id;
+            const documentId = result[0].document_id;
 
             setUploadedFileName(file.name);
             toast.success(t('file_uploaded_successfully'));

@@ -6,7 +6,7 @@ export interface OutgestTemplate {
     register_mnemonic: string;
     data_model_id: string;
     data_model_mnemonic: string;
-    template_file_id: string;
+    template_document_id: string;
 }
 
 export function useAllOutgestTemplates(page?: number, pageSize?: number) {

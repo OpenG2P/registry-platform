@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { useFileUpload } from '../shared/hooks/useFileUpload';
+import { useDocuments } from '../shared/hooks/useDocuments';
 import { BaseModal, Field, FileUploadField } from '../shared/components';
 import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
@@ -21,25 +22,36 @@ export default function EditOutgestionTemplateModal({
 }: EditOutgestionTemplateModalProps) {
     const t = useTranslations();
     const { execute: updateOutgestionTemplate } = useFetch();
+    const { getDocument } = useDocuments();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState({
         template_id: '',
-        template_file_id: '',
+        template_document_id: '',
     });
 
-    useEffect(() => {
-        if (data) {
-            setFormData({
-                template_id: data.template_id || '',
-                template_file_id: data.template_file_id || '',
-            });
-        }
-    }, [data]);
-
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload("/api/configuration/outgest/upload-template");
+    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload();
+
+    useEffect(() => {
+        if (!data) return;
+
+        setFormData({
+            template_id: data.template_id || '',
+            template_document_id: data.template_document_id || '',
+        });
+
+        const documentId = data.template_document_id;
+        if (!documentId) {
+            setUploadedFileName('');
+            return;
+        }
+
+        getDocument(documentId).then((document) => {
+            setUploadedFileName(document?.source_filename || document?.label || '');
+        });
+    }, [data]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -62,7 +74,7 @@ export default function EditOutgestionTemplateModal({
     };
 
     const handleSubmit = async () => {
-        let documentId = formData.template_file_id;
+        let documentId = formData.template_document_id;
         if (selectedFile) {
             documentId = await uploadFile(selectedFile);
         }
@@ -73,7 +85,7 @@ export default function EditOutgestionTemplateModal({
                 body: JSON.stringify({
                     ...formData,
                     template_id: data?.template_id,
-                    template_file_id: documentId
+                    template_document_id: documentId
                 }),
             }
         );
@@ -82,7 +94,7 @@ export default function EditOutgestionTemplateModal({
             toast.success(t('outgest_template_updated'));
             setFormData({
                 template_id: '',
-                template_file_id: '',
+                template_document_id: '',
             });
             setUploadedFileName('');
             onSuccess?.();
@@ -105,10 +117,10 @@ export default function EditOutgestionTemplateModal({
             maxWidth='max-w-200'
         >
             <FileUploadField
-                label={t('template_id')}
+                label={t('template')}
                 fileInputRef={fileInputRef}
                 uploading={uploading}
-                fileId={formData.template_file_id}
+                fileId={formData.template_document_id}
                 fileName={uploadedFileName}
                 onFileChange={handleFileChange}
                 onRemove={handleRemoveFile}

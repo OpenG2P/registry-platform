@@ -47,12 +47,12 @@ export default function AddIngestionTemplateModal({
     const [formData, setFormData] = useState({
         register_id: '',
         data_model_id: '',
-        template_file_id: '',
+        template_document_id: '',
         jsonld_expansion_required: false
     });
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload("/api/configuration/ingest/upload-template");
+    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload();
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -80,7 +80,7 @@ export default function AddIngestionTemplateModal({
             return;
         }
 
-        let documentId = formData.template_file_id;
+        let documentId = formData.template_document_id;
         if (selectedFile) {
             documentId = await uploadFile(selectedFile);
         }
@@ -91,7 +91,7 @@ export default function AddIngestionTemplateModal({
                 method: 'POST',
                  body: JSON.stringify({
                     ...formData,
-                    template_file_id: documentId
+                    template_document_id: documentId
                 }),
             }
         );
@@ -102,7 +102,7 @@ export default function AddIngestionTemplateModal({
             setFormData({
                 register_id: '',
                 data_model_id: '',
-                template_file_id: '',
+                template_document_id: '',
                 jsonld_expansion_required: false
             });
             setUploadedFileName('');
@@ -118,7 +118,7 @@ export default function AddIngestionTemplateModal({
         setFormData({
             register_id: '',
             data_model_id: '',
-            template_file_id: '',
+            template_document_id: '',
             jsonld_expansion_required: false
         });
 
@@ -162,10 +162,10 @@ export default function AddIngestionTemplateModal({
             <div className="flex gap-6">
                 <div className="flex-1">
                     <FileUploadField
-                        label={t('template_id')}
+                        label={t('template')}
                         fileInputRef={fileInputRef}
                         uploading={uploading}
-                        fileId={formData.template_file_id}
+                        fileId={formData.template_document_id}
                         fileName={uploadedFileName}
                         onFileChange={handleFileChange}
                         onRemove={handleRemoveFile}

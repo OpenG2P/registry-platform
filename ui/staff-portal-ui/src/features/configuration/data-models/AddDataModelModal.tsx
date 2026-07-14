@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { useFileUpload } from '../shared/hooks/useFileUpload';
-import { BaseModal, InputField, FileUploadField, CheckboxField, TextAreaField } from '../shared/components';
+import { BaseModal, InputField, FileUploadField, TextAreaField } from '../shared/components';
 import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
 
@@ -27,13 +27,13 @@ export default function AddDataModelModal({
     const [formData, setFormData] = useState({
         data_model_mnemonic: '',
         pattern_for_data_model: '',
-        response_template_file_id: '',
+        response_template_document_id: '',
         is_active: true,
     });
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload("/api/configuration/data-models/template-upload");
+    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload();
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -61,7 +61,7 @@ export default function AddDataModelModal({
             return;
         }
 
-        let documentId = formData.response_template_file_id;
+        let documentId = formData.response_template_document_id;
         if (selectedFile) {
             documentId = await uploadFile(selectedFile);
         }
@@ -72,7 +72,7 @@ export default function AddDataModelModal({
                 method: 'POST',
                 body: JSON.stringify({
                     ...formData,
-                    response_template_file_id: documentId,
+                    response_template_document_id: documentId,
                 }),
             }
         );
@@ -83,7 +83,7 @@ export default function AddDataModelModal({
             setFormData({
                 data_model_mnemonic: '',
                 pattern_for_data_model: '',
-                response_template_file_id: '',
+                response_template_document_id: '',
                 is_active: true,
             });
 
@@ -98,7 +98,7 @@ export default function AddDataModelModal({
         setFormData({
             data_model_mnemonic: '',
             pattern_for_data_model: '',
-            response_template_file_id: '',
+            response_template_document_id: '',
             is_active: true,
         });
         onClose();
@@ -137,27 +137,16 @@ export default function AddDataModelModal({
 
             <div className="grid grid-cols-2 gap-6">
                 <FileUploadField
-                    label={t('template_id')}
+                    label={t('template')}
                     fileInputRef={fileInputRef}
                     uploading={uploading}
-                    fileId={formData.response_template_file_id}
+                    fileId={formData.response_template_document_id}
                     fileName={uploadedFileName}
                     onFileChange={handleFileChange}
                     onRemove={handleRemoveFile}
                     accept={TEMPLATE_ACCEPT}
                     helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
                 />
-
-                {/* <CheckboxField
-                    label={t('status')}
-                    checked={formData.is_active}
-                    onChange={(value) =>
-                        setFormData((prev) => ({
-                            ...prev,
-                            is_active: value,
-                        }))
-                    }
-                /> */}
             </div>
         </BaseModal>
     );
