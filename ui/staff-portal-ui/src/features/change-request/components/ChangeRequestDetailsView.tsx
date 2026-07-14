@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { TabsLayout } from "@/components/shared";
 import { ChangeRequestHeader } from "@/features/change-request/components";
@@ -11,8 +11,15 @@ import {
     createWidgetStore,
 } from "@openg2p/registry-widgets";
 import { useTranslations } from "next-intl";
-import { useChangeRequestManager, useRegisterSectionsFromCR } from "@/features/change-request/hooks";
-import { useApprovals } from "@/features/approval/hooks/useApprovals";
+import {
+    useChangeRequest,
+    useChangeRequestDocuments,
+    useRegisterSectionsFromCR,
+} from "@/features/change-request/hooks";
+import {
+    useApprovalTasks,
+    useSubmitApprovalDecision,
+} from "@/features/approval/hooks";
 import { parseAweCurrentStage } from "@/features/approval/utils/aweStatusSummary";
 import { REGISTRY_CHANGE_REQUEST_ARTIFACT } from "@/features/approval/constants";
 import { useFetch } from "@/shared/hooks/useFetch";
@@ -36,13 +43,8 @@ interface Props {
 
 export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props) {
     const t = useTranslations();
-    const {
-        details,
-        documents,
-        loadingDetails,
-        loadingDocuments,
-        refetchDetails,
-    } = useChangeRequestManager(changeId);
+    const { details, loadingDetails, refetchDetails } = useChangeRequest(changeId);
+    const { documents, loading: loadingDocuments } = useChangeRequestDocuments(changeId);
 
     const approvalArtifactContext = useMemo(() => {
         if (!details?.change_request_id) return null;
@@ -55,10 +57,17 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
         };
     }, [details?.change_request_id, details?.awe_request_status_summary]);
 
-    const { tasks, loadingTasks, submitDecision } = useApprovals(
-        details?.awe_request_id,
+    const { tasks, loadingTasks, refetchTasks } = useApprovalTasks(details?.awe_request_id);
+
+    const refreshAfterDecision = useCallback(async () => {
+        await refetchTasks();
+        // Header reads CR approval_status — refetch after tasks so backend status is committed
+        await refetchDetails();
+    }, [refetchTasks, refetchDetails]);
+
+    const { submitDecision } = useSubmitApprovalDecision(
         approvalArtifactContext,
-        refetchDetails,
+        refreshAfterDecision,
     );
 
     const sequenceCheckOptions = useMemo(
@@ -91,6 +100,7 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
             buildSectionDataMap(
                 sectionRegisterId,
                 details?.change_payload,
+                details?.documents || null,
                 isListSection
             ),
         [details?.change_payload, isListSection, sectionRegisterId]
@@ -101,6 +111,7 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
             buildSectionDataMap(
                 sectionRegisterId,
                 details?.current_register_data,
+                details?.documents || null,
                 isListSection
             ),
         [details?.current_register_data, isListSection, sectionRegisterId]
@@ -110,13 +121,12 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
         <TabsLayout breadcrumb={breadcrumb}>
             <div className="flex gap-7.5">
                 <div className="w-full lg:w-[75%]">
-                    {loadingDetails || loadingDocuments ? (
+                    {!details && (loadingDetails || loadingDocuments) ? (
                         <CRHeaderSkeleton />
                     ) : (
                         details && (
                             <ChangeRequestHeader
                                 details={details}
-                                verificationCount={details.no_of_verifications_done ?? 0}
                                 documents={documents}
                             />
                         )

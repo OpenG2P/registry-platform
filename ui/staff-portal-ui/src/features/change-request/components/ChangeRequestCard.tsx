@@ -43,9 +43,9 @@ export default function ChangeRequestCard({
                 </h3>
                 <h3
                     className="min-w-0 flex-1 text-right text-[20px] font-semibold leading-snug tracking-tight text-neutral-first line-clamp-2 md:text-[22px]"
-                    title={changeRequest.section_mnemonic?.trim() || undefined}
+                    title={t(changeRequest.section_mnemonic?.trim() || '—')}
                 >
-                    {changeRequest.section_mnemonic?.trim() || '—'}
+                    {t(changeRequest.section_mnemonic?.trim() || '—')}
                 </h3>
             </div>
 

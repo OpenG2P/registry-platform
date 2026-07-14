@@ -41,7 +41,7 @@ export default function IntakeFormSubmissionView({
         submission,
         section_payloads,
         loading: loadingSubmission,
-        execute: refetchSubmission,
+        refetchSubmission,
     } = useIntakeFormSubmission(submissionId);
 
     const intakeApprovalArtifactContext = useMemo(() => {
@@ -59,7 +59,7 @@ export default function IntakeFormSubmissionView({
     const { sections, form_name, form_description, loading: loadingSections } =
         useIntakeFormDetails(intakeFormId);
 
-    const loading = loadingSubmission || loadingSections;
+    const loading = loadingSubmission || (!sections && loadingSections);
     const isDraft = submission?.draft_status === 'DRAFT';
 
     const { handleAction, FormActionModals, recordName } = useIntakeFormSectionAction({
@@ -97,8 +97,6 @@ export default function IntakeFormSubmissionView({
         () => buildIntakeSectionsDataMap(section_payloads),
         [section_payloads]
     );
-
-    console.log(sectionDataMap, 'sectionDataMap');
 
     return (
         <div className="min-h-screen mx-auto bg-secondary-first">
@@ -143,9 +141,7 @@ export default function IntakeFormSubmissionView({
                                     isPending={
                                         !isDraft && submission?.approval_status === 'PENDING'
                                     }
-                                    onRefresh={async () => {
-                                        await refetchSubmission();
-                                    }}
+                                    onRefresh={refetchSubmission}
                                 />
                             </div>
                         )}

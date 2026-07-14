@@ -14,11 +14,12 @@ export default function TaskIntakeFormDetailPage() {
     const breadcrumb = useMemo(
         () => [
             { label: t('tasks'), href: '/tasks/intake-form' },
-            { label: t('tasks_intake') },
+            { label: t('tasks_intake'), href: '/tasks/intake-form' },
             {
                 label: t('register_intake_form', {
                     subject: currentRegister?.register_subject || t('register'),
                 }),
+                href: '/tasks/intake-form',
             },
             {
                 label: submissionId ? `${t('id')}-${submissionId}` : '',

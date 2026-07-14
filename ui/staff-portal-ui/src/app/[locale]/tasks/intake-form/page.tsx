@@ -11,7 +11,7 @@ export default function IntakeFormTasksPage() {
             fixedArtifactFilter="intake_form"
             listBasePath="/tasks/intake-form"
             breadcrumb={[
-                { label: t('tasks') },
+                { label: t('tasks'), href: '/tasks/intake-form' },
                 { label: t('tasks_intake') },
             ]}
         />

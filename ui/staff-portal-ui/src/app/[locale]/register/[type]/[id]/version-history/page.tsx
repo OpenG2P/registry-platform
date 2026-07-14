@@ -8,7 +8,10 @@ import {
 } from '@openg2p/registry-widgets';
 import { CapsuleDropdown, TabsLayout } from '@/components/shared';
 import { ApprovalList, ApprovalListSkeleton } from '@/features/approval/components';
-import { useApprovals } from '@/features/approval/hooks/useApprovals';
+import {
+    useApprovalTasks,
+    useSubmitApprovalDecision,
+} from '@/features/approval/hooks';
 import { useTranslations } from 'next-intl';
 import { useRegisterTabs } from '@/context/RegisterTabsContext';
 import { useBreadcrumb, useFetch } from '@/shared/hooks';
@@ -173,7 +176,8 @@ export default function VersionHistoryPage() {
 
     const aweRequestId = selectedChangeRequestId?.request_id ?? null;
 
-    const { tasks, loadingTasks, submitDecision } = useApprovals(aweRequestId);
+    const { tasks, loadingTasks, refetchTasks } = useApprovalTasks(aweRequestId);
+    const { submitDecision } = useSubmitApprovalDecision(null, refetchTasks);
 
     /* ───────── Handle dates response ───────── */
     useEffect(() => {
@@ -256,6 +260,7 @@ export default function VersionHistoryPage() {
             buildSectionDataMap(
                 changeRequestData?.section_register_id ?? '',
                 changeRequestData?.change_payload,
+                changeRequestData?.documents || null,
                 !!changeRequestData?.is_list
             ),
         [changeRequestData]
