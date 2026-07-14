@@ -14,8 +14,8 @@
           "widget-label": "Location Hierarchy",
           "widget-required": true,
           "widget-data-path": {
-            "value": "register-id.geo_lowest_level_value_id",
-            "hierarchy": "register-id.geo_code_hierarchy_json"
+            "value": "a0000000-0000-4000-8000-000000000001.geo_lowest_level_value_id",
+            "hierarchy": "a0000000-0000-4000-8000-000000000001.geo_code_hierarchy_json"
           },
           "widget-data-source": {
             "type": "api",

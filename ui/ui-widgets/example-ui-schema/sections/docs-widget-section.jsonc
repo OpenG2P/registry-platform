@@ -1,6 +1,6 @@
 {
-  "section-id": "individual_supporting_documents",
-  "section-title": "supporting_documents",
+  "section-id": "individual_documents",
+  "section-title": "individual_documents",
   "section-editable": true,
   "section-column-span": 3,
   "panels": [
@@ -12,7 +12,7 @@
           "widget-type": "input",
           "widget-id": "individual_docs",
           "widget-label": "Supporting Documents",
-          "widget-data-path": "register-id.supporting_documents",
+          "widget-data-path": "a0000000-0000-4000-8000-000000000001s.documents",
           "widget-total-docs": 9,
           "documents": [
             {

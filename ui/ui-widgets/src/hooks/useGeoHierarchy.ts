@@ -9,10 +9,12 @@ import {
   GeoLevel,
   GeoLevelValue,
   GeoSelectOption,
+  buildHierarchyJson,
   buildOrderedLevels,
   buildReadonlyPath,
   chainMatchesStoredValue,
   clearDescendants,
+  formatHierarchyForPersist,
   resolveHierarchyJsonPath,
   formatLevelLabel,
   getDeepestSelectedValue,
@@ -72,7 +74,10 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
   const hierarchyJsonPath = useMemo(() => resolveHierarchyPath(config), [config]);
   const dataPath = useMemo(() => resolveDataPath(config), [config]);
 
-  /** Read-only base: geo_code_hierarchy_json is never written — schema first, then store. */
+  /**
+   * Approved hierarchy for hydrate/display: schema first, then store.
+   * Edits persist draft hierarchy into store values for save; schema keeps approved.
+   */
   const baseHierarchyJson = useMemo(() => {
     if (!hierarchyJsonPath) {
       return null;
@@ -202,9 +207,14 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     [fetchRawValues],
   );
 
-  /** Write only geo_lowest_level_value_id — never geo_code_hierarchy_json. */
+  /** Persist leaf id + current hierarchy structure for save (schema approved value stays preferred for read). */
   const persistDeepestValue = useCallback(
-    (nextSelectedValues: Record<string, string>, orderedLevels: GeoLevel[]) => {
+    (
+      nextSelectedValues: Record<string, string>,
+      orderedLevels: GeoLevel[],
+      nextOptions: Record<string, GeoSelectOption[]>,
+      nextResolvedLabels: Record<string, string>,
+    ) => {
       if (initializingRef.current || hydratingRef.current || isReadonly) {
         return;
       }
@@ -212,10 +222,25 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
       const deepest = getDeepestSelectedValue(orderedLevels, nextSelectedValues);
       selfPersistedValueRef.current = deepest ? String(deepest) : '';
 
+      const hierarchyDocument = buildHierarchyJson(
+        orderedLevels,
+        nextSelectedValues,
+        nextOptions,
+        nextResolvedLabels,
+      );
+      const hierarchyPayload = formatHierarchyForPersist(
+        hierarchyDocument,
+        baseHierarchyRef.current,
+      );
+
       const rawDataPath = config['widget-data-path'];
       const nextValue = deepest ?? null;
       if (rawDataPath && typeof rawDataPath === 'object') {
-        base.onChange({ value: nextValue });
+        const payload: Record<string, unknown> = { value: nextValue };
+        if ('hierarchy' in rawDataPath) {
+          payload.hierarchy = hierarchyPayload;
+        }
+        base.onChange(payload);
       } else {
         base.onChange(nextValue);
       }
@@ -401,9 +426,12 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
       setSelectedValues(nextSelectedValues);
       setOptions(cleared.options);
 
-      if (nextValue || Object.values(nextSelectedValues).some((value) => value)) {
-        persistDeepestValue(nextSelectedValues, levels);
-      }
+      persistDeepestValue(
+        nextSelectedValues,
+        levels,
+        cleared.options,
+        resolvedLabels,
+      );
 
       if (!nextValue || levelIndex >= levels.length - 1) {
         return;
@@ -418,7 +446,15 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
         setGeoError(message);
       }
     },
-    [isReadonly, levels, selectedValues, options, persistDeepestValue, loadOptionsForLevel],
+    [
+      isReadonly,
+      levels,
+      selectedValues,
+      options,
+      resolvedLabels,
+      persistDeepestValue,
+      loadOptionsForLevel,
+    ],
   );
 
   const readonlyPath = useMemo(

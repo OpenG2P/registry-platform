@@ -250,7 +250,8 @@ export interface BaseWidgetConfig {
   /** Column layout for geo-hierarchy widget (e.g. 3 levels per column). */
   'widget-geo-layout'?: GeoHierarchyLayout;
   /**
-   * Read path for geo_code_hierarchy_json (geo-hierarchy widget, edit-mode hydrate).
+   * Read path for geo_code_hierarchy_json (hydrate/display).
+   * To also persist draft hierarchy on edit/save, use object widget-data-path with a hierarchy key.
    */
   'widget-geo-hierarchy-path'?: string;
   widgets?: BaseWidgetConfig[];
