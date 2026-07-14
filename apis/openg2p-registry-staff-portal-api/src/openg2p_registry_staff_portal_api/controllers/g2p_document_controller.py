@@ -110,7 +110,7 @@ class G2PDocumentController(BaseController):
             )
         except Exception as error_exception:
             _logger.error(f"Error in upload_documents: {str(error_exception)}")
-            return self.helper.construct_documents_error_response(error_exception)
+            return self.helper.construct_error_response(error_exception)
 
     @require_permissions({"changeRequest:create"})
     async def delete_documents(
@@ -129,7 +129,7 @@ class G2PDocumentController(BaseController):
             )
         except Exception as error_exception:
             _logger.error(f"Error in delete_documents: {str(error_exception)}")
-            return self.helper.construct_delete_documents_error_response(error_exception)
+            return self.helper.construct_error_response(error_exception, request)
 
     @require_permissions({"register:view"})
     async def get_documents(
@@ -147,7 +147,7 @@ class G2PDocumentController(BaseController):
             )
         except Exception as error_exception:
             _logger.error(f"Error in get_documents: {str(error_exception)}")
-            return self.helper.construct_documents_error_response(error_exception)
+            return self.helper.construct_error_response(error_exception, request)
 
     @require_permissions({"changeRequest:view"})
     async def get_change_request_documents(
@@ -165,7 +165,7 @@ class G2PDocumentController(BaseController):
             )
         except Exception as error_exception:
             _logger.error(f"Error in get_change_request_documents: {str(error_exception)}")
-            return self.helper.construct_change_request_documents_error_response(error_exception)
+            return self.helper.construct_error_response(error_exception, request)
 
     @require_permissions({"intakeSubmission:view"})
     async def get_intake_form_documents(
@@ -183,7 +183,7 @@ class G2PDocumentController(BaseController):
             )
         except Exception as error_exception:
             _logger.error(f"Error in get_intake_form_documents: {str(error_exception)}")
-            return self.helper.construct_intake_form_documents_error_response(error_exception)
+            return self.helper.construct_error_response(error_exception, request)
 
     @require_permissions({"register:view"})
     async def get_section_documents(
@@ -201,4 +201,4 @@ class G2PDocumentController(BaseController):
             )
         except Exception as error_exception:
             _logger.error(f"Error in get_section_documents: {str(error_exception)}")
-            return self.helper.construct_section_documents_error_response(error_exception)
+            return self.helper.construct_error_response(error_exception, request)
