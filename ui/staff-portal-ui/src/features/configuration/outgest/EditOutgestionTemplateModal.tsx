@@ -6,6 +6,7 @@ import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { useFileUpload } from '../shared/hooks/useFileUpload';
 import { BaseModal, Field, FileUploadField } from '../shared/components';
+import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
 interface EditOutgestionTemplateModalProps {
     onClose: () => void;
@@ -42,11 +43,17 @@ export default function EditOutgestionTemplateModal({
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        e.target.value = '';
         if (!file) return;
 
+        const errorMessage = validateTemplateUpload(file, t);
+        if (errorMessage) {
+            toast.error(errorMessage);
+            return;
+        }
+
         setSelectedFile(file);
-        setUploadedFileName(file.name)
-        e.target.value = '';
+        setUploadedFileName(file.name);
     };
 
     const handleRemoveFile = () => {
@@ -105,6 +112,8 @@ export default function EditOutgestionTemplateModal({
                 fileName={uploadedFileName}
                 onFileChange={handleFileChange}
                 onRemove={handleRemoveFile}
+                accept={TEMPLATE_ACCEPT}
+                helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
             />
         </BaseModal>
     );

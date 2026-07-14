@@ -119,15 +119,3 @@ export interface SectionChanges {
     files?: unknown[];
 }
 
-export interface Verification {
-    verification_id: string;
-    verified_by: string;
-    verified_at: string;
-    verification_observations: string;
-    is_approved: boolean;
-}
-
-export interface VerificationStats {
-    totalRequired: number;
-    totalDone: number;
-}

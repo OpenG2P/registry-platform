@@ -10,13 +10,13 @@ from openg2p_registry_core.app import Initializer as CoreInitializer
 from openg2p_registry_extensions.app import Initializer as ExtensionsInitializer
 
 from iam_core.user_auth.app import Initializer as IAMInitializer
+from iam_core.user_auth.data_policy_middleware import DataPolicyMiddleware
 from iam_core.user_auth.middleware import (
     CsrfMiddleware,
     ResolvePermissionMiddleware,
     ValidateAndRefreshTokenMiddleware,
 )
 from openg2p_registry_staff_portal_api.audit_middleware import AuditMiddleware
-from openg2p_registry_staff_portal_api.data_policy_middleware import DataPolicyMiddleware
 
 # Server-to-server and pre-session browser flows (OAuth callback, AWE webhooks).
 REGISTRY_STAFF_CSRF_EXCLUDED_PATHS = (
@@ -54,6 +54,7 @@ app.add_middleware(
 app.add_middleware(ValidateAndRefreshTokenMiddleware)
 app.add_middleware(
     CsrfMiddleware,
+    enabled=_config.csrf_enabled,
     excluded_paths=REGISTRY_STAFF_CSRF_EXCLUDED_PATHS,
 )
 

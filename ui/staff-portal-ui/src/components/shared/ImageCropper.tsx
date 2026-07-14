@@ -10,9 +10,10 @@ interface ImageCropperProps {
     image: string;
     onCropComplete: (croppedImage: string) => void;
     onCancel: () => void;
+    lockAspect?: number;
 }
 
-export default function ImageCropper({ image, onCropComplete, onCancel }: ImageCropperProps) {
+export default function ImageCropper({ image, onCropComplete, onCancel, lockAspect }: ImageCropperProps) {
     const t = useTranslations();
     const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
@@ -21,6 +22,27 @@ export default function ImageCropper({ image, onCropComplete, onCancel }: ImageC
     const [inputWidth, setInputWidth] = useState<string>('1');
     const [inputHeight, setInputHeight] = useState<string>('1');
     const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
+    useEffect(() => {
+        if (lockAspect) {
+            setAspect(lockAspect);
+            setInputWidth('1');
+            setInputHeight(String(lockAspect));
+            return;
+        }
+
+        const img = new window.Image();
+        img.onload = () => {
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            if (w > 0 && h > 0) {
+                setAspect(w / h);
+                setInputWidth(String(w));
+                setInputHeight(String(h));
+            }
+        };
+        img.src = image;
+    }, [image, lockAspect]);
 
     useEffect(() => {
         const w = Number(inputWidth);

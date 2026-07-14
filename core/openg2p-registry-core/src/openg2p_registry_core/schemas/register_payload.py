@@ -544,6 +544,7 @@ class VersionForDateData(BaseModel):
     """Individual change record for a specific date"""
     change_request_id: str
     created_at: str
+    request_id: Optional[str] = None
 
 
 class VersionsForDateData(BaseModel):
@@ -828,6 +829,7 @@ class RegistryConfigurationData(BaseModel):
     configuration_id: str
     registry_name: str
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -839,6 +841,7 @@ class RegistryConfigurationPayload(BaseModel):
     """Payload for creating registry configuration"""
     registry_name: str
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -848,6 +851,7 @@ class RegistryConfigurationUpdatePayload(BaseModel):
     configuration_id: str
     registry_name: Optional[str] = None
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -1176,6 +1180,7 @@ class GetRegisterTabRecordsRequestPayload(BaseModel):
 class CreateRegistryConfigurationRequestPayload(BaseModel):
     registry_name: str
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -1184,6 +1189,7 @@ class UpdateRegistryConfigurationRequestPayload(BaseModel):
     configuration_id: str
     registry_name: Optional[str] = None
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -1331,6 +1337,14 @@ class DeleteAttributeRequestPayload(BaseModel):
 class GetAttributeValuesRequestPayload(BaseModel):
     attribute_id: Optional[str] = None
     parent_value_id: Optional[str] = None
+
+
+class GeoLevelValueData(BaseModel):
+    level_value_id: str
+    level_value_mnemonic: str
+    level_value_display: Optional[str] = None
+    parent_level_value_id: Optional[str] = None
+    level_mnemonic: Optional[str] = None
 
 
 class CreateAttributeValueRequestPayload(BaseModel):

@@ -16,8 +16,8 @@ from ..schemas.awe_proxy import (
     ClaimAweTaskRequestPayload,
     GetAweRequestEventsRequestPayload,
     GetAweRequestRequestPayload,
-    ListMyAweTasksRequestPayload,
-    ListTasksForRequestRequestPayload,
+    ListMyAweTasksPayload,
+    ListTasksForRequestPayload,
     MyAweTaskStatsRequestPayload,
     SubmitAweTaskDecisionRequestPayload,
 )
@@ -57,7 +57,7 @@ class G2PAweProxyControllerService(BaseService):
 
     async def list_my_tasks(
         self,
-        payload: ListMyAweTasksRequestPayload,
+        payload: ListMyAweTasksPayload,
         *,
         bearer_token: str,
     ) -> dict[str, Any]:
@@ -77,7 +77,7 @@ class G2PAweProxyControllerService(BaseService):
 
     async def list_tasks_for_request(
         self,
-        payload: ListTasksForRequestRequestPayload,
+        payload: ListTasksForRequestPayload,
         *,
         bearer_token: str,
     ) -> dict[str, Any]:

@@ -46,6 +46,12 @@ class RegistryDataPolicyTypeEnum(StrEnum):
     DISALLOW = "DISALLOW"
 
 
+class PolicyTargetEnum(StrEnum):
+    REGISTER_RECORD = "REGISTER_RECORD"
+    GEO = "GEO"
+    ATTRIBUTE = "ATTRIBUTE"
+
+
 class GenderEnum(StrEnum):
     MALE = "MALE"
     FEMALE = "FEMALE"

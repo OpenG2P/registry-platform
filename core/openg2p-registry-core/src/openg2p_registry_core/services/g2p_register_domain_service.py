@@ -56,6 +56,14 @@ class G2PRegisterDomainService(BaseService):
     def construct_record_name(self, payload: dict, extra: list[str] = None) -> str:
         raise NotImplementedError("Register Domain Service should be overridden by the domain service implementation")
 
+    def construct_intake_record_name(self, payload: dict, extra: list[str] = None) -> str:
+        """Build intake-form record_name; default appends application_reference when present."""
+        record_name = self.construct_record_name(payload, extra)
+        application_reference = str(payload.get("application_reference") or "").strip()
+        if application_reference and application_reference not in record_name:
+            return f"{record_name} {application_reference}".strip() if record_name else application_reference
+        return record_name
+
     def construct_search_text(self, payload: dict, extra: list[str] = None) -> str:
         raise NotImplementedError("Register Domain Service should be overridden by the domain service implementation")
 

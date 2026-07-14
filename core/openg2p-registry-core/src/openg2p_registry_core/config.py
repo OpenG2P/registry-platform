@@ -87,3 +87,6 @@ class Settings(IamSettings):
 
     keycloak_client_id: str = "registry-staff-portal"
     keycloak_realm: str = "staff"
+
+    # Intake submission application reference generation
+    application_reference_format: str = "{DATE:%Y%b%d|upper}-{SECONDS:5}{RAND:1}"

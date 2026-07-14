@@ -40,7 +40,8 @@ from .controller_services import (
     G2PAweProxyControllerService,
     G2PDataPolicyControllerService,
 )
-from .helpers import AweHelper, PatternMatcher, TemplateHelper, get_document_handler
+from .helpers import AweHelper, ApplicationReferenceGenerator, PatternMatcher, TemplateHelper, get_document_handler
+
 from .models import (
     DataModel,
     DeduplicationChangerequestResult,
@@ -51,7 +52,6 @@ from .models import (
     G2PIntakeFormDefinition,
     G2PIntakeFormSubmission,
     G2PIntakeFormSectionDocuments,
-    G2PIntakeFormSectionPayload,
     G2PIntakeFormUITab,
     G2PIntakeFormUITabSection,
     G2PRegisterChangeRequest,
@@ -154,6 +154,7 @@ class Initializer(BaseInitializer):
         get_document_handler()
         TemplateHelper()
         PatternMatcher()
+        ApplicationReferenceGenerator(_config.application_reference_format)
         KeymanagerCryptoHelper()
         AweHelper()
 
@@ -257,7 +258,6 @@ class Initializer(BaseInitializer):
             await G2PRegistryThemeValue.create_migrate()
             await G2PRegisterDocumentHistory.create_migrate()
             await G2PRegisterSectionDocument.create_migrate()
-            await G2PIntakeFormSectionPayload.create_migrate()
             await G2PIntakeFormSectionDocuments.create_migrate()
             await G2PRegisterChangeRequestPayload.create_migrate()
             await G2PRegisterChangeRequestDocument.create_migrate()

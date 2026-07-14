@@ -8,7 +8,7 @@ from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
 from openg2p_registry_core.services.g2p_completion_score_service import G2PCompletionScoreService
 from openg2p_registry_core.services.g2p_score_compute_service import G2PScoreComputeService
-from sqlalchemy import Date as SQLDate, func, inspect, select
+from sqlalchemy import Date as SQLDate, and_, exists, func, inspect, or_, select
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -53,6 +53,7 @@ from .g2p_awe_status_reconcile import (
 )
 from .g2p_register_domain_service import G2PRegisterDomainService
 from .g2p_register_history_service import G2PRegisterHistoryService
+from .g2p_register_service import G2PRegisterService
 
 _logger = logging.getLogger("g2p-register-change-request-service")
 _config = Settings.get_config(strict=False)
@@ -163,39 +164,47 @@ class G2PRegisterChangeRequestService(BaseService):
 
             return g2p_register_change_request
 
-    async def get_change_request_summary_data(self) -> ChangeRequestSummaryData:
+    async def get_change_request_summary_data(
+        self,
+        policy_mnemonics: list[str] | None = None,
+    ) -> ChangeRequestSummaryData:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            change_request_summary_data: ChangeRequestSummaryData = await self._fetch_change_request_summary_data(session)
+            change_request_summary_data: ChangeRequestSummaryData = await self._fetch_change_request_summary_data(
+                session, policy_mnemonics
+            )
             return change_request_summary_data
 
-    async def get_change_requests(self, subject_register_id: str, subject_record_id: str, tab_id: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None) -> tuple[list[ChangeRequestData], int]:
+    async def get_change_requests(
+        self,
+        subject_register_id: str,
+        subject_record_id: str,
+        tab_id: str,
+        current_page: int = 1,
+        page_size: int = 10,
+        sort_by: str = None,
+        filter_by: dict = None,
+        policy_mnemonics: list[str] | None = None,
+    ) -> tuple[list[ChangeRequestData], int]:
         """Get all change requests for a specific internal record and tab with pagination"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            # Validate register exists
-            await self.validate_register_definition(subject_register_id, session)
+            await self._ensure_subject_record_readable(
+                subject_register_id, subject_record_id, policy_mnemonics, session
+            )
             change_requests_list, total_items = await self._fetch_change_requests(subject_register_id, subject_record_id, tab_id, current_page, page_size, sort_by, filter_by, session)
             return change_requests_list, total_items
 
     async def get_change_request(
         self,
         change_request_id: str,
-        data_policy_mnemonics: list[str] | None = None,
+        policy_mnemonics: list[str] | None = None,
     ) -> ChangeRequestData:
         """Get a single change request by ID"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
+            await self._ensure_change_request_readable(change_request_id, policy_mnemonics, session)
             change_request_data: ChangeRequestData = await self._fetch_change_request(change_request_id, session)
-            if data_policy_mnemonics:
-                from .g2p_data_policy_service import G2PDataPolicyService
-
-                await G2PDataPolicyService.get_component().ensure_record_access(
-                    register_id=change_request_data.register_id,
-                    internal_record_id=change_request_data.internal_record_id,
-                    policy_mnemonics=data_policy_mnemonics,
-                    session=session,
-                )
             await session.commit()
             return change_request_data
 
@@ -235,12 +244,23 @@ class G2PRegisterChangeRequestService(BaseService):
                 approval_decision_blocked=approval_decision_blocked,
             )
 
-    async def get_change_requests_flattened(self, subject_register_id: str, subject_record_id: str, tab_id: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None) -> tuple[list[ChangeRequestFlattenedData], int]:
+    async def get_change_requests_flattened(
+        self,
+        subject_register_id: str,
+        subject_record_id: str,
+        tab_id: str,
+        current_page: int = 1,
+        page_size: int = 10,
+        sort_by: str = None,
+        filter_by: dict = None,
+        policy_mnemonics: list[str] | None = None,
+    ) -> tuple[list[ChangeRequestFlattenedData], int]:
         """Get all change requests for a specific internal record and tab with flattened change_payload fields"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            # Validate register exists
-            await self.validate_register_definition(subject_register_id, session)
+            await self._ensure_subject_record_readable(
+                subject_register_id, subject_record_id, policy_mnemonics, session
+            )
             change_requests_list, total_items = await self._fetch_change_requests_flattened(subject_register_id, subject_record_id, tab_id, current_page, page_size, sort_by, filter_by, session)
             return change_requests_list, total_items
 
@@ -282,6 +302,8 @@ class G2PRegisterChangeRequestService(BaseService):
             await self.validate_change_request_verifications(change_request, session)
         if not skip_sequence_check:
             await self.validate_change_request_sequence(change_request, session)
+
+        await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
         if register_section.section_register_id == register_section.register_id:
             await self.approve_register(change_request, register_section, session)
@@ -436,7 +458,9 @@ class G2PRegisterChangeRequestService(BaseService):
 
         _logger.info(f"Approving primary master section change request: {change_request}")
         register_section = await self.validate_change_request_core(change_request, session, skip_verification, skip_sequence_check)
-        
+
+        await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
+
         # In case of approval, insert data into register_history
         await self.insert_into_register_history(change_request, session)
         # Upsert data into register
@@ -472,6 +496,7 @@ class G2PRegisterChangeRequestService(BaseService):
         register_section = await self.validate_change_request_core(
             change_request, session, skip_verification, skip_sequence_check
         )
+        await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
         await self.insert_into_register_history(change_request, session)
         await self.insert_non_primary_master_section_into_register(
             change_request, change_request.internal_record_id, session
@@ -616,7 +641,9 @@ class G2PRegisterChangeRequestService(BaseService):
 
         _logger.info(f"Approving child section change request: {change_request}")
         register_section = await self.validate_change_request_core(change_request, session, skip_verification, skip_sequence_check)
-        
+
+        await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
+
         # In case of approval, insert data into register_history
         await self.insert_into_register_history(change_request, session)
         # Upsert data into register
@@ -808,6 +835,16 @@ class G2PRegisterChangeRequestService(BaseService):
         change_request.approved_by = actor_name or "system"
         change_request.approved_at = datetime.now()
         session.add(change_request)
+
+    async def _run_pre_approve_hook(
+        self,
+        register_id: str,
+        change_request: G2PRegisterChangeRequest,
+        session,
+    ) -> None:
+        register_definition = await self.validate_register_definition(register_id, session)
+        domain_service = self._get_required_domain_service(register_definition.register_mnemonic)
+        await domain_service.pre_approve(change_request, session)
 
     async def _run_post_approve_hook(
         self,
@@ -1089,6 +1126,111 @@ class G2PRegisterChangeRequestService(BaseService):
         schema_class = getattr(schema_module, f"{_REGISTER_SCHEMA_CLASS_PREFIX}{register_definition.register_mnemonic}")
         return register_definition, register_class, schema_class
 
+    async def _ensure_subject_record_readable(
+        self,
+        subject_register_id: str,
+        subject_record_id: str,
+        policy_mnemonics: list[str] | None,
+        session: AsyncSession,
+    ) -> None:
+        """Raise if the subject register record is missing or blocked by data policy."""
+        _, register_class, _ = await self._get_register_class_and_schema(subject_register_id, session)
+        await G2PRegisterService.get_component()._ensure_register_record_readable(
+            subject_register_id,
+            subject_record_id,
+            register_class,
+            policy_mnemonics,
+            session,
+        )
+
+    async def _ensure_change_request_readable(
+        self,
+        change_request_id: str,
+        policy_mnemonics: list[str] | None,
+        session: AsyncSession,
+    ) -> G2PRegisterChangeRequest:
+        """Raise if the change request is missing or its subject record is blocked by data policy."""
+        change_request = (
+            await session.execute(
+                select(G2PRegisterChangeRequest).where(
+                    G2PRegisterChangeRequest.change_request_id == change_request_id
+                )
+            )
+        ).scalar_one_or_none()
+        if change_request is None:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.CHANGE_REQUEST_NOT_FOUND.value[1],
+                message=G2PRegistryErrorCodes.CHANGE_REQUEST_NOT_FOUND.value[0],
+            )
+        await self._ensure_subject_record_readable(
+            change_request.register_id,
+            change_request.internal_record_id,
+            policy_mnemonics,
+            session,
+        )
+        return change_request
+
+    async def _build_change_request_search_policy_condition(
+        self,
+        policy_mnemonics: list[str] | None,
+        session: AsyncSession,
+    ):
+        """OR across registers: CR visible when its subject record passes that register's policy."""
+        if not policy_mnemonics:
+            return None
+
+        register_definitions = (
+            await session.execute(select(G2PRegisterDefinition))
+        ).scalars().all()
+        if not register_definitions:
+            return None
+
+        register_service = G2PRegisterService.get_component()
+        model_module = importlib.import_module(_DOMAIN_MODELS_MODULE)
+        register_clauses = []
+
+        for register_definition in register_definitions:
+            try:
+                implementation_class = getattr(
+                    model_module,
+                    f"{_REGISTER_CLASS_PREFIX}{register_definition.register_mnemonic}",
+                )
+            except AttributeError:
+                _logger.warning(
+                    "Could not resolve register model for mnemonic %s; excluding from change request search",
+                    register_definition.register_mnemonic,
+                )
+                continue
+
+            policy_condition = await register_service._build_register_policy_condition(
+                register_definition.register_id,
+                implementation_class,
+                policy_mnemonics,
+                session,
+            )
+
+            if policy_condition is not None:
+                readable_subject = exists(
+                    select(1).select_from(implementation_class).where(
+                        implementation_class.internal_record_id == G2PRegisterChangeRequest.internal_record_id,
+                        policy_condition,
+                    )
+                )
+                register_clauses.append(
+                    and_(
+                        G2PRegisterChangeRequest.register_id == register_definition.register_id,
+                        readable_subject,
+                    )
+                )
+            else:
+                register_clauses.append(
+                    G2PRegisterChangeRequest.register_id == register_definition.register_id
+                )
+
+        if not register_clauses:
+            return None
+        return or_(*register_clauses)
+
     async def _get_existing_record(self, register_class, internal_record_id: str, session):
         return (
             await session.execute(
@@ -1282,10 +1424,18 @@ class G2PRegisterChangeRequestService(BaseService):
         g2p_register_change_request._payload = change_request_payload_obj
         return g2p_register_change_request
 
-    async def _fetch_change_request_summary_data(self, session) -> ChangeRequestSummaryData:
-        total_count: int = await self._count_all_change_requests(None, session)
-        approved_count: int = await self._count_all_change_requests(ApprovalStatusEnum.APPROVED.value, session)
-        pending_count: int = await self._count_all_change_requests(ApprovalStatusEnum.PENDING.value, session)
+    async def _fetch_change_request_summary_data(
+        self,
+        session,
+        policy_mnemonics: list[str] | None = None,
+    ) -> ChangeRequestSummaryData:
+        total_count: int = await self._count_all_change_requests(None, session, policy_mnemonics)
+        approved_count: int = await self._count_all_change_requests(
+            ApprovalStatusEnum.APPROVED.value, session, policy_mnemonics
+        )
+        pending_count: int = await self._count_all_change_requests(
+            ApprovalStatusEnum.PENDING.value, session, policy_mnemonics
+        )
 
         change_request_summary_data: ChangeRequestSummaryData = ChangeRequestSummaryData(
             total_count=total_count,
@@ -1295,10 +1445,24 @@ class G2PRegisterChangeRequestService(BaseService):
 
         return change_request_summary_data
 
-    async def _count_all_change_requests(self, approval_status: str | None, session) -> int:
-        query = select(func.count()).select_from(G2PRegisterChangeRequest)
+    async def _count_all_change_requests(
+        self,
+        approval_status: str | None,
+        session,
+        policy_mnemonics: list[str] | None = None,
+    ) -> int:
+        conditions = []
         if approval_status is not None:
-            query = query.where(G2PRegisterChangeRequest.approval_status == approval_status)
+            conditions.append(G2PRegisterChangeRequest.approval_status == approval_status)
+        policy_condition = await self._build_change_request_search_policy_condition(
+            policy_mnemonics, session
+        )
+        if policy_condition is not None:
+            conditions.append(policy_condition)
+
+        query = select(func.count()).select_from(G2PRegisterChangeRequest)
+        if conditions:
+            query = query.where(*conditions)
         result = await session.execute(query)
         return result.scalar_one()
 
@@ -1312,24 +1476,49 @@ class G2PRegisterChangeRequestService(BaseService):
         count: int = (await session.execute(query)).scalar_one()
         return count
 
-    async def search_in_change_request(self, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None) -> tuple[list[ChangeRequestSearchResultData], int]:
+    async def search_in_change_request(
+        self,
+        search_text: str,
+        current_page: int = 1,
+        page_size: int = 10,
+        sort_by: str = None,
+        filter_by: dict = None,
+        *,
+        policy_mnemonics: list[str] | None = None,
+    ) -> tuple[list[ChangeRequestSearchResultData], int]:
         """Search in change requests using search_text field with pagination"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            search_results, total_items = await self._search_in_change_request(search_text, current_page, page_size, filter_by, session, sort_by)
+            search_results, total_items = await self._search_in_change_request(
+                search_text, current_page, page_size, filter_by, session, sort_by, policy_mnemonics
+            )
             return search_results, total_items
 
-    async def _search_in_change_request(self, search_text: str, current_page: int, page_size: int, filter_by: dict, session, sort_by: str = None) -> tuple[list[ChangeRequestSearchResultData], int]:
+    async def _search_in_change_request(
+        self,
+        search_text: str,
+        current_page: int,
+        page_size: int,
+        filter_by: dict,
+        session,
+        sort_by: str = None,
+        policy_mnemonics: list[str] | None = None,
+    ) -> tuple[list[ChangeRequestSearchResultData], int]:
         """Helper method to search in change requests with pagination"""
         search_query = f"%{search_text}%"
+
+        search_conditions = [G2PRegisterChangeRequestPayload.search_text.ilike(search_query)]
+        policy_condition = await self._build_change_request_search_policy_condition(
+            policy_mnemonics, session
+        )
+        if policy_condition is not None:
+            search_conditions.append(policy_condition)
 
         # Build base query
         base_query = select(G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload).join(
             G2PRegisterChangeRequestPayload,
             G2PRegisterChangeRequest.change_request_id == G2PRegisterChangeRequestPayload.change_request_id
-        ).where(
-            G2PRegisterChangeRequestPayload.search_text.ilike(search_query)
-        )
+        ).where(*search_conditions)
 
         # Apply sorting
         if sort_by:
@@ -1356,9 +1545,7 @@ class G2PRegisterChangeRequestService(BaseService):
         count_result = await session.execute(select(func.count()).select_from(G2PRegisterChangeRequest).join(
             G2PRegisterChangeRequestPayload,
             G2PRegisterChangeRequest.change_request_id == G2PRegisterChangeRequestPayload.change_request_id
-        ).where(
-            G2PRegisterChangeRequestPayload.search_text.ilike(search_query)
-        ))
+        ).where(*search_conditions))
         total_items = count_result.scalar() or 0
 
         # Apply pagination
