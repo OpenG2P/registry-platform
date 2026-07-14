@@ -1,5 +1,2 @@
-// Shared services
-// API service, storage service, external integrations, etc.
-
-export {};
-
+export { dataSourceRequestHandler } from './dataSourceRequestHandler';
+export type { DataSourceRequestHandler } from './dataSourceRequestHandler';

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import { useWidgetTranslation } from '../../hooks/useWidgetTranslation';
 import { useWidgetTheme } from '../../hooks/useWidgetTheme';
 import { themeToCSSVariables } from '../../theme';
 import { useWidgetContext } from '../WidgetProvider';
@@ -50,7 +49,6 @@ export const SectionRenderer = ({
   onEditModeChange,
   forceExitEdit,
 }: SectionRendererProps) => {
-  const { translateConfig, translate } = useWidgetTranslation();
   const resolvedTheme = useWidgetTheme();
   const portalCSSVariables = useMemo(
     () => themeToCSSVariables(resolvedTheme),
@@ -171,8 +169,6 @@ export const SectionRenderer = ({
         sectionId={sectionId}
         gridId={gridId}
         sectionTitle={section['section-title']}
-        translateConfig={translateConfig}
-        translate={translate}
         portalCSSVariables={portalCSSVariables}
         editableSection={editableSection}
         dataSourceRequestHandler={dataSourceRequestHandler}
@@ -238,8 +234,6 @@ export const SectionRenderer = ({
             isAccessible={isAccessible}
             isDraft={isDraft}
             intakeFormSectionStatus={intakeFormSectionStatus}
-            translateConfig={translateConfig}
-            translate={translate}
             editableSection={editableSection}
             supportingDocuments={supportingDocuments}
             hasSupportingDocuments={hasSupportingDocuments}
@@ -255,8 +249,6 @@ export const SectionRenderer = ({
             mode={mode}
             section={section}
             gridId={gridId}
-            translateConfig={translateConfig}
-            translate={translate}
             editableSection={editableSection}
             dataSourceRequestHandler={dataSourceRequestHandler}
             schemaData={schemaData}

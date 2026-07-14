@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 			},
 			request_payload: {
 				level_id: body.level_id,
-				parent_level_value_id: body.parent_level_value_id,
+				parent_level_value_id: body.parent_level_value_id ?? "",
 			}
 		})
 	});

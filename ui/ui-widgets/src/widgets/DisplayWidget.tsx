@@ -1,7 +1,8 @@
 import React from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 
 
 interface DisplayWidgetProps {
@@ -15,7 +16,7 @@ export const DisplayWidget = ({ config }: DisplayWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const getDisplayValue = (val: any): string => {
     if (val === null || val === undefined) {
@@ -27,9 +28,6 @@ export const DisplayWidget = ({ config }: DisplayWidgetProps) => {
     }
     
     if (typeof val === 'object' && !Array.isArray(val)) {
-      if ('geo_lowest_level_value_id' in val) {
-        return String(val.geo_lowest_level_value_id || '');
-      }
       if ('value' in val) {
         return String(val.value || '');
       }
@@ -49,7 +47,7 @@ export const DisplayWidget = ({ config }: DisplayWidgetProps) => {
   const displayValue = formattedValue !== undefined 
     ? (typeof formattedValue === 'object' ? getDisplayValue(formattedValue) : String(formattedValue))
     : getDisplayValue(value);
-  const label = translateConfig(widgetConfig['widget-label']);
+  const label = tSchema(t, widgetConfig['widget-label']);
 
   if (!label || label.trim() === '') {
     return (

@@ -5,6 +5,8 @@ import { SectionConfig, SupportingDocumentConfig } from '../../../types';
 import { UseBaseWidgetOptions } from '../../../hooks/useBaseWidget';
 import { DataSourceRequestHandler } from '../../../types';
 import { SectionMode } from '../../SectionsContainer';
+import { useWidgetContext } from '../../WidgetProvider';
+import { tSchema } from '../../../utils/tSchema';
 import { PanelGrid } from './PanelGrid';
 import { SupportingDocuments } from './SupportingDocuments';
 import { SectionEditControls } from './SectionEditControls';
@@ -17,8 +19,6 @@ export interface EditSectionPortalProps {
   sectionId: string;
   gridId: string;
   sectionTitle?: string;
-  translateConfig: (key: string) => string;
-  translate: (key: string) => string;
   portalCSSVariables: CSSProperties;
   editableSection: SectionConfig;
   dataSourceRequestHandler?: DataSourceRequestHandler;
@@ -39,8 +39,6 @@ export const EditSectionPortal = ({
   sectionId,
   gridId,
   sectionTitle,
-  translateConfig,
-  translate,
   portalCSSVariables,
   editableSection,
   dataSourceRequestHandler,
@@ -52,6 +50,7 @@ export const EditSectionPortal = ({
   onCancel,
   onSave,
 }: EditSectionPortalProps) => {
+  const { t } = useWidgetContext();
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(true);
 
   if (mode === 'IntakeForm' || !isEditMode || !editSectionPosition) return null;
@@ -121,7 +120,7 @@ export const EditSectionPortal = ({
             className="text-xl font-semibold mb-4"
             style={{ fontFamily: 'Roboto, sans-serif', marginTop: '35px' }}
           >
-            {translateConfig(sectionTitle)}
+            {tSchema(t, sectionTitle)}
           </h2>
         )}
         <div id={editGridId} className="section-panels">
@@ -150,7 +149,6 @@ export const EditSectionPortal = ({
               sectionId={sectionId}
               documents={supportingDocuments}
               mode={mode}
-              translate={translate}
               expanded={isDocumentsExpanded}
               onToggleExpanded={() => setIsDocumentsExpanded(!isDocumentsExpanded)}
               collapsible
@@ -167,7 +165,6 @@ export const EditSectionPortal = ({
             }}
           />
           <SectionEditControls
-            translate={translate}
             onCancel={onCancel}
             onSave={onSave}
             isDirty={isDirty}

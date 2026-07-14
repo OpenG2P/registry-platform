@@ -1,7 +1,8 @@
 import React from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 
@@ -12,7 +13,6 @@ interface SelectWidgetProps {
 export const SelectWidget = ({ config }: SelectWidgetProps) => {
   const {
     value,
-    geoDisplayLabel,
     error,
     touched,
     isEnabled,
@@ -24,18 +24,18 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     const selectedOption = dataSourceOptions.find(
       (option) => option.value === value || String(option.value) === String(value)
     );
     const displayValue = selectedOption
-      ? translateConfig(selectedOption.label)
+      ? tSchema(t, selectedOption.label)
       : loading
-        ? (geoDisplayLabel || '-')
-        : (geoDisplayLabel || (value != null && value !== '' ? translateConfig(String(value)) : '-'));
+        ? '-'
+        : (value != null && value !== '' ? tSchema(t, String(value)) : '-');
     
     return (
       <div className="mb-[10px] SelectDisplayWidget flex flex-col sm:flex-row sm:items-start">
@@ -58,7 +58,7 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
@@ -73,17 +73,17 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
                 : 'border-gray-300'
             } ${!isEnabled || loading || widgetConfig['widget-readonly'] ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
             style={{ borderRadius: '10px' }}
-            title={translateConfig(widgetConfig['widget-data-tooltip'])}
+            title={tSchema(t, widgetConfig['widget-data-tooltip'])}
           >
-            <option value="">{translate('common.select')}</option>
+            <option value="">{t?.('common.select')}</option>
             {dataSourceOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {translateConfig(option.label)}
+                {tSchema(t, option.label)}
               </option>
             ))}
           </select>
           {loading && (
-            <p className="text-sm text-gray-500 mt-1">{translate('common.loadingOptions')}</p>
+            <p className="text-sm text-gray-500 mt-1">{t?.('common.loadingOptions')}</p>
           )}
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>

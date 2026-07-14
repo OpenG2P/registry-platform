@@ -5,7 +5,7 @@ import {
     WidgetProvider,
     SectionRenderer,
 } from "@openg2p/registry-widgets";
-import { dataSourceRequestHandler } from "@/features/register/utils/dataSourceRequestHandler";
+import { dataSourceRequestHandler } from "@/shared/services";
 import { useDeduplication } from "@/features/change-request/hooks";
 import DeduplicationCard from "./DeduplicationCard";
 
@@ -76,7 +76,7 @@ export function ChangeRequestValuesTabs({
                     <WidgetProvider
                         store={widgetStoreNew}
                         schemaData={newSectionData}
-                        translate={t}
+                        t={t}
                         dataSourceRequestHandler={dataSourceRequestHandler}
                     >
                         <SectionRenderer
@@ -90,7 +90,7 @@ export function ChangeRequestValuesTabs({
                     <WidgetProvider
                         store={widgetStoreOld}
                         schemaData={oldSectionData}
-                        translate={t}
+                        t={t}
                         dataSourceRequestHandler={dataSourceRequestHandler}
                     >
                         <SectionRenderer

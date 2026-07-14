@@ -41,7 +41,7 @@ export const SpecialSectionsExample = () => {
     <WidgetProvider
       store={store}
       schemaData={specialSectionsSchemaData}
-      translate={translateFn}
+      t={translateFn}
       dataSourceRequestHandler={dataSourceRequestHandler}
     >
       <div style={{

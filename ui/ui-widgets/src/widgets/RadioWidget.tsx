@@ -1,7 +1,8 @@
 import React, { useMemo, useCallback } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 interface RadioWidgetProps {
@@ -22,7 +23,7 @@ export const RadioWidget = ({ config }: RadioWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const layout = formatConfig?.layout || widgetConfig['widget-orientation'] || 'vertical';
@@ -83,10 +84,10 @@ export const RadioWidget = ({ config }: RadioWidgetProps) => {
   }, [layout, processedOptions.length]);
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     const selectedOption = processedOptions.find(opt => opt.value === currentValue);
     const displayValue = selectedOption
-      ? translateConfig(selectedOption.label)
+      ? tSchema(t, selectedOption.label)
       : (allowUnset && currentValue === null ? '-' : '');
 
     return (
@@ -110,13 +111,13 @@ export const RadioWidget = ({ config }: RadioWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
           <div className={layoutConfig.className} style={layoutConfig.style} onBlur={onBlur}>
             {loading ? (
-              <p className="text-sm text-gray-500">{translate('common.loading')}</p>
+              <p className="text-sm text-gray-500">{t?.('common.loading')}</p>
             ) : (
               <>
                 {allowUnset && (
@@ -152,7 +153,7 @@ export const RadioWidget = ({ config }: RadioWidgetProps) => {
                       disabled={!isEnabled || widgetConfig['widget-readonly']}
                       className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
                     />
-                    <span className="text-sm text-gray-700">{translateConfig(option.label)}</span>
+                    <span className="text-sm text-gray-700">{tSchema(t, option.label)}</span>
                   </label>
                 ))}
               </>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { FilePreviewModal } from '../components/FilePreviewModal';
 import { canPreviewInWeb } from '../utils/filePreview';
@@ -24,7 +25,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const accept = widgetConfig['widget-data-options']?.accept;
   const multiple = widgetConfig['widget-data-options']?.multiple || false;
@@ -261,7 +262,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
   };
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     return (
       <div className="mb-[10px] FileDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
@@ -291,7 +292,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
@@ -318,7 +319,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
                 fontWeight: 400,
                 lineHeight: '24px',
                 textAlign: 'left'
-              }}>{translate('common.uploadFile') || 'Upload File'}</span>
+              }}>{t?.('common.uploadFile') || 'Upload File'}</span>
               <img
                 src={uploadIcon}
                 alt="Upload"
@@ -352,7 +353,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
           
           {maxSize && (
             <p className="hidden sm:block text-gray-400 text-xs mt-1">
-              {translate('common.maxFileSize', { size: (maxSize / 1024 / 1024).toFixed(2) })}
+              {t?.('common.maxFileSize', { size: (maxSize / 1024 / 1024).toFixed(2) })}
             </p>
           )}
         </div>

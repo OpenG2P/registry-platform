@@ -1,7 +1,8 @@
 import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import {
   parseDateTime,
@@ -30,7 +31,7 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const optionsConfig = widgetConfig['widget-data-options'];
@@ -158,14 +159,14 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
 
   const placeholder = useMemo(() => {
     const hasValue = getDisplayValue() && getDisplayValue().trim().length > 0;
-    const placeholderText = translateConfig(widgetConfig['widget-data-placeholder']);
+    const placeholderText = tSchema(t, widgetConfig['widget-data-placeholder']);
     return hasValue ? undefined : (placeholderText || dateTimeFormat);
-  }, [getDisplayValue, widgetConfig, translateConfig, dateTimeFormat]);
+  }, [getDisplayValue, widgetConfig, t, dateTimeFormat]);
 
   const inputType = inputMethod === 'picker' ? 'datetime-local' : 'text';
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     let displayValue = '';
     
     if (value) {
@@ -200,7 +201,7 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
           className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
@@ -220,7 +221,7 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
                 : 'border-gray-300'
             } ${!isEnabled || widgetConfig['widget-readonly'] ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
             style={{ borderRadius: '10px' }}
-            title={translateConfig(widgetConfig['widget-data-tooltip'])}
+            title={tSchema(t, widgetConfig['widget-data-tooltip'])}
           />
           {touched && error.length > 0 && (
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>

@@ -3,13 +3,13 @@ import { FileInputWidget } from '../../../widgets/FileInputWidget';
 import { SectionMode } from '../../SectionsContainer';
 import { createDocumentWidgetConfig } from '../utils/documentWidgetConfig';
 import { arrowUpIcon, arrowDownIcon } from '../../../assets';
+import { useWidgetContext } from '../../WidgetProvider';
 
 export interface SupportingDocumentsProps {
   sectionId: string;
   documents: SupportingDocumentConfig[];
   mode: SectionMode;
   isDraft?: boolean;
-  translate: (key: string) => string;
   expanded?: boolean;
   onToggleExpanded?: () => void;
   collapsible?: boolean;
@@ -20,14 +20,15 @@ export const SupportingDocuments = ({
   documents,
   mode,
   isDraft,
-  translate,
   expanded = true,
   onToggleExpanded,
   collapsible = false,
 }: SupportingDocumentsProps) => {
+  const { t } = useWidgetContext();
+
   if (documents.length === 0) return null;
 
-  const title = translate('common.supportedDocuments') || 'Supported Documents';
+  const title = t?.('common.supportedDocuments') || 'Supported Documents';
 
   return (
     <div className="supporting-documents-container">

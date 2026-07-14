@@ -1,8 +1,9 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { createPortal } from 'react-dom';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 type DropdownPosition = {
@@ -32,7 +33,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isListPopupOpen, setIsListPopupOpen] = useState(false);
@@ -196,7 +197,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
       const rawLabel = String(opt.label ?? opt.value ?? '');
       return {
         value: opt.value,
-        label: translateConfig(rawLabel),
+        label: tSchema(t, rawLabel),
         rawLabel,
       };
     });
@@ -204,7 +205,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
       options.sort((a, b) => a.label.localeCompare(b.label));
     }
     return options;
-  }, [dataSourceOptions, sortOptions, translateConfig]);
+  }, [dataSourceOptions, sortOptions, t]);
 
   const filteredOptions = useMemo(() => {
     if (!searchQuery.trim()) return processedOptions;
@@ -251,9 +252,9 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
   const selectedLabels = useMemo(() => {
     return selectedValues.map((val) => {
       const opt = processedOptions.find((o) => o.value === val);
-      return opt ? opt.label : translateConfig(String(val));
+      return opt ? opt.label : tSchema(t, String(val));
     });
-  }, [selectedValues, processedOptions, translateConfig]);
+  }, [selectedValues, processedOptions, t]);
 
   const fullSelectionText = selectedLabels.join(', ');
   const visibleLabels = selectedLabels.slice(0, 5);
@@ -279,7 +280,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
                 type="button"
                 onClick={() => handleToggle(selectedValues[index], false)}
                 className="shrink-0 text-blue-600 hover:text-blue-900 focus:outline-none"
-                aria-label={translate('common.removeItem', {
+                aria-label={t?.('common.removeItem', {
                   label,
                   defaultValue: `Remove ${label}`,
                 })}
@@ -296,7 +297,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             onClick={() => setIsListPopupOpen((prev) => !prev)}
             className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
-            {translate('common.moreSelected', {
+            {t?.('common.moreSelected', {
               count: overflowCount,
               defaultValue: `+${overflowCount} more`,
             })}
@@ -328,7 +329,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           className="px-3 py-2 text-xs font-semibold text-gray-500 shrink-0"
           style={{ borderBottom: '1px solid #e5e7eb' }}
         >
-          {translate('common.allSelected', {
+          {t?.('common.allSelected', {
             count: selectedLabels.length,
             defaultValue: `All selected (${selectedLabels.length})`,
           })}
@@ -398,7 +399,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           <input
             ref={searchInputRef}
             type="text"
-            placeholder={translate('common.searchPlaceholder', { defaultValue: 'Search...' })}
+            placeholder={t?.('common.searchPlaceholder', { defaultValue: 'Search...' })}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-[28px] px-2 text-sm border border-gray-300 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -419,8 +420,8 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             className="text-xs font-medium text-blue-600 hover:text-blue-800 focus:outline-none"
           >
             {allFilteredSelected
-              ? translate('common.deselectAll', { defaultValue: 'Deselect All' })
-              : translate('common.selectAll', { defaultValue: 'Select All' })}
+              ? t?.('common.deselectAll', { defaultValue: 'Deselect All' })
+              : t?.('common.selectAll', { defaultValue: 'Select All' })}
           </button>
           {selectedValues.length > 0 && (
             <button
@@ -428,7 +429,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
               onClick={handleClearAll}
               className="text-xs font-medium text-red-500 hover:text-red-700 focus:outline-none"
             >
-              {translate('common.clearAll', { defaultValue: 'Clear All' })}
+              {t?.('common.clearAll', { defaultValue: 'Clear All' })}
             </button>
           )}
         </div>
@@ -439,11 +440,11 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
         >
           {loading ? (
             <p className="text-sm text-gray-500 px-3 py-2">
-              {translate('common.loading')}
+              {t?.('common.loading')}
             </p>
           ) : filteredOptions.length === 0 ? (
             <p className="text-sm text-gray-400 px-3 py-2">
-              {translate('common.noOptionsFound', { defaultValue: 'No options found' })}
+              {t?.('common.noOptionsFound', { defaultValue: 'No options found' })}
             </p>
           ) : (
             filteredOptions.map((option) => {
@@ -502,7 +503,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             title={
               selectedValues.length > 0
                 ? fullSelectionText
-                : translateConfig(widgetConfig['widget-data-tooltip'])
+                : tSchema(t, widgetConfig['widget-data-tooltip'])
             }
           >
             <span
@@ -511,8 +512,8 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
               }`}
             >
               {selectedLabels.length === 0
-                ? translate('common.select', { defaultValue: 'Select...' })
-                : translate('common.selectedCount', {
+                ? t?.('common.select', { defaultValue: 'Select...' })
+                : t?.('common.selectedCount', {
                     count: selectedLabels.length,
                     defaultValue: `${selectedLabels.length} selected`,
                   })}
@@ -543,7 +544,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             <p className="text-red-500 text-sm mt-1">{error[0]}</p>
           )}
           {loading && (
-            <p className="text-sm text-gray-500 mt-1">{translate('common.loadingOptions')}</p>
+            <p className="text-sm text-gray-500 mt-1">{t?.('common.loadingOptions')}</p>
           )}
         </div>
       </div>

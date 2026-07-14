@@ -15,12 +15,10 @@ export const WIDGET_TYPES = [
   'checkbox',
   'file',
   'table',
-  'array-widget',
-  'iterable-accordion',
   'phone',
-  'currency',
   'display',
   'profile',
+  'geo-hierarchy',
 ] as const;
 
 export const ORIENTATIONS = ['horizontal', 'vertical'] as const;

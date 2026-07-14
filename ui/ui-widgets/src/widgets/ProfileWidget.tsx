@@ -16,7 +16,7 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
     getFieldValue,
   } = useBaseWidget({ config });
 
-  const { schemaData } = useWidgetContext();
+  const { schemaData, t } = useWidgetContext();
 
   const values = useSelector((state: WidgetRootState) => state.widget.values);
 
@@ -179,7 +179,7 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
           {imageUrl ? (
             <img
               src={imageUrl}
-              alt={displayName || 'Profile'}
+              alt={displayName || (t?.('profile.profileAlt') ?? 'Profile')}
               className="profile-avatar"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
@@ -197,7 +197,7 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
           >
             <img
               src={dummyProfile}
-              alt="Profile Placeholder"
+              alt={t?.('profile.profilePlaceholderAlt') ?? 'Profile Placeholder'}
             />
           </div>
         </div>
@@ -212,7 +212,7 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
           {idValue && (
             <div className="profile-id">
               {showIdLabel && (
-                <span className="profile-id-label">ID :</span>
+                <span className="profile-id-label">{t?.('profile.idLabel') ?? 'ID :'}</span>
               )}
               <span className="profile-id-value">{idValue}</span>
             </div>

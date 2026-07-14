@@ -1,7 +1,8 @@
 import React, { useMemo, useCallback, useId } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig, BooleanRepresentation } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 interface BooleanWidgetProps {
@@ -20,7 +21,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const formatConfig = widgetConfig['widget-data-format'];
   const representation = formatConfig?.booleanRepresentation || 'true-false';
@@ -30,9 +31,11 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
 
   const getLabels = useCallback((): { trueLabel: string; falseLabel: string } => {
     if (representation === 'custom') {
+      const trueKey = formatConfig?.booleanTrueLabel || 'Yes';
+      const falseKey = formatConfig?.booleanFalseLabel || 'No';
       return {
-        trueLabel: translateConfig(formatConfig?.booleanTrueLabel || 'Yes'),
-        falseLabel: translateConfig(formatConfig?.booleanFalseLabel || 'No'),
+        trueLabel: t?.(trueKey, { defaultValue: trueKey }) ?? trueKey,
+        falseLabel: t?.(falseKey, { defaultValue: falseKey }) ?? falseKey,
       };
     }
 
@@ -44,14 +47,14 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     };
 
     return labels[representation];
-  }, [representation, formatConfig, translateConfig]);
+  }, [representation, formatConfig, t]);
 
   const { trueLabel, falseLabel } = getLabels();
 
-  const unsetLabel = useMemo(
-    () => translateConfig(formatConfig?.booleanUnsetLabel || 'Not set'),
-    [formatConfig?.booleanUnsetLabel, translateConfig]
-  );
+  const unsetLabel = useMemo(() => {
+    const key = formatConfig?.booleanUnsetLabel || 'Not set';
+    return t?.(key, { defaultValue: key }) ?? key;
+  }, [formatConfig?.booleanUnsetLabel, t]);
 
   const radioGroupName = `${widgetConfig['widget-id'] ?? 'boolean'}__${useId().replace(/:/g, '')}`;
 
@@ -80,7 +83,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
   }, [handleChange]);
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     let displayValue = '';
     
     if (currentValue === null) {
@@ -114,7 +117,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
             className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
-            label={translateConfig(widgetConfig['widget-label'])}
+            label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
           <div className="flex-1 min-w-0">
@@ -157,7 +160,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
             className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
-            label={translateConfig(widgetConfig['widget-label'])}
+            label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
           <div className="flex-1 min-w-0">
@@ -213,7 +216,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-baseline">
         <WidgetFieldLabel
           className="text-base font-medium leading-normal text-gray-700 sm:min-w-[150px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">

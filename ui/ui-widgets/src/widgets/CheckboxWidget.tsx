@@ -1,7 +1,8 @@
 import React, { useMemo, useCallback } from 'react';
+import { tSchema } from '../utils/tSchema';
+import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 
 interface CheckboxWidgetProps {
@@ -22,7 +23,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
 
   const hasDataSource = !!widgetConfig['widget-data-source'];
   const formatConfig = widgetConfig['widget-data-format'];
@@ -33,7 +34,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     const isChecked = Boolean(value);
     
     if (widgetConfig['widget-readonly']) {
-      const label = translateConfig(widgetConfig['widget-label']);
+      const label = tSchema(t, widgetConfig['widget-label']);
       const displayValue = isChecked ? 'Yes' : 'No';
 
       return (
@@ -58,7 +59,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
             className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
-            label={translateConfig(widgetConfig['widget-label'])}
+            label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
           <div className="flex-1 min-w-0">
@@ -140,10 +141,10 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
   }, [layout, processedOptions.length]);
 
   if (widgetConfig['widget-readonly']) {
-    const label = translateConfig(widgetConfig['widget-label']);
+    const label = tSchema(t, widgetConfig['widget-label']);
     const selectedOptions = processedOptions.filter(opt => selectedValues.includes(opt.value));
     const displayValue = selectedOptions.length > 0
-      ? selectedOptions.map(opt => translateConfig(opt.label)).join(', ')
+      ? selectedOptions.map(opt => tSchema(t, opt.label)).join(', ')
       : '-';
 
     return (
@@ -168,13 +169,13 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
       <div className="flex flex-col sm:flex-row sm:items-baseline">
         <WidgetFieldLabel
           className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
-          label={translateConfig(widgetConfig['widget-label'])}
+          label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
           <div className={layoutConfig.className} style={layoutConfig.style} onBlur={onBlur}>
             {loading ? (
-              <p className="text-sm text-gray-500">{translate('common.loading')}</p>
+              <p className="text-sm text-gray-500">{t?.('common.loading')}</p>
             ) : (
               processedOptions.map((option) => (
                 <label
@@ -191,7 +192,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
                     disabled={!isEnabled || widgetConfig['widget-readonly']}
                     className="relative top-[0.2em] h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
-                  <span className="text-base leading-normal text-gray-700">{translateConfig(option.label)}</span>
+                  <span className="text-base leading-normal text-gray-700">{tSchema(t, option.label)}</span>
                 </label>
               ))
             )}

@@ -12,7 +12,7 @@ export interface WidgetProviderProps {
   store?: WidgetStore;
   dataSourceRequestHandler?: DataSourceRequestHandler;
   schemaData?: Record<string, any>;
-  translate?: (key: string, options?: any) => string;
+  t?: (key: string, options?: any) => string;
   theme?: WidgetTheme;
   children: ReactNode;
 }
@@ -20,11 +20,11 @@ export interface WidgetProviderProps {
 const WidgetContext = createContext<{
   dataSourceRequestHandler?: DataSourceRequestHandler;
   schemaData?: Record<string, any>;
-  translate?: (key: string, options?: any) => string;
+  t?: (key: string, options?: any) => string;
 }>({
   dataSourceRequestHandler: undefined,
   schemaData: undefined,
-  translate: undefined,
+  t: undefined,
 });
 
 export const useWidgetContext = () => {
@@ -35,7 +35,7 @@ export const WidgetProvider = ({
   store,
   dataSourceRequestHandler,
   schemaData,
-  translate,
+  t,
   theme,
   children,
 }: WidgetProviderProps) => {
@@ -48,9 +48,9 @@ export const WidgetProvider = ({
     () => ({
       dataSourceRequestHandler,
       schemaData,
-      translate,
+      t,
     }),
-    [dataSourceRequestHandler, schemaData, translate]
+    [dataSourceRequestHandler, schemaData, t]
   );
 
   useEffect(() => {

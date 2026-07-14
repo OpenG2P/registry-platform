@@ -41,7 +41,50 @@ export interface SchemaDataSource {
   labelKey?: string;
 }
 
+export interface GeoHierarchyDataSource {
+  type: 'api';
+  service: string;
+  method?: 'POST';
+  /** e.g. get-all-g2p-geo-levels (matches /api/master-data/...) */
+  levelsEndpoint: string;
+  /** e.g. geo-level-values (matches /api/master-data/...) */
+  valuesEndpoint: string;
+}
+
 export type DataSource = StaticDataSource | ApiDataSource | SchemaDataSource;
+
+/** Configuration for a single upload slot inside a `docs` widget. */
+export interface DocsWidgetDocumentConfig {
+  'document-key': string;
+  'document-label': string;
+  'document-required'?: boolean;
+  'document-accept': string;
+  'document-max-size': number;
+}
+
+export interface GeoHierarchyLayout {
+  distribution?: 'fixed';
+  columns?: number[];
+  columnIndex?: number;
+}
+
+/** Optional read path for edit-mode hydration (defaults from widget-data-path). */
+export type GeoHierarchyDataPath = string | {
+  value: string;
+  hierarchy: string;
+};
+
+export function isGeoHierarchyDataSource(
+  dataSource: unknown,
+): dataSource is GeoHierarchyDataSource {
+  return Boolean(
+    dataSource &&
+      typeof dataSource === 'object' &&
+      (dataSource as GeoHierarchyDataSource).type === 'api' &&
+      'levelsEndpoint' in dataSource &&
+      'valuesEndpoint' in dataSource,
+  );
+}
 
 export type CharacterType =
   | 'any'
@@ -186,13 +229,6 @@ export interface WidgetCascadeConfig {
   throttle?: number;
 }
 
-export interface WidgetGeoConfig {
-  level: string;
-  isLastLevel: boolean;
-  parentWidgetId: string | null;
-  levelMnemonic?: string;
-}
-
 export interface BaseWidgetConfig {
   widget: string;
   'widget-type'?: 'input' | 'layout' | 'table' | 'group';
@@ -211,7 +247,12 @@ export interface BaseWidgetConfig {
   'widget-data-helptext'?: string;
   'widget-data-tooltip'?: string;
   'widget-cascade'?: WidgetCascadeConfig;
-  'widget-geo-config'?: WidgetGeoConfig;
+  /** Column layout for geo-hierarchy widget (e.g. 3 levels per column). */
+  'widget-geo-layout'?: GeoHierarchyLayout;
+  /**
+   * Read path for geo_code_hierarchy_json (geo-hierarchy widget, edit-mode hydrate).
+   */
+  'widget-geo-hierarchy-path'?: string;
   widgets?: BaseWidgetConfig[];
   'widget-item'?: BaseWidgetConfig;
   'widget-data-columns'?: Array<{
@@ -237,6 +278,8 @@ export interface BaseWidgetConfig {
   'widget-data-add-label'?: string;
   'widget-data-collapsed'?: boolean;
   'widget-column-span'?: number;
+  'widget-total-docs'?: number;
+  documents?: DocsWidgetDocumentConfig[];
   _comment?: string;
   [key: string]: any;
 }

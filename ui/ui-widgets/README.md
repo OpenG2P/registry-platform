@@ -34,7 +34,7 @@ function App() {
         dataSourceRequestHandler={async (service, endpoint, method, params) => {
           return [];
         }}
-        translate={(key) => key}
+        t={(key) => key}
       >
         <SectionsContainer
           sections={sections}
@@ -51,15 +51,15 @@ function App() {
 ## Core concepts
 
 - **UI schema** — Sections contain panels and widgets. Each widget has a `widget-data-path` (e.g. `register-id.birth_date`) resolved against `schemaData`.
-- **WidgetProvider** — Supplies `schemaData`, optional `dataSourceRequestHandler` for API/static/geo selects, and a `translate` function.
+- **WidgetProvider** — Supplies `schemaData`, optional `dataSourceRequestHandler` for API/static selects, and a `t` translation function.
 - **SectionsContainer** — Renders one or more sections. Modes: `RegistryView` (read/edit per section) or `IntakeForm` (accordion flow).
 - **SectionBuilder** — Visual + JSON editor for authoring section schemas at runtime.
 
 ## Widgets
 
-Input: `text`, `textarea`, `number`, `boolean`, `date`, `datetime`, `select`, `radio`, `checkbox`, `multi-select`, `phone`, `currency`, `file`, `display`.
+Input: `text`, `textarea`, `number`, `boolean`, `date`, `datetime`, `select`, `radio`, `checkbox`, `multi-select`, `phone`, `file`, `display`.
 
-Collections: `table`, `dialog-table`, `array-widget`, `iterable-accordion`.
+Collections: `table`, `dialog-table`.
 
 Special: `profile`, `header-section`, `scores-display`, `id-authentication`, `register-lookup`.
 

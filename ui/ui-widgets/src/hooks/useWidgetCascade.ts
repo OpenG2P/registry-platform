@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { useWidgetEventBus } from './useWidgetEventBus';
-import { BaseWidgetConfig, WidgetCascadeConfig, DataSourceRequestHandler } from '../types';
+import { BaseWidgetConfig, DataSourceRequestHandler } from '../types';
 import { setValue, setDataSource } from '../store/widgetSlice';
 import { getApiDataSource, transformDataSourceOptions } from '../utils/dataSource';
-import { useSelector } from 'react-redux';
-import { WidgetRootState } from '../store';
+
 
 export interface UseWidgetCascadeOptions {
   config: BaseWidgetConfig;

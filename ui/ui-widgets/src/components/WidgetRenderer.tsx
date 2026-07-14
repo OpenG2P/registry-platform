@@ -5,7 +5,6 @@ import { useBaseWidget, UseBaseWidgetOptions } from '../hooks/useBaseWidget';
 import { widgetRegistry } from '../registry/WidgetRegistry';
 import { useWidgetContext } from './WidgetProvider';
 import { useWidgetCascade } from '../hooks/useWidgetCascade';
-import { useGeoWidgetCascade } from '../hooks/useGeoWidgetCascade';
 import { WidgetRootState } from '../store';
 
 export interface WidgetRendererProps extends Omit<UseBaseWidgetOptions, 'config'> {
@@ -42,12 +41,6 @@ export const WidgetRenderer = ({
 
   if (dataSourceRequestHandler) {
     useWidgetCascade({
-      config,
-      dataSourceRequestHandler,
-      values,
-    });
-
-    useGeoWidgetCascade({
       config,
       dataSourceRequestHandler,
       values,
