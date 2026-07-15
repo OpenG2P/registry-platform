@@ -1930,6 +1930,17 @@ class G2PRegisterChangeRequestService(BaseService):
 
         from .g2p_document_service import G2PDocumentService
 
+        document_service = G2PDocumentService.get_component()
+        records = [*(change_payloads or []), *current_register_data_list]
+        record_image_urls = await document_service.get_document_urls(
+            session,
+            [r.get("record_image_document_id") for r in records],
+        )
+        for record in records:
+            document_id = record.get("record_image_document_id")
+            if document_id:
+                record["record_image_url"] = record_image_urls.get(document_id)
+
         # Create ChangeRequestData object
         change_request_data: ChangeRequestData = ChangeRequestData(
             change_request_id=change_request.change_request_id,
@@ -1954,7 +1965,7 @@ class G2PRegisterChangeRequestService(BaseService):
             change_payload=change_payloads,
             current_register_data=current_register_data_list,
             documents=(
-                await G2PDocumentService.get_component().get_change_request_documents_with_session(
+                await document_service.get_change_request_documents_with_session(
                     session, change_request.change_request_id
                 )
             ).documents,
