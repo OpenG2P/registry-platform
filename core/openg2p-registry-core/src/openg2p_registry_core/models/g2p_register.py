@@ -168,7 +168,10 @@ class G2PGeo(BaseORMModel):
         if value:
             from ..services import G2PGeoHierarchyService
             service = G2PGeoHierarchyService.get_component()
-            self.geo_code_hierarchy_json = service.get_geo_hierarchy_sync(value)
+            if service is None:
+                self.geo_code_hierarchy_json = None
+            else:
+                self.geo_code_hierarchy_json = service.get_geo_hierarchy_sync(value)
         else:
             self.geo_code_hierarchy_json = None
         return value
