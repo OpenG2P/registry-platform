@@ -64,7 +64,14 @@ export interface DocsWidgetDocumentConfig {
 
 export interface GeoHierarchyLayout {
   distribution?: 'fixed';
+  /** Explicit levels-per-column counts, e.g. [3, 3] for a 6-level hierarchy in 2 columns. */
   columns?: number[];
+  /**
+   * How many section columns this hierarchy occupies (1–3), matching panel-column-span.
+   * Levels are distributed evenly across these columns.
+   * When omitted, derived from level count: ≤3 → 1, 4–5 → 2, ≥6 → 3.
+   */
+  columnSpan?: number;
   columnIndex?: number;
 }
 

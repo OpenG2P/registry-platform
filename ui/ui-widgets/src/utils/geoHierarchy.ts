@@ -75,6 +75,45 @@ export function buildOrderedLevels(flat: GeoLevel[]): GeoLevel[] {
 
 export const GEO_SECTION_COLUMN_SLOTS = 3;
 
+/**
+ * Suggested panel/widget column span from hierarchy depth:
+ * ≤3 levels → 1, 4–5 → 2, ≥6 → 3.
+ */
+export function suggestedGeoColumnSpan(levelCount: number): number {
+  if (levelCount <= 0) {
+    return 1;
+  }
+  if (levelCount <= 3) {
+    return 1;
+  }
+  if (levelCount < 6) {
+    return 2;
+  }
+  return GEO_SECTION_COLUMN_SLOTS;
+}
+
+/** Clamp span to 1…GEO_SECTION_COLUMN_SLOTS and at most the level count. */
+export function resolveGeoColumnSpan(
+  levelCount: number,
+  explicitSpan?: number,
+): number {
+  const preferred =
+    explicitSpan !== undefined && explicitSpan !== null
+      ? explicitSpan
+      : suggestedGeoColumnSpan(levelCount);
+
+  const clamped = Math.min(
+    GEO_SECTION_COLUMN_SLOTS,
+    Math.max(1, Math.floor(preferred)),
+  );
+
+  if (levelCount <= 0) {
+    return clamped;
+  }
+
+  return Math.min(clamped, levelCount);
+}
+
 /** Slice ordered levels into section columns per counts, e.g. [3, 2, 0]. */
 export function distributeLevelsToColumns(
   levels: GeoLevel[],
@@ -115,29 +154,40 @@ export function distributeLevelsContiguous(
 
 export function resolveGeoLevelColumns(
   levels: GeoLevel[],
-  layout?: { distribution?: 'fixed'; columns?: number[] },
-): { columnCounts: number[]; columns: GeoLevel[][] } {
+  layout?: {
+    distribution?: 'fixed';
+    columns?: number[];
+    columnSpan?: number;
+  },
+): { columnCounts: number[]; columns: GeoLevel[][]; columnSpan: number } {
   if (layout?.columns?.length) {
     const columnCounts =
       layout.distribution === 'fixed'
         ? padColumnCounts(layout.columns, GEO_SECTION_COLUMN_SLOTS)
         : layout.columns;
 
+    const columns = distributeLevelsToColumns(levels, columnCounts);
+    const occupied = columns.filter((column) => column.length > 0).length;
+
     return {
       columnCounts,
-      columns: distributeLevelsToColumns(levels, columnCounts),
+      columns,
+      columnSpan: resolveGeoColumnSpan(
+        levels.length,
+        layout.columnSpan ?? occupied,
+      ),
     };
   }
 
-  // Default (no explicit layout): fill top-to-bottom across up to
-  // GEO_SECTION_COLUMN_SLOTS columns, each holding a contiguous block of levels
-  // so the order stays correct when columns stack on small screens.
-  const columnCount = Math.min(GEO_SECTION_COLUMN_SLOTS, Math.max(levels.length, 1));
-  const columns = distributeLevelsContiguous(levels, columnCount);
+  // Distribute top-to-bottom across the allotted column span so order stays
+  // correct when columns stack on small screens.
+  const columnSpan = resolveGeoColumnSpan(levels.length, layout?.columnSpan);
+  const columns = distributeLevelsContiguous(levels, columnSpan);
 
   return {
     columnCounts: columns.map((column) => column.length),
     columns,
+    columnSpan,
   };
 }
 
