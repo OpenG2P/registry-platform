@@ -85,7 +85,7 @@ class G2PDocumentController(BaseController):
             methods=["POST"],
         )
 
-    @require_permissions({"changeRequest:create"})
+    @require_permissions({})
     async def upload_documents(
         self,
         request: Request,
@@ -112,7 +112,7 @@ class G2PDocumentController(BaseController):
             _logger.error(f"Error in upload_documents: {str(error_exception)}")
             return self.helper.construct_error_response(error_exception)
 
-    @require_permissions({"changeRequest:create"})
+    @require_permissions({})
     async def delete_documents(
         self,
         request: DeleteDocumentsRequest
