@@ -13,6 +13,11 @@ import {
   getSchemaDataSource,
   transformDataSourceOptions,
 } from '../utils/dataSource';
+import {
+  isFile,
+  isSerializedFile,
+  serializeFile,
+} from '../utils/fileSerialization';
 import { dummyProfile } from '../assets';
 
 interface FieldConfig {
@@ -42,10 +47,6 @@ const DEFAULT_LABELS: Record<string, string> = {
   lastApprovedAt: 'Last Approved at',
 };
 
-// Options are loaded in both view and edit modes because view mode
-// needs them to resolve display labels (e.g. "active" → "Active").
-// For API data sources, loading is deferred to edit mode to avoid
-// unnecessary network calls when only labels are needed.
 function useFieldDataSource(
   fieldKey: string,
   fieldConfig: FieldConfig | undefined,
@@ -187,10 +188,14 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (imageUrlVal instanceof File) {
+    if (isFile(imageUrlVal)) {
       const url = URL.createObjectURL(imageUrlVal);
       setPreviewUrl(url);
       return () => URL.revokeObjectURL(url);
+    }
+    if (isSerializedFile(imageUrlVal) && imageUrlVal.data) {
+      setPreviewUrl(`data:${imageUrlVal.type};base64,${imageUrlVal.data}`);
+      return;
     }
     setPreviewUrl(null);
   }, [imageUrlVal]);
@@ -313,17 +318,25 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file || !paths.imageUrl) return;
-      dispatch(setValues(setValueByPath({ ...values }, paths.imageUrl, file)));
-      e.target.value = '';
+
+      try {
+        const serialized = await serializeFile(file);
+        dispatch(setValues(setValueByPath({ ...values }, paths.imageUrl, serialized)));
+      } catch (err) {
+        console.error('[HeaderSectionWidget] Error serializing image:', err);
+      } finally {
+        e.target.value = '';
+      }
     },
     [paths.imageUrl, values, dispatch],
   );
 
   const handleImageDelete = useCallback(() => {
     if (!paths.imageUrl) return;
+    setPreviewUrl(null);
     dispatch(setValues(setValueByPath({ ...values }, paths.imageUrl, null)));
   }, [paths.imageUrl, values, dispatch]);
 
