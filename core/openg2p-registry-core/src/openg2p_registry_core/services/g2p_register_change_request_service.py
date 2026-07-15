@@ -311,8 +311,8 @@ class G2PRegisterChangeRequestService(BaseService):
             await self.approve_table(change_request, register_section, session)
 
         await self.insert_into_register_history(change_request, session)
-        if register_section and register_section.documents_required:
-            await self._handle_documents_on_approval(change_request, register_section, session)
+        # Promote attached docs
+        await self._handle_documents_on_approval(change_request, register_section, session)
 
         await self._run_post_approve_hook(change_request.section_register_id, change_request, session)
 
@@ -465,10 +465,8 @@ class G2PRegisterChangeRequestService(BaseService):
         await self.insert_into_register_history(change_request, session)
         # Upsert data into register
         subject_internal_record_id = await self.insert_primary_master_section_into_register(change_request, session)
-        # Handle documents if section.documents_required is True
-        if register_section and register_section.documents_required:
-            await self._handle_documents_on_approval(change_request, register_section, session)
-        
+        await self._handle_documents_on_approval(change_request, register_section, session)
+
         # Handle POST APPROVAL domain service operation
         await self._run_post_approve_hook(change_request.section_register_id, change_request, session)
 
@@ -501,8 +499,7 @@ class G2PRegisterChangeRequestService(BaseService):
         await self.insert_non_primary_master_section_into_register(
             change_request, change_request.internal_record_id, session
         )
-        if register_section and register_section.documents_required:
-            await self._handle_documents_on_approval(change_request, register_section, session)
+        await self._handle_documents_on_approval(change_request, register_section, session)
         await self._run_post_approve_hook(
             change_request.section_register_id, change_request, session
         )
@@ -648,10 +645,8 @@ class G2PRegisterChangeRequestService(BaseService):
         await self.insert_into_register_history(change_request, session)
         # Upsert data into register
         subject_internal_record_id = await self.insert_child_section_into_register(change_request, subject_internal_record_id, session)
-        # Handle documents if section.documents_required is True
-        if register_section and register_section.documents_required:
-            await self._handle_documents_on_approval(change_request, register_section, session)
-        
+        await self._handle_documents_on_approval(change_request, register_section, session)
+
         # Handle POST APPROVAL domain service operation
         await self._run_post_approve_hook(change_request.section_register_id, change_request, session)
 
@@ -2083,11 +2078,12 @@ class G2PRegisterChangeRequestService(BaseService):
         session
     ) -> None:
         """
-        Handle documents when a change request is approved.
-        - Promote change request documents to live section documents
-        - Create document history entries
+        Promote change-request documents to live section documents.
+
+        Key live docs by the section register row ID(s) from change_payload
+        (e.g. household / child), not the subject CR.internal_record_id
+        (e.g. individual), so get_tab_records can resolve them.
         """
-        # Fetch documents attached to this change request
         docs_result = await session.execute(
             select(G2PRegisterChangeRequestDocument).where(
                 G2PRegisterChangeRequestDocument.change_request_id == change_request.change_request_id
@@ -2099,44 +2095,69 @@ class G2PRegisterChangeRequestService(BaseService):
             _logger.info(f"No documents to process for change request {change_request.change_request_id}")
             return
 
+        payload = await self._get_change_request_payload(change_request.change_request_id, session)
+        skip_actions = {
+            ChangeActionEnum.DELETE.value,
+            ChangeActionEnum.NO_CHANGE.value,
+        }
+        target_record_ids: list[str] = []
+        for change_payload in payload.change_payload or []:
+            action = change_payload.get("edit_action", ChangeActionEnum.ADD.value)
+            if action in skip_actions:
+                continue
+            record_id = change_payload.get("internal_record_id")
+            if record_id and record_id not in target_record_ids:
+                target_record_ids.append(record_id)
+
+        if not target_record_ids:
+            target_record_ids = [change_request.internal_record_id]
+
+        section_id = section.section_id
         for cr_doc in change_request_documents:
-            # Create history entry for the promoted document
-            history_entry = G2PRegisterDocumentHistory(
-                internal_record_id=change_request.internal_record_id,
-                section_id=cr_doc.section_id or section.section_id,
-                document_id=cr_doc.document_id,
-                label=cr_doc.label,
-                change_request_id=change_request.change_request_id,
-                change_request_source=change_request.change_request_source,
-                created_by=change_request.created_by,
-                created_at=change_request.created_at,
-                approved_by=change_request.approved_by or "system",
-                approved_at=change_request.approved_at or datetime.now()
-            )
-            session.add(history_entry)
-
-            # Link the document to the live record section (idempotent on PK)
-            existing_doc_result = await session.execute(
-                select(G2PRegisterSectionDocument).where(
-                    (G2PRegisterSectionDocument.internal_record_id == change_request.internal_record_id) &
-                    (G2PRegisterSectionDocument.document_id == cr_doc.document_id)
+            doc_section_id = cr_doc.section_id or section_id
+            for record_id in target_record_ids:
+                session.add(
+                    G2PRegisterDocumentHistory(
+                        internal_record_id=record_id,
+                        section_id=doc_section_id,
+                        document_id=cr_doc.document_id,
+                        label=cr_doc.label,
+                        change_request_id=change_request.change_request_id,
+                        change_request_source=change_request.change_request_source,
+                        created_by=change_request.created_by,
+                        created_at=change_request.created_at,
+                        approved_by=change_request.approved_by or "system",
+                        approved_at=change_request.approved_at or datetime.now(),
+                    )
                 )
-            )
-            existing_doc = existing_doc_result.scalar()
 
-            if existing_doc:
-                existing_doc.section_id = cr_doc.section_id or section.section_id
-                existing_doc.label = cr_doc.label
-                _logger.info(f"Document {cr_doc.document_id} already linked to record {change_request.internal_record_id}")
-            else:
-                session.add(G2PRegisterSectionDocument(
-                    internal_record_id=change_request.internal_record_id,
-                    document_id=cr_doc.document_id,
-                    section_id=cr_doc.section_id or section.section_id,
-                    label=cr_doc.label,
-                ))
-                _logger.info(f"Linked document {cr_doc.document_id} to record {change_request.internal_record_id}")
+                existing_doc = (
+                    await session.execute(
+                        select(G2PRegisterSectionDocument).where(
+                            (G2PRegisterSectionDocument.internal_record_id == record_id)
+                            & (G2PRegisterSectionDocument.document_id == cr_doc.document_id)
+                        )
+                    )
+                ).scalar()
 
+                if existing_doc:
+                    existing_doc.section_id = doc_section_id
+                    existing_doc.label = cr_doc.label
+                    _logger.info(
+                        f"Document {cr_doc.document_id} already linked to record {record_id}"
+                    )
+                else:
+                    session.add(
+                        G2PRegisterSectionDocument(
+                            internal_record_id=record_id,
+                            document_id=cr_doc.document_id,
+                            section_id=doc_section_id,
+                            label=cr_doc.label,
+                        )
+                    )
+                    _logger.info(
+                        f"Linked document {cr_doc.document_id} to record {record_id}"
+                    )
     # =============================================================================
     # Registry Configuration Methods
     # =============================================================================
