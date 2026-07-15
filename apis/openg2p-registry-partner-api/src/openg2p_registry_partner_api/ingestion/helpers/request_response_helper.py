@@ -6,7 +6,7 @@ from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.schemas import G2PResponse, G2PResponseHeader, G2PResponseStatus, G2PResponseBody
 from openg2p_registry_core.schemas import IngestDataPayload, IngestDataResponse, IngestDataResponseBody
 from openg2p_registry_core.errors import G2PRegistryErrorCodes, G2PRegistryException
-from openg2p_registry_core.helpers import MinioClient, TemplateHelper
+from openg2p_registry_core.helpers import TemplateHelper
 
 class RequestResponseHelper(BaseService):
 
