@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import { useFetch } from '@/shared/hooks';
 import Can from '@/components/shared/Can';
 
-import { CONFIGURATION_SECTIONS_ACTIONS } from '../shared/utils/configurationSections.actions';
+import { CONFIGURATION_SECTIONS_ACTIONS } from '@/features/shared/permissions';
 import { Link, useRouter } from '@/i18n/navigation';
 import { useAllRegisterSections } from '../shared/hooks/useAllRegisterSections';
 import AddRegisterSectionModal from './AddRegisterSectionModal';

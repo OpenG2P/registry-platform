@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
                 template_id: body.template_id,
                 register_id: body.register_id,
                 data_model_id: body.data_model_id,
-                template_file_id: body.template_file_id ?? "",
+                template_document_id: body.template_document_id ?? "",
             },
         }),
     });

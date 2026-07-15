@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { INCOMING_MESSAGE_ACTIONS } from "@/features/messages/utils/incomingMessage.actions";
+import { INCOMING_MESSAGE_ACTIONS } from "@/features/shared/permissions";
 
 export default function IncomingMessagesLayout({ children }: { children: React.ReactNode }) {
     return (

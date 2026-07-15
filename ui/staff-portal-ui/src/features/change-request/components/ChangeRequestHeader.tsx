@@ -1,166 +1,203 @@
-import Image from "next/image";
-import { ChangeRequest } from "../types/change-request";
-import { useTranslations } from "next-intl";
+'use client';
 
-export interface ChangeRequestDocument {
-    document_label: string;
-    document_store_id: string;
-    document_url: string;
-}
+import { useState } from 'react';
+import Image from 'next/image';
+import { X } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { KeyValue } from '@/components/ui/KeyValue';
+import { UploadedDocument } from '@/features/shared/types';
+import { ChangeRequest } from '../types/change-request';
+
+const statusClassMap: Record<string, string> = {
+    REJECTED: 'text-toast-failed',
+    PENDING: 'text-amber-500',
+    APPROVED: 'text-toast-success',
+};
+
+const VISIBLE_DOC_COUNT = 3;
 
 interface Props {
     details: ChangeRequest;
-    verificationCount: number;
-    documents?: ChangeRequestDocument[];
+    documents?: UploadedDocument[];
 }
 
-const statusClassMap: Record<string, string> = {
-    REJECTED: "text-toast-failed",
-    PENDING: "text-amber-500",
-    APPROVED: "text-toast-success",
-};
-
-export default function ChangeRequestHeader({
-    details,
-    verificationCount,
-    documents = [],
-}: Props) {
+export default function ChangeRequestHeader({ details, documents = [] }: Props) {
     const t = useTranslations();
+    const [showAll, setShowAll] = useState(false);
+
     const rawTitle = details?.section_mnemonic?.trim();
+    const title = rawTitle ? t(rawTitle, { default: rawTitle }) : t('change_request');
 
-    const title = rawTitle
-        ? t(rawTitle, { default: rawTitle })
-        : t('change_request');
+    const visibleDocs = documents.slice(0, VISIBLE_DOC_COUNT);
+    const remainingCount = Math.max(0, documents.length - VISIBLE_DOC_COUNT);
+
     return (
-        <div className="rounded-[10px] bg-primary-first/20 px-10 pt-5 pb-4 flex flex-col border border-dashed border-primary-second">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <InfoSection
+        <div className="rounded-[10px] border border-dashed border-primary-second bg-primary-first/20 px-10 py-5">
+            {/* Title row */}
+            <div className="mb-2 grid grid-cols-1 gap-y-2 md:grid-cols-3 md:gap-x-0">
+                <h3
+                    className="min-h-[32px] truncate text-[24px] font-medium text-neutral-first md:col-span-2 md:pr-6"
                     title={title}
-                    details={details}
-                />
-                <VerificationStats
-                    details={details}
-                    verificationCount={verificationCount}
-                    documentsCount={documents.length}
-                />
-                <AttachedDocuments documents={documents} />
+                >
+                    {title}
+                </h3>
+                <div className="flex min-h-[32px] items-center gap-1 md:pl-6">
+                    <span className="text-[16px] font-medium text-neutral-first">
+                        {t('attached_documents')}
+                    </span>
+                    <Image
+                        src="/images/changerequest/attached_doc_icon.png"
+                        alt={t('document_icon_alt')}
+                        width={14}
+                        height={14}
+                    />
+                </div>
             </div>
+
+            {/* Body: 3 equal-height columns, matching dividers */}
+            <div className="grid grid-cols-1 items-stretch gap-y-4 text-[16px] text-neutral-first/50 md:grid-cols-3 md:gap-y-0">
+                <div className="flex h-full flex-col space-y-2 md:pr-6">
+                    <KeyValue label={t('change_id')} value={details.change_request_id || '—'} />
+                    <KeyValue
+                        label={t('status')}
+                        value={details.approval_status || '—'}
+                        valueClassName={statusClassMap[details.approval_status] ?? 'text-neutral-first'}
+                    />
+                    <KeyValue
+                        label={t('change_date')}
+                        value={
+                            details.created_at
+                                ? new Date(details.created_at).toLocaleDateString()
+                                : '—'
+                        }
+                    />
+                </div>
+
+                <div className="flex h-full flex-col space-y-2 md:border-l md:border-primary-first md:px-6">
+                    <KeyValue label={t('created_by')} value={details.created_by || '—'} />
+                    <KeyValue
+                        label={t('register')}
+                        value={details.register_mnemonic?.trim() || '—'}
+                    />
+                    <KeyValue label={t('documents_attached')} value={documents.length.toString()} />
+                </div>
+
+                <div className="flex h-full flex-col space-y-2 md:border-l md:border-primary-first md:pl-6">
+                    {documents.length === 0 ? (
+                        <>
+                            <span className="font-normal text-neutral-first/40">—</span>
+                            <span className="invisible" aria-hidden>
+                                —
+                            </span>
+                            <span className="invisible" aria-hidden>
+                                —
+                            </span>
+                        </>
+                    ) : (
+                        <>
+                            {visibleDocs.map((doc) =>
+                                doc.presigned_url ? (
+                                    <KeyValue
+                                        key={doc.document_id || doc.label}
+                                        label={doc.label || '—'}
+                                        value=""
+                                        href={doc.presigned_url}
+                                    />
+                                ) : (
+                                    <KeyValue
+                                        key={doc.document_id || doc.label}
+                                        label={doc.label || '—'}
+                                        value="—"
+                                    />
+                                ),
+                            )}
+                            {Array.from({
+                                length: Math.max(0, VISIBLE_DOC_COUNT - visibleDocs.length),
+                            }).map((_, i) => (
+                                <span key={`ph-${i}`} className="invisible" aria-hidden>
+                                    —
+                                </span>
+                            ))}
+                        </>
+                    )}
+                    {remainingCount > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setShowAll(true)}
+                            className="text-left font-semibold text-primary-second hover:underline"
+                        >
+                            {t('view_more')} (+{remainingCount})
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {showAll && (
+                <DocumentsPopup documents={documents} onClose={() => setShowAll(false)} />
+            )}
         </div>
     );
-};
-const InfoSection = ({
-    title,
-    details,
+}
+
+function DocumentsPopup({
+    documents,
+    onClose,
 }: {
-    title: string;
-    details: ChangeRequest;
-}) => {
-    const t = useTranslations();
-    return (
-        <div className="space-y-2 text-[16px] text-neutral-first/50">
-            <h3 className="text-[24px] font-medium text-neutral-first truncate" title={title}>{title}</h3>
-            <div className="flex w-full overflow-hidden">
-                <span className="w-1/2 truncate" title={t('change_id')}>{t('change_id')}:</span>
-                <span className="w-1/2 pl-4 text-neutral-first font-medium truncate" title={details.change_request_id}>
-                    {details.change_request_id}
-                </span>
-            </div>
-            <div className="flex w-full overflow-hidden">
-                <span className="w-1/2 truncate" title={t("status")}>{t("status")}:</span>
-                <span className={`w-1/2 pl-4 font-medium truncate ${statusClassMap[details.approval_status] ?? "text-neutral-first/50"}`} title={details.approval_status}>
-                    {details.approval_status}
-                </span>
-            </div>
-            <div className="flex w-full overflow-hidden">
-                <span className="w-1/2 truncate" title={t("change_date")}>{t("change_date")}:</span>
-                <span className="w-1/2 pl-4 text-neutral-first font-medium truncate" title={new Date(details.created_at).toLocaleDateString()}>
-                    {new Date(details.created_at).toLocaleDateString()}
-                </span>
-            </div>
-        </div>
-    )
-};
-
-const VerificationStats = ({
-    details,
-    verificationCount,
-    documentsCount,
-}: {
-    details: ChangeRequest;
-    verificationCount: number;
-    documentsCount: number;
-}) => {
+    documents: UploadedDocument[];
+    onClose: () => void;
+}) {
     const t = useTranslations();
 
     return (
-        <div className="space-y-2 text-[16px] text-neutral-first/50">
-            <h3 className="text-lg font-semibold text-neutral-first invisible">
-                Verification
-            </h3>
+        <div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-neutral-first/50 p-4"
+            onClick={onClose}
+        >
+            <div
+                className="relative flex max-h-[80vh] w-full max-w-[520px] flex-col rounded-[20px] border border-primary-first bg-neutral-second p-6 shadow-lg"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="absolute top-4 right-4 text-secondary-third transition-colors hover:text-neutral-first/70"
+                    aria-label={t('close')}
+                >
+                    <X size={22} strokeWidth={2} />
+                </button>
 
-            <div className="border-l border-primary-first pl-6 space-y-2">
-                <div className="flex w-full overflow-hidden">
-                    <span className="w-1/2 truncate" title={t('documents_attached')}>{t('documents_attached')}:</span>
-                    <span className="w-1/2 pl-4 text-neutral-first font-medium truncate" title={documentsCount.toString()}>
-                        {documentsCount}
-                    </span>
+                <div className="mb-4 flex items-center gap-2 pr-8">
+                    <h2 className="text-[20px] font-semibold text-neutral-first">
+                        {t('attached_documents')}
+                    </h2>
+                    <Image
+                        src="/images/changerequest/attached_doc_icon.png"
+                        alt={t('document_icon_alt')}
+                        width={16}
+                        height={16}
+                    />
+                    <span className="text-[14px] text-neutral-first/50">({documents.length})</span>
                 </div>
 
-                <div className="invisible flex w-full overflow-hidden" aria-hidden>
-                    <span className="w-1/2 truncate" title={t('verifications_required')}>{t('verifications_required')}:</span>
-                    <span className="w-1/2 pl-4 text-neutral-first font-medium truncate" title={details.no_of_verifications_required?.toString()}>
-                        {details.no_of_verifications_required}
-                    </span>
-                </div>
-
-                <div className="invisible flex w-full overflow-hidden" aria-hidden>
-                    <span className="w-1/2 truncate" title={t('verifications_done')}>{t('verifications_done')}:</span>
-                    <span className="w-1/2 pl-4 text-neutral-first font-medium truncate" title={verificationCount.toString()}>
-                        {verificationCount}
-                    </span>
+                <div className="flex flex-col gap-2 overflow-y-auto pr-1">
+                    {documents.map((doc) =>
+                        doc.presigned_url ? (
+                            <KeyValue
+                                key={doc.document_id || doc.label}
+                                label={doc.label || '—'}
+                                value=""
+                                href={doc.presigned_url}
+                            />
+                        ) : (
+                            <KeyValue
+                                key={doc.document_id || doc.label}
+                                label={doc.label || '—'}
+                                value="—"
+                            />
+                        ),
+                    )}
                 </div>
             </div>
         </div>
     );
-};
-
-const AttachedDocuments = ({ documents = [] }: { documents?: ChangeRequestDocument[] }) => {
-    const t = useTranslations();
-
-    const visibleDocs = documents.slice(0, 3);
-    const placeholdersCount = Math.max(0, 3 - visibleDocs.length);
-
-    return (
-        <div className="space-y-2 text-[16px] text-neutral-first/50">
-            <div className="pl-6 flex items-center leading-none mt-2">
-                <span className="text-[16px] font-medium text-neutral-first">
-                    {t('attached_documents')}
-                </span>
-                <Image
-                    src="/images/changerequest/attached_doc_icon.png"
-                    alt="doc"
-                    width={14}
-                    height={14}
-                    className="ml-1 mb-1"
-                />
-            </div>
-
-            <div className="border-l border-primary-first pl-6 flex flex-col gap-2 font-semibold">
-                {visibleDocs.map((doc, index) => (
-                    <span
-                        key={index}
-                        onClick={() => window.open(doc.document_url, '_blank', 'noopener,noreferrer')}
-                        className="flex items-center gap-2 cursor-pointer"
-                    >
-                        {doc.document_label}
-                        <Image src="/images/common/arrow_next_01.png" alt="arrow" width={14} height={14} />
-                    </span>
-                ))}
-
-                {Array.from({ length: placeholdersCount }).map((_, i) => (
-                    <span key={i} className="invisible">placeholder</span>
-                ))}
-            </div>
-        </div>
-    );
-};
+}

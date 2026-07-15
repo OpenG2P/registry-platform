@@ -1,7 +1,7 @@
 import { ApprovalTask } from '@/features/approval/types/approval';
 import ApprovalCard from '@/features/approval/components/ApprovalCard';
 import { useTranslations } from 'next-intl';
-import { VERIFICATION_CHANGE_REQUEST_ACTIONS } from '@/features/change-request/utils/verificationChangeRequest.actions';
+import { VERIFICATION_CHANGE_REQUEST_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 
 interface Props {

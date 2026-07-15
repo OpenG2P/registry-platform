@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { CONFIGURATION_SUBSCRIPTION_ACTIONS } from "@/features/configuration/shared/utils/configurationSubscription.actions";
+import { CONFIGURATION_SUBSCRIPTION_ACTIONS } from "@/features/shared/permissions";
 
 export default function ManageSubscriptionLayout({ children }: { children: React.ReactNode }) {
     return (

@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
                 form_id: body.form_id,
                 register_id: body.register_id,
                 created_by: body.created_by,
+                documents: body.documents,
             },
         }),
     });

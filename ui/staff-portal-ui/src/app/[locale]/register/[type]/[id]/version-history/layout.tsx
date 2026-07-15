@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { VERSION_HISTORY_ACTIONS } from "@/features/register/utils/versionHistory.actions";
+import { VERSION_HISTORY_ACTIONS } from "@/features/shared/permissions";
 
 export default function VersionHistoryLayout({ children }: { children: React.ReactNode }) {
     return (

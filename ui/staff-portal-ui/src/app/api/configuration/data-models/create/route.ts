@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
                 data_model_id: body.data_model_id,
                 data_model_mnemonic: body.data_model_mnemonic,
                 pattern_for_data_model: body.pattern_for_data_model,
-                response_template_file_id: body.response_template_file_id ?? "",
+                response_template_document_id: body.response_template_document_id ?? "",
                 is_active: body.is_active ?? true,
             },
         }),

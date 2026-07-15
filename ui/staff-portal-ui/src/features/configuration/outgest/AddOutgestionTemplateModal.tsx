@@ -5,7 +5,7 @@ import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { useFileUpload } from '../shared/hooks/useFileUpload';
+import { useFileUpload } from '@/features/shared/hooks';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useAllRegister } from '../shared';
 import { useAllDataModels } from '../shared/hooks/useAllDataModels';
@@ -47,11 +47,11 @@ export default function AddOutgestionTemplateModal({
     const [formData, setFormData] = useState({
         register_id: '',
         data_model_id: '',
-        template_file_id: '',
+        template_document_id: '',
     });
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload("/api/configuration/outgest/upload-template");
+    const { uploadFile, uploading, uploadedFileName, setUploadedFileName } = useFileUpload('templates');
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -79,9 +79,16 @@ export default function AddOutgestionTemplateModal({
             return;
         }
 
-        let documentId = formData.template_file_id;
+        let documentId = formData.template_document_id;
         if (selectedFile) {
-            documentId = await uploadFile(selectedFile);
+            const result = await uploadFile([selectedFile]);
+            const uploadedDocumentId = Array.isArray(result) ? result[0]?.document_id : undefined;
+            if (!uploadedDocumentId) {
+                toast.error(t('failed_to_upload_file'));
+                return;
+            }
+            toast.success(t('file_uploaded_successfully'));
+            documentId = uploadedDocumentId;
         }
 
         const result = await createOutgestionTemplate(
@@ -90,7 +97,7 @@ export default function AddOutgestionTemplateModal({
                 method: 'POST',
                 body: JSON.stringify({
                     ...formData,
-                    template_file_id: documentId
+                    template_document_id: documentId
                 }),
             }
         );
@@ -101,7 +108,7 @@ export default function AddOutgestionTemplateModal({
             setFormData({
                 register_id: '',
                 data_model_id: '',
-                template_file_id: '',
+                template_document_id: '',
             });
             setUploadedFileName('');
 
@@ -116,7 +123,7 @@ export default function AddOutgestionTemplateModal({
         setFormData({
             register_id: '',
             data_model_id: '',
-            template_file_id: '',
+            template_document_id: '',
         });
 
         onClose();
@@ -159,10 +166,10 @@ export default function AddOutgestionTemplateModal({
             />
 
             <FileUploadField
-                label={t('template_id')}
+                label={t('template')}
                 fileInputRef={fileInputRef}
                 uploading={uploading}
-                fileId={formData.template_file_id}
+                fileId={formData.template_document_id}
                 fileName={uploadedFileName}
                 onFileChange={handleFileChange}
                 onRemove={handleRemoveFile}

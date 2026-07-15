@@ -8,7 +8,10 @@ import {
 } from '@openg2p/registry-widgets';
 import { CapsuleDropdown, TabsLayout } from '@/components/shared';
 import { ApprovalList, ApprovalListSkeleton } from '@/features/approval/components';
-import { useApprovals } from '@/features/approval/hooks/useApprovals';
+import {
+    useApprovalTasks,
+    useSubmitApprovalDecision,
+} from '@/features/approval/hooks';
 import { useTranslations } from 'next-intl';
 import { useRegisterTabs } from '@/context/RegisterTabsContext';
 import { useBreadcrumb, useFetch } from '@/shared/hooks';
@@ -18,7 +21,7 @@ import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRegisterSectionsFromCR';
 import { useRegisterRecord } from '@/context/RegisterRecordContext';
-import { RegisterFlattenedRecord } from '@/features/register/types';
+import { buildSectionDataMap } from '@/features/shared/utils';
 import VersionHistoryPageSkeleton from '@/features/register/components/VersionHistoryPageSkeleton';
 import { dataSourceRequestHandler } from '@/shared/services';
 
@@ -173,7 +176,8 @@ export default function VersionHistoryPage() {
 
     const aweRequestId = selectedChangeRequestId?.request_id ?? null;
 
-    const { tasks, loadingTasks, submitDecision } = useApprovals(aweRequestId);
+    const { tasks, loadingTasks, refetchTasks } = useApprovalTasks(aweRequestId);
+    const { submitDecision } = useSubmitApprovalDecision(null, refetchTasks);
 
     /* ───────── Handle dates response ───────── */
     useEffect(() => {
@@ -251,25 +255,16 @@ export default function VersionHistoryPage() {
         prevSectionUISchema.current = undefined;
     };
 
-    const newSectionData = useMemo(() => {
-        if (!changeRequestData?.change_payload?.length) return undefined;
-
-        const map: Record<
-            string,
-            RegisterFlattenedRecord | { records: RegisterFlattenedRecord[] }
-        > = {};
-
-        if (changeRequestData.is_list) {
-            map[changeRequestData.section_register_id] = {
-                records: changeRequestData.change_payload,
-            };
-        } else {
-            map[changeRequestData.section_register_id] =
-                changeRequestData.change_payload[0];
-        }
-
-        return map;
-    }, [changeRequestData]);
+    const newSectionData = useMemo(
+        () =>
+            buildSectionDataMap(
+                changeRequestData?.section_register_id ?? '',
+                changeRequestData?.change_payload,
+                changeRequestData?.documents || null,
+                !!changeRequestData?.is_list
+            ),
+        [changeRequestData]
+    );
 
     if (newSectionData) prevSectionData.current = newSectionData;
     if (sectionUISchema) prevSectionUISchema.current = sectionUISchema;

@@ -4,7 +4,7 @@ export interface DataModel {
     data_model_id: string;
     data_model_mnemonic: string;
     pattern_for_data_model: string;
-    response_template_file_id: string;
+    response_template_document_id: string;
     is_active: boolean;
 }
 

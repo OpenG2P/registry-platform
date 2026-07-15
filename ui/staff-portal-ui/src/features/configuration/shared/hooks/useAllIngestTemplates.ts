@@ -6,7 +6,7 @@ export interface IngestTemplate {
     register_mnemonic: string;
     data_model_id: string;
     data_model_mnemonic: string;
-    template_file_id: string;
+    template_document_id: string;
     jsonld_expansion_required: boolean;
 }
 

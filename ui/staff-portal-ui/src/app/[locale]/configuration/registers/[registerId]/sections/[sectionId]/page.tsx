@@ -14,7 +14,7 @@ import {
 } from '@/features/configuration/shared';
 import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_SECTIONS_ACTIONS } from '@/features/configuration/shared/utils/configurationSections.actions';
+import { CONFIGURATION_SECTIONS_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
 import { useRegisterSection } from '@/features/configuration/shared/hooks/useRegisterSection';
 

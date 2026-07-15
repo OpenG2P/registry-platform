@@ -350,6 +350,57 @@ export function getDeepestSelectedValue(
   return deepest;
 }
 
+/** Build geo_code_hierarchy_json document from current selections (for save payload). */
+export function buildHierarchyJson(
+  orderedLevels: GeoLevel[],
+  selectedValues: Record<string, string>,
+  options: Record<string, GeoSelectOption[]>,
+  resolvedLabels: Record<string, string> = {},
+): GeoHierarchyJson | null {
+  const hierarchy: GeoHierarchyJsonEntry[] = [];
+
+  for (const level of orderedLevels) {
+    const levelValueId = selectedValues[level.level_id];
+    if (!levelValueId) {
+      break;
+    }
+
+    const optionLabel = options[level.level_id]?.find((item) => item.value === levelValueId)?.label;
+    const mnemonic = optionLabel || resolvedLabels[levelValueId] || levelValueId;
+
+    hierarchy.push({
+      level_id: level.level_id,
+      level: level.level_mnemonic,
+      level_mnemonic: level.level_mnemonic,
+      level_value_id: levelValueId,
+      level_value_mnemonic: mnemonic,
+    });
+  }
+
+  if (hierarchy.length === 0) {
+    return null;
+  }
+
+  return {
+    hierarchy,
+    lowest_level_value_id: hierarchy[hierarchy.length - 1].level_value_id,
+  };
+}
+
+/** Preserve string vs object storage shape used by the existing hierarchy field. */
+export function formatHierarchyForPersist(
+  document: GeoHierarchyJson | null,
+  previous: unknown,
+): unknown {
+  if (document === null) {
+    return typeof previous === 'string' ? '' : null;
+  }
+  if (typeof previous === 'string') {
+    return JSON.stringify(document);
+  }
+  return document;
+}
+
 export function clearDescendants(
   orderedLevels: GeoLevel[],
   fromIndex: number,

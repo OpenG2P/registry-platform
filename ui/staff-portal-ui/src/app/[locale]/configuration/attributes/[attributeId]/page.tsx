@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl';
 import { useRbac } from '@/context/RbacContext';
 import { ConfigDetailsSummary } from '@/features/configuration/shared/components';
 import { useAttribute } from '@/features/configuration/shared/hooks';
-import { CONFIGURATION_ATTRIBUTES_ACTIONS } from '@/features/configuration/shared/utils/configurationAttributes.actions';
+import { CONFIGURATION_ATTRIBUTES_ACTIONS } from '@/features/shared/permissions';
 import {
     AttributeValuesView,
     EditAttributeModal,

@@ -8,7 +8,7 @@ import { ProfileDropdown, NotificationDropdown, ConfigurationButton, LanguageSwi
 import { useRuntimeConfig } from "@/context/RuntimeConfigContext";
 import { useLogoDimensions } from '@/shared/hooks';
 import Can from "../shared/Can";
-import { CONFIG_NAV_ACTIONS } from "@/features/configuration/shared/utils/configurationView.actions";
+import { CONFIG_NAV_ACTIONS } from "@/features/shared/permissions";
 
 export default function Header() {
     const t = useTranslations();

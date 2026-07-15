@@ -2,7 +2,10 @@ import { Dispatch } from '@reduxjs/toolkit';
 import { SectionConfig } from '../../../types';
 import { getValueByPath } from '../../../utils/pathUtils';
 import { sectionValidate, collectWidgets } from '../../../utils/sectionValidate';
-import { isSerializedFile } from '../../../utils/fileSerialization';
+import {
+  deserializeFile,
+  isSerializedFile,
+} from '../../../utils/fileSerialization';
 import { SectionChanges } from '../types';
 import { trackSectionChanges } from './sectionSnapshot';
 
@@ -113,6 +116,13 @@ const extractProfileImage = (
       if (value instanceof File) {
         profileImage = value;
         copy[key] = '';
+      } else if (isSerializedFile(value)) {
+        try {
+          profileImage = deserializeFile(value);
+          copy[key] = '';
+        } catch (err) {
+          console.error('Failed to deserialize profile image:', err);
+        }
       }
     }
     return copy;

@@ -7,8 +7,8 @@ import { ApprovalTask } from '@/features/approval/types/approval';
 import { formatDateTime } from '@/shared/utils/dateUtils';
 import { useAuth } from '@/context/Authcontext';
 import { useRbac } from '@/context/RbacContext';
-import { VERIFICATION_CHANGE_REQUEST_ACTIONS } from '@/features/change-request/utils/verificationChangeRequest.actions';
-import { VERIFICATION_INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/verificationIntakeForm.actions';
+import { VERIFICATION_CHANGE_REQUEST_ACTIONS } from '@/features/shared/permissions';
+import { VERIFICATION_INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 
 interface Props {
     task: ApprovalTask;

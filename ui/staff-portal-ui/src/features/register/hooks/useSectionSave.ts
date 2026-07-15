@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { useFetch } from "@/shared/hooks/useFetch";
-import { UploadedDocument } from "@/shared/types";
+import { UploadedDocument } from "@/features/shared/types";
 import { useRegister } from "@/context/RegisterContext";
 import { useRegisterTabs } from "@/context/RegisterTabsContext";
 import { useRegisterRecord } from "@/context/RegisterRecordContext";
@@ -8,7 +8,7 @@ import { SectionChanges } from "@openg2p/registry-widgets";
 import { extractFilesFromSection, normalizeEditActions } from "../utils";
 import { toast } from "react-toastify";
 import { useTranslations } from "next-intl";
-import { useDocumentUpload } from "./useDocumentUpload";
+import { useFileUpload } from "@/features/shared/hooks";
 
 import { TabSection } from "@/features/register/types";
 
@@ -22,13 +22,13 @@ export const useSectionSave = (
     const { currentRegister } = useRegister();
 
     const { execute: submitChangeRequest } = useFetch();
-    const { execute: uploadDocumentRequest } = useFetch();
-    const { uploadDocument } = useDocumentUpload(uploadDocumentRequest);
+    const { uploadFile } = useFileUpload();
 
     const isSubmitting = useRef(false);
 
     const handleSectionSave = useCallback(
         async (sectionChanges: SectionChanges) => {
+            console.log(sectionChanges.files, "sectionChanges.files*********************")
 
             // prevent duplicate submission, when user click multiples time
             if (isSubmitting.current) return;
@@ -52,21 +52,20 @@ export const useSectionSave = (
                     return;
                 }
 
-                const { filesToUpload, fileLabels } = extractFilesFromSection(files);
+                const { filesToUpload,fileLabels } = extractFilesFromSection(files);
 
                 let documentsResponse: UploadedDocument[] = [];
-                let document_store_id: string | undefined;
+                let document_id: string | undefined;
 
                 // Profile pictures of register records
                 if (sectionChanges.image) {
-                    const uploadResult = await uploadDocument({
-                        file: sectionChanges.image,
-                        label: "profile_image_file",
-                    });
+                    const uploadResult = await uploadFile([sectionChanges.image]);
+                    const uploaded = Array.isArray(uploadResult) ? uploadResult[0] : null;
 
-                    if (uploadResult) {
-                        documentsResponse.push(uploadResult);
-                        document_store_id = uploadResult.document_store_id;
+                    if (uploaded) {
+                        documentsResponse.push(uploaded);
+                        document_id = uploaded.document_id;
+
 
                         toast.success(t("toast_profile_image_upload_success"), {
                             position: "top-right",
@@ -77,17 +76,8 @@ export const useSectionSave = (
 
                 if (filesToUpload.length > 0) {
                     try {
-                        const uploadPromises = filesToUpload.map((file, index) =>
-                            uploadDocument({
-                                file,
-                                label: fileLabels[index],
-                            })
-                        );
-
-                        const results = await Promise.all(uploadPromises);
-                        const successfulUploads = results.filter((r): r is UploadedDocument => r !== null);
-
-                        if (successfulUploads.length === 0) {
+                        const uploadResult = await uploadFile(filesToUpload);
+                        if ( !uploadResult || uploadResult.length === 0) {
                             toast.error(t("toast_upload_failed_cr_not_created"), {
                                 position: "top-right",
                                 autoClose: 6000,
@@ -95,7 +85,7 @@ export const useSectionSave = (
                             return;
                         }
 
-                        documentsResponse.push(...successfulUploads);
+                        documentsResponse.push(...uploadResult);
 
                         toast.success(t("toast_upload_success", { count: documentsResponse.length }), {
                             position: "top-right",
@@ -114,7 +104,7 @@ export const useSectionSave = (
                 const records = normalizeEditActions(
                     sectionChangeRecords,
                     internalRecordId,
-                    document_store_id
+                    document_id
                 )
 
                 const section = tabSections?.find(
@@ -123,23 +113,28 @@ export const useSectionSave = (
 
                 const endpoint = section?.is_core_section ? `/api/change-request/core-section/create` : `/api/change-request/create`;
 
+                const abc = {
+                    register_id: register_id,
+                    register_mnemonic: register_mnemonic,
+                    internal_record_id: internalRecordId,
+                    section_register_id: section_register_id,
+                    tab_id: activeTabId,
+                    section_id: section_id,
+                    section_records: records,
+                    // While creating change request 
+                    // via register always treated as
+                    // Update action at chage request lavel
+                    edit_action: "UPDATE",
+                    documents: documentsResponse.map((document, index) => ({
+                        document_id: document.document_id,
+                        label: fileLabels[index] || "unknown_label",
+                    })),
+                }
+
                 const change_request_response = await submitChangeRequest(endpoint, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        register_id: register_id,
-                        register_mnemonic: register_mnemonic,
-                        internal_record_id: internalRecordId,
-                        section_register_id: section_register_id,
-                        tab_id: activeTabId,
-                        section_id: section_id,
-                        section_records: records,
-                        // While creating change request 
-                        // via register always treated as
-                        // Update action at chage request lavel
-                        edit_action: "UPDATE",
-                        documents: documentsResponse,
-                    }),
+                    body: JSON.stringify(abc),
                 });
 
                 if (change_request_response?.change_request_id) {
@@ -163,8 +158,7 @@ export const useSectionSave = (
             internalRecordId,
             submitChangeRequest,
             activeTabId,
-            uploadDocumentRequest,
-            uploadDocument,
+            uploadFile,
             onChangeRequestCreated,
             t,
             tabSections,

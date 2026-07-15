@@ -1,20 +1,15 @@
 const TEMPLATE_MAX_FILE_SIZE_BYTES = 1 * 1024 * 1024;
-const TEMPLATE_ACCEPT = '.json,application/json';
+const TEMPLATE_ACCEPT = '.json.j2';
 
-function isJsonTemplateFile(file: File): boolean {
-    if (file.name.toLowerCase().endsWith('.json')) {
-        return true;
-    }
-
-    const mime = file.type.toLowerCase();
-    return mime === 'application/json' || mime === 'text/json';
+function isTemplateFile(file: File): boolean {
+    return file.name.toLowerCase().endsWith('.json.j2');
 }
 
 export function validateTemplateUpload(
     file: File,
     t: (key: string) => string,
 ): string | null {
-    if (!isJsonTemplateFile(file)) {
+    if (!isTemplateFile(file)) {
         return t('template_file_type_limit');
     }
 

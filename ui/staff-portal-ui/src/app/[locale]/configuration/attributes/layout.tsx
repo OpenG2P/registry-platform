@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { CONFIGURATION_ATTRIBUTES_ACTIONS } from "@/features/configuration/shared/utils/configurationAttributes.actions";
+import { CONFIGURATION_ATTRIBUTES_ACTIONS } from "@/features/shared/permissions";
 
 export default function AttributesConfigLayout({ children }: { children: React.ReactNode }) {
     return (

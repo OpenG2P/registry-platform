@@ -23,9 +23,9 @@ import {
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { usePagination } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_TABS_ACTIONS } from '@/features/configuration/shared/utils/configurationTabs.actions';
-import { CONFIGURATION_SCORES_ACTIONS } from '@/features/configuration/shared/utils/configurationScores.actions';
-import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/configuration/shared/utils/configurationRegisters.actions';
+import { CONFIGURATION_TABS_ACTIONS } from '@/features/shared/permissions';
+import { CONFIGURATION_SCORES_ACTIONS } from '@/features/shared/permissions';
+import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
 import RegisterSectionConfigView from '@/features/configuration/registers/RegisterSectionConfigView';
 

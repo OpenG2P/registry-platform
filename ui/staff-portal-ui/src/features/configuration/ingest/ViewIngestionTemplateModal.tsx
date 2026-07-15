@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { BaseModal, Field } from '../shared/components';
+import { BaseModal, Field, FileLink } from '../shared/components';
 
 interface Props {
     onClose: () => void;
@@ -25,7 +25,10 @@ export default function ViewIngestionTemplateModal({
 
                 <Field label={t('data_model_mnemonic')} value={data?.data_model_mnemonic} />
 
-                <Field label={t('template_file_id')} value={data?.template_file_id} />
+                <Field
+                    label={t('template')}
+                    value={<FileLink documentId={data?.template_document_id} />}
+                />
 
                 <Field
                     label={t('jsonld_expansion')}

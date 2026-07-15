@@ -10,7 +10,7 @@ import ThemeSelector from '@/features/configuration/registry/components/ThemeSel
 import ThemeColorEditor from '@/features/configuration/registry/components/ThemeColorEditor';
 import { useTheme } from '@/features/configuration/registry/hooks/useTheme';
 import { COLOR_ATTRIBUTES } from '@/features/configuration/registry/types';
-import { CONFIGURATION_REGISTRY_ACTIONS } from '@/features/configuration/shared/utils/configurationRegistry.actions';
+import { CONFIGURATION_REGISTRY_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 
 const ThemePage = () => {

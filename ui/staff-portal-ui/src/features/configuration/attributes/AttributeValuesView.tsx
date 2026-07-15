@@ -18,7 +18,7 @@ import {
     useAttributeValues,
     valueHasChildren,
 } from '@/features/configuration/shared/hooks';
-import { CONFIGURATION_ATTRIBUTES_ACTIONS } from '@/features/configuration/shared/utils/configurationAttributes.actions';
+import { CONFIGURATION_ATTRIBUTES_ACTIONS } from '@/features/shared/permissions';
 import type { Attribute, AttributeValue } from '@/features/configuration/shared/types/attributes';
 import AddAttributeValueModal from './AddAttributeValueModal';
 import EditAttributeValueModal from './EditAttributeValueModal';

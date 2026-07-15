@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useFetch } from '@/shared/hooks/useFetch';
 import { toast } from 'react-toastify';
 import { useTranslations } from 'next-intl';
-import { ApprovalTask } from '@/features/approval/types/approval';
 
 export interface ApprovalArtifactContext {
     artifactId: string;
@@ -10,63 +9,16 @@ export interface ApprovalArtifactContext {
     currentStage: number;
 }
 
-export const useApprovals = (
-    aweRequestId?: string | null,
+export function useSubmitApprovalDecision(
     artifactContext?: ApprovalArtifactContext | null,
     onRefresh?: () => void | Promise<void>,
-) => {
+) {
     const t = useTranslations();
-    const [tasks, setTasks] = useState<ApprovalTask[]>([]);
-    const [loadingTasks, setLoadingTasks] = useState(true);
-
-    const fetchOptions = useMemo(
-        () => ({
-            method: 'POST' as const,
-            body: JSON.stringify({
-                request_id: aweRequestId,
-            }),
-        }),
-        [aweRequestId],
-    );
-
-    const { data: tasksResp, loading: tasksLoading, execute: refetchTasks } = useFetch<{
-        tasks: ApprovalTask[];
-        total: number;
-    }>({
-        url: '/api/awe/tasks-for-request',
-        enabled: !!aweRequestId,
-        options: fetchOptions,
-    });
 
     const { execute: executeDecision } = useFetch<{ decision: unknown }>({
         url: '/api/awe/submit-task-decision',
         enabled: false,
     });
-
-    useEffect(() => {
-        setTasks([]);
-        if (!aweRequestId) {
-            setLoadingTasks(false);
-        }
-    }, [aweRequestId]);
-
-    useEffect(() => {
-        if (!aweRequestId) return;
-        if (tasksResp?.tasks) {
-            setTasks(tasksResp.tasks);
-        }
-        setLoadingTasks(tasksLoading);
-    }, [tasksResp, tasksLoading, aweRequestId]);
-
-    const refreshApprovalState = useCallback(async () => {
-        if (aweRequestId) {
-            const refreshed = await refetchTasks('/api/awe/tasks-for-request', fetchOptions);
-            if (refreshed?.tasks) {
-                setTasks(refreshed.tasks);
-            }
-        }
-        await onRefresh?.();
-    }, [aweRequestId, refetchTasks, fetchOptions, onRefresh]);
 
     const submitDecision = useCallback(
         async (taskId: string, action: 'approve' | 'reject', comment: string) => {
@@ -93,7 +45,7 @@ export const useApprovals = (
                         position: 'top-right',
                         autoClose: 5000,
                     });
-                    await refreshApprovalState();
+                    await onRefresh?.();
                     return false;
                 }
 
@@ -102,25 +54,25 @@ export const useApprovals = (
                         position: 'top-right',
                         autoClose: 4000,
                     });
-                    await refreshApprovalState();
+                    await onRefresh?.();
                     return true;
                 }
 
                 toast.error(t('toast_approval_submit_failed'), {
                     autoClose: 5000,
                 });
-                await refreshApprovalState();
+                await onRefresh?.();
                 return false;
             } catch {
                 toast.error(t('toast_approval_submit_failed'), {
                     autoClose: 5000,
                 });
-                await refreshApprovalState();
+                await onRefresh?.();
                 return false;
             }
         },
-        [executeDecision, refreshApprovalState, artifactContext, t],
+        [executeDecision, artifactContext, onRefresh, t],
     );
 
-    return { tasks, loadingTasks, submitDecision };
-};
+    return { submitDecision };
+}
