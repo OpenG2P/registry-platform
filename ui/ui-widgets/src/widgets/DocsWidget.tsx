@@ -240,14 +240,36 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
   return (
     <div className={isReadonly ? 'DocsDisplayWidget mb-[10px]' : 'DocsWidget mb-[10px]'}>
       <div
-        className="flex flex-col lg:grid gap-x-8 gap-y-0"
+        className="flex flex-col lg:grid w-full"
         style={{ gridTemplateColumns: `repeat(${docColumns.length || 1}, minmax(0, 1fr))` }}
       >
-        {docColumns.map((column, columnIndex) => (
-          <div key={`docs-column-${columnIndex}`} className="flex flex-col">
-            {column.map((doc) => renderSlot(doc))}
-          </div>
-        ))}
+        {docColumns.map((column, columnIndex) => {
+          const isLast = columnIndex === docColumns.length - 1;
+          const columnClassName = [
+            'flex flex-col min-w-0 relative',
+            columnIndex > 0 ? 'lg:pl-10' : '',
+            isLast ? '' : 'lg:pr-10',
+          ]
+            .filter(Boolean)
+            .join(' ');
+
+          return (
+            <div key={`docs-column-${columnIndex}`} className={columnClassName}>
+              {!isLast && (
+                <div
+                  className="hidden lg:block absolute right-0 top-0 w-px"
+                  style={{
+                    bottom: '5px',
+                    backgroundColor: isReadonly
+                      ? 'var(--owt-panel-divider-color, #C4C4C4)'
+                      : 'var(--owt-color-primary, #F5BB1A)',
+                  }}
+                />
+              )}
+              {column.map((doc) => renderSlot(doc))}
+            </div>
+          );
+        })}
       </div>
       <FilePreviewModal
         file={previewFile}

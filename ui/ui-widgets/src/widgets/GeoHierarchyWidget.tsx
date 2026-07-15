@@ -139,9 +139,6 @@ function renderLevelRows({
                 </option>
               ))}
             </select>
-            {/* {isLoading && (
-              <p className="text-sm text-gray-500 mt-1">{t?.('common.loadingOptions')}</p>
-            )} */}
           </div>
         </div>
       </div>
@@ -196,6 +193,8 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
     formatLevelLabel,
   };
 
+  const layoutColumnCount = Math.max(visibleColumns.length, 1);
+
   const content =
     visibleColumns.length <= 1 ? (
       renderLevelRows({
@@ -206,7 +205,7 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
       <div
         className="flex flex-col lg:grid w-full"
         style={{
-          gridTemplateColumns: `repeat(${visibleColumns.length}, minmax(200px, 1fr))`,
+          gridTemplateColumns: `repeat(${layoutColumnCount}, minmax(200px, 1fr))`,
         }}
       >
         {visibleColumns.map((column, position) => {

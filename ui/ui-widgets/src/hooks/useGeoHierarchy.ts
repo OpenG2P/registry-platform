@@ -462,7 +462,7 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     [levels, selectedValues, options, resolvedLabels],
   );
 
-  const { columnCounts, columns: levelColumns } = useMemo(
+  const { columnCounts, columns: levelColumns, columnSpan } = useMemo(
     () => resolveGeoLevelColumns(levels, geoLayout),
     [levels, geoLayout],
   );
@@ -486,6 +486,7 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     options,
     resolvedLabels,
     columnCounts,
+    columnSpan,
     visibleColumns,
     loadingLevels,
     loadingLevelId,
