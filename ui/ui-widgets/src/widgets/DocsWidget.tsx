@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { tSchema } from '../utils/tSchema';
 import { useWidgetContext } from '../components/WidgetProvider';
@@ -7,9 +7,9 @@ import { WidgetRootState } from '../store';
 import { getValueByPath } from '../utils/pathUtils';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
-import { FilePreviewModal } from '../components/FilePreviewModal';
-import { canPreviewInWeb } from '../utils/filePreview';
+import { openFileInNewTab } from '../utils/filePreview';
 import { serializeFile, deserializeFile, isSerializedFile, SerializedFile } from '../utils/fileSerialization';
+import { attachmentIcon, remove, uploadIcon } from '../assets';
 const distributeDocsToColumns = (
   docs: DocSlotConfig[],
   totalDocs: number,
@@ -37,6 +37,7 @@ export interface DocSlotConfig {
   'document-accept': string;
   /**  maximum file size in bytes. */
   'document-max-size': number;
+  source_filename?: string;
 }
 
 interface DocsWidgetProps {
@@ -48,6 +49,12 @@ type DocsValue = Record<string, DocsSlotValue>;
 
 const getFileName = (file: File | string): string =>
   file instanceof File ? file.name : file.split('/').pop() || file;
+
+const iconButtonClass =
+  'inline-flex items-center justify-center shrink-0 p-0 border-0 bg-transparent focus:outline-none';
+
+const docControlClass =
+  'w-full h-9 min-w-0 flex items-center rounded-lg px-2.5 box-border';
 
 export const DocsWidget = ({ config }: DocsWidgetProps) => {
   const {
@@ -74,8 +81,6 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
       ? (rawValue as DocsValue)
       : {};
 
-  const [previewFile, setPreviewFile] = useState<File | string | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const handleFileChange = async (docKey: string, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,6 +101,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
       const updated: DocsValue = {
         ...currentValue,
         [docKey]: { ...serialized, label: doc?.['document-label'] ?? docKey },
+        [`${docKey}_source_filename`]: file.name,
       };
       onChange(updated);
       onBlur();
@@ -109,7 +115,11 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
   };
 
   const handleRemove = (docKey: string) => {
-    const updated: DocsValue = { ...currentValue, [docKey]: null };
+    const updated: DocsValue = {
+      ...currentValue,
+      [docKey]: null,
+      [`${docKey}_source_filename`]: null,
+    };
     onChange(updated);
   };
 
@@ -118,12 +128,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (canPreviewInWeb(file)) {
-      setPreviewFile(file);
-      setIsPreviewOpen(true);
-    } else if (typeof file === 'string') {
-      window.open(file, '_blank', 'noopener,noreferrer');
-    }
+    openFileInNewTab(file);
   };
 
   const getDocValue = (docKey: string): File | string | null => {
@@ -140,6 +145,12 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
     return null;
   };
 
+  const getSourceFilename = (docKey: string, file: File | string | null): string => {
+    const stored = currentValue[`${docKey}_source_filename`];
+    if (typeof stored === 'string' && stored) return stored;
+    return file ? getFileName(file) : '';
+  };
+
   const renderSlot = (doc: DocSlotConfig) => {
     const docKey = doc['document-key'];
     const label = doc['document-label'];
@@ -147,31 +158,39 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
     const accept = doc['document-accept'];
     const file = getDocValue(docKey);
     const hasFile = !!file;
-    const fileName = file ? getFileName(file) : '';
+    const displayFileName = getSourceFilename(docKey, file);
 
     if (isReadonly) {
       return (
         <div
           key={docKey}
-          className="mb-[10px] FileDisplayWidget flex flex-col sm:flex-row sm:items-start"
+          className="mb-[10px] FileDisplayWidget flex flex-row items-start w-full"
         >
           <div
-            className="text-base text-gray-600 font-medium w-full sm:w-1/2 sm:pr-4 mb-1 sm:mb-0 truncate"
+            className="w-1/2 min-w-0 pr-2 text-base text-gray-600 font-medium truncate"
             style={{ fontFamily: 'Roboto, sans-serif' }}
             title={tSchema(t, label)}
           >
             {tSchema(t, label)}:
           </div>
-          <div className="flex-1 min-w-0">
+          <div className="w-1/2 min-w-0 flex items-center min-h-[1.5rem]">
             {hasFile ? (
-              <button
-                type="button"
-                onClick={(e) => handlePreview(file!, e)}
-                className="inline-flex items-center px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-900 bg-gray-50 focus:outline-none"
-                title={fileName}
-              >
-                {t?.('common.view') ?? 'View'}
-              </button>
+              <>
+                <span
+                  className="w-10/12 min-w-0 truncate text-base text-gray-900 font-medium"
+                  title={displayFileName}
+                >
+                  {displayFileName}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => handlePreview(file!, e)}
+                  className={`w-2/12 ${iconButtonClass}`}
+                  title={displayFileName}
+                >
+                  <img src={attachmentIcon} alt={t?.('common.view') ?? 'View'} className="h-4 w-4" />
+                </button>
+              </>
             ) : (
               <span className="text-base text-gray-900 font-medium">-</span>
             )}
@@ -182,55 +201,77 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
 
     return (
       <div key={docKey} className="mb-[10px]">
-        <div className="flex flex-col sm:flex-row sm:items-start">
+        <div className="flex flex-row items-center w-full">
           <WidgetFieldLabel
-            className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+            className="w-1/2 min-w-0 pr-2 text-base font-medium text-gray-700"
             label={tSchema(t, label)}
             required={isRequired}
           />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              {!hasFile && (
-                <label
-                  className={`cursor-pointer inline-flex items-center px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-900 bg-gray-50 ${
+          <div className="w-1/2 min-w-0 flex items-center min-h-[1.5rem]">
+            {!hasFile && (
+              <label
+                className={`${docControlClass} cursor-pointer justify-center gap-2 border border-dashed ${
+                  !isEnabled ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                style={{
+                  borderColor: 'var(--owt-color-primary-dark, #F07B1A)',
+                  backgroundColor: 'var(--owt-color-background, #FFFFFF)',
+                }}
+              >
+                <img src={uploadIcon} alt="" className="h-4 w-4 shrink-0" />
+                <span className="text-sm font-medium text-gray-900">
+                  {t?.('common.upload') ?? 'Upload'}
+                </span>
+                <input
+                  type="file"
+                  accept={accept}
+                  onChange={(e) => void handleFileChange(docKey, e)}
+                  onBlur={onBlur}
+                  disabled={!isEnabled}
+                  className="hidden"
+                  ref={(el) => {
+                    fileInputRefs.current[docKey] = el;
+                  }}
+                />
+              </label>
+            )}
+            {hasFile && (
+              <div
+                className={`${docControlClass} gap-2 border border-gray-200 bg-white`}
+                title={displayFileName}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => handlePreview(file!, e)}
+                  className={`${iconButtonClass} min-w-0 flex-1 gap-2 justify-start`}
+                  title={displayFileName}
+                >
+                  <img
+                    src={attachmentIcon}
+                    alt=""
+                    className="h-4 w-4 shrink-0"
+                  />
+                  <span className="min-w-0 truncate text-sm font-medium text-gray-900">
+                    {displayFileName}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(docKey)}
+                  disabled={!isEnabled}
+                  className={`inline-flex items-center justify-center shrink-0 h-5 w-5 p-0 border-0 rounded-full bg-gray-200 hover:bg-gray-300 focus:outline-none ${
                     !isEnabled ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
+                  title={t?.('common.remove') ?? 'Remove'}
                 >
-                  {t?.('common.upload') ?? 'Upload'}
-                  <input
-                    type="file"
-                    accept={accept}
-                    onChange={(e) => void handleFileChange(docKey, e)}
-                    onBlur={onBlur}
-                    disabled={!isEnabled}
-                    className="hidden"
-                    ref={(el) => {
-                      fileInputRefs.current[docKey] = el;
-                    }}
+                  <img
+                    src={remove}
+                    alt={t?.('common.remove') ?? 'Remove'}
+                    className="h-2.5 w-2.5"
                   />
-                </label>
-              )}
-              {hasFile && (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => handlePreview(file!, e)}
-                    className="inline-flex items-center px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-900 bg-gray-50 focus:outline-none"
-                    title={fileName}
-                  >
-                    {t?.('common.view') ?? 'View'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRemove(docKey)}
-                    className="inline-flex items-center px-3 py-1 rounded-md border border-gray-300 text-sm font-medium text-gray-900 bg-gray-50 focus:outline-none"
-                    title="Remove"
-                  >
-                    {t?.('common.remove') ?? 'Remove'}
-                  </button>
-                </>
-              )}
-            </div>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -271,14 +312,6 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
           );
         })}
       </div>
-      <FilePreviewModal
-        file={previewFile}
-        isOpen={isPreviewOpen && !!previewFile}
-        onClose={() => {
-          setIsPreviewOpen(false);
-          setPreviewFile(null);
-        }}
-      />
     </div>
   );
 };

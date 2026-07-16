@@ -4,8 +4,7 @@ import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
-import { FilePreviewModal } from '../components/FilePreviewModal';
-import { canPreviewInWeb } from '../utils/filePreview';
+import { canPreviewInWeb, openFileInNewTab } from '../utils/filePreview';
 import { serializeValue, deserializeValue, isSerializedFile, deserializeFile } from '../utils/fileSerialization';
 import { uploadIcon, fileIcon } from '../assets';
 
@@ -33,8 +32,6 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
 
   const isSupportingDocument = widgetConfig['widget-id']?.startsWith('supporting-doc-') || false;
 
-  const [previewFile, setPreviewFile] = useState<File | string | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [localFiles, setLocalFiles] = useState<File[] | File | null>(null);
 
   const deserializedValue = useMemo(() => {
@@ -155,8 +152,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
     }
 
     if (canPreviewInWeb(file)) {
-      setPreviewFile(file);
-      setIsPreviewOpen(true);
+      openFileInNewTab(file);
     }
   };
 
@@ -274,15 +270,6 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
           {displayValue ? renderFileDisplay() : <span className="text-base text-gray-900 font-medium">-</span>}
           
         </div>
-
-        <FilePreviewModal
-          file={previewFile}
-          isOpen={isPreviewOpen && !!previewFile}
-          onClose={() => {
-            setIsPreviewOpen(false);
-            setPreviewFile(null);
-          }}
-        />
       </div>
     );
   }
@@ -358,16 +345,6 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
           )}
         </div>
       </div>
-
-      <FilePreviewModal
-        key={`modal-${previewFile ? (previewFile instanceof File ? previewFile.name : previewFile) : 'none'}`}
-        file={previewFile}
-        isOpen={isPreviewOpen && !!previewFile}
-        onClose={() => {
-          setIsPreviewOpen(false);
-          setPreviewFile(null);
-        }}
-      />
     </div>
   );
 };

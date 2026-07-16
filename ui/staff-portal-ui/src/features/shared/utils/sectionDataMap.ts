@@ -4,6 +4,7 @@ import { UploadedDocument } from "../types";
 type RecordDocument = {
     label?: string;
     presigned_url?: string;
+    source_filename?: string;
 };
 
 export type SectionDataEntry =
@@ -24,11 +25,15 @@ export function mapRecordDocuments(documents: unknown): Record<string, string> {
 
     return Object.fromEntries(
         (documents as RecordDocument[])
-            .filter((doc) => !!doc?.label && !!doc?.presigned_url)
-            .map(({ label, presigned_url }) => [
-                toSnakeCase(label as string),
-                presigned_url as string,
-            ])
+            .filter((doc) => !!doc?.label && !!doc?.presigned_url && !!doc?.source_filename)
+            .flatMap(({ label, presigned_url, source_filename }) => {
+                const key = toSnakeCase(label as string);
+
+                return [
+                    [key, presigned_url as string],
+                    [`${key}_source_filename`, source_filename as string],
+                ];
+            })
     );
 }
 
