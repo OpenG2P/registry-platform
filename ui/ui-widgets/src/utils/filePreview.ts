@@ -6,7 +6,12 @@ export const canPreviewInWeb = (file: File | string): boolean => {
     mimeType = file.type;
     fileName = file.name.toLowerCase();
   } else {
-    fileName = file.toLowerCase();
+    try {
+      const parsed = new URL(file);
+      fileName = parsed.pathname.toLowerCase();
+    } catch {
+      fileName = file.split('?')[0].split('#')[0].toLowerCase();
+    }
     mimeType = '';
   }
 
@@ -26,4 +31,16 @@ export const canPreviewInWeb = (file: File | string): boolean => {
   ];
 
   return previewableExtensions.includes(extension.toLowerCase());
+};
+
+export const openFileInNewTab = (file: File | string): void => {
+  if (typeof file === 'string') {
+    window.open(file, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  const url = URL.createObjectURL(file);
+  window.open(url, '_blank', 'noopener,noreferrer');
+  // Revoke after the new tab has a chance to load the blob URL.
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 };

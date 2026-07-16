@@ -8,10 +8,8 @@ export interface ChangeRequestDocument {
     created_by: string;
     created_at: string;
     presigned_url: string;
-    document_url: string;
     section_id: string;
     label: string;
-    document_label: string;
 }
 
 export function useChangeRequestDocuments(
