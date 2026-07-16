@@ -69,7 +69,8 @@ async def _process_submission_async(submission_id: str) -> None:
             async with session.begin():
                 submission = await _get_submission(submission_id, session)
                 sections = await _get_unique_form_sections(submission.form_id, session)
-                documents_by_section = await _get_submission_documents(
+                # docs ingestion with register-level section dedupe
+                documents_by_register = await _get_submission_documents_by_register(
                     submission.submission_id, session
                 )
                 inserted_records: list[tuple[G2PRegisterDefinition, object]] = []
@@ -79,7 +80,9 @@ async def _process_submission_async(submission_id: str) -> None:
                         session,
                     )
                     intake_rows = await _get_intake_rows(intake_class, submission.submission_id, session)
-                    section_documents = documents_by_section.get(section.section_id, [])
+                    register_documents = documents_by_register.get(
+                        section.section_register_id, []
+                    )
                     for intake_row in intake_rows:
                         register_row = await _insert_register_row(
                             submission,
@@ -95,12 +98,11 @@ async def _process_submission_async(submission_id: str) -> None:
                             history_class,
                             session,
                         )
-                        if section_documents:
+                        if register_documents:
                             await _upsert_live_documents(
                                 submission,
-                                section,
                                 register_row.internal_record_id,
-                                section_documents,
+                                register_documents,
                                 session,
                             )
                         await _run_post_ingest_hook(register_definition, register_row, session)
@@ -192,11 +194,16 @@ async def _get_intake_rows(intake_class, submission_id: str, session) -> list[ob
     ).scalars().all()
 
 
-async def _get_submission_documents(
+async def _get_submission_documents_by_register(
     submission_id: str,
     session,
-) -> dict[str, list[tuple[str, str]]]:
-    """Map section_id -> list of (document_id, label) for a submission."""
+) -> dict[str, list[tuple[str, str, str]]]:
+    """Map section_register_id -> list of (document_id, label, section_id).
+
+    Documents are stored against the UI section they were uploaded on. Ingest
+    dedupes form sections by register, so lookup must be by register otherwise 
+    docs might be dropped on dedupe.
+    """
     document_rows = (
         await session.execute(
             select(G2PIntakeFormSubmissionDocument).where(
@@ -204,30 +211,53 @@ async def _get_submission_documents(
             )
         )
     ).scalars().all()
-    documents_by_section: dict[str, list[tuple[str, str]]] = {}
-    for row in document_rows:
-        documents_by_section.setdefault(row.section_id, []).append(
-            (row.document_id, row.label)
+    if not document_rows:
+        return {}
+
+    section_ids = {row.section_id for row in document_rows}
+    sections = (
+        await session.execute(
+            select(G2PRegisterSection).where(G2PRegisterSection.section_id.in_(section_ids))
         )
-    return documents_by_section
+    ).scalars().all()
+    section_to_register = {section.section_id: section.section_register_id for section in sections}
+
+    documents_by_register: dict[str, list[tuple[str, str, str]]] = {}
+    for row in document_rows:
+        register_id = section_to_register.get(row.section_id)
+        if not register_id:
+            _logger.warning(
+                "Skipping intake document %s: section %s not found for submission %s",
+                row.document_id,
+                row.section_id,
+                submission_id,
+            )
+            continue
+        documents_by_register.setdefault(register_id, []).append(
+            (row.document_id, row.label, row.section_id)
+        )
+    return documents_by_register
 
 
 async def _upsert_live_documents(
     submission: G2PIntakeFormSubmission,
-    section: G2PRegisterSection,
     internal_record_id: str,
-    documents: list[tuple[str, str]],
+    documents: list[tuple[str, str, str]],
     session,
 ) -> None:
-    """Promote intake submission documents onto the live register section."""
-    for document_id, label in documents:
+    """Promote intake submission documents onto the live register record.
+
+    Each document keeps the section_id it was uploaded against (not the
+    deduped ingest section), so register UI docs sections still resolve them.
+    """
+    for document_id, label, section_id in documents:
         session.add(
             G2PRegisterDocumentHistory(
                 internal_record_id=internal_record_id,
                 change_request_id=None,
                 submission_id=submission.submission_id,
                 change_request_source=ChangeRequestSourceEnum.INTAKE_FORM.value,
-                section_id=section.section_id,
+                section_id=section_id,
                 document_id=document_id,
                 label=label,
                 created_by=submission.created_by,
@@ -246,14 +276,14 @@ async def _upsert_live_documents(
             )
         ).scalar_one_or_none()
         if existing:
-            existing.section_id = section.section_id
+            existing.section_id = section_id
             existing.label = label
         else:
             session.add(
                 G2PRegisterSectionDocument(
                     internal_record_id=internal_record_id,
                     document_id=document_id,
-                    section_id=section.section_id,
+                    section_id=section_id,
                     label=label,
                 )
             )
