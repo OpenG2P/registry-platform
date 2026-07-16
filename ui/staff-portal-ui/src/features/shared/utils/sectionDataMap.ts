@@ -73,8 +73,8 @@ export function buildSectionsDataMap(
         records?: RegisterFlattenedRecord[];
         is_list?: boolean;
     }>
-): SectionDataMap | undefined {
-    if (!sections?.length) return undefined;
+): SectionDataMap {
+    if (!sections?.length) return {};
 
     const map: SectionDataMap = {};
 
@@ -88,5 +88,5 @@ export function buildSectionsDataMap(
             : mapped[0];
     }
 
-    return Object.keys(map).length > 0 ? map : undefined;
+    return map;
 }
