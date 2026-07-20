@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
             request_payload: {
                 register_id: body.register_id,
                 data_model_id: body.data_model_id,
-                template_file_id: body.template_file_id ?? "",
+                template_document_id: body.template_document_id ?? "",
                 jsonld_expansion_required: body.jsonld_expansion_required ?? false
             },
         }),

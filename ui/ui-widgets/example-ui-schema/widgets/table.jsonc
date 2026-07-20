@@ -1,0 +1,51 @@
+{
+  "widget": "table",
+  "widget-type": "table",
+  "widget-id": "table_records",
+  "widget-label": "Records",
+  "widget-column-span": 3,
+  "widget-data-path": "register-id.table_records",
+  "widget-data-operations": { "add": true, "remove": true, "edit": true },
+  "widget-data-columns": [
+    {
+      "column-key": "degree",
+      "widget": "text",
+      "widget-type": "input",
+      "widget-label": "Degree"
+    },
+    {
+      "column-key": "institution",
+      "widget": "text",
+      "widget-type": "input",
+      "widget-label": "Institution"
+    },
+    {
+      "column-key": "level",
+      "widget": "select",
+      "widget-type": "input",
+      "widget-label": "Level",
+      "widget-data-source": {
+        "type": "static",
+        "options": [
+          { "label": "Primary", "value": "PRIMARY" },
+          { "label": "Secondary", "value": "SECONDARY" },
+          { "label": "Tertiary", "value": "TERTIARY" }
+        ]
+      }
+    },
+    {
+      "column-key": "year",
+      "widget": "number",
+      "widget-type": "input",
+      "widget-label": "Year",
+      "widget-data-validation": { "min": 1900, "max": 2100 }
+    }
+  ]
+
+  // --- Optional flags ---
+  // "widget-readonly": false,           // renders a static read-only table
+  // "widget-required": true,
+
+  // Each column is a full input widget config (text, number, select, date,
+  // boolean, checkbox, ...) plus a "column-key" that maps to the row field.
+}

@@ -7,7 +7,7 @@ import { useScoreContributingAttributes } from '../shared/hooks/useScoreContribu
 import { useRegisterFields } from '../shared/hooks/useRegisterFields';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { CONFIGURATION_SCORES_ACTIONS } from '../shared/utils/configurationScores.actions';
+import { CONFIGURATION_SCORES_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, EditButton } from '../shared/components';
 import AddScoreContributingAttributeModal from './AddScoreContributingAttributeModal';

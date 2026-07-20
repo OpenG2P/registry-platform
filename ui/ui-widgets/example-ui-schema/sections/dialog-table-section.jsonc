@@ -1,0 +1,251 @@
+
+
+// Dialog table: add/edit rows in a popup. column-group groups fields; widget-data-options.actions for show/require.
+
+
+{
+  "section-id": "household_members_section",
+  "section-title": "Household Members",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_household_members",
+      "panel-orientation": "vertical",
+      "widgets": [
+        {
+          "widget": "dialog-table",
+          "widget-type": "table",
+          "widget-id": "members_table",
+          "widget-label": "Household Member Records",
+          "widget-readonly": false,
+          "widget-data-path": "register-id.records",
+          "widget-data-add-label": "Add Member",
+          "widget-data-operations": {
+            "add": true,
+            "edit": true,
+            "remove": true
+          },
+          "widget-data-columns": [
+            {
+              "widget": "boolean",
+              "widget-type": "input",
+              "widget-id": "has_national_id",
+              "column-key": "has_national_id",
+              "column-group": "identifier",
+              "widget-label": "Do you have National ID?",
+              "widget-required": true,
+              "widget-data-path": "has_national_id",
+              "widget-orientation": "horizontal",
+              "widget-data-format": {
+                "allowUnset": false,
+                "booleanControlType": "radio",
+                "booleanRepresentation": "yes-no"
+              }
+            },
+            {
+              "widget": "text",
+              "widget-type": "input",
+              "column-key": "foundational_id",
+              "column-group": "identifier",
+              "widget-label": "Fayda ID",
+              "widget-required": false,
+              "widget-data-path": "foundational_id",
+              "widget-data-options": {
+                "actions": [
+                  {
+                    "action": "show",
+                    "condition": {
+                      "field": "has_national_id",
+                      "value": true,
+                      "operator": "equals"
+                    }
+                  },
+                  {
+                    "action": "require",
+                    "condition": {
+                      "field": "has_national_id",
+                      "value": true,
+                      "operator": "equals"
+                    }
+                  }
+                ]
+              },
+              "widget-data-validation": {
+                "pattern": "^[0-9]*$",
+                "minLength": 12,
+                "maxLength": 16,
+                "patternMessage": "Only digits are allowed"
+              }
+            },
+            {
+              "widget": "text",
+              "widget-type": "input",
+              "column-key": "rid",
+              "column-group": "identifier",
+              "widget-label": "RID",
+              "widget-required": false,
+              "widget-data-path": "rid",
+              "widget-data-options": {
+                "actions": [
+                  {
+                    "action": "show",
+                    "condition": {
+                      "field": "has_national_id",
+                      "value": false,
+                      "operator": "equals"
+                    }
+                  },
+                  {
+                    "action": "require",
+                    "condition": {
+                      "field": "has_national_id",
+                      "value": false,
+                      "operator": "equals"
+                    }
+                  }
+                ]
+              },
+              "widget-data-validation": {
+                "pattern": "^[0-9]*$",
+                "minLength": 29,
+                "maxLength": 29,
+                "patternMessage": "Only digits are allowed"
+              }
+            },
+            {
+              "widget": "select",
+              "widget-type": "input",
+              "column-key": "prefix",
+              "widget-label": "Prefix",
+              "widget-required": true,
+              "widget-data-path": "prefix",
+              "widget-data-source": {
+                "type": "api",
+                "method": "POST",
+                "service": "attributes",
+                "endpoint": "values",
+                "params": {
+                  "attribute_id": "PREFIX"
+                },
+                "labelKey": "value_display",
+                "valueKey": "value_code"
+              }
+            },
+            {
+              "widget": "text",
+              "widget-type": "input",
+              "column-key": "first_name",
+              "widget-label": "First Name",
+              "widget-required": true,
+              "widget-data-path": "first_name",
+              "widget-data-validation": {
+                "pattern": "^[A-Za-zÀ-ÿ\\u0900-\\u097F .\\/'-]+$",
+                "minLength": 2,
+                "maxLength": 50,
+                "patternMessage": "Only letters, spaces, apostrophes, hyphens, dots, and slashes are allowed"
+              }
+            },
+            {
+              "widget": "text",
+              "widget-type": "input",
+              "column-key": "middle_name",
+              "widget-label": "Middle Name",
+              "widget-required": true,
+              "widget-data-path": "middle_name",
+              "widget-data-validation": {
+                "pattern": "^[A-Za-zÀ-ÿ\\u0900-\\u097F .\\/'-]+$",
+                "minLength": 2,
+                "maxLength": 50,
+                "patternMessage": "Only letters, spaces, apostrophes, hyphens, dots, and slashes are allowed"
+              }
+            },
+            {
+              "widget": "text",
+              "widget-type": "input",
+              "column-key": "last_name",
+              "widget-label": "Last Name",
+              "widget-required": true,
+              "widget-data-path": "last_name",
+              "widget-data-validation": {
+                "pattern": "^[A-Za-zÀ-ÿ\\u0900-\\u097F .\\/'-]+$",
+                "minLength": 2,
+                "maxLength": 50,
+                "patternMessage": "Only letters, spaces, apostrophes, hyphens, dots, and slashes are allowed"
+              }
+            },
+            {
+              "widget": "date",
+              "widget-type": "input",
+              "column-key": "birth_date",
+              "widget-label": "Birth Date",
+              "widget-required": true,
+              "widget-data-path": "birth_date",
+              "widget-data-format": {
+                "inputMethod": "picker",
+                "dateConstraint": "past-only"
+              },
+              "widget-data-options": {
+                "maxDate": "today"
+              }
+            },
+            {
+              "widget": "select",
+              "widget-type": "input",
+              "column-key": "gender",
+              "widget-label": "Gender",
+              "widget-required": true,
+              "widget-data-path": "gender",
+              "widget-data-source": {
+                "type": "api",
+                "method": "POST",
+                "service": "attributes",
+                "endpoint": "values",
+                "params": {
+                  "attribute_id": "GENDER"
+                },
+                "labelKey": "value_display",
+                "valueKey": "value_code"
+              }
+            },
+            {
+              "widget": "checkbox",
+              "widget-type": "input",
+              "column-key": "is_head",
+              "widget-label": "Is Head of Household",
+              "widget-data-path": "is_head",
+              "widget-data-default": false
+            },
+            {
+              "widget": "select",
+              "widget-type": "input",
+              "column-key": "relationship_to_head",
+              "widget-label": "Relationship to Head",
+              "widget-required": false,
+              "widget-data-path": "relationship_to_head",
+              "widget-data-source": {
+                "type": "api",
+                "method": "POST",
+                "service": "attributes",
+                "endpoint": "values",
+                "params": {
+                  "attribute_id": "RELATIONSHIP_TO_HEAD"
+                },
+                "labelKey": "value_display",
+                "valueKey": "value_code"
+              },
+              "widget-data-options": {
+                "action": "show",
+                "condition": {
+                  "field": "is_head",
+                  "value": false,
+                  "operator": "equals"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

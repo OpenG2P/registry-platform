@@ -1,5 +1,7 @@
 import logging
+from typing import Optional, Tuple
 
+from openg2p_fastapi_common.schemas import G2PPaginationRequest, G2PPaginationResponse
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from openg2p_fastapi_common.context import dbengine
@@ -8,8 +10,10 @@ from openg2p_fastapi_common.service import BaseService
 from ..schemas import (
     AddPolicyRequest,
     AddPolicyResponsePayload,
-    GetPoliciesRequest,
-    GetPoliciesResponsePayload,
+    GetAllPoliciesRequest,
+    GetAllPoliciesResponsePayload,
+    GetPolicyRequest,
+    GetPolicyResponsePayload,
     RemovePolicyRequest,
     RemovePolicyResponsePayload,
 )
@@ -21,27 +25,52 @@ _logger = logging.getLogger("g2p-data-policy-controller-service")
 
 
 class G2PDataPolicyControllerService(BaseService):
-    async def get_policies(
-        self, get_policies_request: GetPoliciesRequest
-    ) -> GetPoliciesResponsePayload:
-        register_id = get_policies_request.request_body.request_payload.register_id
-        _logger.info("Getting data policies for register_id=%s", register_id)
+    async def get_policy(
+        self, get_policy_request: GetPolicyRequest
+    ) -> GetPolicyResponsePayload:
+        payload = get_policy_request.request_body.request_payload
+        _logger.info("Getting data policy policy_id=%s", payload.policy_id)
 
         data_policy_service = G2PDataPolicyService.get_component()
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            policies = await data_policy_service.get_policies_for_register(
-                register_id=register_id,
-                session=session,
+            policy = await data_policy_service.get_policy(
+                session,
+                policy_id=payload.policy_id,
             )
-        return GetPoliciesResponsePayload(policies=policies)
+        return GetPolicyResponsePayload(policy=policy)
+
+    async def get_all_policies(
+        self, get_all_policies_request: GetAllPoliciesRequest
+    ) -> Tuple[GetAllPoliciesResponsePayload, Optional[G2PPaginationResponse]]:
+        pagination_request = get_all_policies_request.request_body.pagination_request
+        current_page, page_size = self._extract_pagination_values(pagination_request)
+        _logger.info(
+            "Getting all data policies current_page=%s page_size=%s",
+            current_page,
+            page_size,
+        )
+
+        data_policy_service = G2PDataPolicyService.get_component()
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            policies, total_items = await data_policy_service.get_all_policies(
+                session,
+                current_page=current_page,
+                page_size=page_size,
+            )
+        pagination_response = self._build_pagination_response(
+            total_items, page_size, pagination_request
+        )
+        return GetAllPoliciesResponsePayload(policies=policies), pagination_response
 
     async def add_policy(self, add_policy_request: AddPolicyRequest) -> AddPolicyResponsePayload:
         payload = add_policy_request.request_body.request_payload
         _logger.info(
-            "Adding data policy mnemonic=%s for register_id=%s",
+            "Adding data policy mnemonic=%s register_id=%s policy_target=%s",
             payload.policy_mnemonic,
             payload.register_id,
+            payload.policy_target,
         )
 
         register_service = G2PRegisterService.get_component()
@@ -49,7 +78,8 @@ class G2PDataPolicyControllerService(BaseService):
         keycloak_helper = DataPolicyKeycloakHelper()
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            await register_service.validate_register_definition(payload.register_id, session)
+            if payload.register_id:
+                await register_service.validate_register_definition(payload.register_id, session)
             policy = await data_policy_service.add_policy(
                 policy_mnemonic=payload.policy_mnemonic,
                 policy_description=payload.policy_description,
@@ -57,6 +87,7 @@ class G2PDataPolicyControllerService(BaseService):
                 policy_filter_expression=payload.policy_filter_expression,
                 session=session,
                 policy_type=payload.policy_type,
+                policy_target=payload.policy_target,
             )
             try:
                 await keycloak_helper.create_data_policy_role(
@@ -86,21 +117,50 @@ class G2PDataPolicyControllerService(BaseService):
         keycloak_helper = DataPolicyKeycloakHelper()
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            deleted_id, policy_mnemonic = await data_policy_service.remove_policy(
+            deleted_id, policy_mnemonic, should_delete_role = await data_policy_service.remove_policy(
                 policy_id=policy_id,
                 session=session,
             )
-            try:
-                await keycloak_helper.delete_data_policy_role(policy_mnemonic)
-            except G2PRegistryException as exc:
-                _logger.error(
-                    "Keycloak role delete failed for policy mnemonic=%s: %s",
-                    policy_mnemonic,
-                    exc,
-                )
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.KEYCLOAK_SYNC_ERROR.value[1],
-                    message=f"Failed to remove data policy role from Keycloak: {exc}",
-                ) from exc
+            if should_delete_role:
+                try:
+                    await keycloak_helper.delete_data_policy_role(policy_mnemonic)
+                except G2PRegistryException as exc:
+                    _logger.error(
+                        "Keycloak role delete failed for policy mnemonic=%s: %s",
+                        policy_mnemonic,
+                        exc,
+                    )
+                    raise G2PRegistryException(
+                        code=G2PRegistryErrorCodes.KEYCLOAK_SYNC_ERROR.value[1],
+                        message=f"Failed to remove data policy role from Keycloak: {exc}",
+                    ) from exc
             await session.commit()
         return RemovePolicyResponsePayload(policy_id=deleted_id)
+
+    def _extract_pagination_values(
+        self,
+        pagination_request: Optional[G2PPaginationRequest],
+    ) -> tuple[Optional[int], Optional[int]]:
+        if pagination_request is None:
+            return None, None
+        return pagination_request.current_page, pagination_request.page_size
+
+    def _build_pagination_response(
+        self,
+        total_items: int,
+        page_size: Optional[int],
+        pagination_request: Optional[G2PPaginationRequest],
+    ) -> Optional[G2PPaginationResponse]:
+        if pagination_request is None:
+            return None
+        return G2PPaginationResponse(
+            number_of_items=total_items,
+            number_of_pages=self._calculate_number_of_pages(total_items, page_size),
+        )
+
+    def _calculate_number_of_pages(self, total_items: int, page_size: int | None) -> int:
+        if total_items <= 0:
+            return 0
+        if page_size is None or page_size <= 0:
+            return 1
+        return (total_items + page_size - 1) // page_size

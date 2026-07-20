@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useTranslations } from 'next-intl';
 import { KeyValue } from '@/components/ui/KeyValue';
 import { ChangeRequest } from "@/features/change-request/types";
+import { DocumentRow } from '@/features/shared/components/DocumentRow';
 import { useChangeRequestDocuments } from "../hooks/useChangeRequestDocuments";
 
 interface Props {
@@ -43,9 +44,9 @@ export default function ChangeRequestCard({
                 </h3>
                 <h3
                     className="min-w-0 flex-1 text-right text-[20px] font-semibold leading-snug tracking-tight text-neutral-first line-clamp-2 md:text-[22px]"
-                    title={changeRequest.section_mnemonic?.trim() || undefined}
+                    title={t(changeRequest.section_mnemonic?.trim() || '—')}
                 >
-                    {changeRequest.section_mnemonic?.trim() || '—'}
+                    {t(changeRequest.section_mnemonic?.trim() || '—')}
                 </h3>
             </div>
 
@@ -122,19 +123,10 @@ export default function ChangeRequestCard({
                         </div>
                         <div className="flex flex-col gap-2 font-normal text-[16px] text-neutral-first/50">
                             {documents.slice(0, 3).map((doc, docIndex) => (
-                                <span
-                                    key={doc.document_url ?? docIndex}
-                                    onClick={() => window.open(doc.document_url, '_blank', 'noopener,noreferrer')}
-                                    className="flex cursor-pointer items-center gap-2"
-                                >
-                                    {doc.document_label}
-                                    <Image
-                                        src="/images/common/arrow_next_01.png"
-                                        alt=""
-                                        width={14}
-                                        height={14}
-                                    />
-                                </span>
+                                <DocumentRow
+                                    key={doc.presigned_url ?? docIndex}
+                                    doc={doc}
+                                />
                             ))}
                             {Array.from({ length: Math.max(0, 3 - documents.length) }).map((_, idx) => (
                                 <span

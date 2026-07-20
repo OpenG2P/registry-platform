@@ -26,7 +26,7 @@ import AddIntakeFormTabSectionModal from '@/features/configuration/intake-forms/
 import ViewIntakeFormTabSectionModal from '@/features/configuration/intake-forms/ViewIntakeFormTabSectionModal';
 import EditIntakeFormTabSectionModal from '@/features/configuration/intake-forms/EditIntakeFormTabSectionModal';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
-import { CONFIGURATION_INTAKE_FORM_ACTIONS } from '@/features/configuration/shared/utils/configurationIntakeForm.actions';
+import { CONFIGURATION_INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 
 

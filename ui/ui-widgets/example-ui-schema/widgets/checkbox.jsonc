@@ -1,0 +1,26 @@
+{
+  // Single checkbox (no data-source) — boolean value
+  "widget": "checkbox",
+  "widget-type": "input",
+  "widget-id": "consent",
+  "widget-label": "I agree to terms",
+  "widget-data-path": "register-id.consent",
+  "widget-data-default": false
+
+  // --- Multiple checkboxes variant ---
+  // "widget-data-source": {
+  //   "type": "static",
+  //   "options": [
+  //     { "value": "sports", "label": "Sports" },
+  //     { "value": "music", "label": "Music" }
+  //   ]
+  // },
+  // "widget-data-default": ["sports"],
+  // "widget-data-format": {
+  //   "layout": "vertical",
+  //   "sortOptions": false
+  // },
+
+  // --- Optional flags ---
+  // "widget-required": true
+}

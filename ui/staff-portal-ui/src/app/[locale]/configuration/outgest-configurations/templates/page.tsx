@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import Can from '@/components/shared/Can';
 import { toast } from 'react-toastify';
 import { useAllOutgestTemplates } from '@/features/configuration/shared/hooks/useAllOutgestTemplates';
-import { CONFIGURATION_OUTGESTION_TEMPLATES_ACTIONS } from '@/features/configuration/shared/utils/configurationOutgestionTemplates.actions';
+import { CONFIGURATION_OUTGESTION_TEMPLATES_ACTIONS } from '@/features/shared/permissions';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { AddOutgestionTemplateModal, EditOutgestionTemplateModal, ViewOutgestionTemplateModal } from '@/features/configuration/outgest';
 import { DeleteButton, EditButton, ViewButton, DataTable, FileLink } from '@/features/configuration/shared/components';
@@ -19,7 +19,7 @@ type OutgestTemplate = {
     template_id: string;
     register_id: string;
     data_model_id: string;
-    template_file_id: string;
+    template_document_id: string;
 }
 
 
@@ -108,11 +108,11 @@ const OutgestTemplatesPage = () => {
             label: t('register_mnemonic')
         },
         {
-            key: 'template_file_id',
-            label: t('template_file_id'),
+            key: 'template_document_id',
+            label: t('template'),
             render: (item: OutgestTemplate) => (
                 <FileLink
-                    documentId={item.template_file_id}
+                    documentId={item.template_document_id}
                 />
             ),
         },

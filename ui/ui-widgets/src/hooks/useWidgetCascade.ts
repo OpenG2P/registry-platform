@@ -1,11 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch } from 'react-redux';
 import { useWidgetEventBus } from './useWidgetEventBus';
-import { BaseWidgetConfig, WidgetCascadeConfig, DataSourceRequestHandler } from '../types';
+import { BaseWidgetConfig, DataSourceRequestHandler } from '../types';
 import { setValue, setDataSource } from '../store/widgetSlice';
 import { getApiDataSource, transformDataSourceOptions } from '../utils/dataSource';
-import { useSelector } from 'react-redux';
-import { WidgetRootState } from '../store';
+
 
 export interface UseWidgetCascadeOptions {
   config: BaseWidgetConfig;
@@ -28,7 +27,6 @@ export const useWidgetCascade = (options: UseWidgetCascadeOptions) => {
   const valuesRef = useRef(values);
   const handlerRef = useRef(dataSourceRequestHandler);
 
-  // Keep refs updated
   useEffect(() => {
     valuesRef.current = values;
     handlerRef.current = dataSourceRequestHandler;
@@ -46,7 +44,6 @@ export const useWidgetCascade = (options: UseWidgetCascadeOptions) => {
     }
 
     const handleEvent = async (event: any) => {
-      // Check if this event is from a parent we're listening to
       if (!listenTo.includes(event.widgetId)) {
         return;
       }
@@ -54,17 +51,14 @@ export const useWidgetCascade = (options: UseWidgetCascadeOptions) => {
       const currentValues = valuesRef.current;
       const currentHandler = handlerRef.current;
 
-      // Clear value if configured
       if (clearOnChange) {
         dispatch(setValue({ widgetId, value: undefined }));
       }
 
-      // Reload data source if configured
       if (reloadOnChange && currentHandler) {
         try {
           const data = await getApiDataSource(dataSource, currentValues, currentHandler!);
           
-          // Transform to { value, label } format
           const valueKey = dataSource.valueKey;
           const labelKey = dataSource.labelKey;
           const transformed = transformDataSourceOptions(data, valueKey, labelKey);
@@ -77,7 +71,6 @@ export const useWidgetCascade = (options: UseWidgetCascadeOptions) => {
       }
     };
 
-    // Subscribe to events
     const unsubscribe = eventBus.subscribe(
       onEvent as any,
       handleEvent,

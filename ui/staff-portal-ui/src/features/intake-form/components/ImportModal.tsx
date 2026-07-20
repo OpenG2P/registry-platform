@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { BaseModal, FileUploadField } from '@/features/configuration/shared';
-import { useDocumentUpload } from '@/features/register/hooks/useDocumentUpload';
+import { useFileUpload } from '@/features/shared/hooks';
 import { useTranslations } from 'next-intl';
 
 interface ImportModalProps {
@@ -20,9 +20,7 @@ export default function ImportModal({
 
     const { execute } = useFetch();
 
-    const { uploadDocument } = useDocumentUpload((url, options) =>
-        execute(url, options)
-    );
+    const { uploadFile } = useFileUpload();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,10 +51,8 @@ export default function ImportModal({
         try {
             setUploading(true);
 
-            const uploadedDoc = await uploadDocument({
-                file: selectedFile,
-                label: 'import_file',
-            });
+            const uploadResult = await uploadFile([selectedFile]);
+            const uploadedDoc = Array.isArray(uploadResult) ? uploadResult[0] : null;
 
             if (!uploadedDoc?.document_store_id) {
                 toast.error(t('file_upload_failed'));

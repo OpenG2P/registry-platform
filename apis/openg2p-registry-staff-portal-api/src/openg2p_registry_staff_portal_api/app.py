@@ -18,7 +18,6 @@ from .controllers import (
     G2PDataModelController,
     G2PDocumentController, G2PAttributeController, G2PIngestionDataController,
     G2POutgestionDataController,
-    G2PTemplateFileController,
     G2PRegistryConfigurationController,
     G2PRegistryThemeController,
     G2PRegistryLanguageController,
@@ -61,7 +60,6 @@ class Initializer(BaseInitializer):
         G2POutgestionDataController().post_init()
         G2POutgestionConfigurationController().post_init()
         G2PDocumentController().post_init()
-        G2PTemplateFileController().post_init()
         G2PAttributeController().post_init()
         InputMechanismMetadataController().post_init()
         InputMechanismDataController().post_init()

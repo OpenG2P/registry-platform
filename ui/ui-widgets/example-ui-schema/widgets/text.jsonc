@@ -1,0 +1,49 @@
+{
+  "widget": "text",
+  "widget-type": "input",
+  "widget-id": "full_name",
+  "widget-label": "Full Name",
+  "widget-data-path": "register-id.full_name"
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-default": "",
+  // "widget-data-placeholder": "Enter full name",
+  // "widget-data-helptext": "As shown on official ID",
+  // "widget-data-tooltip": "Legal name only",
+
+  // --- widget-data-validation ---
+  // "widget-data-validation": {
+  //   "required": true,
+  //   "validationType": "email",           // email | phone | url
+  //   "minLength": 2,
+  //   "maxLength": 100,
+  //   "pattern": "^[A-Za-z .'-]+$",
+  //   "patternMessage": "Invalid characters"
+  // },
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "inputType": "text",                 // text | email | password | tel | url | search
+  //   "characterType": "alphabetic",     // any | alphabetic | alphanumeric | numeric | numeric-decimal | custom
+  //   "customCharset": "",
+  //   "caseControl": "capitalize",         // none | lowercase | uppercase | capitalize
+  //   "showCharCounter": true,
+  //   "mask": {
+  //     "pattern": "XXX-XXX-XXXX",
+  //     "type": "static",                  // static | phone | national-id | custom
+  //     "placeholder": "___-___-____"
+  //   }
+  // },
+
+  // --- widget-data-options (conditional logic) ---
+  // "widget-data-options": {
+  //   "action": "show",                    // show | hide | enable | disable | require
+  //   "condition": {
+  //     "field": "register-id.other_field",
+  //     "operator": "equals",              // equals | notEquals | empty | notEmpty | greaterThan | lessThan | contains | notContains
+  //     "value": true
+  //   }
+  // }
+}

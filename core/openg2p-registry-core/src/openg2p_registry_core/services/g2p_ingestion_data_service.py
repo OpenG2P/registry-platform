@@ -172,7 +172,7 @@ class G2PIngestionDataService(BaseService):
                 IncomingClassifiedData.change_request_id,
 
                 IncomingTemplate.template_id,
-                IncomingTemplate.template_file_id,
+                IncomingTemplate.template_document_id,
 
                 IncomingClassifiedData.transformation_status,
                 IncomingClassifiedData.transformation_date_time,
@@ -273,7 +273,7 @@ class G2PIngestionDataService(BaseService):
                     internal_record_id=row.internal_record_id,
                     change_request_id=row.change_request_id,
                     template_id=row.template_id,
-                    template_file_id=row.template_file_id,
+                    template_document_id=row.template_document_id,
                     transformation_status=row.transformation_status,
                     transformation_date_time=row.transformation_date_time,
                     transformation_number_of_attempts=row.transformation_number_of_attempts,

@@ -1,0 +1,40 @@
+{
+  "widget": "geo-hierarchy",
+  "widget-type": "input",
+  "widget-id": "individual_geo_hierarchy",
+  "widget-label": "Location Hierarchy",
+  "widget-required": true,
+  "widget-data-path": {
+    "value": "register-id.geo_lowest_level_value_id",
+    "hierarchy": "register-id.geo_code_hierarchy_json"
+  },
+  "widget-data-source": {
+    "type": "api",
+    "service": "master-data",
+    "method": "POST",
+    "levelsEndpoint": "geo-levels",
+    "valuesEndpoint": "geo-level-values"
+  }
+
+  // --- Notes ---
+  // Cascading location selects (e.g. Region -> Zone -> Woreda). Only the deepest
+  // selected level value id is persisted to "value"; "hierarchy" is a read path
+  // for the stored geo_code_hierarchy_json used to hydrate read/edit mode.
+  //
+  // Layout: by default the levels fill top-to-bottom across up to 3 columns,
+  // each column holding a contiguous block of ceil(N / 3) levels
+  // (6 levels -> col1: L1,L2 | col2: L3,L4 | col3: L5,L6). No level is ever
+  // dropped, and because each column keeps consecutive levels the order stays
+  // correct when columns stack on small screens. This aligns with standard
+  // 3-column sections. Give the widget its own full-width section
+  // ("section-column-span": 3) for best results.
+  //
+  // Optional override: "widget-geo-layout": { "distribution": "fixed",
+  // "columns": [3, 3] } forces explicit column-major counts (col 1 gets the first
+  // 3 levels, col 2 the next 3). Omit it to use the default top-to-bottom fill.
+  //
+  // The data source is resolved through the SectionsContainer
+  // dataSourceRequestHandler:
+  //   levelsEndpoint -> [{ level_id, level_mnemonic, parent_level_id }]
+  //   valuesEndpoint -> [{ level_value_id, level_id, level_value_mnemonic, parent_level_value_id }]
+}

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useWidgetContext } from '../components/WidgetProvider';
-import { BaseWidgetConfig, DataSourceRequestHandler } from '../types';
+import { BaseWidgetConfig } from '../types';
 import { WidgetRootState } from '../store';
 import { getValueByPath } from '../utils/pathUtils';
 
@@ -180,7 +180,7 @@ function unwrapPayload(response: any): any {
 }
 
 export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: IdAuthenticationWidgetProps) => {
-  const { dataSourceRequestHandler, schemaData: ctxSchemaData } = useWidgetContext();
+  const { dataSourceRequestHandler, schemaData: ctxSchemaData, t } = useWidgetContext();
   const values = useSelector((state: WidgetRootState) => state.widget.values) as unknown as Record<string, unknown>;
 
   const schemaData = (propSchemaData || ctxSchemaData || {}) as Record<string, unknown>;
@@ -269,7 +269,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
       const features = getCenteredPopupFeatures(pw, ph);
       const popup = window.open(authUrl, `${widgetId}-oidc`, features);
       if (!popup) {
-        setAuthError('Popup blocked. Please allow popups and try again.');
+        setAuthError(t?.('idAuth.popupBlocked') ?? 'Popup blocked. Please allow popups and try again.');
         return;
       }
       popupRef.current = popup;
@@ -293,13 +293,13 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
         }
       }, 500);
     },
-    [authConfig, cleanupPopup, emitHostEvent, widgetId],
+    [authConfig, cleanupPopup, emitHostEvent, t, widgetId],
   );
 
   const onAuthenticate = useCallback(async () => {
     setAuthError(null);
     if (!authConfig) {
-      setAuthError('Missing widget-auth-config.');
+      setAuthError(t?.('idAuth.missingConfig') ?? 'Missing widget-auth-config.');
       return;
     }
     const canCallAuthApi = Boolean(
@@ -331,7 +331,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
         if (authUrl) setResolvedAuthUrl(authUrl);
       } catch (e: any) {
         if (!url) {
-          setAuthError(e?.message || 'Could not load provider URL.');
+          setAuthError(e?.message || (t?.('idAuth.providerUrlError') ?? 'Could not load provider URL.'));
           return;
         }
       } finally {
@@ -341,7 +341,8 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
 
     if (!url) {
       setAuthError(
-        'No authorization URL returned from authenticate_registrant.',
+        t?.('idAuth.noAuthorizationUrl') ??
+          'No authorization URL returned from authenticate_registrant.',
       );
       return;
     }
@@ -354,6 +355,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
     internalRecordId,
     initiatedByStaffId,
     resolvedAuthUrl,
+    t,
   ]);
 
   useEffect(() => {
@@ -384,11 +386,11 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
   const cls = `id-auth-widget-${widgetId}`;
 
   const statusLabel = useMemo(() => {
-    if (status === 'success') return 'Success';
-    if (status === 'failure') return 'Failure';
-    if (status === 'not_done') return 'Not done';
-    return 'Unknown';
-  }, [status]);
+    if (status === 'success') return t?.('idAuth.statusSuccess') ?? 'Success';
+    if (status === 'failure') return t?.('idAuth.statusFailure') ?? 'Failure';
+    if (status === 'not_done') return t?.('idAuth.statusNotDone') ?? 'Not done';
+    return t?.('idAuth.statusUnknown') ?? 'Unknown';
+  }, [status, t]);
 
   const statusColor = useMemo(() => {
     if (status === 'success') return 'var(--owt-color-success, #16A34A)';
@@ -616,7 +618,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
             className="overlay-backdrop"
             role="dialog"
             aria-modal="true"
-            aria-label="Authentication"
+            aria-label={t?.('idAuth.overlayAria') ?? 'Authentication'}
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setOverlayUrl(null);
@@ -626,7 +628,14 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           >
             <div className="overlay-panel">
               <div className="overlay-header">
-                <div className="overlay-title">{providerName ? `Authenticate via ${providerName}` : 'Authenticate'}</div>
+                <div className="overlay-title">
+                  {providerName
+                    ? (t?.('idAuth.overlayTitleVia', {
+                        providerName,
+                        defaultValue: `Authenticate via ${providerName}`,
+                      }) ?? `Authenticate via ${providerName}`)
+                    : (t?.('idAuth.overlayTitle') ?? 'Authenticate')}
+                </div>
                 <button
                   type="button"
                   className="overlay-close"
@@ -635,10 +644,14 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
                     emitHostEvent({ type: 'overlay_closed' });
                   }}
                 >
-                  Close
+                  {t?.('common.close') ?? 'Close'}
                 </button>
               </div>
-              <iframe className="overlay-iframe" src={overlayUrl} title="Authentication" />
+              <iframe
+                className="overlay-iframe"
+                src={overlayUrl}
+                title={t?.('idAuth.iframeTitle') ?? 'Authentication'}
+              />
             </div>
           </div>
         ) : null}
@@ -646,24 +659,34 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
         <div className="auth-content">
           <div className="auth-grid">
             <div className="auth-cell">
-              <div className="auth-label">Foundational ID:</div>
+              <div className="auth-label">{t?.('idAuth.foundationalId') ?? 'Foundational ID:'}</div>
               <div className="auth-value auth-value--foundational">{displayText(foundationalId)}</div>
             </div>
 
             <div className="auth-cell">
-              <div className="auth-label">Last authenticated on:</div>
+              <div className="auth-label">{t?.('idAuth.lastAuthenticatedOn') ?? 'Last authenticated on:'}</div>
               <div className="auth-value">{tryFormatDateTime(lastAuthenticatedOn)}</div>
             </div>
 
             <div className="auth-cell">
-              <div className="auth-label">Expiry date:</div>
+              <div className="auth-label">{t?.('idAuth.expiryDate') ?? 'Expiry date:'}</div>
               <div className="auth-value">{tryFormatDate(expiryDate)}</div>
             </div>
 
             <div className="auth-cell">
-              <div className="auth-label">Last authentication status:</div>
+              <div className="auth-label">
+                {t?.('idAuth.lastAuthenticationStatus') ?? 'Last authentication status:'}
+              </div>
               <div className="auth-value">
-                <div className="auth-status" aria-label={`Authentication status: ${statusLabel}`}>
+                <div
+                  className="auth-status"
+                  aria-label={
+                    t?.('idAuth.statusAria', {
+                      status: statusLabel,
+                      defaultValue: `Authentication status: ${statusLabel}`,
+                    }) ?? `Authentication status: ${statusLabel}`
+                  }
+                >
                   <span className="auth-dot" />
                   <span>{statusLabel}</span>
                 </div>
@@ -671,7 +694,9 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
             </div>
 
             <div className="auth-cell">
-              <div className="auth-label">Authentication token (PSUT):</div>
+              <div className="auth-label">
+                {t?.('idAuth.authenticationToken') ?? 'Authentication token (PSUT):'}
+              </div>
               <div className="auth-value">
                 <div className="auth-token">{psut ? String(psut) : '-'}</div>
               </div>
@@ -681,7 +706,9 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
               <div className="auth-label" aria-hidden />
               <div className="auth-value">
                 <button type="button" className="auth-button" onClick={onAuthenticate} disabled={buttonDisabled}>
-                  {buttonBusy ? 'Loading…' : 'Authenticate'}
+                  {buttonBusy
+                    ? (t?.('idAuth.loading') ?? 'Loading…')
+                    : (t?.('idAuth.authenticate') ?? 'Authenticate')}
                 </button>
                 {authError ? (
                   <div className="auth-error" style={{ marginTop: 8 }}>

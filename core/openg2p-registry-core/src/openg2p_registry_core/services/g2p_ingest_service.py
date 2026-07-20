@@ -106,7 +106,17 @@ class G2PIngestService(BaseService):
 
             await session.commit()
 
-            return correlation_id, data_model.response_template_file_id
+            # Resolve the response template document to its store id so downstream
+            # (sync) response helpers can render it without a DB session.
+            response_template_store_id = None
+            if data_model.response_template_document_id:
+                from .g2p_template_service import G2PTemplateService
+                g2p_template_service = G2PTemplateService.get_component()
+                response_template_store_id = await g2p_template_service.resolve_template_store_id(
+                    session, data_model.response_template_document_id
+                )
+
+            return correlation_id, response_template_store_id
 
 
     async def _get_data_model(

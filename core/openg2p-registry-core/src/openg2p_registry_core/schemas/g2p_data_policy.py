@@ -34,6 +34,14 @@ class RegistryDataPolicyType(StrEnum):
     DISALLOW = "DISALLOW"
 
 
+class PolicyTarget(StrEnum):
+    """Resource type governed by the policy filter expression."""
+
+    REGISTER_RECORD = "REGISTER_RECORD"
+    GEO = "GEO"
+    ATTRIBUTE = "ATTRIBUTE"
+
+
 class PolicyGroupOperator(StrEnum):
     AND = "AND"
     OR = "OR"
@@ -42,7 +50,7 @@ class PolicyGroupOperator(StrEnum):
 
 class PolicyFilterCondition(BaseModel):
     type: Literal["CONDITION"] = "CONDITION"
-    field_id: str = Field(..., description="Register field to filter on")
+    field_id: str = Field(..., description="Field to filter on for the policy target")
     operator: FilterOperator = Field(
         ...,
         description="Same operators as register search filter_by (eq, in, contains, ...)",
@@ -82,7 +90,14 @@ class RegistryDataPolicyData(BaseModel):
     policy_id: str = Field(..., description="Policy ID")
     policy_mnemonic: str = Field(..., description="Unique mnemonic; referenced from Keycloak roles")
     policy_description: Optional[str] = Field(None, description="Human-readable description")
-    register_id: str = Field(..., description="Register definition ID")
+    register_id: Optional[str] = Field(
+        None,
+        description="Register definition ID; required for REGISTER_RECORD, null for GEO/ATTRIBUTE",
+    )
+    policy_target: PolicyTarget = Field(
+        ...,
+        description="Governed resource: REGISTER_RECORD, GEO, or ATTRIBUTE",
+    )
     policy_type: RegistryDataPolicyType = Field(..., description="ALLOW or DISALLOW")
     policy_filter_expression: dict = Field(
         ...,
@@ -90,23 +105,46 @@ class RegistryDataPolicyData(BaseModel):
     )
 
 
-class GetPoliciesRequestPayload(BaseModel):
-    register_id: str = Field(..., description="Register definition ID")
+class GetPolicyRequestPayload(BaseModel):
+    policy_id: str = Field(..., description="Policy ID to retrieve")
 
 
-class GetPoliciesResponsePayload(BaseModel):
+class GetAllPoliciesRequestPayload(BaseModel):
+    """No filters; returns every data policy row."""
+
+
+class GetPolicyResponsePayload(BaseModel):
+    policy: RegistryDataPolicyData = Field(..., description="Requested policy")
+
+
+class GetAllPoliciesResponsePayload(BaseModel):
     policies: List[RegistryDataPolicyData] = Field(default_factory=list)
 
 
 class AddPolicyRequestPayload(BaseModel):
-    policy_mnemonic: str = Field(..., description="Unique mnemonic within the register")
+    policy_mnemonic: str = Field(..., description="Mnemonic within the register (shared across targets)")
     policy_description: Optional[str] = Field(None, description="Human-readable description")
-    register_id: str = Field(..., description="Register definition ID")
+    register_id: Optional[str] = Field(
+        None,
+        description="Register definition ID; required for REGISTER_RECORD, null for GEO/ATTRIBUTE",
+    )
+    policy_target: PolicyTarget = Field(
+        default=PolicyTarget.REGISTER_RECORD,
+        description="Governed resource: REGISTER_RECORD, GEO, or ATTRIBUTE",
+    )
     policy_type: RegistryDataPolicyType = Field(..., description="ALLOW or DISALLOW")
     policy_filter_expression: dict = Field(
         ...,
         description="Nested GROUP/CONDITION policy filter tree",
     )
+
+    @model_validator(mode="after")
+    def _validate_register_id_for_target(self) -> "AddPolicyRequestPayload":
+        if self.policy_target == PolicyTarget.REGISTER_RECORD and not self.register_id:
+            raise ValueError("register_id is required when policy_target is REGISTER_RECORD")
+        if self.policy_target in (PolicyTarget.GEO, PolicyTarget.ATTRIBUTE) and self.register_id:
+            raise ValueError("register_id must be null when policy_target is GEO or ATTRIBUTE")
+        return self
 
 
 class AddPolicyResponsePayload(BaseModel):
@@ -121,12 +159,20 @@ class RemovePolicyResponsePayload(BaseModel):
     policy_id: str = Field(..., description="Removed policy ID")
 
 
-class GetPoliciesRequestBody(G2PRequestBody):
-    request_payload: GetPoliciesRequestPayload
+class GetPolicyRequestBody(G2PRequestBody):
+    request_payload: GetPolicyRequestPayload
 
 
-class GetPoliciesRequest(G2PRequest):
-    request_body: GetPoliciesRequestBody
+class GetPolicyRequest(G2PRequest):
+    request_body: GetPolicyRequestBody
+
+
+class GetAllPoliciesRequestBody(G2PRequestBody):
+    request_payload: GetAllPoliciesRequestPayload
+
+
+class GetAllPoliciesRequest(G2PRequest):
+    request_body: GetAllPoliciesRequestBody
 
 
 class AddPolicyRequestBody(G2PRequestBody):
@@ -145,12 +191,20 @@ class RemovePolicyRequest(G2PRequest):
     request_body: RemovePolicyRequestBody
 
 
-class GetPoliciesResponseBody(G2PResponseBody):
-    response_payload: Optional[GetPoliciesResponsePayload] = None
+class GetPolicyResponseBody(G2PResponseBody):
+    response_payload: Optional[GetPolicyResponsePayload] = None
 
 
-class GetPoliciesResponse(G2PResponse):
-    response_body: Optional[GetPoliciesResponseBody] = None
+class GetPolicyResponse(G2PResponse):
+    response_body: Optional[GetPolicyResponseBody] = None
+
+
+class GetAllPoliciesResponseBody(G2PResponseBody):
+    response_payload: Optional[GetAllPoliciesResponsePayload] = None
+
+
+class GetAllPoliciesResponse(G2PResponse):
+    response_body: Optional[GetAllPoliciesResponseBody] = None
 
 
 class AddPolicyResponseBody(G2PResponseBody):

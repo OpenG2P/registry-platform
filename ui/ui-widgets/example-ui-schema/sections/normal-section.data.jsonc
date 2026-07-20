@@ -1,0 +1,13 @@
+{
+  "register-id": {
+    "birth_date": "1985-11-08",
+    "estimated_age": 40,
+    "gender": "male",
+    "marital_status": "married",
+    "education_level": "secondary",
+    "external_reference_id": "REF-ETH-2024-0084721",
+    "has_personal_phone": "yes",
+    "phone": "+251 911 482 736",
+    "email": "daniel.kebede@example.com"
+  }
+}

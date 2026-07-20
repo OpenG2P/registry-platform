@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import { IncomingSemanticPattern } from '@/features/configuration/shared/hooks/useAllSemanticPatterns';
 import { toast } from 'react-toastify';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_SEMANTIC_PATTERNS_ACTIONS } from '@/features/configuration/shared/utils/configurationSemanticPatterns.actions';
+import { CONFIGURATION_SEMANTIC_PATTERNS_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { DeleteButton, EditButton, ViewButton, DataTable } from '@/features/configuration/shared/components';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';

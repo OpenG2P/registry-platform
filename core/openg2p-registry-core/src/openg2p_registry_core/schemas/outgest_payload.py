@@ -72,7 +72,7 @@ class OutgoingTemplateData(BaseModel):
     register_mnemonic: Optional[str] = None
     data_model_id: str
     data_model_mnemonic: Optional[str] = None
-    template_file_id: str
+    template_document_id: str
 
     class Config:
         from_attributes = True
@@ -113,7 +113,7 @@ class OutgoingTopicUpdatePayload(BaseModel):
 class OutgoingTemplatePayload(BaseModel):
     register_id: str
     data_model_id: str
-    template_file_id: str
+    template_document_id: str
 
     class Config:
         from_attributes = True
@@ -121,7 +121,7 @@ class OutgoingTemplatePayload(BaseModel):
 
 class OutgoingTemplateUpdatePayload(BaseModel):
     template_id: str
-    template_file_id: Optional[str] = None
+    template_document_id: Optional[str] = None
 
     class Config:
         from_attributes = True

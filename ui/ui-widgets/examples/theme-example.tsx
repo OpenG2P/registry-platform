@@ -21,9 +21,10 @@ import {
 } from '../src';
 import { defaultTheme } from '../src/theme';
 import type { WidgetTheme } from '../src/theme';
-import type { SectionConfig } from '../src/types';
 import type { SectionChanges } from '../src/components/SectionRenderer';
 import type { SectionMode } from '../src/components/SectionsContainer';
+import { themeSections, THEME_REGISTER_ID } from './shared/exampleSchemas';
+import { themeSampleData } from './shared/exampleData';
 
 // ─────────────────────────────────────────────────────────────────
 // Theme presets
@@ -113,248 +114,7 @@ const themes: Record<string, { label: string; description: string; theme: Widget
   },
 };
 
-// ─────────────────────────────────────────────────────────────────
-// Minimal section schemas (keeps this file focused on theming)
-// ─────────────────────────────────────────────────────────────────
-
-const REG_ID = 'theme-demo';
-
-const contactSection: SectionConfig = {
-  'section-id': 'contact_info',
-  'section-title': 'Contact Information',
-  'section-editable': true,
-  panels: [
-    {
-      'panel-id': 'panel_contact_main',
-      'panel-orientation': 'horizontal',
-      panels: [
-        {
-          'panel-id': 'panel_contact_1',
-          'panel-orientation': 'vertical',
-          widgets: [
-            {
-              widget: 'text',
-              'widget-id': 'first_name',
-              'widget-type': 'input',
-              'widget-label': 'First Name',
-              'widget-data-path': `${REG_ID}.first_name`,
-              'widget-required': true,
-            },
-            {
-              widget: 'text',
-              'widget-id': 'last_name',
-              'widget-type': 'input',
-              'widget-label': 'Last Name',
-              'widget-data-path': `${REG_ID}.last_name`,
-              'widget-required': true,
-            },
-          ],
-        },
-        {
-          'panel-id': 'panel_contact_2',
-          'panel-orientation': 'vertical',
-          widgets: [
-            {
-              widget: 'text',
-              'widget-id': 'email',
-              'widget-type': 'input',
-              'widget-label': 'Email',
-              'widget-data-path': `${REG_ID}.email`,
-              'widget-data-validation': { validationType: 'email' },
-            },
-            {
-              widget: 'text',
-              'widget-id': 'phone',
-              'widget-type': 'input',
-              'widget-label': 'Phone',
-              'widget-data-path': `${REG_ID}.phone`,
-            },
-          ],
-        },
-        {
-          'panel-id': 'panel_contact_3',
-          'panel-orientation': 'vertical',
-          widgets: [
-            {
-              widget: 'select',
-              'widget-id': 'country',
-              'widget-type': 'input',
-              'widget-label': 'Country',
-              'widget-data-path': `${REG_ID}.country`,
-              'widget-data-source': {
-                type: 'static',
-                options: [
-                  { label: 'United States', value: 'US' },
-                  { label: 'United Kingdom', value: 'UK' },
-                  { label: 'Kenya', value: 'KE' },
-                  { label: 'India', value: 'IN' },
-                ],
-              },
-            },
-            {
-              widget: 'date',
-              'widget-id': 'dob',
-              'widget-type': 'input',
-              'widget-label': 'Date of Birth',
-              'widget-data-path': `${REG_ID}.dob`,
-            },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-const employmentSection: SectionConfig = {
-  'section-id': 'employment_info',
-  'section-title': 'Employment',
-  'section-editable': true,
-  panels: [
-    {
-      'panel-id': 'panel_employment_main',
-      'panel-orientation': 'horizontal',
-      panels: [
-        {
-          'panel-id': 'panel_employment_1',
-          'panel-orientation': 'vertical',
-          widgets: [
-            {
-              widget: 'text',
-              'widget-id': 'employer',
-              'widget-type': 'input',
-              'widget-label': 'Employer',
-              'widget-data-path': `${REG_ID}.employer`,
-            },
-            {
-              widget: 'text',
-              'widget-id': 'job_title',
-              'widget-type': 'input',
-              'widget-label': 'Job Title',
-              'widget-data-path': `${REG_ID}.job_title`,
-            },
-          ],
-        },
-        {
-          'panel-id': 'panel_employment_2',
-          'panel-orientation': 'vertical',
-          widgets: [
-            {
-              widget: 'select',
-              'widget-id': 'employment_type',
-              'widget-type': 'input',
-              'widget-label': 'Employment Type',
-              'widget-data-path': `${REG_ID}.employment_type`,
-              'widget-data-source': {
-                type: 'static',
-                options: [
-                  { label: 'Full-time', value: 'full_time' },
-                  { label: 'Part-time', value: 'part_time' },
-                  { label: 'Contract', value: 'contract' },
-                  { label: 'Self-employed', value: 'self_employed' },
-                ],
-              },
-            },
-            {
-              widget: 'number',
-              'widget-id': 'monthly_income',
-              'widget-type': 'input',
-              'widget-label': 'Monthly Income',
-              'widget-data-path': `${REG_ID}.monthly_income`,
-              'widget-data-format': {
-                numericType: 'decimal',
-                decimalPlaces: 2,
-                thousandSeparator: ',',
-              },
-            },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
-const educationSection: SectionConfig = {
-  'section-id': 'education_history',
-  'section-title': 'Education History',
-  'section-editable': true,
-  panels: [
-    {
-      'panel-id': 'panel_education_table',
-      'panel-orientation': 'horizontal',
-      widgets: [
-        {
-          widget: 'table',
-          'widget-type': 'table',
-          'widget-id': 'education_table',
-          'widget-label': 'Education Records',
-          'widget-data-path': `${REG_ID}.education`,
-          'widget-column-span': 3,
-          'widget-data-columns': [
-            {
-              'column-key': 'institution',
-              'widget-label': 'Institution',
-              widget: 'text',
-              'widget-type': 'input',
-            },
-            {
-              'column-key': 'degree',
-              'widget-label': 'Degree',
-              widget: 'text',
-              'widget-type': 'input',
-            },
-            {
-              'column-key': 'year',
-              'widget-label': 'Year',
-              widget: 'number',
-              'widget-type': 'input',
-            },
-            {
-              'column-key': 'grade',
-              'widget-label': 'Grade',
-              widget: 'select',
-              'widget-type': 'input',
-              'widget-data-source': {
-                type: 'static',
-                options: [
-                  { label: 'First Class', value: 'first' },
-                  { label: 'Second Class', value: 'second' },
-                  { label: 'Third Class', value: 'third' },
-                  { label: 'Pass', value: 'pass' },
-                ],
-              },
-            },
-          ],
-          'widget-data-operations': {
-            add: true,
-            remove: true,
-            edit: true,
-          },
-        } as any,
-      ],
-    },
-  ],
-};
-
-const sections: SectionConfig[] = [contactSection, employmentSection, educationSection];
-
-const sampleData: Record<string, unknown> = {
-  [REG_ID]: {
-    first_name: 'Jane',
-    last_name: 'Mwangi',
-    email: 'jane.mwangi@example.com',
-    phone: '+254 712 345 678',
-    country: 'KE',
-    dob: '1988-03-22',
-    employer: 'Greenfield Co-op',
-    job_title: 'Field Officer',
-    employment_type: 'full_time',
-    monthly_income: 45000,
-    education: [
-      { institution: 'University of Nairobi', degree: 'BSc Agriculture', year: 2010, grade: 'first' },
-      { institution: 'Kenya Polytechnic', degree: 'Diploma in Agribusiness', year: 2007, grade: 'second' },
-    ],
-  },
-};
+const sampleData = themeSampleData(THEME_REGISTER_ID);
 
 // ─────────────────────────────────────────────────────────────────
 // Small helper component that reads the resolved theme from context
@@ -830,11 +590,10 @@ export const ThemeExample = () => {
 
         {/* ── Sections ─────────────────────────────────────────── */}
         <SectionsContainer
-          sections={sections}
+          sections={themeSections}
           schemaData={sampleData}
           mode={mode}
           onSectionSave={handleSectionSave}
-          namespace={(_, i) => `theme-section-${i}`}
         />
       </div>
     </WidgetProvider>

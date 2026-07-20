@@ -1,15 +1,14 @@
-import { setError, setTouched } from "../store/widgetSlice";
-import { WidgetDispatch } from "../store";
-
+import { setError, setTouched } from '../store/widgetSlice';
+import { WidgetDispatch } from '../store';
 import {
-  SectionConfig,
-  PanelConfig,
-  BaseWidgetConfig,
-} from "../types";
-import { shouldShowWidget, shouldEnableWidget, shouldRequireWidget } from "./conditions";
-import { getValueByPath, getWidgetValue } from "./pathUtils";
-import { validateWidget } from "./validation";
-import { isTableLikeWidget } from "./extractTableRecordsFromSnapshot";
+  SectionConfig,
+  PanelConfig,
+  BaseWidgetConfig,
+} from '../types';
+import { shouldShowWidget, shouldEnableWidget, shouldRequireWidget } from './conditions';
+import { getValueByPath, getWidgetValue } from './pathUtils';
+import { validateWidget } from './validation';
+import { isTableLikeWidget } from './extractTableRecordsFromSnapshot';
 
 const isColumnRequired = (
   column: Record<string, unknown>,
@@ -19,7 +18,6 @@ const isColumnRequired = (
   const validation = column['widget-data-validation'] as { required?: boolean } | undefined;
   return !!(column['widget-required'] || validation?.required);
 };
-
 
 const validateTableLikeWidget = (
   widget: BaseWidgetConfig,
@@ -102,25 +100,21 @@ const validateTableLikeWidget = (
 };
 
 export const collectWidgets = (panels: PanelConfig[]): BaseWidgetConfig[] => {
-  let widgets: BaseWidgetConfig[] = [];
-  panels.forEach((panel) => {
-    if (panel.widgets) {
-      widgets = [...widgets, ...panel.widgets];
-    }
-    if (panel.panels) {
-      widgets = [...widgets, ...collectWidgets(panel.panels)];
-    }
-  });
-  return widgets;
+  let widgets: BaseWidgetConfig[] = [];
+  panels.forEach((panel) => {
+    if (panel.widgets) {
+      widgets = [...widgets, ...panel.widgets];
+    }
+    if (panel.panels) {
+      widgets = [...widgets, ...collectWidgets(panel.panels)];
+    }
+  });
+  return widgets;
 };
 
 /**
- * Validate all widgets in a section and dispatch errors to the store.
- *
- * @param skipRequired - When true, required-field checks (widget-required,
- *   validation.required, document-required) are skipped. Use this for
- *   per-section Save/Next navigation so the user can advance without filling
- *   every mandatory field; only format/range errors are reported.
+ * @param skipRequired - Skip required checks for per-section Save/Next navigation;
+ *   format and range validation still run.
  */
 export const sectionValidate = (
   section: SectionConfig,
@@ -133,7 +127,6 @@ export const sectionValidate = (
   let isValid = true;
 
   for (const widget of allWidgets) {
-
     const isVisible = shouldShowWidget(
       widget['widget-data-options'],
       currentSchemaData
@@ -192,7 +185,6 @@ export const sectionValidate = (
     }
   }
 
-  // Supporting Documents — only check required when not skipping required validation
   section['section-supporting-documents']?.forEach((doc, index) => {
     const widgetId = `supporting-doc-${section['section-id']}-${index}`;
 

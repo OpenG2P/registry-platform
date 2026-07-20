@@ -1,0 +1,30 @@
+{
+  "widget": "date",
+  "widget-type": "input",
+  "widget-id": "date_of_birth",
+  "widget-label": "Date of Birth",
+  "widget-data-path": "register-id.date_of_birth"
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-default": "today",        // ISO date string | "today"
+  // "widget-data-placeholder": "DD/MM/YYYY",
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "dateFormat": "DD/MM/YYYY",
+  //   "inputMethod": "hybrid",             // picker | manual | hybrid
+  //   "dateConstraint": "past-only"        // any | past-only | future-only
+  // },
+
+  // --- widget-data-options (date bounds) ---
+  // "widget-data-options": {
+  //   "minDate": "1900-01-01",
+  //   "maxDate": "today",
+  //   "minDateField": "register-id.start_date",
+  //   "maxDateField": "register-id.end_date",
+  //   "minDateMessage": "Date is too early",
+  //   "maxDateMessage": "Date is too late"
+  // }
+}

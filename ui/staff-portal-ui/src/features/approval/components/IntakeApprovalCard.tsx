@@ -1,9 +1,14 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import ApprovalCard from '@/features/approval/components/ApprovalCard';
-import { useApprovals, ApprovalArtifactContext } from '@/features/approval/hooks/useApprovals';
-import { VERIFICATION_INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/verificationIntakeForm.actions';
+import {
+    useApprovalTasks,
+    useSubmitApprovalDecision,
+    type ApprovalArtifactContext,
+} from '@/features/approval/hooks';
+import { VERIFICATION_INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import ApprovalListSkeleton from '@/features/approval/components/ApprovalListSkeleton';
 
@@ -21,10 +26,16 @@ export default function IntakeApprovalCard({
     onRefresh,
 }: Props) {
     const t = useTranslations();
-    const { tasks, loadingTasks, submitDecision } = useApprovals(
-        awe_request_id,
+    const { tasks, loadingTasks, refetchTasks } = useApprovalTasks(awe_request_id);
+
+    const refreshAfterDecision = useCallback(async () => {
+        await refetchTasks();
+        await onRefresh?.();
+    }, [refetchTasks, onRefresh]);
+
+    const { submitDecision } = useSubmitApprovalDecision(
         artifactContext,
-        onRefresh,
+        refreshAfterDecision,
     );
 
     if (awe_request_id && loadingTasks) {

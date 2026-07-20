@@ -1,4 +1,4 @@
-import { UploadedDocument } from '@/shared/types';
+import { UploadedDocument } from '@/features/shared/types';
 
 
 export type IntakeFormStatus = 'DRAFT' | 'SUBMITTED' | 'FINALIZED';
@@ -109,7 +109,7 @@ export interface SectionPayload {
     section_register_id: string;
     is_list: boolean;
     records: any[];
-    documents?: UploadedDocument[];
+    documents: UploadedDocument[] | null;
 }
 
 export interface SectionChanges {
@@ -119,15 +119,3 @@ export interface SectionChanges {
     files?: unknown[];
 }
 
-export interface Verification {
-    verification_id: string;
-    verified_by: string;
-    verified_at: string;
-    verification_observations: string;
-    is_approved: boolean;
-}
-
-export interface VerificationStats {
-    totalRequired: number;
-    totalDone: number;
-}

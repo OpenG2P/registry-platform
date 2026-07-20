@@ -43,7 +43,8 @@ class G2PScoreControllerService(BaseService):
         return GetScoresResponsePayload(scores=scores_data)
 
     async def get_score_history(
-        self, get_score_history_request: GetScoreHistoryRequest
+        self,
+        get_score_history_request: GetScoreHistoryRequest,
     ) -> GetScoreHistoryResponsePayload:
         _logger.info("Getting score history through controller service")
         score_history_request_payload = get_score_history_request.request_body.request_payload

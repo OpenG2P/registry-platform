@@ -1,0 +1,15 @@
+{
+  "register-id": {
+    "supporting_documents": {
+      "national_id_front": "https://example.com/docs/national-id-front.pdf",
+      "national_id_back": "https://example.com/docs/national-id-back.pdf",
+      "passport": null,
+      "birth_certificate": "https://example.com/docs/birth-certificate.pdf",
+      "proof_of_address": null,
+      "photo": "https://example.com/docs/passport-photo.png",
+      "bank_statement": null,
+      "employment_letter": null,
+      "other": null
+    }
+  }
+}

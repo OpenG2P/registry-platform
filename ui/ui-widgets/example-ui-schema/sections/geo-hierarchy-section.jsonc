@@ -1,0 +1,48 @@
+{
+  "section-id": "individual_geo_hierarchy",
+  "section-title": "Location Hierarchy",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_geo_row",
+      "panel-orientation": "horizontal",
+      "panels": [
+        {
+          "panel-id": "panel_geo_main",
+          "panel-orientation": "vertical",
+          "panel-column-span": 2,
+          "widgets": [
+            {
+              "widget": "geo-hierarchy",
+              "widget-type": "input",
+              "widget-id": "individual_geo_hierarchy",
+              "widget-label": "Location Hierarchy",
+              "widget-required": true,
+              "widget-geo-layout": {
+                "columnSpan": 2
+              },
+              "widget-data-path": {
+                "value": "a0000000-0000-4000-8000-000000000001.geo_lowest_level_value_id",
+                "hierarchy": "a0000000-0000-4000-8000-000000000001.geo_code_hierarchy_json"
+              },
+              "widget-data-source": {
+                "type": "api",
+                "service": "master-data",
+                "method": "POST",
+                "levelsEndpoint": "get-all-g2p-geo-levels",
+                "valuesEndpoint": "geo-level-values"
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_geo_attributes",
+          "panel-orientation": "vertical",
+          "panel-column-span": 1,
+          "widgets": []
+        }
+      ]
+    }
+  ]
+}

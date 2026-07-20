@@ -16,13 +16,6 @@ import {
 } from '../utils/dataSource';
 import { useWidgetEventBus } from './useWidgetEventBus';
 import { useWidgetContext } from '../components/WidgetProvider';
-import { useWidgetTranslation } from './useWidgetTranslation';
-import {
-  resolveGeoWidgetLevelValue,
-  resolveGeoWidgetLevelLabel,
-  getGeoDescendantWidgetIds,
-  GEO_LEVEL_CLEARED,
-} from '../utils/geoHierarchy';
 
 export interface UseBaseWidgetOptions {
   config: BaseWidgetConfig;
@@ -31,7 +24,6 @@ export interface UseBaseWidgetOptions {
   onValueChange?: (widgetId: string, value: any) => void;
 }
 
-// Define stable empty arrays to avoid selector reference issues
 const EMPTY_ERRORS: string[] = [];
 const EMPTY_DATA_SOURCE: any[] = [];
 
@@ -40,13 +32,10 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   const dispatch = useDispatch();
   const context = useWidgetContext();
   const eventBus = useWidgetEventBus();
-  const { translateConfig } = useWidgetTranslation();
   const widgetId = config['widget-id'];
 
-  // Fall back to WidgetContext for dataSourceRequestHandler
   const dataSourceRequestHandler = propHandler || context.dataSourceRequestHandler;
 
-  // Get state from Redux
   const values = useSelector((state: WidgetRootState) => state.widget.values);
   const errors = useSelector((state: WidgetRootState) => state.widget.errors[widgetId] ?? EMPTY_ERRORS);
   const touched = useSelector((state: WidgetRootState) => state.widget.touched[widgetId] || false);
@@ -55,14 +44,10 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     (state: WidgetRootState) => state.widget.dataSources[widgetId] ?? EMPTY_DATA_SOURCE
   );
 
-  // Skip value handling for layout widgets (they don't store data values)
-  // Infer layout from widget-type
   const isLayoutWidget = config['widget-type'] === 'layout';
 
-  // Track if user has explicitly set a value to prevent default from overwriting
   const userHasSetValueRef = useRef(false);
 
-  // Use ref for values to avoid stale closures in handleChange
   const valuesRef = useRef(values);
   const loadingRef = useRef(loading);
   const dataSourceOptionsRef = useRef(dataSourceOptions);
@@ -72,47 +57,13 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     dataSourceOptionsRef.current = dataSourceOptions;
   }, [values, loading, dataSourceOptions]);
 
-  // Track last dispatched value to prevent duplicate dispatches
   const lastDispatchedValueRef = useRef<any>(null);
 
-  // Helper to extract displayable value from object (especially geo hierarchy objects)
   const extractValueFromObject = useCallback((obj: any): any => {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
       return obj;
     }
 
-    // Check for geo hierarchy structure first
-    const geoConfig = config['widget-geo-config'];
-    if (geoConfig) {
-      // If we have a geo hierarchy object, extract the value for this specific level
-      const hierarchy = obj.hierarchy || obj.geo_code_hierarchy_json?.hierarchy;
-      if (Array.isArray(hierarchy)) {
-        const levelData = hierarchy.find((l: any) => l.level === geoConfig.level);
-        if (levelData) {
-          return levelData.level_value_id;
-        }
-      }
-    }
-
-    if ('geo_code_hierarchy_json' in obj || 'geo_lowest_level_value_id' in obj || 'hierarchy' in obj) {
-      if ('geo_lowest_level_value_id' in obj) {
-        return obj.geo_lowest_level_value_id;
-      }
-      if ('lowest_level_value_id' in obj) {
-        return obj.lowest_level_value_id;
-      }
-      // Fallback for nested geo_code_hierarchy_json
-      if (obj.geo_code_hierarchy_json?.lowest_level_value_id) {
-        return obj.geo_code_hierarchy_json.lowest_level_value_id;
-      }
-      if (obj.geo_code_hierarchy_json?.geo_lowest_level_value_id) {
-        return obj.geo_code_hierarchy_json.geo_lowest_level_value_id;
-      }
-      // If it's a geo hierarchy object but no extractable ID, return undefined to avoid rendering object
-      return undefined;
-    }
-
-    // Try common value fields
     if ('value' in obj) {
       return obj.value;
     }
@@ -126,89 +77,54 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       return obj.name;
     }
 
-    // If no extractable value found, return undefined to avoid rendering object as React child
-    // This prevents "Objects are not valid as a React child" errors
     return undefined;
-  }, [config]);
+  }, []);
 
-  // Get current value
   const currentValue = useMemo(() => {
     if (isLayoutWidget) {
       return undefined; // Layout widgets don't have values
     }
 
-    const geoConfig = config['widget-geo-config'];
-    if (geoConfig) {
-      const value = resolveGeoWidgetLevelValue(
-        values,
-        widgetId,
-        config['widget-data-path'],
-        geoConfig
-      );
-      if (userHasSetValueRef.current) {
-        return value;
-      }
-      if (value === null) {
-        return null;
-      }
-      return value !== undefined ? value : config['widget-data-default'];
-    }
-
-    // Try to get value from widgetId first (this should have the actual selected value)
-    // For geo widgets with dataPath, widgetId stores the actual ID, while dataPath stores the hierarchy object
     let value = values[widgetId];
 
-    // Extract value if it's an object (handles geo hierarchy objects stored in widgetId)
     if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
       value = extractValueFromObject(value);
     }
 
-    // If widgetId doesn't have a value, try dataPath
     if (value === undefined && config['widget-data-path']) {
       value = getWidgetValue(values, config['widget-data-path'], widgetId);
 
-      // Extract value if it's an object (handles geo hierarchy objects from dataPath)
       if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
         value = extractValueFromObject(value);
       }
     }
 
-    // If value is still undefined and user has set a value, try reading from widgetId as backup
-    // This handles cases where dataPath lookup might fail temporarily
     if (value === undefined && userHasSetValueRef.current && values[widgetId] !== undefined) {
       value = values[widgetId];
-      // Extract value if it's an object (handles geo hierarchy objects)
       if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
         value = extractValueFromObject(value);
       }
     }
 
-    // Final safety check: if value is still an object, extract displayable value
     if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
       value = extractValueFromObject(value);
     }
 
-    // If user has explicitly set a value, always return it (even if undefined/null)
-    // This prevents the default from overwriting user selections
     if (userHasSetValueRef.current) {
       return value;
     }
 
-    // Only fall back to default if user hasn't set a value yet
-    // But check if value is explicitly null (user cleared it) vs undefined (never set)
     if (value === null) {
       return null; // User explicitly cleared it, don't use default
     }
 
     return value !== undefined ? value : config['widget-data-default'];
-  }, [values, config, widgetId, isLayoutWidget]);
+  }, [values, config, widgetId, isLayoutWidget, extractValueFromObject]);
 
-  // Track the last value we attempted to mirror to prevent infinite loops
   const lastMirroredValueRef = useRef<any>(null);
 
   // Mirror value from dataPath to widgetId in Redux state if it's not already there.
   // This is essential for widgets that depend on this widget via 'dependsOn' using its widgetId,
-  // especially when the actual data is stored in a nested path.
   // CRITICAL: This ensures that dependencies are resolved correctly when entering Edit mode.
   useEffect(() => {
     if (isLayoutWidget || !config['widget-data-path']) {
@@ -218,10 +134,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     const rawValue = getWidgetValue(values, config['widget-data-path'], widgetId);
     if (rawValue !== undefined && rawValue !== null) {
       const extractedValue = extractValueFromObject(rawValue);
-      // Only mirror if:
-      // 1. The top-level value is undefined (initial load or entering edit mode)
-      // 2. We haven't already tried to mirror this specific value (prevents loops if dispatch is ignored or delayed)
-      // 3. The extracted value is valid
       if (
         values[widgetId] === undefined &&
         extractedValue !== undefined &&
@@ -235,12 +147,10 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values, config['widget-data-path'], widgetId, isLayoutWidget]);
 
-  // Initialize default value only once on mount (skip for layout widgets)
   useEffect(() => {
     if (isLayoutWidget) {
       return;
     }
-    // Only initialize default if value is undefined and user hasn't set a value yet
     if (!userHasSetValueRef.current && config['widget-data-default'] !== undefined && currentValue === undefined) {
       handleChange(config['widget-data-default'], false);
     }
@@ -264,12 +174,9 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     [config, isLayoutWidget],
   );
 
-  // Handle value change
   // CRITICAL: Don't include 'values' in dependency array - it causes the callback to be recreated
-  // every time values change, which can lead to stale closures and double dispatches
   const handleChange = useCallback(
     (newValue: any, validate: boolean = true) => {
-      // Use valuesRef to get the latest values, not the stale closure value
       const currentValues = valuesRef.current;
       const currentValue = currentValues[widgetId] || getWidgetValue(currentValues, config['widget-data-path'], widgetId);
 
@@ -296,30 +203,19 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         }
       }
 
-      // Mark that user has set a value (unless this is the default initialization)
       if (newValue !== config['widget-data-default'] || userHasSetValueRef.current) {
         userHasSetValueRef.current = true;
       }
 
       // CRITICAL FIX: If there's no dataPath, just set the value directly
-      // If there's a dataPath, we need to update both the widgetId and the dataPath
       if (!config['widget-data-path']) {
-        // No dataPath: just set the value directly by widgetId
         // CRITICAL: Check if we just dispatched this value to prevent duplicate dispatches
         if (lastDispatchedValueRef.current === newValue) {
           return;
         }
         lastDispatchedValueRef.current = newValue;
         dispatch(setValue({ widgetId, value: newValue }));
-      } else if (config['widget-geo-config']) {
-        // Geo widgets: hierarchy dataPath is managed by useGeoWidgetCascade
-        getGeoDescendantWidgetIds(widgetId).forEach((descendantId) => {
-          dispatch(setValue({ widgetId: descendantId, value: GEO_LEVEL_CLEARED }));
-          dispatch(setDataSource({ widgetId: descendantId, data: [] }));
-        });
-        dispatch(setValue({ widgetId, value: newValue }));
       } else {
-        // Non-geo widgets: update both widgetId and dataPath
         const currentValuesWithUpdate = {
           ...valuesRef.current,
           [widgetId]: newValue,
@@ -333,7 +229,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         dispatch(setValues(updatedValues));
       }
 
-      // Validate if needed
       if (validate) {
         const validationErrors = validateWidget(
           newValue,
@@ -343,17 +238,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         dispatch(setError({ widgetId, errors: validationErrors }));
       }
 
-      // Call custom onChange if provided
       if (onValueChange) {
         onValueChange(widgetId, newValue);
       }
 
-      // Publish widget:change event
-      // Skip publishing for last-level geo widgets (no child widgets waiting)
-      const geoConfig = config['widget-geo-config'];
-      const isLastLevelGeo = geoConfig?.isLastLevel === true;
-
-      if (eventBus && !isLastLevelGeo) {
+      if (eventBus) {
         eventBus.publish({
           type: 'widget:change',
           widgetId,
@@ -365,7 +254,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     [config, widgetId, dispatch, onValueChange, eventBus, resolveIsRequired] // Removed 'values' to prevent stale closures
   );
 
-  // Handle blur
   const handleBlur = useCallback(() => {
     dispatch(setTouched({ widgetId, touched: true }));
     const validationErrors = validateWidget(
@@ -375,7 +263,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     );
     dispatch(setError({ widgetId, errors: validationErrors }));
 
-    // Publish widget:blur event
     if (eventBus) {
       eventBus.publish({
         type: 'widget:blur',
@@ -386,7 +273,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     }
   }, [currentValue, config, widgetId, dispatch, eventBus, resolveIsRequired]);
 
-  // Get field value helper
   const getFieldValue = useCallback(
     (path: string) => {
       return getWidgetValue(values, path, '');
@@ -394,9 +280,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     [values]
   );
 
-  // Conditional visibility and enablement
   const isVisible = useMemo(() => {
-    // Layout widgets are always visible unless explicitly hidden
     if (isLayoutWidget && !hasVisibilityRules(config['widget-data-options'])) {
       return true;
     }
@@ -404,7 +288,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   }, [config['widget-data-options'], values, isLayoutWidget]);
 
   const isEnabled = useMemo(() => {
-    // Layout widgets are always enabled (they don't have input state)
     if (isLayoutWidget) {
       return true;
     }
@@ -419,7 +302,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     [resolveIsRequired, values],
   );
 
-  // Format value for display
   const formattedValue = useMemo(() => {
     if (!config['widget-data-format']) {
       return currentValue;
@@ -427,11 +309,8 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     return formatValue(currentValue, config['widget-data-format'], config.widget);
   }, [currentValue, config]);
 
-  // Track readonly state explicitly to detect changes
-  // Use JSON.stringify to create a stable reference for the dependency array
   const isReadonly = config['widget-readonly'] ?? false;
 
-  // Leaving edit mode (Cancel): allow mirror/rehydration on next Edit
   useEffect(() => {
     if (config['widget-readonly']) {
       userHasSetValueRef.current = false;
@@ -440,28 +319,21 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     }
   }, [config['widget-readonly']]);
   const dataSource = config['widget-data-source'];
-  const geoConfig = config['widget-geo-config'];
 
-  // Use ref to store handler to avoid stale closures
   const handlerRef = useRef(dataSourceRequestHandler);
   useEffect(() => {
     handlerRef.current = dataSourceRequestHandler;
   }, [dataSourceRequestHandler]);
 
-  // Create a stable key for the config to detect changes
-  // This ensures the effect runs when widget-readonly changes
   const apiService = dataSource?.type === 'api' ? (dataSource as any).service : '';
   const apiEndpoint = dataSource?.type === 'api' ? (dataSource as any).endpoint : '';
   const configKey = `${widgetId}-${isReadonly}-${dataSource?.type || 'none'}-${apiService}-${apiEndpoint}`;
 
-  // Stable key so inline schemaData objects (e.g. dialog-table fields) don't retrigger loads every render
   const schemaDataKey = useMemo(
     () => (schemaData ? JSON.stringify(schemaData) : ''),
     [schemaData],
   );
 
-  // Extract dependency value using a granular selector to prevent unnecessary re-renders
-  // and infinite loops when other unrelated values in the state change.
   const dependencyValue = useSelector((state: WidgetRootState) => {
     if (dataSource?.type !== 'api' || !dataSource.dependsOn) {
       return null;
@@ -472,30 +344,23 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     return state.widget.values[dataSource.dependsOn];
   });
 
-  // Handle data source loading
   useEffect(() => {
     if (!dataSource) {
       return;
     }
 
-    const loadApiInReadonly =
-      !!geoConfig ||
-      ['select', 'radio', 'checkbox', 'multi-select'].includes(config.widget);
+    const loadApiInReadonly = ['select', 'radio', 'checkbox', 'multi-select'].includes(config.widget);
     if (dataSource.type === 'api' && isReadonly && !loadApiInReadonly) {
       return;
     }
 
-    // For widgets with dependencies, check if dependency value exists
     if (dataSource.type === 'api' && dataSource.dependsOn) {
-      // Check if dependency value exists
       let depValue: any = null;
       if (dataSource.dependsOn.includes('.')) {
         depValue = getWidgetValue(values, dataSource.dependsOn, '');
       } else {
         depValue = values[dataSource.dependsOn];
 
-        // Smart resolution: If not found at top level, and current widget has a nested dataPath,
-        // try to find the dependency in the same nested object.
         if (
           (depValue === undefined || depValue === null || depValue === '') &&
           typeof config['widget-data-path'] === 'string' &&
@@ -509,25 +374,16 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         }
       }
 
-      // If dependency is empty, don't load (will load when dependency has value)
       if (depValue === null || depValue === undefined || depValue === '') {
         return;
       }
     }
 
     const loadDataSource = async () => {
-      // Get current handler from ref to avoid stale closures
-      // Also check prop directly as fallback (for initial render or when ref not updated yet)
       const currentHandler = handlerRef.current || dataSourceRequestHandler;
-
-      // Only check for handler when we actually need it (inside the async function)
-      // This avoids false errors during React Strict Mode double-invocation
-      // If handler isn't available yet, silently skip - React will retry when it's ready
 
       try {
         if (dataSource.type === 'api' && !currentHandler) {
-          // Silently skip if handler isn't available yet (common during React Strict Mode double-invocation)
-          // React will call this effect again when the handler is ready
           return;
         }
 
@@ -535,18 +391,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
           if (dataSource.type === 'static') {
             return { valueKey: undefined, labelKey: undefined };
           }
-          if (geoConfig) {
-            return {
-              valueKey: dataSource.valueKey || 'level_value_id',
-              labelKey: dataSource.labelKey || 'level_value_mnemonic',
-            };
-          }
           return { valueKey: dataSource.valueKey, labelKey: dataSource.labelKey };
         };
 
         if (dataSource.type === 'api') {
-          const levelId = geoConfig?.level;
-          const cached = getCachedApiDataSource(dataSource, valuesRef.current, levelId);
+          const cached = getCachedApiDataSource(dataSource, valuesRef.current);
           if (cached) {
             const { valueKey, labelKey } = resolveOptionKeys();
             dispatch(setDataSource({
@@ -565,13 +414,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
           data = getStaticDataSource(dataSource);
         } else if (dataSource.type === 'api') {
           if (!currentHandler) {
-            // Silently skip if handler isn't available yet
             dispatch(setLoading({ widgetId, loading: false }));
             dispatch(setDataSource({ widgetId, data: [] }));
             return;
           }
-          const levelId = geoConfig?.level;
-          data = await getApiDataSource(dataSource, valuesRef.current, currentHandler, levelId);
+          data = await getApiDataSource(dataSource, valuesRef.current, currentHandler);
         } else if (dataSource.type === 'schema') {
           data = getSchemaDataSource(dataSource, schemaData || {});
         }
@@ -598,27 +445,12 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     };
 
     loadDataSource();
-    // Use configKey and dependencyValue to ensure effect runs only when relevant state changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configKey, dependencyValue, dataSourceRequestHandler, schemaDataKey, widgetId, dispatch]);
-
-  const geoDisplayLabel = useMemo(() => {
-    if (!geoConfig) {
-      return undefined;
-    }
-    const rawLabel = resolveGeoWidgetLevelLabel(
-      values,
-      widgetId,
-      config['widget-data-path'],
-      geoConfig
-    );
-    return rawLabel ? translateConfig(rawLabel) : undefined;
-  }, [values, widgetId, config, geoConfig, translateConfig]);
 
   return {
     widgetId,
     value: currentValue,
-    geoDisplayLabel,
     formattedValue,
     error: errors,
     touched,
@@ -634,4 +466,3 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     config,
   };
 };
-

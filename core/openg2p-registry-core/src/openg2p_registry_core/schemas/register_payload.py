@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, model_validator, Field
 from enum import Enum
 
 from ..models import ApprovalStatusEnum
+from .file_payload import DocumentAttachment, DocumentData
 
 
 # =============================================================================
@@ -266,7 +267,8 @@ class RecordData(BaseModel):
     actual_score: float = 0.0
     ideal_score: float = 0.0
     completion_score_required: bool = False
-    
+    documents: Optional[List[DocumentData]] = None
+
 
 
 # =============================================================================
@@ -327,12 +329,6 @@ class ChangePayload(BaseChangePayload):
         extra = "allow"  # Allow extra fields to be preserved and accessible
 
 
-class ChangeRequestDocumentPayload(BaseModel):
-    """Document reference to attach to a change request"""
-    document_label: str
-    document_store_id: str
-
-
 class ChangeRequestRequestPayload(RegisterPayload):
     """Request payload for creating/updating change requests - sent from Partners"""
     register_id: Optional[str] = None
@@ -343,8 +339,8 @@ class ChangeRequestRequestPayload(RegisterPayload):
     section_register_id: Optional[str] = None
     internal_record_id: Optional[str] = None
     change_payload: Optional[List[ChangePayload]] = None
-    # Document references (list of document_label + document_store_id)
-    documents: Optional[List[ChangeRequestDocumentPayload]] = None
+    # Already-uploaded catalog documents with display labels
+    documents: Optional[List[DocumentAttachment]] = None
     # For approve/reject operations
     change_request_id: Optional[str] = None
     rejection_reason: Optional[str] = None
@@ -375,12 +371,6 @@ class ChangeRequestResponsePayload(RegisterPayload):
 #==============================================================================
 # Intake Form Data
 #==============================================================================
-
-class IntakeFormDocumentPayload(BaseModel):
-    """Document reference to attach to an intake form section"""
-    document_label: str
-    document_store_id: str
-
 
 class IntakeFormData(BaseModel):
     """Intake form data."""
@@ -414,7 +404,7 @@ class SectionPayloadResponseItem(BaseModel):
     is_list: bool
     section_order: Optional[int] = None
     records: List[dict]
-    documents: Optional[List[IntakeFormDocumentPayload]] = None
+    documents: Optional[List[DocumentData]] = None
 
 class SubmissionResponsePayload(IntakeFormData):
     """Submission response payload."""
@@ -425,7 +415,9 @@ class SectionPayloadInput(BaseModel):
     """A single section payload item for saving an intake form."""
     section_id: str
     intake_form_section_payload: List[dict]
-    documents: Optional[List[IntakeFormDocumentPayload]] = None
+    # Desired document set for the section (g2p_registry_documents).
+    # None = no-op; [] = clear; list = full desired set (diff-synced by document_id).
+    documents: Optional[List[DocumentAttachment]] = None
 
 
 class SaveSubmissionDraftRequestPayload(BaseModel):
@@ -552,6 +544,7 @@ class VersionForDateData(BaseModel):
     """Individual change record for a specific date"""
     change_request_id: str
     created_at: str
+    request_id: Optional[str] = None
 
 
 class VersionsForDateData(BaseModel):
@@ -836,6 +829,7 @@ class RegistryConfigurationData(BaseModel):
     configuration_id: str
     registry_name: str
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -847,6 +841,7 @@ class RegistryConfigurationPayload(BaseModel):
     """Payload for creating registry configuration"""
     registry_name: str
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -856,6 +851,7 @@ class RegistryConfigurationUpdatePayload(BaseModel):
     configuration_id: str
     registry_name: Optional[str] = None
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -1184,6 +1180,7 @@ class GetRegisterTabRecordsRequestPayload(BaseModel):
 class CreateRegistryConfigurationRequestPayload(BaseModel):
     registry_name: str
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -1192,6 +1189,7 @@ class UpdateRegistryConfigurationRequestPayload(BaseModel):
     configuration_id: str
     registry_name: Optional[str] = None
     registry_logo: Optional[str] = None  # BASE64 encoded image
+    registry_favicon: Optional[str] = None  # BASE64 encoded square icon
     registry_theme_id: Optional[str] = None
     registry_language_id: Optional[str] = None
 
@@ -1339,6 +1337,14 @@ class DeleteAttributeRequestPayload(BaseModel):
 class GetAttributeValuesRequestPayload(BaseModel):
     attribute_id: Optional[str] = None
     parent_value_id: Optional[str] = None
+
+
+class GeoLevelValueData(BaseModel):
+    level_value_id: str
+    level_value_mnemonic: str
+    level_value_display: Optional[str] = None
+    parent_level_value_id: Optional[str] = None
+    level_mnemonic: Optional[str] = None
 
 
 class CreateAttributeValueRequestPayload(BaseModel):

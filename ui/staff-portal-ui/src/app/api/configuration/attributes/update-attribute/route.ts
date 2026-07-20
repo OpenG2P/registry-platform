@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 			request_payload: {
 				attribute_id: body.attribute_id,
 				attribute_code: body.attribute_code,
-				attribute_display: body.attribute_display,
+				attribute_display: body.attribute_display || body.attribute_code,
 				is_hierarchical: body.is_hierarchical ?? false,
 			},
 		}),

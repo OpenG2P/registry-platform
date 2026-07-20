@@ -16,7 +16,7 @@ import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_SCORES_ACTIONS } from '@/features/configuration/shared/utils/configurationScores.actions';
+import { CONFIGURATION_SCORES_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
 
 const ScoreDefinitionAttributesPage = () => {

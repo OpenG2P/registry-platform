@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import AddDataModelModal from '@/features/configuration/data-models/AddDataModelModal';
 import EditDataModelModal from '@/features/configuration/data-models/EditDataModelModal';
 import { useAllDataModels } from '@/features/configuration/shared/hooks/useAllDataModels';
-import { CONFIGURATION_DATA_MODELS_ACTIONS } from '@/features/configuration/shared/utils/configurationDataModels.actions';
+import { CONFIGURATION_DATA_MODELS_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { toast } from 'react-toastify';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
@@ -22,7 +22,7 @@ type DataModel = {
     data_model_id: string;
     data_model_mnemonic: string;
     pattern_for_data_model: string;
-    response_template_file_id: string;
+    response_template_document_id: string;
     is_active: boolean;
 };
 
@@ -104,11 +104,11 @@ const DataModelsConfigurationPage = () => {
             label: t('data_model_mnemonic'),
         },
         {
-            key: 'response_template_file_id',
-            label: t('template_id'),
+            key: 'response_template_document_id',
+            label: t('template'),
             render: (item: DataModel) => (
                 <FileLink
-                    documentId={item.response_template_file_id}
+                    documentId={item.response_template_document_id}
                 />
             ),
         },

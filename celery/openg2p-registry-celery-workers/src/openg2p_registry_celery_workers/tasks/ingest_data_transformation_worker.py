@@ -20,7 +20,8 @@ from openg2p_registry_core.interfaces import (
     G2PPayloadEnricherFactory,
     G2PPayloadEnricherInterface
 )
-from openg2p_registry_core.helpers import TemplateHelper, PatternMatcher, MinioClient
+from openg2p_registry_core.helpers import TemplateHelper, PatternMatcher
+from openg2p_registry_core.models import G2PRegistryDocument
 
 from ..app import celery_app
 from ..config import Settings
@@ -280,13 +281,21 @@ def _transform_enriched_data_json(
             f"register_id {register_id}"
         )
 
-    minio_client = MinioClient.get_component()
+    template_doc: G2PRegistryDocument | None = session.get(
+        G2PRegistryDocument, incoming_template.template_document_id
+    )
+    if not template_doc:
+        raise Exception(
+            f"Template document not found for document_id "
+            f"{incoming_template.template_document_id}"
+        )
+
     template_helper = TemplateHelper.get_component()
 
     transformed_data_json: Dict = template_helper.render_with_template(
-        minio_client=minio_client,
-        template_file_id=incoming_template.template_file_id,
+        document_store_id=template_doc.document_store_id,
         data=enriched_data_json,
-        expand_data=incoming_template.jsonld_expansion_required
+        expand_data=incoming_template.jsonld_expansion_required,
+        bucket=template_doc.bucket,
     )
     return transformed_data_json

@@ -7,8 +7,6 @@ from fastapi.responses import JSONResponse
 
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_fastapi_common.schemas import (
-    G2PResponse,
-    G2PResponseBody,
     G2PResponseHeader,
     G2PResponseStatus,
 )
@@ -26,6 +24,7 @@ from openg2p_registry_core.services import InputMechanismDataService
 from iam_core.user_auth.decorators import require_permissions
 
 from ..config import Settings
+from ..helpers import RequestResponseHelper
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -39,6 +38,7 @@ class InputMechanismDataController(BaseController):
 
         self.ingest_controller_service = G2PIngestControllerService.get_component()
         self.input_mechanism_data_service = InputMechanismDataService.get_component()
+        self.helper = RequestResponseHelper.get_component()
 
         self.router.add_api_route(
             "/enqueue_import_file",
@@ -61,12 +61,16 @@ class InputMechanismDataController(BaseController):
         request: Request,
         enqueue_import_file_request: EnqueueImportFileRequest,
     ) -> EnqueueImportFileResponse:
+        enqueue_import_file_request.request_body.request_payload.queued_by = getattr(
+            request.state.auth, "name", "Unknown"
+        )
+        payload = enqueue_import_file_request.request_body.request_payload
         import_file_process_queue = await self.input_mechanism_data_service.enqueue_import_file(
-            document_store_id=enqueue_import_file_request.request_body.request_payload.document_store_id,
-            data_model_id=enqueue_import_file_request.request_body.request_payload.data_model_id,
-            register_id=enqueue_import_file_request.request_body.request_payload.register_id,
-            intake_form_id=enqueue_import_file_request.request_body.request_payload.intake_form_id,
-            queued_by=getattr(request.state.auth, "name", "Unknown"),
+            document_id=payload.document_id,
+            data_model_id=payload.data_model_id,
+            register_id=payload.register_id,
+            intake_form_id=payload.intake_form_id,
+            queued_by=payload.queued_by or "Unknown",
         )
         response = EnqueueImportFileResponse(
             response_header=G2PResponseHeader(
@@ -90,13 +94,13 @@ class InputMechanismDataController(BaseController):
         register_id: Optional[str] = None,
         intake_form_id: Optional[str] = None,
     ) -> Response:
-        response_template_file_id: str | None = None
+        response_template_store_id: str | None = None
         try:
             body: Dict = await ingest_data_request.json()
             headers: Dict = dict(ingest_data_request.headers)
             ingest_data: Dict = {"headers": headers, "body": body}
 
-            ingest_data_payload, response_template_file_id = await self.ingest_controller_service.ingest_data(
+            ingest_data_payload, response_template_store_id = await self.ingest_controller_service.ingest_data(
                 data_model,
                 ingest_data,
                 register_id=register_id,
@@ -118,19 +122,6 @@ class InputMechanismDataController(BaseController):
             return JSONResponse(content=response.model_dump(mode="json"))
         except Exception as error_exception:
             _logger.error("Error in ingest_data: %s", str(error_exception), exc_info=True)
-            g2p_response_header = G2PResponseHeader(
-                request_id="",
-                response_status=G2PResponseStatus.ERROR,
-                response_error_code="500",
-                response_error_message=str(error_exception),
-                response_timestamp=datetime.now(),
-            )
-            error_response = G2PResponse(
-                response_header=g2p_response_header,
-                response_body=G2PResponseBody(
-                    pagination_response=None,
-                    response_payload=None,
-                ),
-            )
+            error_response = self.helper.construct_error_response(error_exception)
             return JSONResponse(content=error_response.model_dump(mode="json"))
 

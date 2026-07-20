@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 
 import { useEffect, useState } from 'react';
 import Can from '@/components/shared/Can';
-import { CONFIGURATION_SECTIONS_ACTIONS } from '../shared/utils/configurationSections.actions';
+import { CONFIGURATION_SECTIONS_ACTIONS } from '@/features/shared/permissions';
 import AddTabSectionModal from './AddTabSectionModal';
 import EditTabSectionModal from './EditTabSectionModal';
 import EditButton from '../shared/components/EditButton';

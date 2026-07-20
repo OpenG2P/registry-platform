@@ -1,0 +1,76 @@
+{
+  "widget": "dialog-table",
+  "widget-type": "table",
+  "widget-id": "members_table",
+  "widget-label": "Household Member Records",
+  "widget-readonly": false,
+  "widget-data-path": "register-id.records",
+  "widget-data-add-label": "Add Member",
+  "widget-data-operations": { "add": true, "edit": true, "remove": true },
+  "widget-data-columns": [
+    {
+      "widget": "boolean",
+      "widget-type": "input",
+      "widget-id": "has_national_id",
+      "column-key": "has_national_id",
+      "column-group": "identifier",
+      "widget-label": "Do you have National ID?",
+      "widget-required": true,
+      "widget-data-path": "has_national_id",
+      "widget-data-format": {
+        "booleanControlType": "radio",
+        "booleanRepresentation": "yes-no"
+      }
+    },
+    {
+      "widget": "text",
+      "widget-type": "input",
+      "column-key": "foundational_id",
+      "column-group": "identifier",
+      "widget-label": "Fayda ID",
+      "widget-data-path": "foundational_id",
+      "widget-data-options": {
+        "actions": [
+          {
+            "action": "show",
+            "condition": { "field": "has_national_id", "value": true, "operator": "equals" }
+          },
+          {
+            "action": "require",
+            "condition": { "field": "has_national_id", "value": true, "operator": "equals" }
+          }
+        ]
+      }
+    },
+    {
+      "widget": "text",
+      "widget-type": "input",
+      "column-key": "first_name",
+      "widget-label": "First Name",
+      "widget-required": true,
+      "widget-data-path": "first_name"
+    },
+    {
+      "widget": "select",
+      "widget-type": "input",
+      "column-key": "gender",
+      "widget-label": "Gender",
+      "widget-required": true,
+      "widget-data-path": "gender",
+      "widget-data-source": {
+        "type": "api",
+        "method": "POST",
+        "service": "attributes",
+        "endpoint": "values",
+        "params": { "attribute_id": "GENDER" },
+        "labelKey": "value_display",
+        "valueKey": "value_code"
+      }
+    }
+  ]
+
+  // --- Notes ---
+  // "column-group" groups related fields together inside the add/edit dialog.
+  // "widget-data-options.actions" drives conditional show / require per column,
+  // evaluated against sibling column values in the same row.
+}

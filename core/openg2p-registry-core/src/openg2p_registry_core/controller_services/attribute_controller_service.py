@@ -37,6 +37,7 @@ class G2PAttributeControllerService(BaseService):
         _logger.info("Fetching attributes through controller service")
         pagination_request = request.request_body.pagination_request
         current_page, page_size = self._extract_pagination_values(pagination_request)
+        search_text = self._extract_search_text(pagination_request)
         g2p_attribute_service = G2PAttributeService.get_component()
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
@@ -44,6 +45,7 @@ class G2PAttributeControllerService(BaseService):
                 session,
                 current_page=current_page,
                 page_size=page_size,
+                search_text=search_text,
             )
         pagination_response = self._build_pagination_response(
             total_items, page_size, pagination_request
@@ -105,11 +107,13 @@ class G2PAttributeControllerService(BaseService):
     async def get_attribute_values(
         self,
         request: GetAttributeValuesRequest,
+        policy_mnemonics: list[str] | None = None,
     ) -> Tuple[List[AttributeValueData], Optional[G2PPaginationResponse]]:
         _logger.info("Fetching attribute values through controller service")
         payload = request.request_body.request_payload
         pagination_request = request.request_body.pagination_request
         current_page, page_size = self._extract_pagination_values(pagination_request)
+        search_text = self._extract_search_text(pagination_request)
         parent_value_id = payload.parent_value_id or None
 
         g2p_attribute_service = G2PAttributeService.get_component()
@@ -118,6 +122,8 @@ class G2PAttributeControllerService(BaseService):
             parent_value_id=parent_value_id,
             current_page=current_page,
             page_size=page_size,
+            search_text=search_text,
+            policy_mnemonics=policy_mnemonics,
         )
         pagination_response = self._build_pagination_response(
             total_items, page_size, pagination_request
@@ -184,6 +190,15 @@ class G2PAttributeControllerService(BaseService):
         if pagination_request is None:
             return None, None
         return pagination_request.current_page, pagination_request.page_size
+
+    def _extract_search_text(
+        self,
+        pagination_request: Optional[G2PPaginationRequest],
+    ) -> Optional[str]:
+        if pagination_request is None or pagination_request.search_text is None:
+            return None
+        search_text = pagination_request.search_text.strip()
+        return search_text or None
 
     def _build_pagination_response(
         self,

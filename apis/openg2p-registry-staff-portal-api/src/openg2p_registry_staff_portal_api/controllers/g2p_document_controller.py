@@ -1,19 +1,24 @@
 import logging
 from typing import List
-from fastapi import UploadFile, File, Form
+
+from fastapi import Request, UploadFile, File, Form
 
 from openg2p_fastapi_common.controller import BaseController
 
 from openg2p_registry_core.controller_services import G2PDocumentControllerService
+from openg2p_registry_core.helpers.document import DocumentBucket
 from openg2p_registry_core.schemas import (
-    UploadDocumentsResponse, UploadDocumentsResponseData,
-    UploadRecordImageResponse, UploadRecordImageData,
-    GetDocumentLabelsForSectionRequest,
+    DocumentsResponse, DocumentsData,
+    DeleteDocumentsResponse, DeleteDocumentsData,
+    GetDocumentsRequest,
+    DeleteDocumentsRequest,
+    GetChangeRequestDocumentsRequest,
+    GetIntakeFormDocumentsRequest,
     GetSectionDocumentsRequest,
-    GetSectionDocumentsForChangeRequestRequest,
-    SectionDocumentsResponse, SectionDocumentsData,
     ChangeRequestDocumentsResponse, ChangeRequestDocumentsData,
-    FileUrlResponse, FileUrlData, FileUrlRequest
+    IntakeFormDocumentsResponse, IntakeFormDocumentsData,
+    SectionDocumentsResponse, SectionDocumentsData,
+    UploadDocumentsRequestPayload,
 )
 from iam_core.user_auth.decorators import require_permissions
 
@@ -26,8 +31,8 @@ _logger = logging.getLogger(_config.logging_default_logger_name)
 
 class G2PDocumentController(BaseController):
     """
-    Controller for handling document-related operations.
-    Provides endpoints for uploading and managing documents for change requests.
+    Controller for document operations backed by the central document catalog
+    (g2p_registry_documents) and the pluggable document storage handler.
     """
 
     def __init__(self, **kwargs):
@@ -41,14 +46,21 @@ class G2PDocumentController(BaseController):
         self.router.add_api_route(
             "/upload_documents",
             self.upload_documents,
-            responses={200: {"model": UploadDocumentsResponse}},
+            responses={200: {"model": DocumentsResponse}},
             methods=["POST"],
         )
 
         self.router.add_api_route(
-            "/get_section_documents",
-            self.get_section_documents,
-            responses={200: {"model": SectionDocumentsResponse}},
+            "/delete_documents",
+            self.delete_documents,
+            responses={200: {"model": DeleteDocumentsResponse}},
+            methods=["POST"],
+        )
+
+        self.router.add_api_route(
+            "/get_documents",
+            self.get_documents,
+            responses={200: {"model": DocumentsResponse}},
             methods=["POST"],
         )
 
@@ -60,35 +72,118 @@ class G2PDocumentController(BaseController):
         )
 
         self.router.add_api_route(
-            "/get_file_url",
-            self.get_file_url,
-            responses={200: {"model": FileUrlResponse}},
+            "/get_intake_form_documents",
+            self.get_intake_form_documents,
+            responses={200: {"model": IntakeFormDocumentsResponse}},
             methods=["POST"],
         )
 
-    @require_permissions({"changeRequest:create"})
+        self.router.add_api_route(
+            "/get_section_documents",
+            self.get_section_documents,
+            responses={200: {"model": SectionDocumentsResponse}},
+            methods=["POST"],
+        )
+
+    @require_permissions({})
     async def upload_documents(
         self,
-        document_label: str = Form(..., description="Document label for the files"),
-        documents: List[UploadFile] = File(..., description="List of documents to upload")
-    ) -> UploadDocumentsResponse:
+        request: Request,
+        documents: List[UploadFile] = File(..., description="List of documents to upload"),
+        bucket: DocumentBucket = Form(DocumentBucket.DOCUMENTS, description="Target document bucket"),
+    ) -> DocumentsResponse:
         """
-        Upload multiple documents to MinIO storage with the specified document label.
+        Upload documents to object storage and register them in the document
+        catalog. Returns the catalog entries with presigned URLs.
         """
         try:
-            upload_response_data: UploadDocumentsResponseData = await self.g2p_document_controller_service.upload_documents(
-                document_label=document_label,
+            upload_payload = UploadDocumentsRequestPayload(
+                bucket=bucket,
+                created_by=getattr(request.state.auth, "name", "Unknown"),
+            )
+            documents_data: DocumentsData = await self.g2p_document_controller_service.upload_documents(
                 documents=documents,
+                payload=upload_payload,
             )
-            upload_response: UploadDocumentsResponse = self.helper.construct_upload_documents_success_response(
-                upload_response_data=upload_response_data
+            return self.helper.construct_documents_success_response(
+                documents_data=documents_data
             )
-            return upload_response
         except Exception as error_exception:
             _logger.error(f"Error in upload_documents: {str(error_exception)}")
-            error_response: UploadDocumentsResponse = self.helper.construct_upload_documents_error_response(error_exception)
-            return error_response
+            return self.helper.construct_error_response(error_exception)
 
+    @require_permissions({})
+    async def delete_documents(
+        self,
+        request: DeleteDocumentsRequest
+    ) -> DeleteDocumentsResponse:
+        """
+        Delete documents: removes the stored objects and all catalog /
+        junction table references (hard cascade).
+        """
+        try:
+            delete_documents_data: DeleteDocumentsData = await self.g2p_document_controller_service.delete_documents(request)
+            return self.helper.construct_delete_documents_success_response(
+                delete_documents_data=delete_documents_data,
+                g2p_request=request
+            )
+        except Exception as error_exception:
+            _logger.error(f"Error in delete_documents: {str(error_exception)}")
+            return self.helper.construct_error_response(error_exception, request)
+
+    @require_permissions({"register:view"})
+    async def get_documents(
+        self,
+        request: GetDocumentsRequest
+    ) -> DocumentsResponse:
+        """
+        Get catalog entries (with presigned URLs) for the given document_ids.
+        """
+        try:
+            documents_data: DocumentsData = await self.g2p_document_controller_service.get_documents(request)
+            return self.helper.construct_documents_success_response(
+                documents_data=documents_data,
+                g2p_request=request
+            )
+        except Exception as error_exception:
+            _logger.error(f"Error in get_documents: {str(error_exception)}")
+            return self.helper.construct_error_response(error_exception, request)
+
+    @require_permissions({"changeRequest:view"})
+    async def get_change_request_documents(
+        self,
+        request: GetChangeRequestDocumentsRequest
+    ) -> ChangeRequestDocumentsResponse:
+        """
+        Get documents attached to the specified change request.
+        """
+        try:
+            change_request_documents_data: ChangeRequestDocumentsData = await self.g2p_document_controller_service.get_change_request_documents(request)
+            return self.helper.construct_change_request_documents_success_response(
+                change_request_documents_data=change_request_documents_data,
+                g2p_request=request
+            )
+        except Exception as error_exception:
+            _logger.error(f"Error in get_change_request_documents: {str(error_exception)}")
+            return self.helper.construct_error_response(error_exception, request)
+
+    @require_permissions({"intakeSubmission:view"})
+    async def get_intake_form_documents(
+        self,
+        request: GetIntakeFormDocumentsRequest
+    ) -> IntakeFormDocumentsResponse:
+        """
+        Get documents attached to the specified intake form submission.
+        """
+        try:
+            intake_form_documents_data: IntakeFormDocumentsData = await self.g2p_document_controller_service.get_intake_form_documents(request)
+            return self.helper.construct_intake_form_documents_success_response(
+                intake_form_documents_data=intake_form_documents_data,
+                g2p_request=request
+            )
+        except Exception as error_exception:
+            _logger.error(f"Error in get_intake_form_documents: {str(error_exception)}")
+            return self.helper.construct_error_response(error_exception, request)
 
     @require_permissions({"register:view"})
     async def get_section_documents(
@@ -96,62 +191,14 @@ class G2PDocumentController(BaseController):
         request: GetSectionDocumentsRequest
     ) -> SectionDocumentsResponse:
         """
-        Get documents for a section record.
-
-        Returns the list of documents (label, document_store_id) for the specified record and section.
+        Get documents attached to the specified live register record.
         """
         try:
             section_documents_data: SectionDocumentsData = await self.g2p_document_controller_service.get_section_documents(request)
-            response: SectionDocumentsResponse = self.helper.construct_section_documents_success_response(
+            return self.helper.construct_section_documents_success_response(
                 section_documents_data=section_documents_data,
                 g2p_request=request
             )
-            return response
         except Exception as error_exception:
             _logger.error(f"Error in get_section_documents: {str(error_exception)}")
-            error_response: SectionDocumentsResponse = self.helper.construct_section_documents_error_response(error_exception)
-            return error_response
-
-    @require_permissions({"changeRequest:view"})
-    async def get_change_request_documents(
-        self,
-        request: GetSectionDocumentsForChangeRequestRequest
-    ) -> ChangeRequestDocumentsResponse:
-        """
-        Get documents for a change request.
-
-        Returns the list of documents (label, document_store_id) attached to the specified change request.
-        """
-        try:
-            change_request_documents_data: ChangeRequestDocumentsData = await self.g2p_document_controller_service.get_change_request_documents(request)
-            response: ChangeRequestDocumentsResponse = self.helper.construct_change_request_documents_success_response(
-                change_request_documents_data=change_request_documents_data,
-                g2p_request=request
-            )
-            return response
-        except Exception as error_exception:
-            _logger.error(f"Error in get_section_documents_for_change_request: {str(error_exception)}")
-            error_response: ChangeRequestDocumentsResponse = self.helper.construct_change_request_documents_error_response(error_exception)
-            return error_response
-
-    @require_permissions({"changeRequest:view"})
-    async def get_file_url(
-        self,
-        file_url_request: FileUrlRequest
-    ) -> FileUrlResponse:
-        """
-        Get the URL for a file.
-
-        Returns the URL for the specified file.
-        """
-        try:
-            file_url_data: FileUrlData = await self.g2p_document_controller_service.get_file_url(file_url_request)
-            file_url_response: FileUrlResponse = self.helper.construct_file_url_success_response(
-                file_url_data=file_url_data,
-                g2p_request=file_url_request
-            )
-            return file_url_response
-        except Exception as error_exception:
-            _logger.error(f"Error in get_file_url: {str(error_exception)}")
-            error_response: FileUrlResponse = self.helper.construct_file_url_error_response(error_exception)
-            return error_response
+            return self.helper.construct_error_response(error_exception, request)

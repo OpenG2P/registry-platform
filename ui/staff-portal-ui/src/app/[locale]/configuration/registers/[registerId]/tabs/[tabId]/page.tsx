@@ -18,8 +18,8 @@ import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
 import { usePagination } from '@/shared/hooks/usePagination';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_TABS_ACTIONS } from '@/features/configuration/shared/utils/configurationTabs.actions';
-import { CONFIGURATION_SECTIONS_ACTIONS } from '@/features/configuration/shared/utils/configurationSections.actions';
+import { CONFIGURATION_TABS_ACTIONS } from '@/features/shared/permissions';
+import { CONFIGURATION_SECTIONS_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
 
 const TabConfigurationPage = () => {

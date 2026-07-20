@@ -20,7 +20,7 @@ export default function NewIntakeFormSubmissionPage() {
 
     const { sections, form_name, form_description, loading } = useIntakeFormDetails(intake_form_id);
 
-    const { handleAction, FormActionModals } = useIntakeFormSectionAction({
+    const { handleAction, FormActionModals, recordName } = useIntakeFormSectionAction({
         registerId,
         formId: intake_form_id,
         registerType,
@@ -35,7 +35,7 @@ export default function NewIntakeFormSubmissionPage() {
                         label: t("register_intake_form", { subject: currentRegister?.register_subject || t("register") }),
                         href: `/intake-form/${registerType}`
                     },
-                    { label: form_name || "" }
+                    { label: recordName || "" }
                 ]}
 
                 showFilters={false}

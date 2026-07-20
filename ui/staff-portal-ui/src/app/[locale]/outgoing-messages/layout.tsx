@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { OUTGOING_MESSAGE_ACTIONS } from "@/features/messages/utils/outgoingMessage.actions";
+import { OUTGOING_MESSAGE_ACTIONS } from "@/features/shared/permissions";
 
 export default function OutgoingMessagesLayout({ children }: { children: React.ReactNode }) {
     return (

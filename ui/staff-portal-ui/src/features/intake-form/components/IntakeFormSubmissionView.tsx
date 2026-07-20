@@ -11,9 +11,10 @@ import { REGISTRY_INTAKE_FORM_ARTIFACT } from '@/features/approval/constants';
 import { useTranslations } from 'next-intl';
 import { useMemo } from 'react';
 import { useIntakeFormSectionAction } from '@/features/intake-form/hooks/useIntakeFormSectionAction';
-import { RegisterFlattenedRecord } from '@/features/register/types';
+import { buildIntakeSectionsDataMap } from '@/features/shared/utils/intakeFormSectionDataMap';
+import { useRegister } from '@/context/RegisterContext';
 import { useRbac } from '@/context/RbacContext';
-import { INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/intakeForm.actions';
+import { INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 
 interface BreadcrumbItem {
     label: string;
@@ -23,15 +24,16 @@ interface BreadcrumbItem {
 interface IntakeFormSubmissionViewProps {
     registerType: string;
     submissionId: string;
-    breadcrumb: BreadcrumbItem[];
+    breadcrumb?: BreadcrumbItem[];
 }
 
 export default function IntakeFormSubmissionView({
     registerType,
     submissionId,
-    breadcrumb,
+    breadcrumb: breadcrumbOverride,
 }: IntakeFormSubmissionViewProps) {
     const t = useTranslations();
+    const { currentRegister } = useRegister();
     const { can } = useRbac();
     const canCreate = can(INTAKE_FORM_ACTIONS.edit);
 
@@ -39,7 +41,7 @@ export default function IntakeFormSubmissionView({
         submission,
         section_payloads,
         loading: loadingSubmission,
-        execute: refetchSubmission,
+        refetchSubmission,
     } = useIntakeFormSubmission(submissionId);
 
     const intakeApprovalArtifactContext = useMemo(() => {
@@ -53,55 +55,48 @@ export default function IntakeFormSubmissionView({
         };
     }, [submission?.submission_id, submission?.awe_request_status_summary]);
 
-
-    console.log(submission, 'submission');
-
     const intakeFormId = submission?.form_id;
     const { sections, form_name, form_description, loading: loadingSections } =
         useIntakeFormDetails(intakeFormId);
 
-    const loading = loadingSubmission || loadingSections;
+    const loading = loadingSubmission || (!sections && loadingSections);
     const isDraft = submission?.draft_status === 'DRAFT';
 
-    const { handleAction, FormActionModals } = useIntakeFormSectionAction({
+    const { handleAction, FormActionModals, recordName } = useIntakeFormSectionAction({
         registerId: submission?.register_id || '',
         formId: intakeFormId || '',
         registerType,
         submissionId,
+        initialRecordName: submission?.record_name,
         onSuccess: () => {},
     });
 
-    const sectionDataMap = useMemo(() => {
-        if (!section_payloads) return {};
-
-        const map: Record<
-            string,
-            RegisterFlattenedRecord | { records: RegisterFlattenedRecord[] }
-        > = {};
-
-        for (const section of section_payloads) {
-            if (!section.records?.length) continue;
-
-            const existing = map[section.section_register_id];
-
-            if (section.is_list === true) {
-                if (existing && 'records' in existing) {
-                    const existingList = existing as { records: RegisterFlattenedRecord[] };
-                    existingList.records = [...existingList.records, ...section.records];
-                } else {
-                    map[section.section_register_id] = { records: [...section.records] };
-                }
-            } else {
-                if (existing && !('records' in existing)) {
-                    map[section.section_register_id] = { ...existing, ...section.records[0] };
-                } else if (!existing) {
-                    map[section.section_register_id] = { ...section.records[0] };
-                }
-            }
+    const breadcrumb = useMemo(() => {
+        if (breadcrumbOverride) {
+            return breadcrumbOverride;
         }
 
-        return map;
-    }, [section_payloads]);
+        return [
+            {
+                label: t('register_intake_form', {
+                    subject: currentRegister?.register_subject || t('register'),
+                }),
+                href: `/intake-form/${registerType}`,
+            },
+            { label: recordName || '—' },
+        ];
+    }, [
+        breadcrumbOverride,
+        currentRegister?.register_subject,
+        registerType,
+        recordName,
+        t,
+    ]);
+
+    const sectionDataMap = useMemo(
+        () => buildIntakeSectionsDataMap(section_payloads),
+        [section_payloads]
+    );
 
     return (
         <div className="min-h-screen mx-auto bg-secondary-first">
@@ -123,8 +118,6 @@ export default function IntakeFormSubmissionView({
                             {!isDraft && (
                                 <SubmissionHeader
                                     submission={submission}
-                                    section_payloads={section_payloads}
-                                    onActionComplete={() => window.location.reload()}
                                 />
                             )}
 
@@ -148,9 +141,7 @@ export default function IntakeFormSubmissionView({
                                     isPending={
                                         !isDraft && submission?.approval_status === 'PENDING'
                                     }
-                                    onRefresh={async () => {
-                                        await refetchSubmission();
-                                    }}
+                                    onRefresh={refetchSubmission}
                                 />
                             </div>
                         )}

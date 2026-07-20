@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { tSchema } from '../utils/tSchema';
 import { useDispatch, useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetRenderer } from '../components/WidgetRenderer';
-import { useWidgetTranslation } from '../hooks/useWidgetTranslation';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { formatValue } from '../utils/formatting';
-import { getValueByPath, setValueByPath } from '../utils/pathUtils';
+import { getValueByPath } from '../utils/pathUtils';
 import {
   getMinDate,
   getMaxDate,
@@ -19,16 +19,13 @@ import { setValue, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 import { validateWidget } from '../utils/validation';
 
-type TranslateConfigFn = (
-  value: string | undefined | null,
-  fallback?: string
-) => string;
+type ResolveSchemaLabelFn = (value: string | undefined | null) => string;
 
 const getDateColumnConstraintError = (
   column: BaseWidgetConfig,
   cellValue: unknown,
   rowValues: Record<string, any>,
-  translateConfig: TranslateConfigFn
+  resolveSchemaLabel: ResolveSchemaLabelFn,
 ): string | null => {
   const displayValue =
     cellValue && typeof cellValue === 'string' ? cellValue.split('T')[0] : '';
@@ -44,10 +41,10 @@ const getDateColumnConstraintError = (
   const minDateField = optionsConfig?.minDateField as string | undefined;
   const maxDateField = optionsConfig?.maxDateField as string | undefined;
   const minDateMessage = optionsConfig?.minDateMessage
-    ? translateConfig(optionsConfig.minDateMessage)
+    ? resolveSchemaLabel(optionsConfig.minDateMessage)
     : undefined;
   const maxDateMessage = optionsConfig?.maxDateMessage
-    ? translateConfig(optionsConfig.maxDateMessage)
+    ? resolveSchemaLabel(optionsConfig.maxDateMessage)
     : undefined;
 
   const resolveSiblingDate = (fieldRef: string | undefined): string | undefined => {
@@ -80,7 +77,7 @@ const isTableRowDataValid = (
   rowData: Record<string, any>,
   columns: any[],
   tableReadonly: boolean,
-  translateConfig: TranslateConfigFn
+  resolveSchemaLabel: ResolveSchemaLabelFn,
 ): boolean => {
   for (const col of columns) {
     if (tableReadonly || col['widget-readonly'] === true) {
@@ -99,7 +96,7 @@ const isTableRowDataValid = (
     }
 
     if ((col.widget || 'text') === 'date') {
-      const dateError = getDateColumnConstraintError(col, cellValue, rowData, translateConfig);
+      const dateError = getDateColumnConstraintError(col, cellValue, rowData, resolveSchemaLabel);
       if (dateError) {
         return false;
       }
@@ -109,7 +106,6 @@ const isTableRowDataValid = (
   return true;
 };
 
-// Lightweight table cell components (no labels, compact styling)
 
 interface TableCellSelectProps {
   config: BaseWidgetConfig;
@@ -118,12 +114,10 @@ interface TableCellSelectProps {
 }
 
 const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps) => {
-  const { translate } = useWidgetTranslation();
-  // Use useBaseWidget to get data source options (it handles loading)
+  const { t } = useWidgetContext();
   const {
     dataSourceOptions,
     loading,
-    config: widgetConfig,
   } = useBaseWidget({ config });
   const isReadonly = config['widget-readonly'] || false;
 
@@ -142,7 +136,7 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
           backgroundColor: isReadonly || loading ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
         }}
       >
-        <option value="">{translate('common.select') || 'Select'}</option>
+        <option value="">{t?.('common.select') || 'Select'}</option>
         {dataSourceOptions.map((option: any) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -156,7 +150,6 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
   );
 };
 
-// Component to display select value label in view mode
 interface SelectDisplayValueProps {
   config: BaseWidgetConfig;
   value: any;
@@ -188,7 +181,6 @@ interface TableCellTextProps {
 const TableCellText = ({ config, value, onValueChange }: TableCellTextProps) => {
   const isReadonly = config['widget-readonly'] || false;
   const placeholder = config['widget-data-placeholder'] || '';
-  const formatConfig = config['widget-data-format'];
   const maxLength = config['widget-data-validation']?.maxLength;
 
   const displayValue = value !== null && value !== undefined ? String(value) : '';
@@ -242,7 +234,6 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
     if (!isNaN(numValue)) {
       onValueChange(numValue);
     } else {
-      // Allow partial input (e.g., "-", ".")
       onValueChange(inputValue);
     }
   };
@@ -282,7 +273,7 @@ interface TableCellDateProps {
 }
 
 const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDateProps) => {
-  const { translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
   const isReadonly = config['widget-readonly'] || false;
   const placeholder = config['widget-data-placeholder'] || '';
   const optionsConfig = config['widget-data-options'];
@@ -293,10 +284,10 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
   const minDateField = optionsConfig?.minDateField as string | undefined;
   const maxDateField = optionsConfig?.maxDateField as string | undefined;
   const minDateMessage = optionsConfig?.minDateMessage
-    ? translateConfig(optionsConfig.minDateMessage)
+    ? tSchema(t, optionsConfig.minDateMessage)
     : undefined;
   const maxDateMessage = optionsConfig?.maxDateMessage
-    ? translateConfig(optionsConfig.maxDateMessage)
+    ? tSchema(t, optionsConfig.maxDateMessage)
     : undefined;
 
   const [constraintError, setConstraintError] = useState<string | null>(null);
@@ -333,7 +324,6 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
     [minDateMessage, maxDateMessage]
   );
 
-  // input type="date" requires YYYY-MM-DD format
   const displayValue = value && typeof value === 'string' ? value.split('T')[0] : '';
 
   useEffect(() => {
@@ -380,7 +370,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
         placeholder={placeholder}
         min={effectiveMinDate}
         max={effectiveMaxDate}
-        title={constraintError || translateConfig(config['widget-data-tooltip'])}
+        title={constraintError || tSchema(t, config['widget-data-tooltip'])}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
@@ -405,45 +395,6 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
   );
 };
 
-/**
- * Table widget with record-level inline editing
- * 
- * Usage in schema:
- * {
- *   "widget": "table",
- *   "widget-type": "table",
- *   "widget-label": "Education History",
- *   "widget-id": "educationHistory",
- *   "widget-data-path": "education.history",
- *   "widget-data-columns": [
- *     {
- *       "column-key": "degree",
- *       "widget-label": "Degree",
- *       "widget": "text",
- *       "widget-type": "input",
- *       "widget-data-path": "degree",
- *       "widget-data-format": {...}
- *     },
- *     {
- *       "column-key": "year",
- *       "widget-label": "Year",
- *       "widget": "number",
- *       "widget-type": "input",
- *       "widget-data-path": "year"
- *     }
- *   ],
- *   "widget-data-operations": {
- *     "add": true,
- *     "remove": true,
- *     "edit": true
- *   },
- *   "widget-data-api": {
- *     "add": { "url": "/api/records", "method": "POST" },
- *     "edit": { "url": "/api/records/{id}", "method": "PUT" },
- *     "delete": { "url": "/api/records/{id}", "method": "DELETE" }
- *   }
- * }
- */
 interface TableWidgetProps {
   config: BaseWidgetConfig;
 }
@@ -471,7 +422,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { translate, translateConfig } = useWidgetTranslation();
+  const { t } = useWidgetContext();
+  const resolveSchemaLabel = useCallback(
+    (value: string | undefined | null) =>
+      value ? tSchema(t, value) : '',
+    [t],
+  );
   const { dataSourceRequestHandler } = useWidgetContext();
   const dispatch = useDispatch();
   const storeValues = useSelector((state: WidgetRootState) => state.widget?.values || {});
@@ -482,20 +438,15 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   const apiConfig = widgetConfig['widget-data-api'] || {};
   const isReadonly = widgetConfig['widget-readonly'] || false;
 
-  // State for editing
   const [editingState, setEditingState] = useState<EditingState | null>(null);
   const [loadingRowIndex, setLoadingRowIndex] = useState<number | null>(null);
   const [confirmationState, setConfirmationState] = useState<ConfirmationState | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [newRowData, setNewRowData] = useState<any>(null);
-  // Track original rows when entering section edit mode for edit_action tracking
   const [originalRows, setOriginalRows] = useState<any[] | null>(null);
 
-  // When section is in edit mode (isReadonly is false), rows can be edited individually
-  // But they are NOT automatically editable - user must click Edit button for each row
   const isSectionEditMode = !isReadonly && operations.edit;
   
-  // Check if any row is being edited (either manually or via section edit mode)
   const isAnyRowEditing = editingState !== null || isAdding;
 
   const canSaveEditingRow = useMemo(() => {
@@ -506,18 +457,17 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       editingState.currentValue,
       columns,
       isReadonly,
-      translateConfig
+      resolveSchemaLabel,
     );
-  }, [editingState, columns, isReadonly, translateConfig]);
+  }, [editingState, columns, isReadonly, resolveSchemaLabel]);
 
   const canSaveNewRow = useMemo(() => {
     if (!isAdding || !newRowData) {
       return false;
     }
-    return isTableRowDataValid(newRowData, columns, isReadonly, translateConfig);
-  }, [isAdding, newRowData, columns, isReadonly, translateConfig]);
+    return isTableRowDataValid(newRowData, columns, isReadonly, resolveSchemaLabel);
+  }, [isAdding, newRowData, columns, isReadonly, resolveSchemaLabel]);
 
-  // Show confirmation dialog
   const showConfirmation = useCallback((message: string, onConfirm: () => void, onCancel: () => void) => {
     setConfirmationState({
       show: true,
@@ -533,22 +483,18 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     });
   }, []);
 
-  // Cancel current edit
   const cancelEdit = useCallback(() => {
     if (editingState) {
-      // Revert to original value
       const newRows = [...rows];
       newRows[editingState.rowIndex] = editingState.originalValue;
       onChange(newRows);
       
-      // Clear widget values from Redux for this row's cells
       columns.forEach((col) => {
         const cellWidgetId = `${widgetConfig['widget-id']}-row-${editingState.rowIndex}-col-${col['column-key']}`;
         dispatch(resetWidget(cellWidgetId));
       });
     }
     if (isAdding) {
-      // Clear widget values from Redux for new row's cells
       columns.forEach((col) => {
         const cellWidgetId = `${widgetConfig['widget-id']}-row-${rows.length}-col-${col['column-key']}`;
         dispatch(resetWidget(cellWidgetId));
@@ -559,11 +505,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     setNewRowData(null);
   }, [editingState, rows, onChange, columns, widgetConfig, isAdding, dispatch]);
 
-  // Start editing a row
   const startEdit = useCallback((rowIndex: number) => {
     if (isAnyRowEditing) {
       showConfirmation(
-        translate('table.unsavedChanges') || 'You have unsaved changes. Do you want to discard them?',
+        t?.('table.unsavedChanges') || 'You have unsaved changes. Do you want to discard them?',
         () => {
           cancelEdit();
           const row = rows[rowIndex];
@@ -574,7 +519,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
           });
         },
         () => {
-          // Do nothing, keep current edit
         }
       );
     } else {
@@ -585,12 +529,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         currentValue: { ...row },
       });
     }
-  }, [isAnyRowEditing, rows, showConfirmation, cancelEdit, translate]);
+  }, [isAnyRowEditing, rows, showConfirmation, cancelEdit, t]);
 
-  // Update cell value during edit
   const updateCellValue = useCallback((columnKey: string, newValue: any, rowIndex?: number) => {
     if (editingState && rowIndex !== undefined) {
-      // Update editing state (works for both section edit mode and normal mode)
       setEditingState({
         ...editingState,
         currentValue: {
@@ -599,7 +541,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         },
       });
       
-      // Also update Redux store for the cell widget
       const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
       dispatch(setValue({ widgetId: cellWidgetId, value: newValue }));
     } else if (isAdding && newRowData) {
@@ -610,7 +551,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     }
   }, [editingState, isAdding, newRowData, widgetConfig, dispatch]);
 
-  // Save edited row
   const saveEdit = useCallback(async () => {
     if (!editingState) return;
     if (!canSaveEditingRow) return;
@@ -620,26 +560,18 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     setLoadingRowIndex(rowIndex);
 
     try {
-      // If API config exists, make API call
       // TODO: Update to use dataSourceRequestHandler pattern
       if (dataSourceRequestHandler && apiConfig.edit) {
-        const editConfig = apiConfig.edit;
-        // Extract service and endpoint from URL if possible, or use config
-        // For now, API operations in TableWidget are disabled
         console.warn('[TableWidget] API edit operations require migration to dataSourceRequestHandler pattern');
       }
 
-      // Update local state
       const newRows = [...rows];
       const currentRow = newRows[rowIndex] || {};
       const wasDeleted = currentRow.edit_action === 'DELETE';
       
-      // Determine edit_action (for color coding)
       let editAction = currentRow.edit_action;
       if (isSectionEditMode) {
-        // If row was deleted but is being saved, un-delete it
         if (wasDeleted) {
-          // Check if this row exists in original rows
           if (originalRows) {
             const rowId = rowData.id;
             const existsInOriginal = rowId !== undefined
@@ -651,7 +583,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
             editAction = 'UPDATE';
           }
         } else if (!editAction && originalRows) {
-          // Check if this row exists in original rows
           const rowId = rowData.id;
           const existsInOriginal = rowId !== undefined
             ? originalRows.some(or => or.id === rowId)
@@ -662,7 +593,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
           editAction = 'UPDATE';
         }
       } else {
-        // In non-section edit mode, mark as UPDATE if not already set
         if (!editAction && !wasDeleted) {
           editAction = 'UPDATE';
         }
@@ -674,7 +604,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       };
       onChange(newRows);
 
-      // Clear editing state and reset widget values in Redux
       columns.forEach((col) => {
         const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${col['column-key']}`;
         dispatch(resetWidget(cellWidgetId));
@@ -683,16 +612,13 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       setEditingState(null);
     } catch (error) {
       console.error('Error saving record:', error);
-      // Show error message (could be enhanced with toast/notification)
-      alert(translate('table.saveError') || 'Failed to save record. Please try again.');
+      alert(t?.('table.saveError') || 'Failed to save record. Please try again.');
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [editingState, canSaveEditingRow, rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
+  }, [editingState, canSaveEditingRow, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
 
-  // Add new row
   const startAdd = useCallback(() => {
-    // If there's an unsaved edit, cancel it first (no confirmation needed)
     if (isAnyRowEditing) {
       cancelEdit();
     }
@@ -704,7 +630,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     setNewRowData(emptyRow);
   }, [isAnyRowEditing, columns, cancelEdit]);
 
-  // Save new row
   const saveAdd = useCallback(async () => {
     if (!isAdding || !newRowData) return;
     if (!canSaveNewRow) return;
@@ -714,69 +639,54 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     try {
       let savedRow = { ...newRowData };
 
-      // If API config exists, make API call
       // TODO: Update to use dataSourceRequestHandler pattern
       if (dataSourceRequestHandler && apiConfig.add) {
-        const addConfig = apiConfig.add;
-        // Extract service and endpoint from URL if possible, or use config
-        // For now, API operations in TableWidget are disabled
         console.warn('[TableWidget] API add operations require migration to dataSourceRequestHandler pattern');
-        // Use newRowData as response for now
         const response = newRowData;
         if (response && typeof response === 'object') {
           savedRow = { ...savedRow, ...response };
         }
       }
 
-      // Mark new row with edit_action: 'ADD' (for color coding)
       savedRow = { ...savedRow, edit_action: 'ADD' };
 
-      // Add to local state
       onChange([...rows, savedRow]);
 
       setIsAdding(false);
       setNewRowData(null);
     } catch (error) {
       console.error('Error adding record:', error);
-      alert(translate('table.addError') || 'Failed to add record. Please try again.');
+      alert(t?.('table.addError') || 'Failed to add record. Please try again.');
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [isAdding, newRowData, canSaveNewRow, rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode]);
+  }, [isAdding, newRowData, canSaveNewRow, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode]);
 
-  // Delete row
   const deleteRow = useCallback(async (rowIndex: number) => {
     if (isAnyRowEditing) {
       showConfirmation(
-        translate('table.unsavedChanges') || 'You have unsaved changes. Do you want to discard them?',
+        t?.('table.unsavedChanges') || 'You have unsaved changes. Do you want to discard them?',
         () => {
           cancelEdit();
           performDelete(rowIndex);
         },
         () => {
-          // Do nothing, keep current edit
         }
       );
     } else {
       performDelete(rowIndex);
     }
-  }, [isAnyRowEditing, showConfirmation, cancelEdit, translate]);
+  }, [isAnyRowEditing, showConfirmation, cancelEdit, t]);
 
   const performDelete = useCallback(async (rowIndex: number) => {
-    const row = rows[rowIndex];
     setLoadingRowIndex(rowIndex);
 
     try {
-      // If API config exists, make API call
       // TODO: Update to use dataSourceRequestHandler pattern
       if (dataSourceRequestHandler && apiConfig.delete) {
-        const deleteConfig = apiConfig.delete;
-        // Extract service and endpoint from URL if possible, or use config
-        // For now, API operations in TableWidget are disabled
         console.warn('[TableWidget] API delete operations require migration to dataSourceRequestHandler pattern');
       }
 
-      // In section edit mode, mark row as deleted instead of removing it
       if (isSectionEditMode) {
         const newRows = [...rows];
         newRows[rowIndex] = {
@@ -785,23 +695,19 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         };
         onChange(newRows);
       } else {
-        // Remove from local state (non-section edit mode)
         const newRows = rows.filter((_, i) => i !== rowIndex);
         onChange(newRows);
       }
     } catch (error) {
       console.error('Error deleting record:', error);
-      alert(translate('table.deleteError') || 'Failed to delete record. Please try again.');
+      alert(t?.('table.deleteError') || 'Failed to delete record. Please try again.');
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [rows, onChange, dataSourceRequestHandler, apiConfig, translate, isSectionEditMode]);
+  }, [rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode]);
 
-  // Get cell value (from editing state or row data)
   const getCellValue = useCallback((rowIndex: number, columnKey: string) => {
-    // When a specific row is being edited (either in section edit mode or normal mode)
     if (editingState && editingState.rowIndex === rowIndex) {
-      // Check Redux store first for most up-to-date value
       const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
       const storeValue = storeValues[cellWidgetId];
       if (storeValue !== undefined) {
@@ -815,7 +721,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     return rows[rowIndex]?.[columnKey];
   }, [editingState, isAdding, rows, newRowData, widgetConfig, storeValues]);
 
-  // Get formatted display value for a cell
   const getDisplayValue = useCallback((rowIndex: number, column: any) => {
     const columnKey = column['column-key'];
     const cellValue = getCellValue(rowIndex, columnKey);
@@ -825,13 +730,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       return '-';
     }
 
-    // For select widgets, we'll use SelectDisplayValue component instead
-    // This function is kept for other widget types
     if (widgetType === 'select') {
       return null; // Will be handled by SelectDisplayValue component
     }
 
-    // Use formatValue if format config exists
     if (column['widget-data-format']) {
       return formatValue(cellValue, column['widget-data-format'], column.widget);
     }
@@ -839,13 +741,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     return cellValue?.toString() || '-';
   }, [getCellValue]);
 
-  // Check if row is being edited
-  // In section edit mode, only the row with active editingState is editable
   const isRowEditing = useCallback((rowIndex: number) => {
     return editingState?.rowIndex === rowIndex || (isAdding && rowIndex === rows.length);
   }, [editingState, isAdding, rows.length]);
 
-  // Store original rows when entering section edit mode (for edit_action tracking)
   useEffect(() => {
     if (isSectionEditMode && originalRows === null) {
       setOriginalRows(JSON.parse(JSON.stringify(rows))); // Deep clone
@@ -854,7 +753,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     }
   }, [isSectionEditMode, rows, originalRows]);
 
-  // Set cell widget value in Redux when entering edit mode for a specific row
   useEffect(() => {
     if (editingState) {
       columns.forEach((col) => {
@@ -862,7 +760,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         const cellWidgetId = `${widgetConfig['widget-id']}-row-${editingState.rowIndex}-col-${columnKey}`;
         const cellValue = editingState.currentValue[columnKey];
         const defaultValue = cellValue !== undefined ? cellValue : (col['widget-data-default'] ?? '');
-        // Set value in Redux store
         dispatch(setValue({ widgetId: cellWidgetId, value: defaultValue }));
       });
     }
@@ -875,7 +772,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         const cellWidgetId = `${widgetConfig['widget-id']}-row-${rows.length}-col-${columnKey}`;
         const cellValue = newRowData[columnKey];
         const defaultValue = cellValue !== undefined ? cellValue : (col['widget-data-default'] ?? '');
-        // Set value in Redux store for new row
         dispatch(setValue({ widgetId: cellWidgetId, value: defaultValue }));
       });
     }
@@ -894,14 +790,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     [editingState, isAdding, rows, newRowData]
   );
 
-  // Lightweight cell renderer for table cells (no labels, compact)
   const renderTableCell = useCallback((rowIndex: number, column: any, cellValue: any, isReadonly: boolean) => {
     const columnKey = column['column-key'];
     const widgetType = column.widget || 'text';
     const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
     const rowValues = getRowValuesForEdit(rowIndex);
     
-    // Use lightweight cell config (no label, minimal styling)
     const cellConfig: BaseWidgetConfig = {
       ...column,
       'widget-id': cellWidgetId,
@@ -913,7 +807,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       'widget-type': column['widget-type'] || 'input',
     };
 
-    // For common widget types, render lightweight versions directly
     if (widgetType === 'select') {
       return <TableCellSelect 
         config={cellConfig} 
@@ -941,7 +834,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       />;
     }
 
-    // For other widget types, use WidgetRenderer but with compact styling
     return (
       <div className="table-cell-widget" style={{ margin: 0, padding: 0 }}>
         <WidgetRenderer
@@ -957,14 +849,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     );
   }, [widgetConfig, updateCellValue, getRowValuesForEdit]);
 
-  // Render cell content (widget in edit mode, formatted value in view mode)
   const renderCell = useCallback((rowIndex: number, column: any, row: any) => {
     const columnKey = column['column-key'];
     const isEditing = isRowEditing(rowIndex);
     const cellValue = getCellValue(rowIndex, columnKey);
     const columnReadonly = column['widget-readonly'] === true;
     
-    // Get color styling based on edit_action
     const getCellStyle = () => {
       if (isEditing) return {}; // No special styling when editing
       
@@ -980,14 +870,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     };
     
     if (isEditing) {
-      // Use lightweight cell renderer
       return renderTableCell(rowIndex, column, cellValue, columnReadonly);
     } else {
-      // Display formatted value in view mode with color styling
       const widgetType = column.widget || 'text';
       const displayValue = getDisplayValue(rowIndex, column);
       
-      // For select widgets, use SelectDisplayValue component to show label
       if (widgetType === 'select' && displayValue === null) {
         const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
         const cellConfig: BaseWidgetConfig = {
@@ -1014,7 +901,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   }, [isRowEditing, getCellValue, getDisplayValue, renderTableCell]);
 
   const tableWidgetId = `table-widget-${widgetConfig['widget-id']}`;
-  // Get column span from config (1, 2, 3, etc.) - defaults to 2 if not specified
   const columnSpan = widgetConfig['widget-column-span'] || 2;
   const minWidth = columnSpan * 200; // Each column is 200px
 
@@ -1096,12 +982,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         }
       `}</style>
       <div className={`table-widget-container ${tableWidgetId}`}>
-        {/* Confirmation Dialog */}
       {confirmationState?.show && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <div className="rounded-lg p-6 max-w-md w-full mx-4" style={{ backgroundColor: 'var(--owt-color-bg, #FFFFFF)' }}>
             <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--owt-color-text, #011627)' }}>
-              {translate('table.confirm') || 'Confirm Action'}
+              {t?.('table.confirm') || 'Confirm Action'}
             </h3>
             <p className="mb-6" style={{ color: 'var(--owt-color-text, #011627)' }}>
               {confirmationState.message}
@@ -1117,7 +1002,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                   color: 'var(--owt-btn-secondary-color, #011627)',
                 }}
               >
-                {translate('common.cancel') || 'Cancel'}
+                {t?.('common.cancel') || 'Cancel'}
               </button>
               <button
                 onClick={confirmationState.onConfirm}
@@ -1129,14 +1014,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                   color: 'var(--owt-color-bg, #FFFFFF)',
                 }}
               >
-                {translate('table.discard') || 'Discard & Continue'}
+                {t?.('table.discard') || 'Discard & Continue'}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Table Header */}
       {operations.add && !isReadonly && isEnabled && (isSectionEditMode || !isAnyRowEditing) && (
         <div className="flex justify-end mb-2">
           <button
@@ -1151,7 +1034,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
               color: 'var(--owt-color-bg, #FFFFFF)',
             }}
           >
-            {translate('table.addRecord') || 'Add New Record'}
+            {t?.('table.addRecord') || 'Add New Record'}
           </button>
         </div>
       )}
@@ -1166,7 +1049,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                     style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
                   >
-                    {translateConfig(col['widget-label'])}
+                    {tSchema(t, col['widget-label'])}
                   </th>
                 ))}
                 {((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode ? (
@@ -1174,7 +1057,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                     style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
                   >
-                    {translate('common.actions') || 'Actions'}
+                    {t?.('common.actions') || 'Actions'}
                   </th>
                 ) : null}
               </tr>
@@ -1187,8 +1070,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     className="px-4 py-6 text-center text-sm"
                     style={{ color: 'var(--owt-widget-table-empty-color, #727474)' }}
                   >
-                    {translate('table.noData') || 'No records available.'}
-                    {operations.add && !isReadonly && ` ${translate('table.clickToAdd') || 'Click "Add New Record" to add one.'}`}
+                    {t?.('table.noData') || 'No records available.'}
+                    {operations.add && !isReadonly && ` ${t?.('table.clickToAdd') || 'Click "Add New Record" to add one.'}`}
                   </td>
                 </tr>
               )}
@@ -1221,7 +1104,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     {((operations.edit || operations.remove) && !isReadonly) || isEditing || isSectionEditMode ? (
                       <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>
                         {isEditing ? (
-                          // Show OK (Save)/Cancel buttons when row is being edited (works in both section edit mode and normal mode)
                           <div className="table-cell-actions" style={{ width: '100%' }}>
                             <button
                               type="button"
@@ -1237,7 +1119,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                 borderRadius: 'var(--owt-btn-border-radius, 10px)',
                               }}
                             >
-                              {translate('common.ok') || 'OK'}
+                              {t?.('common.ok') || 'OK'}
                             </button>
                             <button
                               type="button"
@@ -1253,11 +1135,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                 color: 'var(--owt-btn-secondary-color, #011627)',
                               }}
                             >
-                              {translate('common.cancel') || 'Cancel'}
+                              {t?.('common.cancel') || 'Cancel'}
                             </button>
                           </div>
                         ) : (
-                          // Show Edit/Delete buttons when row is not being edited
                           <div className="flex gap-2">
                             {operations.edit && (
                               <button
@@ -1272,7 +1153,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                   border: 'none',
                                 }}
                               >
-                                {translate('common.edit') || 'Edit'}
+                                {t?.('common.edit') || 'Edit'}
                               </button>
                             )}
                             {operations.remove && (
@@ -1288,7 +1169,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                   border: 'none',
                                 }}
                               >
-                                {translate('common.remove') || 'Delete'}
+                                {t?.('common.remove') || 'Delete'}
                               </button>
                             )}
                           </div>
@@ -1298,8 +1179,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                   </tr>
                 );
               })}
-
-              {/* New row being added */}
               {isAdding && newRowData && (
                 <tr
                   className="table-row-editing"
@@ -1324,7 +1203,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                           border: 'none',
                         }}
                       >
-                        {translate('common.save') || 'Save'}
+                        {t?.('common.save') || 'Save'}
                       </button>
                       <button
                         type="button"
@@ -1341,7 +1220,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                           color: 'var(--owt-btn-secondary-color, #011627)',
                         }}
                       >
-                        {translate('common.cancel') || 'Cancel'}
+                        {t?.('common.cancel') || 'Cancel'}
                       </button>
                     </div>
                   </td>
@@ -1350,16 +1229,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
             </tbody>
           </table>
         </div>
-
-      {/* Error and Help Text */}
       {touched && error.length > 0 && (
         <p className="text-sm mt-1" style={{ color: 'var(--owt-widget-error-color, #B91C1C)' }}>{error[0]}</p>
       )}
-      {/* {widgetConfig['widget-data-helptext'] && (
-        <p className="text-gray-500 text-sm mt-1">
-          {translateConfig(widgetConfig['widget-data-helptext'])}
-        </p>
-      )} */}
+      
       </div>
     </>
   );

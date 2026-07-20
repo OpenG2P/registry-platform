@@ -15,7 +15,7 @@ class ImportFileProcessLog(BaseORMModel):
     )
 
     import_file_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    document_store_id: Mapped[str] = mapped_column(
+    document_id: Mapped[str] = mapped_column(
         String, nullable=False, index=True
     )
     record_number: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -25,8 +25,8 @@ class ImportFileProcessLog(BaseORMModel):
 
     __table_args__ = (
         Index(
-            "ux_import_file_process_log_document_store_id_record_number",
-            "document_store_id",
+            "ux_import_file_process_log_document_id_record_number",
+            "document_id",
             "record_number",
             unique=True,
         ),

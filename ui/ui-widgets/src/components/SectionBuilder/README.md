@@ -70,12 +70,7 @@ SectionBuilder/
 
 ## Examples
 
-See the following example files:
-
-- `examples/section-builder-example.tsx` - Complete React component examples
-- `examples/section-builder-standalone.html` - Standalone HTML reference
-- `docs/section-builder-mockup.html` - Interactive UI mockup
-- `docs/section-builder-design.md` - Design documentation
+See `ui-schema/` (`.jsonc` files) for examples. See the package [README.md](../../../README.md) for Section Builder usage.
 
 ## Features in Detail
 
@@ -156,8 +151,7 @@ When adding new features:
 
 1. Update the JSON schemas in `schemas.ts`
 2. Update the PropertyEditor for new fields
-3. Add examples in `examples/section-builder-example.tsx`
-4. Update this README
+3. Update this README
 
 ## License
 

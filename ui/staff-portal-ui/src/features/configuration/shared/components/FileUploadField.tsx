@@ -11,6 +11,8 @@ interface Props {
     onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     disabled?: boolean;
     onRemove?: () => void;
+    accept?: string;
+    helperText?: string;
 }
 
 export default function FileUploadField({
@@ -21,13 +23,20 @@ export default function FileUploadField({
     fileName,
     onFileChange,
     disabled,
-    onRemove
+    onRemove,
+    accept,
+    helperText,
 }: Props) {
     return (
         <div>
-            <label className="text-[16px] font-medium text-neutral-first">
-                {label}
-            </label>
+            <div className="flex flex-col gap-0.5">
+                <label className="text-[16px] font-medium text-neutral-first">
+                    {label}
+                </label>
+                {helperText && (
+                    <span className="text-[10px] text-secondary-third">{helperText}</span>
+                )}
+            </div>
 
             <div className="mt-2 flex items-center gap-4">
                 <div
@@ -41,6 +50,7 @@ export default function FileUploadField({
                     type="file"
                     ref={fileInputRef}
                     onChange={onFileChange}
+                    accept={accept}
                     className="hidden"
                     disabled={disabled}
                 />

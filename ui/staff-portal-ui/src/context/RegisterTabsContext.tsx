@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useFetch } from '@/shared/hooks';
-import { TabConfig } from '@/shared/types';
+import { TabConfig } from '@/features/shared/types';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { useRegister } from './RegisterContext';
 

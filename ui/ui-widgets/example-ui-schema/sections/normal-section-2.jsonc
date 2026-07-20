@@ -1,0 +1,96 @@
+{
+  "section-id": "normal_section_2",
+  "section-title": "Normal Section 2",
+  "section-editable": true,
+  "panels": [
+    {
+      "panel-id": "panel_socio_economic_and_health_main",
+      "panel-orientation": "horizontal",
+      "panels": [
+        {
+          "panel-id": "panel_health",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "select",
+              "widget-id": "disabled",
+              "widget-type": "input",
+              "widget-label": "Disabled",
+              "widget-data-path": "register-id.disabled",
+              "widget-data-format": { "layout": "vertical", "sortOptions": false },
+              "widget-data-source": {
+                "type": "static",
+                "options": [
+                  { "label": "Yes", "value": "yes" },
+                  { "label": "No", "value": "no" }
+                ]
+              }
+            },
+            {
+              "widget": "select",
+              "widget-id": "disability_type",
+              "widget-type": "input",
+              "widget-label": "Disability Type",
+              "widget-data-path": "register-id.disability_type",
+              "widget-data-source": {
+                "type": "static",
+                "options": [
+                  { "label": "Vision", "value": "VISION" },
+                  { "label": "Hearing", "value": "HEARING" },
+                  { "label": "Mobility", "value": "MOBILITY" },
+                  { "label": "Cognition", "value": "COGNITION" },
+                  { "label": "Self Care", "value": "SELF_CARE" },
+                  { "label": "Communication", "value": "COMMUNICATION" }
+                ]
+              }
+            },
+            {
+              "widget": "select",
+              "widget-id": "disability_severity",
+              "widget-type": "input",
+              "widget-label": "Disability Severity",
+              "widget-data-path": "register-id.disability_severity",
+              "widget-data-source": {
+                "type": "static",
+                "options": [
+                  { "label": "No Difficulty", "value": "NO_DIFFICULTY" },
+                  { "label": "Some Difficulty", "value": "SOME_DIFFICULTY" },
+                  { "label": "A Lot of Difficulty", "value": "A_LOT_OF_DIFFICULTY" },
+                  { "label": "Cannot Do at All", "value": "CANNOT_DO_AT_ALL" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_socio_economic",
+          "panel-orientation": "vertical",
+          "widgets": [
+            {
+              "widget": "select",
+              "widget-id": "source_of_income",
+              "widget-type": "input",
+              "widget-label": "Source of Income",
+              "widget-data-path": "register-id.source_of_income",
+              "widget-required": true,
+              "widget-data-source": {
+                "type": "static",
+                "options": [
+                  { "label": "Employment", "value": "EMPLOYMENT" },
+                  { "label": "Self Employment", "value": "SELF_EMPLOYMENT" },
+                  { "label": "Other Support", "value": "OTHER_SUPPORT" },
+                  { "label": "Others", "value": "OTHERS" }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "panel-id": "panel_empty_3",
+          "panel-orientation": "vertical",
+          "widgets": []
+        }
+      ]
+    }
+  ]
+}
