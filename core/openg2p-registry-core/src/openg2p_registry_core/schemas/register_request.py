@@ -78,12 +78,6 @@ from .register_payload import (
     DeleteAttributeValueRequestPayload,
     GetAllowedParentsForChildSectionRequestPayload,
 )
-from .file_payload import (
-    FileUrlRequestPayload,
-    GetDocumentLabelsForSectionRequestPayload,
-    GetSectionDocumentsForChangeRequestRequestPayload,
-    GetSectionDocumentsRequestPayload,
-)
 
 
 # =============================================================================

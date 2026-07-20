@@ -1,20 +1,20 @@
-"""Data policy CRUD and detail-view record-level enforcement."""
+"""Data policy CRUD and policy expression merge."""
 
 import logging
 from typing import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..helpers.data_policy_helper import merge_policy_filter_expressions
 from ..models import G2PRegistryDataPolicy
-from ..models.enum import RegistryDataPolicyTypeEnum
+from ..models.enum import PolicyTargetEnum, RegistryDataPolicyTypeEnum
 from ..schemas.g2p_data_policy import (
     PolicyFilterGroup,
+    PolicyTarget,
     RegistryDataPolicyData,
     RegistryDataPolicyType,
 )
@@ -23,116 +23,94 @@ _logger = logging.getLogger("g2p-data-policy-service")
 
 
 class G2PDataPolicyService(BaseService):
-    # -------------------------------------------------------------------------
-    # Policy definition (CRUD / merge)
-    # -------------------------------------------------------------------------
-
-    def _to_policy_data(self, policy: G2PRegistryDataPolicy) -> RegistryDataPolicyData:
-        return RegistryDataPolicyData(
-            policy_id=policy.policy_id,
-            policy_mnemonic=policy.policy_mnemonic,
-            policy_description=policy.policy_description,
-            register_id=policy.register_id,
-            policy_type=RegistryDataPolicyType(policy.policy_type),
-            policy_filter_expression=policy.policy_filter_expression,
-        )
-
-    def validate_policy_filter_expression(self, expression: dict) -> dict:
-        """Validate and normalize a GROUP/CONDITION policy filter tree."""
-        if not isinstance(expression, dict):
-            raise G2PRegistryException(
-                code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
-                message="policy_filter_expression must be a JSON object",
-            )
-        if expression.get("type") == "CONDITION":
-            from ..schemas.g2p_data_policy import PolicyFilterCondition
-
-            validated = PolicyFilterCondition.model_validate(expression)
-            return validated.model_dump(mode="json")
-        validated_group = PolicyFilterGroup.model_validate(expression)
-        return validated_group.model_dump(mode="json")
-
-    async def get_policies_for_register(
+    async def get_policy(
         self,
-        register_id: str,
         session: AsyncSession,
-    ) -> list[RegistryDataPolicyData]:
-        result = await session.execute(
-            select(G2PRegistryDataPolicy)
-            .where(G2PRegistryDataPolicy.register_id == register_id)
-            .order_by(G2PRegistryDataPolicy.policy_mnemonic)
-        )
-        policies = result.scalars().all()
-        return [self._to_policy_data(policy) for policy in policies]
-
-    async def _get_policies_by_mnemonics(
-        self,
-        register_id: str,
-        policy_mnemonics: Sequence[str],
-        session: AsyncSession,
-    ) -> list[G2PRegistryDataPolicy]:
-        if not policy_mnemonics:
-            return []
-
+        policy_id: str,
+    ) -> RegistryDataPolicyData:
         result = await session.execute(
             select(G2PRegistryDataPolicy).where(
-                G2PRegistryDataPolicy.register_id == register_id,
-                G2PRegistryDataPolicy.policy_mnemonic.in_(list(policy_mnemonics)),
+                G2PRegistryDataPolicy.policy_id == policy_id
             )
         )
-        return list(result.scalars().all())
+        policy = result.scalar_one_or_none()
+        if not policy:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[1],
+                message=f"Data policy not found: {policy_id}",
+            )
+        return self._to_policy_data(policy)
 
-    async def build_merged_policy_expression_for_roles(
+    async def get_all_policies(
         self,
-        register_id: str,
-        policy_mnemonics: Sequence[str],
         session: AsyncSession,
-    ) -> dict | None:
-        policies = await self._get_policies_by_mnemonics(
-            register_id=register_id,
-            policy_mnemonics=policy_mnemonics,
-            session=session,
+        current_page: int | None = None,
+        page_size: int | None = None,
+    ) -> tuple[list[RegistryDataPolicyData], int]:
+        stmt = select(G2PRegistryDataPolicy).order_by(
+            G2PRegistryDataPolicy.policy_mnemonic,
+            G2PRegistryDataPolicy.policy_target,
         )
-        if not policies:
-            return None
+        if current_page is not None and page_size is not None:
+            stmt = stmt.offset((current_page - 1) * page_size).limit(page_size)
 
-        allow_expressions: list[dict] = []
-        disallow_expressions: list[dict] = []
-        for policy in policies:
-            if policy.policy_type == RegistryDataPolicyTypeEnum.ALLOW.value:
-                allow_expressions.append(policy.policy_filter_expression)
-            elif policy.policy_type == RegistryDataPolicyTypeEnum.DISALLOW.value:
-                disallow_expressions.append(policy.policy_filter_expression)
-
-        return merge_policy_filter_expressions(allow_expressions, disallow_expressions)
+        total = (
+            await session.execute(select(func.count()).select_from(G2PRegistryDataPolicy))
+        ).scalar_one()
+        result = await session.execute(stmt)
+        policies = result.scalars().all()
+        return [self._to_policy_data(policy) for policy in policies], total
 
     async def add_policy(
         self,
         policy_mnemonic: str,
         policy_description: str | None,
-        register_id: str,
+        register_id: str | None,
         policy_type: RegistryDataPolicyType,
         policy_filter_expression: dict,
         session: AsyncSession,
+        policy_target: PolicyTarget = PolicyTarget.REGISTER_RECORD,
     ) -> RegistryDataPolicyData:
-        normalized_expression = self.validate_policy_filter_expression(policy_filter_expression)
+        normalized_expression = self._validate_policy_filter_expression(policy_filter_expression)
 
-        existing = await session.execute(
-            select(G2PRegistryDataPolicy).where(
-                G2PRegistryDataPolicy.register_id == register_id,
-                G2PRegistryDataPolicy.policy_mnemonic == policy_mnemonic,
-            )
-        )
-        if existing.scalar_one_or_none():
+        if policy_target == PolicyTarget.REGISTER_RECORD and not register_id:
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
-                message=f"Policy mnemonic '{policy_mnemonic}' already exists for this register",
+                message="register_id is required when policy_target is REGISTER_RECORD",
+            )
+        if policy_target in (PolicyTarget.GEO, PolicyTarget.ATTRIBUTE) and register_id:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                message="register_id must be null when policy_target is GEO or ATTRIBUTE",
+            )
+
+        duplicate_conditions = [
+            G2PRegistryDataPolicy.policy_mnemonic == policy_mnemonic,
+            G2PRegistryDataPolicy.policy_target == policy_target.value,
+        ]
+        if register_id is not None:
+            duplicate_conditions.append(G2PRegistryDataPolicy.register_id == register_id)
+        else:
+            duplicate_conditions.append(G2PRegistryDataPolicy.register_id.is_(None))
+
+        existing = await session.execute(
+            select(G2PRegistryDataPolicy).where(*duplicate_conditions)
+        )
+        if existing.scalar_one_or_none():
+            scope = f"register '{register_id}'" if register_id else "global"
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                message=(
+                    f"Policy mnemonic '{policy_mnemonic}' already exists for {scope} "
+                    f"target '{policy_target.value}'"
+                ),
             )
 
         policy = G2PRegistryDataPolicy(
             policy_mnemonic=policy_mnemonic,
             policy_description=policy_description,
             register_id=register_id,
+            policy_target=policy_target.value,
             policy_type=policy_type.value,
             policy_filter_expression=normalized_expression,
         )
@@ -145,7 +123,13 @@ class G2PDataPolicyService(BaseService):
         self,
         policy_id: str,
         session: AsyncSession,
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, bool]:
+        """
+        Remove a policy row.
+
+        Returns (policy_id, policy_mnemonic, should_delete_keycloak_role).
+        Keycloak role is removed only when no other policy rows share the mnemonic.
+        """
         result = await session.execute(
             select(G2PRegistryDataPolicy).where(G2PRegistryDataPolicy.policy_id == policy_id)
         )
@@ -159,73 +143,140 @@ class G2PDataPolicyService(BaseService):
         deleted_id = policy.policy_id
         policy_mnemonic = policy.policy_mnemonic
         await session.delete(policy)
-        return deleted_id, policy_mnemonic
+        await session.flush()
 
-    # -------------------------------------------------------------------------
-    # Detail-view enforcement
-    # -------------------------------------------------------------------------
+        remaining = await session.execute(
+            select(G2PRegistryDataPolicy).where(
+                G2PRegistryDataPolicy.policy_mnemonic == policy_mnemonic
+            )
+        )
+        should_delete_role = remaining.scalar_one_or_none() is None
+        return deleted_id, policy_mnemonic, should_delete_role
 
-    async def resolve_merged_policy_filter(
+    async def resolve_register_record_policy(
         self,
         register_id: str,
         policy_mnemonics: Sequence[str] | None,
-        session: AsyncSession | None = None,
+        session: AsyncSession,
     ) -> dict | None:
+        """Resolve and merge REGISTER_RECORD policies for the given mnemonics.
+
+        ALLOW policies are unioned (OR); DISALLOW policies are negated and
+        intersected (AND NOT). Returns ``None`` when no policy applies (no
+        restriction).
+        """
         if not policy_mnemonics:
             return None
 
-        if session is not None:
-            return await self.build_merged_policy_expression_for_roles(
-                register_id, policy_mnemonics, session
+        result = await session.execute(
+            select(G2PRegistryDataPolicy).where(
+                G2PRegistryDataPolicy.policy_mnemonic.in_(list(policy_mnemonics)),
+                G2PRegistryDataPolicy.policy_target == PolicyTarget.REGISTER_RECORD.value,
+                G2PRegistryDataPolicy.register_id == register_id,
             )
+        )
+        policies = result.scalars().all()
+        if not policies:
+            return None
 
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as owned_session:
-            return await self.build_merged_policy_expression_for_roles(
-                register_id, policy_mnemonics, owned_session
-            )
+        allow_expressions: list[dict] = []
+        disallow_expressions: list[dict] = []
+        for policy in policies:
+            expression = policy.policy_filter_expression
+            if not isinstance(expression, dict):
+                continue
+            if policy.policy_type == RegistryDataPolicyType.DISALLOW.value:
+                disallow_expressions.append(expression)
+            else:
+                allow_expressions.append(expression)
 
-    async def ensure_record_access(
+        return self._merge_expressions(allow_expressions, disallow_expressions)
+
+    async def resolve_attribute_policy(
         self,
-        register_id: str,
-        internal_record_id: str,
         policy_mnemonics: Sequence[str] | None,
-        session: AsyncSession | None = None,
-    ) -> None:
-        """Raise RECORD_ACCESS_DENIED when the record is outside merged ALLOW policies."""
-        if not policy_mnemonics:
-            return
-
-        if session is not None:
-            await self._ensure_record_access(
-                register_id, internal_record_id, policy_mnemonics, session
-            )
-            return
-
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-        async with session_maker() as owned_session:
-            await self._ensure_record_access(
-                register_id, internal_record_id, policy_mnemonics, owned_session
-            )
-
-    async def _ensure_record_access(
-        self,
-        register_id: str,
-        internal_record_id: str,
-        policy_mnemonics: Sequence[str],
         session: AsyncSession,
-    ) -> None:
-        merged = await self.resolve_merged_policy_filter(
-            register_id, policy_mnemonics, session=session
-        )
-        if not merged:
-            return
+    ) -> dict | None:
+        """Resolve and merge global ATTRIBUTE policies for the given mnemonics.
 
-        from .g2p_register_service import G2PRegisterService
+        ATTRIBUTE policies are register-agnostic (``register_id`` is null).
+        ALLOW policies are unioned (OR); DISALLOW policies are negated and
+        intersected (AND NOT). Returns ``None`` when no policy applies (no
+        restriction).
+        """
+        if not policy_mnemonics:
+            return None
 
-        await G2PRegisterService.get_component().ensure_record_allowed_by_data_policies(
-            register_id=register_id,
-            internal_record_id=internal_record_id,
-            data_policy_merged=merged,
-            session=session,
+        result = await session.execute(
+            select(G2PRegistryDataPolicy).where(
+                G2PRegistryDataPolicy.policy_mnemonic.in_(list(policy_mnemonics)),
+                G2PRegistryDataPolicy.policy_target == PolicyTarget.ATTRIBUTE.value
+            )
         )
+        policies = result.scalars().all()
+        if not policies:
+            return None
+
+        allow_expressions: list[dict] = []
+        disallow_expressions: list[dict] = []
+        for policy in policies:
+            expression = policy.policy_filter_expression
+            if not isinstance(expression, dict):
+                continue
+            if policy.policy_type == RegistryDataPolicyType.DISALLOW.value:
+                disallow_expressions.append(expression)
+            else:
+                allow_expressions.append(expression)
+
+        return self._merge_expressions(allow_expressions, disallow_expressions)
+
+    @staticmethod
+    def _merge_expressions(
+        allow_expressions: list[dict],
+        disallow_expressions: list[dict],
+    ) -> dict | None:
+        nodes: list[dict] = []
+
+        if len(allow_expressions) == 1:
+            nodes.append(allow_expressions[0])
+        elif len(allow_expressions) > 1:
+            nodes.append(
+                {"type": "GROUP", "operator": "OR", "children": allow_expressions}
+            )
+
+        for disallow_expression in disallow_expressions:
+            nodes.append(
+                {"type": "GROUP", "operator": "NOT", "children": [disallow_expression]}
+            )
+
+        if not nodes:
+            return None
+        if len(nodes) == 1:
+            return nodes[0]
+        return {"type": "GROUP", "operator": "AND", "children": nodes}
+
+    def _to_policy_data(self, policy: G2PRegistryDataPolicy) -> RegistryDataPolicyData:
+        return RegistryDataPolicyData(
+            policy_id=policy.policy_id,
+            policy_mnemonic=policy.policy_mnemonic,
+            policy_description=policy.policy_description,
+            register_id=policy.register_id,
+            policy_target=PolicyTarget(policy.policy_target),
+            policy_type=RegistryDataPolicyType(policy.policy_type),
+            policy_filter_expression=policy.policy_filter_expression,
+        )
+
+    def _validate_policy_filter_expression(self, expression: dict) -> dict:
+        """Validate and normalize a GROUP/CONDITION policy filter tree."""
+        if not isinstance(expression, dict):
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                message="policy_filter_expression must be a JSON object",
+            )
+        if expression.get("type") == "CONDITION":
+            from ..schemas.g2p_data_policy import PolicyFilterCondition
+
+            validated = PolicyFilterCondition.model_validate(expression)
+            return validated.model_dump(mode="json")
+        validated_group = PolicyFilterGroup.model_validate(expression)
+        return validated_group.model_dump(mode="json")

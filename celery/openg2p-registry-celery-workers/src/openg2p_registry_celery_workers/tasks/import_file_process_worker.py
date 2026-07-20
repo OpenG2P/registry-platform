@@ -12,9 +12,10 @@ import xmltodict
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
-from openg2p_registry_core.helpers import MinioBucketEnum, MinioClient
+from openg2p_registry_core.helpers.document import get_document_handler
 from openg2p_registry_core.models import (
     DataModel,
+    G2PRegistryDocument,
     ImportFileProcessLog,
     ImportFileProcessQueue,
     ProcessStatusEnum,
@@ -67,15 +68,24 @@ def import_file_process_worker(self, import_file_id: str):
                     f"DataModel not found for data_model_id: {queue_item.data_model_id}"
                 )
 
-            # Download file from Minio
-            minio_client = MinioClient.get_component()
-            file_content: bytes = minio_client.get_object(
-                object_name=queue_item.document_store_id,
-                bucket_name=_config.import_file_bucket_name,
+            catalog_doc: G2PRegistryDocument | None = session.get(
+                G2PRegistryDocument, queue_item.document_id
+            )
+            if not catalog_doc:
+                raise Exception(
+                    f"Catalog document not found for document_id: {queue_item.document_id}"
+                )
+
+            handler = get_document_handler()
+            file_content: bytes = handler.download(
+                catalog_doc.document_store_id,
+                catalog_doc.bucket,
             )
 
             # Parse file into records
-            all_records = parse_file_to_records(file_content, queue_item.document_store_id)
+            all_records = parse_file_to_records(
+                file_content, catalog_doc.source_filename
+            )
             total_records_in_file = len(all_records)
             total_records_ingested = 0
 
@@ -93,7 +103,7 @@ def import_file_process_worker(self, import_file_id: str):
                 existing_log: ImportFileProcessLog | None = (
                     session.execute(
                         select(ImportFileProcessLog).where(
-                            ImportFileProcessLog.document_store_id == queue_item.document_store_id,
+                            ImportFileProcessLog.document_id == queue_item.document_id,
                             ImportFileProcessLog.record_number == record_number,
                         )
                     )
@@ -137,7 +147,7 @@ def import_file_process_worker(self, import_file_id: str):
                 session.add(
                     ImportFileProcessLog(
                         import_file_id=import_file_id,
-                        document_store_id=queue_item.document_store_id,
+                        document_id=queue_item.document_id,
                         record_number=record_number,
                         ingestion_timestamp=datetime.now(),
                     )

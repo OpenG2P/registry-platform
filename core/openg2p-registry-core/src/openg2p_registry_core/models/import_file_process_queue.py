@@ -16,7 +16,7 @@ class ImportFileProcessQueue(BaseORMModel):
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
 
-    document_store_id: Mapped[str] = mapped_column(
+    document_id: Mapped[str] = mapped_column(
         String, nullable=False, unique=True, index=True
     )
     data_model_id: Mapped[str] = mapped_column(String, nullable=False, index=True)

@@ -64,11 +64,11 @@ export function KeyValue({
             >
                 {label}:{' '}
             </span>
-            <span className={`w-1/2 min-w-0 truncate text-[14px] font-medium ${valueClassName ?? ''}`}>
+            <span className="w-1/2 min-w-0 truncate text-[14px] font-medium">
                 {href ? (
                     <Link
                         href={href}
-                        className="inline-flex max-w-full items-center truncate text-neutral-first"
+                        className={`inline-flex max-w-full items-center truncate ${valueClassName ?? 'text-neutral-first'}`}
                         title={value}
                     >
                         <span className="truncate">{value}</span>
@@ -81,7 +81,10 @@ export function KeyValue({
                         />
                     </Link>
                 ) : (
-                    <span className="truncate text-neutral-first" title={value}>
+                    <span
+                        className={`truncate ${valueClassName ?? 'text-neutral-first'}`}
+                        title={value}
+                    >
                         {value}
                     </span>
                 )}

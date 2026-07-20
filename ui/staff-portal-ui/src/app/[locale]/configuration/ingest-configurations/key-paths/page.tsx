@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import { IncomingKeyPath } from '@/features/configuration/shared/hooks/useAllIncomingKeyPaths';
 import { toast } from 'react-toastify';
 import { useRbac } from '@/context/RbacContext';
-import { CONFIGURATION_KEY_PATHS_ACTIONS } from '@/features/configuration/shared/utils/configurationKeyPaths.actions';
+import { CONFIGURATION_KEY_PATHS_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { DeleteButton, EditButton, ViewButton, DataTable } from '@/features/configuration/shared/components';
 import { AddKeyPathModal, EditKeyPathModal, ViewKeyPathModal } from '@/features/configuration/ingest';

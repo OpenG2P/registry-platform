@@ -1,30 +1,34 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
 import {
     WidgetProvider,
     createWidgetStore,
     SectionRenderer,
 } from '@openg2p/registry-widgets';
 import { CapsuleDropdown, TabsLayout } from '@/components/shared';
-import { VerificationCard } from '@/features/change-request/components';
+import { ApprovalList, ApprovalListSkeleton } from '@/features/approval/components';
+import {
+    useApprovalTasks,
+    useSubmitApprovalDecision,
+} from '@/features/approval/hooks';
 import { useTranslations } from 'next-intl';
 import { useRegisterTabs } from '@/context/RegisterTabsContext';
 import { useBreadcrumb, useFetch } from '@/shared/hooks';
-import { useChangeRequest, useVerifications } from '@/features/change-request/hooks';
+import { useChangeRequest } from '@/features/change-request/hooks';
 import { useRecordHistoryDates, useRecordHistoryChanges } from '@/features/register/hooks/useRecordHistory';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRegisterSectionsFromCR';
 import { useRegisterRecord } from '@/context/RegisterRecordContext';
-import { RegisterFlattenedRecord } from '@/features/register/types';
+import { buildSectionDataMap } from '@/features/shared/utils';
 import VersionHistoryPageSkeleton from '@/features/register/components/VersionHistoryPageSkeleton';
-import { dataSourceRequestHandler } from '@/features/register/utils/dataSourceRequestHandler';
+import { dataSourceRequestHandler } from '@/shared/services';
 
 type Change = {
     change_request_id: string;
     created_at: string;
+    request_id?: string;
 };
 
 type SectionWithChanges = {
@@ -156,12 +160,24 @@ export default function VersionHistoryPage() {
         },
     });
 
-    // Here selectedVersionId is the change request id 
+    // Here selectedVersionId is the change request id
     const changeRequestId = selectedVersionId ?? '';
     const { details: changeRequestData, loading: loadingChangeRequestData } =
         useChangeRequest(changeRequestId);
 
-    const { verifications } = useVerifications(changeRequestId);
+    const selectedChangeRequestId = useMemo(() => {
+        if (!selectedSectionId || !selectedVersionId) return null;
+        return (
+            sectionsWithChanges[selectedSectionId]?.changes?.find(
+                (change) => change.change_request_id === selectedVersionId,
+            ) ?? null
+        );
+    }, [selectedSectionId, selectedVersionId, sectionsWithChanges]);
+
+    const aweRequestId = selectedChangeRequestId?.request_id ?? null;
+
+    const { tasks, loadingTasks, refetchTasks } = useApprovalTasks(aweRequestId);
+    const { submitDecision } = useSubmitApprovalDecision(null, refetchTasks);
 
     /* ───────── Handle dates response ───────── */
     useEffect(() => {
@@ -239,25 +255,16 @@ export default function VersionHistoryPage() {
         prevSectionUISchema.current = undefined;
     };
 
-    const newSectionData = useMemo(() => {
-        if (!changeRequestData?.change_payload?.length) return undefined;
-
-        const map: Record<
-            string,
-            RegisterFlattenedRecord | { records: RegisterFlattenedRecord[] }
-        > = {};
-
-        if (changeRequestData.is_list) {
-            map[changeRequestData.section_register_id] = {
-                records: changeRequestData.change_payload,
-            };
-        } else {
-            map[changeRequestData.section_register_id] =
-                changeRequestData.change_payload[0];
-        }
-
-        return map;
-    }, [changeRequestData]);
+    const newSectionData = useMemo(
+        () =>
+            buildSectionDataMap(
+                changeRequestData?.section_register_id ?? '',
+                changeRequestData?.change_payload,
+                changeRequestData?.documents || null,
+                !!changeRequestData?.is_list
+            ),
+        [changeRequestData]
+    );
 
     if (newSectionData) prevSectionData.current = newSectionData;
     if (sectionUISchema) prevSectionUISchema.current = sectionUISchema;
@@ -265,7 +272,12 @@ export default function VersionHistoryPage() {
     const stableSectionData = newSectionData ?? prevSectionData.current;
     const stableSectionUISchema = sectionUISchema ?? prevSectionUISchema.current;
 
-    const isLoading = loadingDates || loadingChanges || loadingChangeRequestData || loadingSchema;
+    const isLoading =
+        loadingDates ||
+        loadingChanges ||
+        loadingChangeRequestData ||
+        loadingSchema ||
+        (!!aweRequestId && loadingTasks);
     const hasAnythingToShow = !!stableSectionData && !!stableSectionUISchema;
     const showSkeleton = isLoading && !hasAnythingToShow;
 
@@ -340,7 +352,7 @@ export default function VersionHistoryPage() {
                                 <WidgetProvider
                                     store={widgetStore}
                                     schemaData={stableSectionData}
-                                    translate={t}
+                                    t={t}
                                     dataSourceRequestHandler={dataSourceRequestHandler}
                                 >
                                     <SectionRenderer
@@ -361,48 +373,15 @@ export default function VersionHistoryPage() {
                     </div>
 
                     {hasVersionHistory && (
-                        <div className="w-[25%] space-y-3">
-                            {verifications.length > 0 ? (
-                                verifications.map(v => (
-                                    <VerificationCard
-                                        key={v.verification_id}
-                                        verification={v}
-                                    />
-                                ))
+                        <div className="w-[25%]">
+                            {!!aweRequestId && loadingTasks ? (
+                                <ApprovalListSkeleton />
                             ) : (
-                                <div className="bg-secondary-second rounded-[10px] p-6 space-y-3">
-                                    <div className="font-semibold text-[14px] text-neutral-first/50">
-                                        {t("verified_by")}
-                                    </div>
-
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 relative">
-                                            <Image
-                                                src="/images/common/verified_person.png"
-                                                alt="verified person"
-                                                fill
-                                                className="rounded-full object-cover opacity-20 grayscale"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[20px] font-medium text-neutral-first/20">
-                                                —
-                                            </span>
-                                            <span className="text-[14px] text-neutral-first/20">
-                                                —
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div className="text-[14px] font-medium text-neutral-first/50 mb-1">
-                                            {t("message")}
-                                        </div>
-                                        <div className="text-[16px] text-neutral-first/50">
-                                            {t("no_verifier_assigned")}
-                                        </div>
-                                    </div>
-                                </div>
+                                <ApprovalList
+                                    tasks={tasks}
+                                    isPending={false}
+                                    onSubmitDecision={submitDecision}
+                                />
                             )}
                         </div>
                     )}

@@ -1,0 +1,22 @@
+{
+  "widget": "phone",
+  "widget-type": "input",
+  "widget-id": "phone",
+  "widget-label": "Phone Number",
+  "widget-data-path": "register-id.phone"
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-placeholder": "(000) 000-0000",
+
+  // --- widget-data-validation ---
+  // "widget-data-validation": {
+  //   "validationType": "phone"
+  // },
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "pattern": "(XXX) XXX-XXXX"
+  // }
+}

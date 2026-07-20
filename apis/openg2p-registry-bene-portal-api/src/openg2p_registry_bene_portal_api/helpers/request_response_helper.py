@@ -33,7 +33,7 @@ from openg2p_registry_core.schemas import (
     RegisterTabDataResponse, RegisterTabDataResponseBody,
     SectionRecordsDataResponse, SectionRecordsDataResponseBody,
 )
-from openg2p_registry_core.errors import G2PRegistryException
+from openg2p_registry_core.errors import G2PRegistryErrorCodes, G2PRegistryException
 
 
 class RequestResponseHelper(BaseService):
@@ -63,15 +63,15 @@ class RequestResponseHelper(BaseService):
         """
         Unified error response constructor that handles both G2PRegistryException and generic exceptions.
         For G2PRegistryException, uses the exception's code and message.
-        For other exceptions, uses error code "500" and the exception message.
+        For other exceptions, returns a generic internal error (full details are logged only).
         g2p_request is optional - if not provided, request_id will be empty string.
         """
         if isinstance(error, G2PRegistryException):
             error_code = error.code
             error_message = error.message
         else:
-            error_code = "500"
-            error_message = str(error)
+            error_code = G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1]
+            error_message = G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[0]
 
         request_id = g2p_request.request_header.request_id if g2p_request else ""
 

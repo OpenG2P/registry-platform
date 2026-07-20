@@ -19,14 +19,33 @@ class Settings(IamSettings):
         """
     openapi_version: str = __version__
 
+    # Document Storage Configuration
+    # Backend for the DocumentHandler factory. Bucket names are hard-set by
+    # the DocumentBucket enum and are not configurable.
+    document_storage_backend: str = "minio"
+
     # MinIO Configuration
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "admin"
     minio_secret_key: str = "secret"
     minio_secure: bool = False
-    minio_bucket_name: str = "default"
 
-    template_bucket_name: str = "template"
+    # Document upload validation (`documents` / `default` buckets)
+    document_upload_allowed_extensions: str = "png,jpg,jpeg,webp,pdf"
+    document_upload_allowed_mime_types: str = (
+        "image/png,image/jpeg,image/webp,application/pdf"
+    )
+    document_upload_max_bytes: int = 10 * 1024 * 1024
+    document_upload_max_bytes_by_mime: str = (
+        '{"image/png":5242880,"image/jpeg":5242880,'
+        '"image/webp":5242880,"application/pdf":10485760}'
+    )
+
+    # Template upload validation (`templates` bucket)
+    template_upload_allowed_extensions: str = "json.j2"
+    template_upload_allowed_mime_types: str = "text/plain,application/json"
+    template_upload_max_bytes: int = 1 * 1024 * 1024
+    template_upload_max_bytes_by_mime: str = "{}"
 
     # Master Data Database Configuration
     master_data_db_driver: str = "postgresql+asyncpg"
@@ -68,3 +87,6 @@ class Settings(IamSettings):
 
     keycloak_client_id: str = "registry-staff-portal"
     keycloak_realm: str = "staff"
+
+    # Intake submission application reference generation
+    application_reference_format: str = "{DATE:%Y%b%d|upper}-{SECONDS:5}{RAND:1}"

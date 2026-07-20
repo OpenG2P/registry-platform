@@ -7,7 +7,7 @@ import { Palette, Trash2, Upload, Image as ImageIcon } from 'lucide-react';
 import ColorPicker from './ColorPicker';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { Theme, COLOR_ATTRIBUTES, IMAGE_ATTRIBUTES } from '../types';
-import { CONFIGURATION_REGISTRY_ACTIONS } from '../../shared/utils/configurationRegistry.actions';
+import { CONFIGURATION_REGISTRY_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 
 interface ThemeColorEditorProps {

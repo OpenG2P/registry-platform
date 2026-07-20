@@ -30,7 +30,7 @@ class G2PRegister(BaseORMModel):
     link_internal_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True) # Link to internal_record_id of the parent
     link_foundational_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     record_name: Mapped[str] = mapped_column(String, nullable=True)
-    record_image_storage_id: Mapped[str] = mapped_column(Text, nullable=True)
+    record_image_document_id: Mapped[str] = mapped_column(Text, nullable=True)
     created_by: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[str] = mapped_column(DateTime, nullable=False)
     last_approved_at: Mapped[str] = mapped_column(DateTime, nullable=False)
@@ -168,7 +168,10 @@ class G2PGeo(BaseORMModel):
         if value:
             from ..services import G2PGeoHierarchyService
             service = G2PGeoHierarchyService.get_component()
-            self.geo_code_hierarchy_json = service.get_geo_hierarchy_sync(value)
+            if service is None:
+                self.geo_code_hierarchy_json = None
+            else:
+                self.geo_code_hierarchy_json = service.get_geo_hierarchy_sync(value)
         else:
             self.geo_code_hierarchy_json = None
         return value

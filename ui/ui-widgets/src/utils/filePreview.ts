@@ -1,10 +1,3 @@
-/**
- * Utility functions for file preview functionality
- */
-
-/**
- * Determines if a file type can be previewed in the web browser
- */
 export const canPreviewInWeb = (file: File | string): boolean => {
   let mimeType: string;
   let fileName: string;
@@ -13,12 +6,15 @@ export const canPreviewInWeb = (file: File | string): boolean => {
     mimeType = file.type;
     fileName = file.name.toLowerCase();
   } else {
-    // If it's a string (URL or path), try to infer from extension
-    fileName = file.toLowerCase();
+    try {
+      const parsed = new URL(file);
+      fileName = parsed.pathname.toLowerCase();
+    } catch {
+      fileName = file.split('?')[0].split('#')[0].toLowerCase();
+    }
     mimeType = '';
   }
 
-  // Check by MIME type first
   if (mimeType) {
     if (mimeType.startsWith('image/')) return true;
     if (mimeType === 'application/pdf') return true;
@@ -26,17 +22,25 @@ export const canPreviewInWeb = (file: File | string): boolean => {
     if (mimeType === 'application/json') return true;
   }
 
-  // Check by file extension
   const extension = fileName.split('.').pop() || '';
   const previewableExtensions = [
-    // Images
     'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico',
-    // Documents
     'pdf',
-    // Text files
     'txt', 'csv', 'json', 'xml', 'html', 'css', 'js', 'ts', 'tsx', 'jsx',
-    'md', 'markdown', 'yaml', 'yml'
+    'md', 'markdown', 'yaml', 'yml',
   ];
 
   return previewableExtensions.includes(extension.toLowerCase());
+};
+
+export const openFileInNewTab = (file: File | string): void => {
+  if (typeof file === 'string') {
+    window.open(file, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  const url = URL.createObjectURL(file);
+  window.open(url, '_blank', 'noopener,noreferrer');
+  // Revoke after the new tab has a chance to load the blob URL.
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 };

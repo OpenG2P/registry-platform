@@ -10,7 +10,7 @@ import IntakeFormSubmissionList from '@/features/intake-form/components/Submissi
 import { usePagination } from '@/shared/hooks';
 import { STATIC_INPUT_MECHANISMS } from '@/features/intake-form/constants/inputMechanisms';
 import { useIntakeSubmissions } from '@/features/intake-form/hooks/useIntakeSubmissions';
-import { INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/intakeForm.actions';
+import { INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import AddNewDropdown from '@/components/ui/AddNewDropdown';

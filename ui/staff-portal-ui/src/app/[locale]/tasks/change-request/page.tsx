@@ -11,7 +11,7 @@ export default function ChangeRequestTasksPage() {
             fixedArtifactFilter="change_request"
             listBasePath="/tasks/change-request"
             breadcrumb={[
-                { label: t('tasks') },
+                { label: t('tasks'), href: '/tasks/change-request' },
                 { label: t('tasks_cr') },
             ]}
         />

@@ -17,6 +17,8 @@ import resetIcon from './reset_icon.png';
 import previewIcon from './preview_icon.png';
 import maximizeIcon from './maximize_icon.png';
 import minimizeIcon from './minimize_icon.png';
+import attachmentIcon from './attached_doc.png';
+import remove from './remove.png';
 
 export {
     dummyProfile,
@@ -38,4 +40,6 @@ export {
     minimizeIcon,
     searchIcon,
     closeIcon,
+    remove,
+    attachmentIcon,
 };

@@ -22,13 +22,6 @@ from .register_payload import (
     CreateAttributeValueResponsePayload, UpdateAttributeValueResponsePayload, DeleteAttributeValueResponsePayload,
     SubmissionResponsePayload, IntakeFormSubmissionsSummaryData, NumberOfPendingChangeRequestsForSubmissionData
 )
-from .file_payload import (
-    ChangeRequestDocumentsData,
-    FileUrlData,
-    SectionDocumentsData,
-    UploadDocumentsResponseData,
-    UploadRecordImageData,
-)
 
 
 # =============================================================================

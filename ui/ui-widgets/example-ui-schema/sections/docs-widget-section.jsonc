@@ -1,0 +1,79 @@
+{
+  "section-id": "individual_documents",
+  "section-title": "individual_documents",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_docs_main",
+      "widgets": [
+        {
+          "widget": "docs",
+          "widget-type": "input",
+          "widget-id": "individual_docs",
+          "widget-label": "Supporting Documents",
+          "widget-data-path": "a0000000-0000-4000-8000-000000000001s.documents",
+          "widget-total-docs": 9,
+          "documents": [
+            {
+              "document-key": "national_id_front",
+              "document-label": "National ID (Front)",
+              "document-required": true,
+              "document-accept": ".pdf,.jpg,.jpeg,.png",
+              "document-max-size": 5242880
+            },
+            {
+              "document-key": "national_id_back",
+              "document-label": "National ID (Back)",
+              "document-required": true,
+              "document-accept": ".pdf,.jpg,.jpeg,.png",
+              "document-max-size": 5242880
+            },
+            {
+              "document-key": "passport",
+              "document-label": "Passport",
+              "document-accept": ".pdf,.jpg,.jpeg,.png",
+              "document-max-size": 5242880
+            },
+            {
+              "document-key": "birth_certificate",
+              "document-label": "Birth Certificate",
+              "document-accept": ".pdf,.jpg,.jpeg,.png",
+              "document-max-size": 5242880
+            },
+            {
+              "document-key": "proof_of_address",
+              "document-label": "Proof of Address",
+              "document-accept": ".pdf",
+              "document-max-size": 2097152
+            },
+            {
+              "document-key": "photo",
+              "document-label": "Passport Photo",
+              "document-accept": "image/*",
+              "document-max-size": 2097152
+            },
+            {
+              "document-key": "bank_statement",
+              "document-label": "Bank Statement",
+              "document-accept": ".pdf",
+              "document-max-size": 5242880
+            },
+            {
+              "document-key": "employment_letter",
+              "document-label": "Employment Letter",
+              "document-accept": ".pdf,.doc,.docx",
+              "document-max-size": 5242880
+            },
+            {
+              "document-key": "other",
+              "document-label": "Other",
+              "document-accept": ".pdf,.jpg,.jpeg,.png",
+              "document-max-size": 5242880
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

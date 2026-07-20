@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { CONFIGURATION_INGESTION_TEMPLATES_ACTIONS } from "@/features/configuration/shared/utils/configurationIngestionTemplates.actions";
+import { CONFIGURATION_INGESTION_TEMPLATES_ACTIONS } from "@/features/shared/permissions";
 
 export default function IngestTemplatesLayout({ children }: { children: React.ReactNode }) {
     return (

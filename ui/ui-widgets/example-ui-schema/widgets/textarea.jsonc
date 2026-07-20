@@ -1,0 +1,28 @@
+{
+  "widget": "textarea",
+  "widget-type": "input",
+  "widget-id": "description",
+  "widget-label": "Description",
+  "widget-data-path": "register-id.description"
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-placeholder": "Enter description",
+
+  // --- widget-data-validation ---
+  // "widget-data-validation": {
+  //   "minLength": 10,
+  //   "maxLength": 500,
+  //   "pattern": "^[\\s\\S]+$",
+  //   "patternMessage": "Invalid content"
+  // },
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "rows": 4,
+  //   "characterType": "any",
+  //   "caseControl": "none",
+  //   "showCharCounter": true
+  // }
+}

@@ -1,0 +1,47 @@
+{
+  "widget": "docs",
+  "widget-type": "input",
+  "widget-id": "individual_docs",
+  "widget-label": "Supporting Documents",
+  "widget-data-path": "register-id.supporting_documents",
+  "widget-total-docs": 4,
+  "documents": [
+    {
+      "document-key": "national_id_front",
+      "document-label": "National ID (Front)",
+      "document-required": true,
+      "document-accept": ".pdf,.jpg,.jpeg,.png",
+      "document-max-size": 5242880
+    },
+    {
+      "document-key": "national_id_back",
+      "document-label": "National ID (Back)",
+      "document-required": true,
+      "document-accept": ".pdf,.jpg,.jpeg,.png",
+      "document-max-size": 5242880
+    },
+    {
+      "document-key": "passport",
+      "document-label": "Passport",
+      "document-accept": ".pdf,.jpg,.jpeg,.png",
+      "document-max-size": 5242880
+    },
+    {
+      "document-key": "photo",
+      "document-label": "Passport Photo",
+      "document-accept": "image/*",
+      "document-max-size": 2097152
+    }
+  ]
+
+  // --- Notes ---
+  // Fixed set of upload slots laid out in 3 columns filled top-to-bottom. Set
+  // "widget-total-docs" to the number of slots; column height is ceil(total / 3)
+  // and each column holds a contiguous block so order stays correct when columns
+  // stack on small screens. Each document is stored under widget-data-path keyed
+  // by "document-key". A fresh upload is a serialized file; an already-uploaded
+  // document is a view-url string. "document-accept" and "document-max-size"
+  // (bytes) are required per document. Set "document-required": true to enforce
+  // upload on save. Edit mode shows an Upload button when empty, and View +
+  // Remove buttons once a file is present (Remove restores the Upload button).
+}

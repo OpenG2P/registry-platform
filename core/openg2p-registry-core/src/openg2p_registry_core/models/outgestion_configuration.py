@@ -35,7 +35,8 @@ class OutgoingTemplate(BaseORMModel):
     template_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     data_model_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     register_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    template_file_id: Mapped[str] = mapped_column(String, nullable=False)
+    # document_id of the template in g2p_registry_documents (TEMPLATES bucket)
+    template_document_id: Mapped[str] = mapped_column(String, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

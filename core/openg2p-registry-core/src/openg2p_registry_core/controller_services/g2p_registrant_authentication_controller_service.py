@@ -32,7 +32,7 @@ class G2PRegistrantAuthenticationControllerService(BaseService):
             providers=[
                 RegistrantAuthProviderSummary(
                     provider_id=provider.provider_id,
-                    provider_name=p.provider_name,
+                    provider_name=provider.provider_name,
                     provider_description=provider.provider_description,
                     adapter_name=provider.adapter_name,
                     display_order=provider.display_order,

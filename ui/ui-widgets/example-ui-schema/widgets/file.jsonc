@@ -1,0 +1,18 @@
+{
+  "widget": "file",
+  "widget-type": "input",
+  "widget-id": "document",
+  "widget-label": "Upload Document",
+  "widget-data-path": "register-id.document"
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+
+  // --- widget-data-options (file constraints) ---
+  // "widget-data-options": {
+  //   "accept": ".pdf,.doc,.docx,.jpg,.png",
+  //   "multiple": false,
+  //   "maxSize": 5242880                         // bytes (5 MB)
+  // }
+}

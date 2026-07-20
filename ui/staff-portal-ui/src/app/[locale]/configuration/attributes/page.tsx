@@ -11,7 +11,7 @@ import { toast } from 'react-toastify';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, EditButton } from '@/features/configuration/shared/components';
 import { useAllAttributes } from '@/features/configuration/shared/hooks';
-import { CONFIGURATION_ATTRIBUTES_ACTIONS } from '@/features/configuration/shared/utils/configurationAttributes.actions';
+import { CONFIGURATION_ATTRIBUTES_ACTIONS } from '@/features/shared/permissions';
 import type { Attribute } from '@/features/configuration/shared/types/attributes';
 import { AddAttributeModal, EditAttributeModal } from '@/features/configuration/attributes';
 
@@ -101,8 +101,12 @@ const AttributesListPage = () => {
     };
 
     const columns = [
-        { key: 'attribute_display', label: t('attribute_display') },
-        { key: 'attribute_code', label: t('attribute_code') },
+        {
+            key: 'attribute_code',
+            label: t('attribute_code'),
+            render: (item: Attribute) =>
+                item.attribute_code? t(item.attribute_code) : item.attribute_code,
+        },
         {
             key: 'is_hierarchical',
             label: t('is_hierarchical'),

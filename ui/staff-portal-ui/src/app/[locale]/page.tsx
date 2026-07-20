@@ -16,14 +16,16 @@ import Image from 'next/image';
 import { useRegister } from '@/context/RegisterContext';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 
-import { REGISTER_ACTIONS } from '@/features/register/utils/register.actions';
-import { INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/intakeForm.actions';
-import { CHANGE_REQUEST_ACTIONS } from '@/features/change-request/utils/changeRequest.actions';
-import { INCOMING_MESSAGE_ACTIONS } from '@/features/messages/utils/incomingMessage.actions';
-import { OUTGOING_MESSAGE_ACTIONS } from '@/features/messages/utils/outgoingMessage.actions';
+import {
+    REGISTER_ACTIONS,
+    INTAKE_FORM_ACTIONS,
+    CHANGE_REQUEST_ACTIONS,
+    INCOMING_MESSAGE_ACTIONS,
+    OUTGOING_MESSAGE_ACTIONS,
+    VERIFICATION_CHANGE_REQUEST_ACTIONS,
+    VERIFICATION_INTAKE_FORM_ACTIONS,
+} from '@/features/shared/permissions';
 import { TASK_ARTIFACT_FILTER_OPTIONS } from '@/features/approval/constants';
-import { VERIFICATION_CHANGE_REQUEST_ACTIONS } from '@/features/change-request/utils/verificationChangeRequest.actions';
-import { VERIFICATION_INTAKE_FORM_ACTIONS } from '@/features/intake-form/utils/verificationIntakeForm.actions';
 import Can from '@/components/shared/Can';
 
 

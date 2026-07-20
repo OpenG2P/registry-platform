@@ -12,7 +12,7 @@ class ChangeRequestSourceEnum(StrEnum):
     # TODO: REMOVE INATKE_FORM and update worker
     PARTNER = "PARTNER"
     INGESTION_PIPELINE = "PARTNER"
-    # INTAKE_FORM = "INTAKE_FORM"
+    INTAKE_FORM = "INTAKE_FORM"
     # DIRECT -> STAFF_PORTAL
     STAFF_PORTAL = "STAFF_PORTAL"
     BENEFICIARY_PORTAL = "BENEFICIARY_PORTAL"
@@ -44,6 +44,12 @@ class ChangeActionEnum(StrEnum):
 class RegistryDataPolicyTypeEnum(StrEnum):
     ALLOW = "ALLOW"
     DISALLOW = "DISALLOW"
+
+
+class PolicyTargetEnum(StrEnum):
+    REGISTER_RECORD = "REGISTER_RECORD"
+    GEO = "GEO"
+    ATTRIBUTE = "ATTRIBUTE"
 
 
 class GenderEnum(StrEnum):
@@ -117,3 +123,15 @@ class InputMechanismTypeEnum(StrEnum):
     INTAKE_FORM = "INTAKE_FORM"
     IMPORT_FILE = "IMPORT_FILE"
     VERIFIABLE_CREDENTIAL = "VERIFIABLE_CREDENTIAL"
+
+
+class DocumentBucket(StrEnum):
+    """
+    Logical buckets for document storage. Bucket names are hard-set:
+    the physical bucket name is always the enum value.
+    """
+
+    DEFAULT = "default"
+    TEMPLATES = "templates"
+    DOCUMENTS = "documents"
+    DATA_IMPORT_FILES = "data_import_files"

@@ -14,14 +14,11 @@ export const WIDGET_TYPES = [
   'radio',
   'checkbox',
   'file',
-  'simple-table',
   'table',
-  'array-widget',
-  'iterable-accordion',
   'phone',
-  'currency',
   'display',
   'profile',
+  'geo-hierarchy',
 ] as const;
 
 export const ORIENTATIONS = ['horizontal', 'vertical'] as const;
@@ -331,6 +328,10 @@ const baseWidgetSchema = {
         type: 'object' as const,
         properties: {
           'column-key': { type: 'string' as const },
+          'column-group': {
+            type: 'string' as const,
+            description: 'Groups dialog-table columns in a shared inner grid so conditional fields do not displace other rows',
+          },
           'widget-label': { type: 'string' as const },
           widget: { type: 'string' as const },
           'widget-type': { type: 'string' as const },

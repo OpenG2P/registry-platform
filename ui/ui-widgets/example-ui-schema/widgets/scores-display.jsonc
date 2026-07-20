@@ -1,0 +1,17 @@
+{
+  "widget": "scores-display",
+  "widget-type": "group",
+  "widget-id": "record-scores",
+  "widget-readonly": true,
+  "widget-data-path": "scores"
+
+  // --- Notes ---
+  // Read-only widget that renders an array of computed score entries.
+  // "widget-data-path" points at an array of objects shaped like:
+  //   {
+  //     "score_type": "PMT",
+  //     "computed_score": 38,
+  //     "computed_at": "2026-04-16T10:12:00Z",
+  //     "triggered_by_cr_id": "CR-2026-004821"
+  //   }
+}

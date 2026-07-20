@@ -33,8 +33,8 @@ export default function AddRegisterModal({ onClose, onSuccess }: AddRegisterModa
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                toast.error('Image size must be less than 2MB');
+            if (file.size > 1 * 1024 * 1024) {
+                toast.error('Image size must be less than 1MB');
                 return;
             }
 

@@ -12,7 +12,7 @@ export default function TaskChangeRequestDetailPage() {
     const breadcrumb = useMemo(
         () => [
             { label: t('tasks'), href: '/tasks/change-request' },
-            { label: t('tasks_cr') },
+            { label: t('tasks_cr'), href: '/tasks/change-request' },
             { label: t('change_id_breadcrumb', { id: changeId }) },
         ],
         [changeId, t],

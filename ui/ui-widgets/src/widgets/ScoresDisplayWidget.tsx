@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { BaseWidgetConfig } from '../types';
 import { useWidgetContext } from '../components/WidgetProvider';
+import { tSchema } from '../utils/tSchema';
 import { WidgetRootState } from '../store';
 import { getValueByPath } from '../utils/pathUtils';
 
@@ -58,22 +59,11 @@ function sortScores(scores: ScoreRecord[]): ScoreRecord[] {
   return withTime.map((x) => x.s);
 }
 
-/**
- * Scores Display Widget - full-width, view-only widget (list)
- *
- * Expected config (reference):
- * {
- *   "widget": "scores-display",
- *   "widget-type": "group",
- *   "widget-id": "record-scores",
- *   "widget-data-path": "scores"
- * }
- */
 export const ScoresDisplayWidget = ({
   config,
   schemaData: propSchemaData,
 }: ScoresDisplayWidgetProps) => {
-  const { schemaData: ctxSchemaData } = useWidgetContext();
+  const { schemaData: ctxSchemaData, t } = useWidgetContext();
   const schemaData = (propSchemaData || ctxSchemaData || {}) as Record<string, unknown>;
   const values = useSelector((state: WidgetRootState) => state.widget.values);
 
@@ -89,20 +79,8 @@ export const ScoresDisplayWidget = ({
       return getValueByPathOrKey(schemaData, path);
     };
 
-    // 1) Try exact path (works when schema/store is already namespaced)
     const direct = tryResolve(dataPath);
-    if (direct !== undefined) return direct;
-
-    // 2) If section/widget config has been namespaced (e.g. "rv-section-0.scores"),
-    // fall back to the original path ("scores") so examples still work even when
-    // schemaData/store are not namespaced.
-    if (dataPath.includes('.')) {
-      const unNamespaced = dataPath.split('.').slice(1).join('.');
-      const fallback = tryResolve(unNamespaced);
-      if (fallback !== undefined) return fallback;
-    }
-
-    return undefined;
+    return direct;
   }, [dataPath, values, schemaData]);
 
   const scores = useMemo((): ScoreRecord[] => {
@@ -218,11 +196,13 @@ export const ScoresDisplayWidget = ({
 
       <div className={cls}>
         {sortedScores.length === 0 ? (
-          <div className="scores-subtle">No scores available.</div>
+          <div className="scores-subtle">{t?.('scores.noScoresAvailable') ?? 'No scores available.'}</div>
         ) : (
           <div className="scores-grid">
             {sortedScores.map((s, idx) => {
-              const scoreType = s?.score_type ? String(s.score_type) : '-';
+              const scoreType = s?.score_type
+                ? tSchema(t, String(s.score_type))
+                : '-';
               const scoreValue =
                 s?.computed_score !== undefined &&
                 s?.computed_score !== null &&
@@ -245,7 +225,8 @@ export const ScoresDisplayWidget = ({
                   <hr className="scores-separator" />
                   <div className="scores-meta">
                     <div className="scores-meta-line">
-                      Computed at: <strong>{computedAt}</strong>
+                      {t?.('scores.computedAt') ?? 'Computed at:'}{' '}
+                      <strong>{computedAt}</strong>
                     </div>
                   </div>
                 </div>

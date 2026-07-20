@@ -58,8 +58,11 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
             });
 
             if (internalRecordId && activeTab) {
+                const recordLabel = includeActiveTab
+                    ? `${recordName} - ${functionalRecordId} - ${t(activeTab.tab_label) ?? activeTab.tab_label}`
+                    : `${recordName} - ${functionalRecordId}`;
                 items.push({
-                    label: `${recordName} - ${functionalRecordId} - ${t(activeTab.tab_label) ?? activeTab.tab_label}`,
+                    label: recordLabel,
                     href: `/register/${registerType}/${internalRecordId}${search ? `?${search}` : ''}`,
                 });
             }

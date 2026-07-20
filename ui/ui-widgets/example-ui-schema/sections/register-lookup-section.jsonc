@@ -1,0 +1,42 @@
+
+// Register lookup section. Replace source-register-id and <target_register_id>.
+{
+  "section-id": "register_lookup_section",
+  "section-title": "Register Lookup",
+  "section-editable": true,
+  "section-column-span": 3,
+  "panels": [
+    {
+      "panel-id": "panel_register_lookup",
+      "panel-orientation": "vertical",
+      "panel-column-span": 3,
+      "widgets": [
+        {
+          "widget": "register-lookup",
+          "widget-type": "input",
+          "widget-id": "linked_record",
+          "widget-label": "Linked Record",
+          "widget-data-path": "source-register-id.link_internal_record_id",
+          "widget-data-source": {
+            "type": "api",
+            "method": "POST",
+            "service": "register",
+            "endpoint": "records",
+            "params": {
+              "register_id": "<target_register_id>"
+            }
+          },
+          "widget-lookup-config": {
+            "page_size": 10,
+            "action_label": "Click to Search Record",
+            "search_placeholder": "Search by name or ID...",
+            "select_record_label": "Select Record"
+          }
+
+          // --- Optional ---
+          // "widget-required": true
+        }
+      ]
+    }
+  ]
+}

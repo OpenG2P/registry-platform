@@ -12,7 +12,7 @@ import Image from 'next/image';
 import { useFetch } from '@/shared/hooks';
 
 import { toast } from 'react-toastify';
-import { CONFIGURATION_REGISTERS_ACTIONS } from '../shared/utils/configurationRegisters.actions';
+import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, ViewButton } from '../shared/components';
 import ConfirmRemovePopup from '../shared/components/ConfirmRemovePopup';

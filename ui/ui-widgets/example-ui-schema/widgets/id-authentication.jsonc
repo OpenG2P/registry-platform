@@ -1,0 +1,30 @@
+{
+  "widget": "id-authentication",
+  "widget-type": "group",
+  "widget-id": "id-auth",
+  "widget-readonly": true,
+  "widget-data-path": {
+    "internalRecordId": "register-id.internal_record_id",
+    "initiatedByStaffId": "register-id.initiated_by_staff_id",
+    "foundationalId": "register-id.foundational_id",
+    "lastAuthenticatedOn": "register-id.last_authenticated_on",
+    "lastAuthenticationStatus": "register-id.last_authentication_status",
+    "expiryDate": "register-id.authentication_expiry_date",
+    "authenticationToken": "register-id.psut"
+  },
+  "widget-auth-config": {
+    "service": "registry",
+    "providerId": "esignet",
+    "providerName": "eSignet",
+    "registerId": "a1a4d25a-1cd4-4356-abac-985a0b3c6bcd",
+    "authenticateEndpoint": "authenticate_registrant",
+    "authenticateMethod": "POST",
+    "useIframeOverlay": false
+  }
+
+  // --- Notes ---
+  // "widget-data-path" maps logical auth fields to store paths.
+  // "widget-auth-config" describes the authentication provider + endpoint used
+  // to start a verification session. Set "useIframeOverlay": true to embed the
+  // provider flow instead of opening a new tab.
+}

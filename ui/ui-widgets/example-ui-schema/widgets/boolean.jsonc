@@ -1,0 +1,22 @@
+{
+  "widget": "boolean",
+  "widget-type": "input",
+  "widget-id": "is_married",
+  "widget-label": "Is Married",
+  "widget-data-path": "register-id.is_married"
+
+  // --- Optional flags ---
+  // "widget-required": false,
+  // "widget-readonly": false,
+  // "widget-data-default": false,
+  // "widget-orientation": "horizontal",    // horizontal | vertical
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "booleanRepresentation": "yes-no",   // true-false | yes-no | on-off | custom
+  //   "booleanControlType": "radio",       // checkbox | radio | toggle
+  //   "booleanTrueLabel": "Yes",
+  //   "booleanFalseLabel": "No",
+  //   "allowUnset": true
+  // }
+}

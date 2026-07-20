@@ -6,12 +6,16 @@ export async function POST(request: NextRequest) {
         req: request,
         targetEndpoint: '/awe/list_my_tasks',
         buildPayload: (body) => ({
+            pagination_request: {
+                current_page: body.page ?? body.current_page ?? 1,
+                page_size: body.page_size ?? 25,
+                sort_by: body.sort_by ?? '',
+                filter_by: body.filter_by ?? '',
+                search_text: body.search_text ?? '',
+            },
             request_payload: {
                 artifact_type: body.artifact_type ?? undefined,
-                search_text: body.search_text ?? undefined,
                 status: body.status ?? undefined,
-                page: body.page ?? 1,
-                page_size: body.page_size ?? 25,
             },
         }),
         transformResponse: (responseBody) => {

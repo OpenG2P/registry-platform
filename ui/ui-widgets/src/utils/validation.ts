@@ -1,13 +1,10 @@
 import { z } from 'zod';
-import { WidgetValidation, WidgetDataPath } from '../types';
+import { WidgetValidation } from '../types';
 import { getValidationPattern } from './validationPatterns';
 
 /**
- * Validate value against validation rules.
- *
- * @param skipRequired - When true, required-field checks are skipped (used by
- *   per-section Save/Next buttons so the user can move between sections without
- *   filling every mandatory field; only format/range checks still run).
+ * @param skipRequired - Skip required checks for per-section Save/Next navigation;
+ *   format and range validation still run.
  */
 export const validateWidget = (
   value: any,
@@ -21,16 +18,13 @@ export const validateWidget = (
     return errors;
   }
 
-  // Check required (skipped when navigating between sections)
   const isRequired = !skipRequired && (validation?.required ?? required);
-  // For boolean, false is a valid value, so only check for null/undefined/empty string
   const isEmpty = value === null || value === undefined || value === '';
   if (isRequired && isEmpty) {
     errors.push('This field is required');
-    return errors; // Return early if required field is empty
+    return errors;
   }
 
-  // Skip format/range validations if value is empty
   if (isEmpty) {
     return errors;
   }
@@ -39,18 +33,14 @@ export const validateWidget = (
     return errors;
   }
 
-  // Pattern validation
   if (typeof value === 'string') {
     let patternToUse: RegExp | null = null;
     let patternMessage: string | undefined = undefined;
 
-    // Priority: explicit pattern > validationType
     if (validation.pattern) {
-      // Use explicit pattern if provided
       patternToUse = new RegExp(validation.pattern);
       patternMessage = validation.patternMessage;
     } else if (validation.validationType) {
-      // Use predefined validation type pattern
       const validationPattern = getValidationPattern(validation.validationType);
       if (validationPattern) {
         patternToUse = validationPattern.pattern;
@@ -63,7 +53,6 @@ export const validateWidget = (
     }
   }
 
-  // String length validations
   if (typeof value === 'string') {
     if (validation.minLength && value.length < validation.minLength) {
       errors.push(`Minimum length is ${validation.minLength}`);
@@ -73,7 +62,6 @@ export const validateWidget = (
     }
   }
 
-  // Number validations
   if (typeof value === 'number') {
     if (validation.min !== undefined && value < validation.min) {
       errors.push(`Minimum value is ${validation.min}`);
@@ -83,7 +71,6 @@ export const validateWidget = (
     }
   }
 
-  // Zod schema validation
   if (validation.zodSchema) {
     try {
       validation.zodSchema.parse(value);
@@ -99,9 +86,6 @@ export const validateWidget = (
   return errors;
 };
 
-/**
- * Create Zod schema from validation config
- */
 export const createZodSchema = (
   validation: WidgetValidation | undefined,
   required: boolean = false
@@ -113,11 +97,9 @@ export const createZodSchema = (
   const isRequired = validation?.required ?? required;
   let schema: z.ZodSchema = z.any();
 
-  // String validations
   if (validation?.pattern || validation?.validationType || validation?.minLength || validation?.maxLength) {
     let stringSchema: z.ZodString = z.string();
-    
-    // Priority: explicit pattern > validationType
+
     if (validation.pattern) {
       stringSchema = stringSchema.regex(new RegExp(validation.pattern));
     } else if (validation.validationType) {
@@ -128,7 +110,7 @@ export const createZodSchema = (
         });
       }
     }
-    
+
     if (validation.minLength) {
       stringSchema = stringSchema.min(validation.minLength);
     }
@@ -138,7 +120,6 @@ export const createZodSchema = (
     schema = stringSchema;
   }
 
-  // Number validations
   if (validation?.min !== undefined || validation?.max !== undefined) {
     let numberSchema: z.ZodNumber = z.number();
     if (validation.min !== undefined) {
@@ -150,17 +131,13 @@ export const createZodSchema = (
     schema = numberSchema;
   }
 
-  // Apply required
   if (isRequired) {
-    // For string schemas, use min(1) instead of nonempty
     if (schema instanceof z.ZodString) {
       schema = schema.min(1, 'This field is required');
     }
-    // For other types, they're already required by default
   } else {
     schema = schema.optional();
   }
 
   return schema;
 };
-

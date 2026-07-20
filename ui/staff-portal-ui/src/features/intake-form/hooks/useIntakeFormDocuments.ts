@@ -1,46 +1,32 @@
-import { useState, useEffect } from 'react';
 import { useFetch } from '@/shared/hooks/useFetch';
-import { UploadedDocument } from '@/shared/types';
 
-export interface IntakeFormDocument extends UploadedDocument {
-    document_url?: string;
+export interface IntakeFormDocument {
+    document_id: string;
+    document_store_id: string;
+    bucket: string;
+    source_filename: string;
+    created_by: string;
+    created_at: string;
+    presigned_url: string;
+    document_url: string;
+    section_id: string;
+    label: string;
+    document_label: string;
 }
 
-export function useIntakeFormDocuments(documents: UploadedDocument[]) {
-    const [docsWithUrls, setDocsWithUrls] = useState<IntakeFormDocument[]>([]);
-    const { execute: getUrl } = useFetch({ enabled: false });
+export function useIntakeFormDocuments(submissionId?: string | null) {
+    const { data, loading, error } = useFetch<IntakeFormDocument[]>({
+        url: '/api/intake-form/get-documents',
+        enabled: !!submissionId,
+        options: {
+            method: 'POST',
+            body: JSON.stringify({ submission_id: submissionId }),
+        },
+    });
 
-    useEffect(() => {
-        if (!documents || documents.length === 0) {
-            setDocsWithUrls([]);
-            return;
-        }
-
-        const fetchUrls = async () => {
-            try {
-                const results: IntakeFormDocument[] = [];
-                for (const doc of documents) {
-                    try {
-                        const response = await getUrl('/api/intake-form/get-file-url', {
-                            method: 'POST',
-                            body: JSON.stringify({ document_store_id: doc.document_store_id }),
-                        });
-                        results.push({
-                            ...doc,
-                            document_url: response?.file_url
-                        });
-                    } catch (e) {
-                        console.error('Failed to fetch URL for document:', doc.document_store_id, e);
-                        results.push({ ...doc });
-                    }
-                }
-                setDocsWithUrls(results);
-            } finally {
-            }
-        };
-
-        fetchUrls();
-    }, [documents]);
-
-    return { documents: docsWithUrls };
+    return {
+        documents: data ?? [],
+        loading,
+        error,
+    };
 }

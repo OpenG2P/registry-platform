@@ -10,7 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PAttribute, G2PAttributeValue
+from ..repositories import AttributeValueRepository
 from ..schemas import AttributeData, AttributeValueData
+from .g2p_data_policy_service import G2PDataPolicyService
 
 _logger = logging.getLogger("g2p-attribute-service")
 
@@ -21,12 +23,21 @@ class G2PAttributeService(BaseService):
         session: AsyncSession,
         current_page: Optional[int] = None,
         page_size: Optional[int] = None,
+        search_text: Optional[str] = None,
     ) -> tuple[List[AttributeData], int]:
-        total = (
-            await session.execute(select(func.count()).select_from(G2PAttribute))
-        ).scalar_one()
+        filters = []
+        if search_text:
+            filters.append(G2PAttribute.attribute_code.ilike(f"%{search_text}%"))
 
-        query = select(G2PAttribute).order_by(G2PAttribute.attribute_code)
+        count_query = select(func.count()).select_from(G2PAttribute)
+        if filters:
+            count_query = count_query.where(*filters)
+        total = (await session.execute(count_query)).scalar_one()
+
+        query = select(G2PAttribute)
+        if filters:
+            query = query.where(*filters)
+        query = query.order_by(G2PAttribute.attribute_code)
         if current_page is not None and page_size is not None:
             query = query.offset((current_page - 1) * page_size).limit(page_size)
 
@@ -133,15 +144,27 @@ class G2PAttributeService(BaseService):
         parent_value_id: Optional[str] = None,
         current_page: Optional[int] = None,
         page_size: Optional[int] = None,
+        search_text: Optional[str] = None,
         session: Optional[AsyncSession] = None,
+        policy_mnemonics: list[str] | None = None,
     ) -> tuple[List[AttributeValueData], int]:
-        filters = []
-        if attribute_id:
-            filters.append(G2PAttributeValue.attribute_id == attribute_id)
-        if parent_value_id:
-            filters.append(G2PAttributeValue.parent_value_id == parent_value_id)
-
         async def _run(db_session: AsyncSession) -> tuple[List[AttributeValueData], int]:
+            filters = []
+            if attribute_id:
+                filters.append(G2PAttributeValue.attribute_id == attribute_id)
+            if parent_value_id:
+                filters.append(G2PAttributeValue.parent_value_id == parent_value_id)
+            if search_text:
+                filters.append(G2PAttributeValue.value_code.ilike(f"%{search_text}%"))
+
+            policy_condition = await self._build_attribute_value_policy_condition(
+                policy_mnemonics,
+                db_session,
+                attribute_id=attribute_id,
+            )
+            if policy_condition is not None:
+                filters.append(policy_condition)
+
             count_query = select(func.count()).select_from(G2PAttributeValue)
             if filters:
                 count_query = count_query.where(*filters)
@@ -166,6 +189,33 @@ class G2PAttributeService(BaseService):
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as db_session:
             return await _run(db_session)
+
+    async def _build_attribute_value_policy_condition(
+        self,
+        policy_mnemonics: list[str] | None,
+        session: AsyncSession,
+        attribute_id: str | None = None,
+    ):
+        """Resolve ATTRIBUTE policy and translate it for ``G2PAttributeValue`` rows."""
+        if not policy_mnemonics:
+            return None
+
+        merged_expression = await G2PDataPolicyService.get_component().resolve_attribute_policy(
+            policy_mnemonics, session
+        )
+        if not merged_expression:
+            return None
+
+        attribute_context = None
+        if attribute_id:
+            attribute = await session.get(G2PAttribute, attribute_id)
+            if attribute:
+                attribute_context = attribute.attribute_code
+
+        return AttributeValueRepository().build_policy_condition(
+            merged_expression,
+            attribute_context=attribute_context,
+        )
 
     async def create_attribute_value(
         self,

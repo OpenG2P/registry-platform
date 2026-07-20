@@ -29,7 +29,7 @@ export const useRegisterDetail = (onChangeRequestCreated: () => void) => {
         functionalRecordId,
         recordName,
         internalRecordId,
-        includeActiveTab: true,
+        includeActiveTab: false,
     });
 
     const {

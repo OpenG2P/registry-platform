@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..models import G2PRegisterDefinition, G2PRegisterSection, G2PRegisterUITabSection, G2PRegisterSectionCompletionScore, RegisterPurposeEnum
 from ..schemas import RecordData, RegisterTabRecordData, AllowedParentsData, AllowedParentRecordData
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from ..repositories import RegisterRecordRepository
+from .g2p_data_policy_service import G2PDataPolicyService
 
 _logger = logging.getLogger('g2p-register-hierarchical-service')
 
@@ -26,7 +28,7 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_register_id: str,
         subject_record_id: str,
         section_register_id: str,
-        data_policy_mnemonics: list[str] | None = None,
+        policy_mnemonics: list[str] | None = None,
     ) -> list[RecordData]:
         """
         Get records from section_register that are linked to subject_record.
@@ -65,16 +67,9 @@ class G2PRegisterHierarchicalService(BaseService):
 
             # If same register, return the subject record directly
             if subject_register_id == section_register_id:
-                if data_policy_mnemonics:
-                    from .g2p_data_policy_service import G2PDataPolicyService
-
-                    await G2PDataPolicyService.get_component().ensure_record_access(
-                        register_id=subject_register_id,
-                        internal_record_id=subject_record_id,
-                        policy_mnemonics=data_policy_mnemonics,
-                        session=session,
-                    )
-                return await self._get_same_register_record(subject_register, subject_record_id, session)
+                return await self._get_same_register_record(
+                    subject_register, subject_record_id, session, policy_mnemonics
+                )
 
             # Build hierarchy path and determine direction
             path: list[G2PRegisterDefinition] = []
@@ -85,17 +80,17 @@ class G2PRegisterHierarchicalService(BaseService):
             if direction == "DOWN":
                 # Subject is ancestor, traverse DOWN to get section records
                 return await self._traverse_down_hierarchy(
-                    subject_register, subject_record_id, path, session
+                    subject_register, subject_record_id, path, session, policy_mnemonics
                 )
             elif direction == "UP":
                 # Subject is descendant, traverse UP to get section record
                 return await self._traverse_up_hierarchy(
-                    subject_register, subject_record_id, path, session
+                    subject_register, subject_record_id, path, session, policy_mnemonics
                 )
             elif direction == "PEER":
                 # Subject and section are peers, traverse both directions
                 return await self._traverse_peer_hierarchy(
-                    subject_register, subject_record_id, path, session
+                    subject_register, subject_record_id, path, session, policy_mnemonics
                 )
 
             else:
@@ -103,12 +98,71 @@ class G2PRegisterHierarchicalService(BaseService):
                     code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
                     message=f"Register with id {section_register_id} not found"
                 )
-    
+
+    async def _build_register_policy_condition(
+        self,
+        register_id: str,
+        implementation_class,
+        policy_mnemonics: list[str] | None,
+        session,
+    ):
+        if not policy_mnemonics:
+            return None
+
+        merged_expression = await G2PDataPolicyService.get_component().resolve_register_record_policy(
+            register_id, policy_mnemonics, session
+        )
+        if not merged_expression:
+            return None
+
+        return RegisterRecordRepository(implementation_class).build_policy_condition(merged_expression)
+
+    async def _ensure_subject_record_readable(
+        self,
+        register: G2PRegisterDefinition,
+        record_id: str,
+        policy_mnemonics: list[str] | None,
+        session,
+    ) -> None:
+        """Raise if the subject record is missing or blocked by data policy."""
+        impl_class = self._get_implementation_class(register.register_mnemonic, register.register_purpose)
+        filter_conditions = [impl_class.internal_record_id == record_id]
+        policy_condition = await self._build_register_policy_condition(
+            register.register_id, impl_class, policy_mnemonics, session
+        )
+        if policy_condition is not None:
+            filter_conditions.append(policy_condition)
+
+        record = (
+            await session.execute(select(impl_class).where(*filter_conditions))
+        ).scalar()
+
+        if record is not None:
+            return
+
+        if policy_condition is not None:
+            exists = (
+                await session.execute(
+                    select(impl_class).where(impl_class.internal_record_id == record_id)
+                )
+            ).scalar()
+            if exists:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[1],
+                    message=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[0],
+                )
+
+        raise G2PRegistryException(
+            code=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[1],
+            message=f"Record {record_id} not found in register {register.register_mnemonic}",
+        )
+
     async def _get_same_register_record(
         self,
         register: G2PRegisterDefinition,
         record_id: str,
-        session
+        session,
+        policy_mnemonics: list[str] | None = None,
     ) -> list[RecordData]:
         """
         Get a record from the same register (no hierarchy traversal needed).
@@ -122,20 +176,34 @@ class G2PRegisterHierarchicalService(BaseService):
             List containing single RecordData
         """
         impl_class = self._get_implementation_class(register.register_mnemonic, register.register_purpose)
-        result = await session.execute(
-            select(impl_class).where(
-                impl_class.internal_record_id == record_id
-            )
+        filter_conditions = [impl_class.internal_record_id == record_id]
+        policy_condition = await self._build_register_policy_condition(
+            register.register_id, impl_class, policy_mnemonics, session
         )
+        if policy_condition is not None:
+            filter_conditions.append(policy_condition)
+
+        result = await session.execute(select(impl_class).where(*filter_conditions))
         record = result.scalar()
 
         if not record:
+            if policy_condition is not None:
+                exists = (
+                    await session.execute(
+                        select(impl_class).where(impl_class.internal_record_id == record_id)
+                    )
+                ).scalar()
+                if exists:
+                    raise G2PRegistryException(
+                        code=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[1],
+                        message=G2PRegistryErrorCodes.RECORD_ACCESS_DENIED.value[0],
+                    )
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[1],
                 message=f"Record {record_id} not found in register {register.register_mnemonic}"
             )
 
-        return [self._convert_record_to_record_data(record)]
+        return [await self._convert_record_to_record_data(record, session)]
 
     async def _validate_register_definition(
         self,
@@ -310,50 +378,76 @@ class G2PRegisterHierarchicalService(BaseService):
                 message=f"Register implementation not found for {register_mnemonic}"
             )
 
-    def _convert_record_to_record_data(self, record) -> RecordData:
+    async def _convert_record_to_record_data(self, record, session) -> RecordData:
         """
         Convert an ORM record object to RecordData schema.
         Extra fields from the implementation table are flattened at root level.
 
-        Args:
-            record: SQLAlchemy ORM record
-
-        Returns:
-            RecordData object with flattened extra fields
+        Resolves record_image_document_id to a presigned record_image_url via the
+        document catalog (same pattern as G2PRegisterService.get_record).
         """
-        from ..helpers import MinioClient
+        records = await self._convert_records_to_record_data([record], session)
+        return records[0]
 
-        mapper = sa_inspect(record.__class__)
-        extra_fields: dict = {}
+    async def _convert_records_to_record_data(
+        self, records: list, session
+    ) -> list[RecordData]:
+        """Convert ORM records to RecordData, batch-resolving images and section documents."""
+        if not records:
+            return []
 
-        # Get MinIO client for generating presigned URLs
-        minio_client: MinioClient = MinioClient.get_component()
+        from .g2p_document_service import G2PDocumentService
 
-        for column in mapper.columns:
-            column_name: str = column.name
-            value = getattr(record, column_name, None)
-
-            if value is not None and hasattr(value, 'isoformat'):
-                value = value.isoformat()
-
-            # Convert image field to record_image_url with presigned URL
-            if column_name == 'record_image_storage_id' and value:
-                extra_fields['record_image_url'] = minio_client.get_url(object_name=value)
-            else:
-                extra_fields[column_name] = value
-
-        record_data: RecordData = RecordData(
-            **extra_fields
+        document_service = G2PDocumentService.get_component()
+        record_image_urls = await document_service.get_document_urls(
+            session,
+            [
+                getattr(record, "record_image_document_id", None)
+                for record in records
+            ],
+        )
+        section_documents_map = await document_service.get_section_documents_map(
+            session,
+            [
+                getattr(record, "internal_record_id", None)
+                for record in records
+            ],
         )
 
-        return record_data
-    
+        result: list[RecordData] = []
+        for record in records:
+            mapper = sa_inspect(record.__class__)
+            extra_fields: dict = {}
+
+            for column in mapper.columns:
+                column_name: str = column.name
+                value = getattr(record, column_name, None)
+
+                if value is not None and hasattr(value, "isoformat"):
+                    value = value.isoformat()
+
+                extra_fields[column_name] = value
+
+            document_id = getattr(record, "record_image_document_id", None)
+            if document_id:
+                extra_fields["record_image_url"] = record_image_urls.get(document_id)
+
+            internal_record_id = getattr(record, "internal_record_id", None)
+            extra_fields["documents"] = section_documents_map.get(
+                internal_record_id, []
+            )
+
+            result.append(RecordData(**extra_fields))
+
+        return result
+
     async def _traverse_peer_hierarchy(
         self,
         subject_register: G2PRegisterDefinition,
         subject_record_id: str,
         path: list[G2PRegisterDefinition],
-        session
+        session,
+        policy_mnemonics: list[str] | None = None,
     ) -> list[RecordData]:
         
         # Get subject record from subject register
@@ -367,15 +461,23 @@ class G2PRegisterHierarchicalService(BaseService):
             )
 
         # Get records from section register where section records link_internal_record_id = subject records internal_record_id
-        peer_record_impl_class = self._get_implementation_class(path[0].register_mnemonic, path[0].register_purpose)
+        peer_register = path[0]
+        peer_record_impl_class = self._get_implementation_class(peer_register.register_mnemonic, peer_register.register_purpose)
+        filter_conditions = [
+            peer_record_impl_class.link_internal_record_id == subject_record.link_internal_record_id
+        ]
+        policy_condition = await self._build_register_policy_condition(
+            peer_register.register_id, peer_record_impl_class, policy_mnemonics, session
+        )
+        if policy_condition is not None:
+            filter_conditions.append(policy_condition)
+
         peer_records = await session.execute(
-            select(peer_record_impl_class).where(
-                peer_record_impl_class.link_internal_record_id == subject_record.link_internal_record_id
-            )
+            select(peer_record_impl_class).where(*filter_conditions)
         )
         peer_records = peer_records.scalars().all()
 
-        return [self._convert_record_to_record_data(record) for record in peer_records]
+        return await self._convert_records_to_record_data(peer_records, session)
 
 
     async def _traverse_down_hierarchy(
@@ -383,7 +485,8 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_register: G2PRegisterDefinition,
         subject_record_id: str,
         path: list[G2PRegisterDefinition],
-        session
+        session,
+        policy_mnemonics: list[str] | None = None,
     ) -> list[RecordData]:
         """
         Traverse DOWN from ancestor to descendant, collecting all linked records.
@@ -443,10 +546,16 @@ class G2PRegisterHierarchicalService(BaseService):
             #     continue
 
             # Find all records in this register where link_internal_record_id is in current_record_ids
-            result = await session.execute(
-                select(impl_class).where(
-                    impl_class.link_internal_record_id.in_(current_record_ids)
+            filter_conditions = [impl_class.link_internal_record_id.in_(current_record_ids)]
+            if i == len(path_reversed) - 1:
+                policy_condition = await self._build_register_policy_condition(
+                    register_def.register_id, impl_class, policy_mnemonics, session
                 )
+                if policy_condition is not None:
+                    filter_conditions.append(policy_condition)
+
+            result = await session.execute(
+                select(impl_class).where(*filter_conditions)
             )
             records = result.scalars().all()
 
@@ -455,7 +564,7 @@ class G2PRegisterHierarchicalService(BaseService):
 
             # If this is the last level (related_register), convert to RecordData
             if i == len(path_reversed) - 1:
-                return [self._convert_record_to_record_data(r) for r in records]
+                return await self._convert_records_to_record_data(records, session)
 
             # Otherwise, get the internal_record_ids for the next iteration
             current_record_ids = [r.internal_record_id for r in records]
@@ -467,7 +576,8 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_register: G2PRegisterDefinition,
         subject_record_id: str,
         path: list[G2PRegisterDefinition],
-        session
+        session,
+        policy_mnemonics: list[str] | None = None,
     ) -> list[RecordData]:
         """
         Traverse UP from descendant to ancestor, following link_internal_record_id.
@@ -510,15 +620,20 @@ class G2PRegisterHierarchicalService(BaseService):
         # Now get the final record from related_register
         related_register: G2PRegisterDefinition = path[-1]
         impl_class = self._get_implementation_class(related_register.register_mnemonic, related_register.register_purpose)
+        filter_conditions = [impl_class.internal_record_id == current_record_id]
+        policy_condition = await self._build_register_policy_condition(
+            related_register.register_id, impl_class, policy_mnemonics, session
+        )
+        if policy_condition is not None:
+            filter_conditions.append(policy_condition)
+
         result = await session.execute(
-            select(impl_class).where(
-                impl_class.internal_record_id == current_record_id
-            )
+            select(impl_class).where(*filter_conditions)
         )
         record = result.scalar()
 
         if record:
-            return [self._convert_record_to_record_data(record)]
+            return [await self._convert_record_to_record_data(record, session)]
 
         return []
 
@@ -527,7 +642,7 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_register_id: str,
         subject_record_id: str,
         tab_id: str,
-        data_policy_mnemonics: list[str] | None = None,
+        policy_mnemonics: list[str] | None = None,
     ) -> list[RegisterTabRecordData]:
         """
         Get all records for a tab, grouped by unique section_register_id.
@@ -545,6 +660,9 @@ class G2PRegisterHierarchicalService(BaseService):
         async with session_maker() as session:
             # Validate subject register exists
             subject_register: G2PRegisterDefinition = await self._validate_register_definition(subject_register_id, session)
+            await self._ensure_subject_record_readable(
+                subject_register, subject_record_id, policy_mnemonics, session
+            )
             completion_score_required: bool = bool(subject_register.completion_score_required) if subject_register else False
 
             # Fetch all sections for this tab
@@ -610,7 +728,7 @@ class G2PRegisterHierarchicalService(BaseService):
                     subject_register_id=subject_register_id,
                     subject_record_id=subject_record_id,
                     section_register_id=section_register_id,
-                    data_policy_mnemonics=data_policy_mnemonics,
+                    policy_mnemonics=policy_mnemonics,
                 )
 
                 # Add completion scores to each record
@@ -651,12 +769,16 @@ class G2PRegisterHierarchicalService(BaseService):
         
         if register_definition.register_id in current_visited:
              # Just return base record if already visited to break cycle
-             return self._convert_record_to_record_data(record).model_dump(exclude_unset=True)
+             return (
+                 await self._convert_record_to_record_data(record, session)
+             ).model_dump(exclude_unset=True)
              
         current_visited.add(register_definition.register_id)
 
         # Base Data
-        record_data = self._convert_record_to_record_data(record).model_dump(exclude_unset=True)
+        record_data = (
+            await self._convert_record_to_record_data(record, session)
+        ).model_dump(exclude_unset=True)
 
         # 1. Fetch Children (Down)
         child_registers = (await session.execute(
@@ -767,7 +889,6 @@ class G2PRegisterHierarchicalService(BaseService):
                     subject_register_id,
                     subject_record_id,
                     parent_register_id,
-                    data_policy_mnemonics=None,
                 )
             except Exception:
                 _logger.warning(

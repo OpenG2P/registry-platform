@@ -4,7 +4,8 @@ from pydantic import BaseModel
 
 
 class EnqueueImportFileRequestPayload(BaseModel):
-    document_store_id: str
+    # document_id of the already-uploaded import file (g2p_registry_documents)
+    document_id: str
     data_model_id: str
     register_id: str
     intake_form_id: str

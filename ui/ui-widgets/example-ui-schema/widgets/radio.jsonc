@@ -1,0 +1,25 @@
+{
+  "widget": "radio",
+  "widget-type": "input",
+  "widget-id": "gender",
+  "widget-label": "Gender",
+  "widget-data-path": "register-id.gender",
+  "widget-data-source": {
+    "type": "static",
+    "options": [
+      { "value": "male", "label": "Male" },
+      { "value": "female", "label": "Female" }
+    ]
+  }
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-default": "male",
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "layout": "vertical",                // vertical | horizontal | grid
+  //   "sortOptions": false
+  // }
+}

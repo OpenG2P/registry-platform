@@ -16,7 +16,8 @@ export async function POST(request: NextRequest) {
             request_payload: {
                 policy_mnemonic: body.policy_mnemonic,
                 policy_description: body.policy_description ?? '',
-                register_id: body.register_id,
+                register_id: body.register_id ?? '',
+                policy_target: body.policy_target,
                 policy_type: body.policy_type,
                 policy_filter_expression: body.policy_filter_expression ?? {},
             },

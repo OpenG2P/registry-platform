@@ -7,7 +7,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..helpers import MinioClient, TemplateHelper
+from ..models.enum import DocumentBucket
 from ..models import DataModel, G2PRegistryDocument
 from ..schemas import DataModelData, DataModelPayload, DataModelUpdatePayload
 
@@ -21,12 +21,16 @@ class G2PDataModelService(BaseService):
             await self._ensure_data_model_mnemonic_not_exists(
                 session, data_model_payload.data_model_mnemonic
             )
+            if data_model_payload.response_template_document_id:
+                await self._validate_template_document_id(
+                    session, data_model_payload.response_template_document_id
+                )
 
             data_model = DataModel(
                 data_model_id=data_model_payload.data_model_id or str(uuid.uuid4()),
                 data_model_mnemonic=data_model_payload.data_model_mnemonic,
                 pattern_for_data_model=data_model_payload.pattern_for_data_model,
-                response_template_file_id=data_model_payload.response_template_file_id,
+                response_template_document_id=data_model_payload.response_template_document_id,
                 is_active=data_model_payload.is_active,
             )
             session.add(data_model)
@@ -79,16 +83,20 @@ class G2PDataModelService(BaseService):
 
             if data_model_payload.pattern_for_data_model is not None:
                 data_model.pattern_for_data_model = data_model_payload.pattern_for_data_model
-            if data_model_payload.response_template_file_id is not None:
+            if data_model_payload.response_template_document_id is not None:
+                if data_model_payload.response_template_document_id:
+                    await self._validate_template_document_id(
+                        session, data_model_payload.response_template_document_id
+                    )
                 if (
-                    data_model.response_template_file_id
-                    and data_model.response_template_file_id
-                    != data_model_payload.response_template_file_id
+                    data_model.response_template_document_id
+                    and data_model.response_template_document_id
+                    != data_model_payload.response_template_document_id
                 ):
                     await self._delete_template_if_exists(
-                        session, data_model.response_template_file_id
+                        session, data_model.response_template_document_id
                     )
-                data_model.response_template_file_id = data_model_payload.response_template_file_id
+                data_model.response_template_document_id = data_model_payload.response_template_document_id
             if data_model_payload.is_active is not None:
                 data_model.is_active = data_model_payload.is_active
 
@@ -101,30 +109,41 @@ class G2PDataModelService(BaseService):
         async with session_maker() as session:
             data_model = await self._get_data_model(session, data_model_id)
             data_model_data = DataModelData.model_validate(data_model)
-            if data_model.response_template_file_id:
+            if data_model.response_template_document_id:
                 await self._delete_template_if_exists(
-                    session, data_model.response_template_file_id
+                    session, data_model.response_template_document_id
                 )
             await session.delete(data_model)
             await session.commit()
             return data_model_data
 
     async def _delete_template_if_exists(
-        self, session: AsyncSession, template_file_id: str
+        self, session: AsyncSession, document_id: str
     ) -> None:
-        template_document = await session.execute(
+        from ..helpers.document import get_document_handler
+
+        result = await session.execute(
             select(G2PRegistryDocument).where(
-                G2PRegistryDocument.document_store_id == template_file_id
+                G2PRegistryDocument.document_id == document_id,
+                G2PRegistryDocument.bucket == DocumentBucket.TEMPLATES,
             )
         )
-        template_document_obj = template_document.scalar_one_or_none()
+        template_document_obj = result.scalar_one_or_none()
         if not template_document_obj:
             return
 
-        minio_client = MinioClient.get_component()
-        template_helper = TemplateHelper.get_component()
-        template_helper.delete_template(minio_client, template_file_id)
+        get_document_handler().delete(
+            template_document_obj.document_store_id,
+            template_document_obj.bucket,
+        )
         await session.delete(template_document_obj)
+
+    async def _validate_template_document_id(self, session, document_id: str) -> None:
+        from .g2p_document_service import G2PDocumentService
+
+        await G2PDocumentService.get_component().validate_template_documents_exist(
+            session, [document_id]
+        )
 
     async def _ensure_data_model_mnemonic_not_exists(self, session, data_model_mnemonic: str) -> None:
         existing = await session.execute(

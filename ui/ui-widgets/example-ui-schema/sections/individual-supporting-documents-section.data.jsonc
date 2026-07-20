@@ -1,0 +1,15 @@
+// Sample schemaData for individual-supporting-documents-section.jsonc
+
+{
+  "a1a4d25a-1cd4-4356-abac-985a0b3c6bcd": {
+    "national_id_front": "https://example.com/docs/national-id-front.pdf",
+    "national_id_back": "https://example.com/docs/national-id-back.pdf",
+    "passport_copy": null,
+    "proof_of_address": "https://example.com/docs/proof-of-address.pdf",
+    "birth_certificate": null,
+    "income_proof": null,
+    "bank_statement": "https://example.com/docs/bank-statement.pdf",
+    "disability_certificate": null,
+    "marriage_certificate": null
+  }
+}

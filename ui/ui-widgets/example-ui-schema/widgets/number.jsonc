@@ -1,0 +1,33 @@
+{
+  "widget": "number",
+  "widget-type": "input",
+  "widget-id": "amount",
+  "widget-label": "Amount",
+  "widget-data-path": "register-id.amount"
+
+  // --- Optional flags ---
+  // "widget-required": true,
+  // "widget-readonly": false,
+  // "widget-data-default": 0,
+  // "widget-data-placeholder": "Enter amount",
+
+  // --- widget-data-validation ---
+  // "widget-data-validation": {
+  //   "min": 0,
+  //   "max": 10000,
+  //   "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+  //   "patternMessage": "Invalid number format"
+  // },
+
+  // --- widget-data-format ---
+  // "widget-data-format": {
+  //   "numericType": "decimal",            // integer | decimal
+  //   "decimalPlaces": 2,
+  //   "roundingMode": "round",             // round | truncate
+  //   "thousandSeparator": ",",
+  //   "decimalSeparator": ".",
+  //   "textAlign": "right",                // left | right
+  //   "allowSigned": true,
+  //   "formatOnBlur": true
+  // }
+}

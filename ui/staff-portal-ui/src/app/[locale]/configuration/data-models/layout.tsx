@@ -1,5 +1,5 @@
 import RequireAction from "@/components/shared/RequireAction";
-import { CONFIGURATION_DATA_MODELS_ACTIONS } from "@/features/configuration/shared/utils/configurationDataModels.actions";
+import { CONFIGURATION_DATA_MODELS_ACTIONS } from "@/features/shared/permissions";
 
 export default function RegistersConfigLayout({ children }: { children: React.ReactNode }) {
     return (

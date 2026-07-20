@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import Can from '@/components/shared/Can';
 import { toast } from 'react-toastify';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
-import { CONFIGURATION_INGESTION_TEMPLATES_ACTIONS } from '@/features/configuration/shared/utils/configurationIngestionTemplates.actions';
+import { CONFIGURATION_INGESTION_TEMPLATES_ACTIONS } from '@/features/shared/permissions';
 import { useAllIngestTemplates } from '@/features/configuration/shared/hooks/useAllIngestTemplates';
 import { DeleteButton, EditButton, ViewButton, DataTable, FileLink } from '@/features/configuration/shared/components';
 import { AddIngestionTemplateModal, EditIngestionTemplateModal, ViewIngestionTemplateModal } from '@/features/configuration/ingest';
@@ -20,7 +20,7 @@ type IngestTemplate = {
     register_mnemonic: string;
     data_model_id: string;
     data_model_mnemonic: string;
-    template_file_id: string;
+    template_document_id: string;
     jsonld_expansion_required: boolean;
 }
 
@@ -100,10 +100,6 @@ const IngestTemplatesPage = () => {
     };
 
     const templateColumns = [
-        // {
-        //     key: 'template_id',
-        //     label: t('template_id'),
-        // },
         {
             key: 'data_model_mnemonic',
             label: t('data_model_mnemonic'),
@@ -113,11 +109,11 @@ const IngestTemplatesPage = () => {
             label: t('register_mnemonic'),
         },
         {
-            key: 'template_file_id',
-            label: t('template_file_id'),
+            key: 'template_document_id',
+            label: t('template'),
             render: (item: IngestTemplate) => (
                 <FileLink
-                    documentId={item.template_file_id}
+                    documentId={item.template_document_id}
                 />
             ),
         }

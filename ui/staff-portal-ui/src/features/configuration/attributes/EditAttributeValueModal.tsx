@@ -23,12 +23,11 @@ export default function EditAttributeValueModal({
 
     const [formData, setFormData] = useState({
         value_code: value.value_code,
-        value_display: value.value_display,
         sort_order: String(value.sort_order ?? 0),
     });
 
     const handleSubmit = async () => {
-        if (!formData.value_code.trim() || !formData.value_display.trim()) {
+        if (!formData.value_code.trim()) {
             toast.warn(t('please_fill_required_fields'));
             return;
         }
@@ -41,7 +40,7 @@ export default function EditAttributeValueModal({
                     value_id: value.value_id,
                     attribute_id: value.attribute_id,
                     value_code: formData.value_code.trim(),
-                    value_display: formData.value_display.trim(),
+                    value_display: formData.value_code.trim(),
                     parent_value_id: value.parent_value_id ?? '',
                     sort_order: Number(formData.sort_order) || 0,
                 }),
@@ -70,13 +69,6 @@ export default function EditAttributeValueModal({
                 value={formData.value_code}
                 onChange={(v) =>
                     setFormData((prev) => ({ ...prev, value_code: v }))
-                }
-            />
-            <InputField
-                label={t('value_display')}
-                value={formData.value_display}
-                onChange={(v) =>
-                    setFormData((prev) => ({ ...prev, value_display: v }))
                 }
             />
             <InputField

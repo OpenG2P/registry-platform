@@ -10,10 +10,11 @@ import LanguageSelector from '@/features/configuration/registry/components/Langu
 import LanguageTranslationEditor from '@/features/configuration/registry/components/LanguageTranslationEditor';
 import AddLanguageModal from '@/features/configuration/registry/components/AddLanguageModal';
 import Can from '@/components/shared/Can';
-import { CONFIGURATION_REGISTRY_ACTIONS } from '@/features/configuration/shared/utils/configurationRegistry.actions';
+import { CONFIGURATION_REGISTRY_ACTIONS } from '@/features/shared/permissions';
 
 const LanguagesConfigurationPage = () => {
     const t = useTranslations();
+    const router = useRouter();
     const { languages, languagesLoading, fetchLanguages } = useLang();
     const [selectedLanguageId, setSelectedLanguageId] = useState<string | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,6 +73,7 @@ const LanguagesConfigurationPage = () => {
                     }}
                     onSaved={async () => {
                         await fetchLanguages();
+                        router.refresh();
                     }}
                 />
             </div>
