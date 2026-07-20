@@ -105,6 +105,11 @@ export default function MultiSectionAccordionForms({
     if (!formHandle) {
       return;
     }
+    
+    if (formHandle.hasUnsavedChanges()) {
+      toast.warn(t('save_modified_sections_before_submit'));
+      return;
+    }
     const isValid = await formHandle.validate();
     if (!isValid) {
       toast.warn(t('fill_required_fields'));
