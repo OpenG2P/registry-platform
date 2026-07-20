@@ -251,6 +251,7 @@
   "file_upload_failed": "File upload failed",
   "file_uploaded_successfully": "File uploaded successfully",
   "fill_required_fields": "Please fill all required fields",
+  "save_modified_sections_before_submit": "Please save all modified sections before submitting",
   "filter_close": "Close",
   "filter_combine_rules": "Combine rules with",
   "filter_combine_rules_and_hint": "AND — every rule below must match",

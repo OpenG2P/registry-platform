@@ -14,6 +14,7 @@ export interface SectionsFormHandle {
   getFormData(): Record<string, unknown>;
   validateAndGetData(): Promise<SectionChanges[]>;
   getStructuredData(): SectionChanges[];
+  hasUnsavedChanges(): boolean;
 }
 
 export interface SectionsContainerProps {
@@ -171,6 +172,7 @@ export const SectionsContainer = ({
         }
         return results;
       },
+      hasUnsavedChanges: () => Object.values(sectionDirtyMapRef.current).some(Boolean),
     };
   }, [store, dispatch, safeSections]);
 
