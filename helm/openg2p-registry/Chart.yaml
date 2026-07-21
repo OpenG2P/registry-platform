@@ -1,0 +1,77 @@
+apiVersion: v2
+name: openg2p-registry
+description: |
+  OpenG2P Registry — the self-sufficient base Helm chart for any registry built
+  on the registry platform (staff portal API/UI, partner API, beneficiary portal
+  API, celery beat/worker, db-seed, id-generator, keycloak users, IAM catalog
+  registration).
+
+  This chart is published by the registry-platform and is the single source of
+  truth for registry deployment. A concrete registry (NSR, farmer, a customer
+  registry, ...) does NOT fork or wrap this chart — it installs it and supplies a
+  small values overlay that points at its own extension images, hostname,
+  registryVariant, seed image and (optionally) demo users. Everything variant-
+  specific is values; the templates here are generic.
+type: application
+
+# Version handling:
+#   This `version` is a STATIC placeholder — it is NOT the published version.
+#   The central CI pipeline (build-publish.yml -> openg2p-packaging @v1) derives
+#   the real version from git — one version per commit — and overrides this at
+#   publish time:
+#       develop       -> 0.0.0-develop.N   (N = git commit count)
+#       release line  -> N.N.0-rc.N        (e.g. branch 1.0)
+#       tag N.N.N     -> N.N.N             (frozen release, no suffix)
+#   The value below is used ONLY for a local `helm package`/`helm install .`
+#   that does not pass --version, so just keep it a valid SemVer; bumping it has
+#   no effect on CI-published charts.
+version: 0.0.0-develop
+appVersion: "develop"
+
+keywords:
+  - openg2p
+  - registry
+  - social-registry
+  - farmer-registry
+
+home: https://openg2p.org
+icon: https://openg2p.github.io/openg2p-helm/openg2p-logo.png
+sources:
+  - https://github.com/OpenG2P/registry-platform
+maintainers:
+  - name: OpenG2P
+    email: info@openg2p.org
+
+# Sub-dependencies — generic infra only. Fetched from the OpenG2P Helm repo via
+# `helm dependency build` (the packaged .tgz are gitignored).
+dependencies:
+  - name: common
+    repository: https://openg2p.github.io/openg2p-helm
+    version: 2.30.0
+  - name: postgres-init
+    version: 1.2.0
+    repository: https://openg2p.github.io/openg2p-helm
+    condition: postgres-init.enabled
+  - name: redis
+    version: 19.6.4
+    repository: https://openg2p.github.io/openg2p-helm
+    condition: redis.enabled
+  - name: openg2p-id-generator
+    alias: idgenerator
+    version: 0.0.0-develop.42
+    repository: https://gitlab.com/api/v4/projects/84460547/packages/helm/stable
+    condition: idgenerator.enabled
+  - name: keycloak-init
+    version: 1.1.1
+    repository: https://openg2p.github.io/openg2p-helm
+    condition: keycloak-init.enabled
+  # AWE is no longer bundled here — it is installed once per environment by
+  # commons-services. This registry consumes that shared instance (see the AWE
+  # globals in values.yaml).
+
+# Rancher catalog branding
+annotations:
+  catalog.cattle.io/display-name: "OpenG2P Registry"
+  catalog.cattle.io/certified: partner
+  catalog.cattle.io/kube-version: ">=1.23.0-0"
+  openg2p.org/add-to-rancher: ""
