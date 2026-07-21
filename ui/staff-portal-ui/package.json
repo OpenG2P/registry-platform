@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@novu/js": "^3.11.0",
-    "@openg2p/registry-widgets": "^1.1.4",
+    "@openg2p/registry-widgets": "^1.1.4-dev.4",
     "@reduxjs/toolkit": "^2.11.2",
     "@sd-jwt/crypto-browser": "^0.15.0",
     "@sd-jwt/decode": "^0.15.0",
