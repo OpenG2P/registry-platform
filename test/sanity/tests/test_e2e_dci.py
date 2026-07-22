@@ -45,13 +45,18 @@ def _require_succ(resp):
 
 
 @pytest.mark.e2e
-def test_dci_search_returns_the_consented_record(partner_client, cfg, priv, seeded, farmer_seeded):
+def test_dci_search_returns_the_consented_record(partner_client, cfg, priv, seeded, farmer_seeded, step):
     """The happy path: the partner actually gets the data it consented to."""
-    resp = _require_succ(
-        _post_search(partner_client, build_search_envelope(cfg, priv, with_consent=True))
-    )
+    step(f"building signed DCI search envelope (reg_type={cfg.reg_type}, search_text={cfg.search_text!r})")
+    step(f"attaching consent object for scopes={cfg.data_scopes} (signed as a JWS with the PM partner key)")
+    envelope = build_search_envelope(cfg, priv, with_consent=True)
+    step(f"sending DCI search to partner-api {SEARCH_PATH} — registry will verify the envelope (PM key), "
+         "call Consent Manager /validate, render each record through the DCI template, and clamp to consented scopes")
+    resp = _require_succ(_post_search(partner_client, envelope))
+    step("received DCI response with status='succ'")
 
     records = _records(resp)
+    step(f"response carried {len(records)} record(s)")
     assert records, (
         f"no records returned for search_text '{cfg.search_text}'. The sanity farmer "
         f"{fixtures.FARMER_FUNCTIONAL_ID} should match. If the register is otherwise "
@@ -67,11 +72,13 @@ def test_dci_search_returns_the_consented_record(partner_client, cfg, priv, seed
     record = records[0]
     assert scope in record, f"consented scope '{scope}' missing from record: {sorted(record)}"
 
+    step(f"asserting consented scope '{scope}' is present and carries the seeded demographics")
     demographic = record.get(scope) or {}
     name = demographic.get("name") or {}
     assert name.get("given_name") == fixtures.FARMER["first_name"]
     assert name.get("surname") == fixtures.FARMER["last_name"]
     assert demographic.get("birth_date") == fixtures.FARMER["birth_date"]
+    step("consented record returned the correct given_name / surname / birth_date ✓")
 
 
 @pytest.mark.e2e

@@ -110,3 +110,22 @@ def staff_client(cfg, staff_user):
         yield client
     finally:
         client.close()
+
+
+import logging as _logging
+
+_step_logger = _logging.getLogger("sanity")
+
+
+@pytest.fixture
+def step(request):
+    """INFO step logger that tags each message with the running test name, so the
+    Job log reads e.g.  `... [E2E test_dci_search_returns_the_consented_record] sent DCI search to partner-api`."""
+    name = request.node.name
+
+    def _log(message):
+        _step_logger.info("[%s] %s", name, message)
+
+    _log("──── START ────")
+    yield _log
+    _log("──── END ────")

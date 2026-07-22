@@ -1,6 +1,4 @@
-INSERT INTO "public"."data_models" ("data_model_id","data_model_mnemonic","pattern_for_data_model","response_template_file_id","is_active") VALUES 
-('DM1','DCI','*','dci_commons_response.json.j2','TRUE'),
-('d3fdeb82-6f19-4aab-a3fb-12437dc4caff','CRVSVC','*','dci_commons_response.json.j2','TRUE');
+INSERT INTO "public"."data_models" ("data_model_id","data_model_mnemonic","pattern_for_data_model","response_template_document_id","is_active") VALUES
+('d0000000-0000-4000-8000-000000000001','DCI','*','56619678-0cad-4eb1-924e-6e74fb20291f','TRUE');
 
--- DCI: dci_commons_response.json.j2
--- CRVSVC: dci_commons_response.json.j2
+-- DCI response template: dci_commons_response.json.j2

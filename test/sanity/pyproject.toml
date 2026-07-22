@@ -19,3 +19,8 @@ markers = [
   "cr: change request -> AWE approval -> version history -> audit",
 ]
 addopts = "-ra -q"
+# Live, timestamped step logging so the Job log narrates each e2e stage clearly.
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s.%(msecs)03d  %(message)s"
+log_cli_date_format = "%Y-%m-%dT%H:%M:%S"

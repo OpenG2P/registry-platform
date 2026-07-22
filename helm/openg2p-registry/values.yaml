@@ -231,7 +231,7 @@ dbSeed:
   # loadSampleData=true (individuals must exist first).
   loadImages: false
   # Upload flat Jinja templates from the db-seed image to MinIO after SQL seed
-  loadTemplates: false
+  loadTemplates: true
   image:
     repository: openg2p/openg2p-registry-db-seed
     tag: "develop"
