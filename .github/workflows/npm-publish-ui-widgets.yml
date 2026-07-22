@@ -59,7 +59,16 @@ jobs:
         run: npm run type-check
 
       - name: Set dev prerelease version
-        run: npm version prerelease --preid=dev --no-git-tag-version
+        # Self-heal against drift: seed the local version from npm's published
+        # `next` dist-tag before bumping, so a stale package.json (e.g. after a
+        # release cut from a release branch, or a prior failed commit-back)
+        # cannot produce an already-published version and 403.
+        run: |
+          NEXT=$(npm view @openg2p/registry-widgets dist-tags.next 2>/dev/null || true)
+          if [ -n "$NEXT" ]; then
+            npm version "$NEXT" --no-git-tag-version --allow-same-version
+          fi
+          npm version prerelease --preid=dev --no-git-tag-version
 
       - name: Build
         run: npm run build
@@ -74,7 +83,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
-          npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui
+          # The version was just published; npm's registry can lag several
+          # seconds before it is installable — retry until it propagates so this
+          # sync (and the commit-back below) doesn't fail on a race.
+          for i in $(seq 1 12); do
+            npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui && break
+            echo "waiting for npm to propagate @openg2p/registry-widgets@${WIDGET_VERSION} (attempt $i/12)…"
+            sleep 15
+          done
+          npm view "@openg2p/registry-widgets@${WIDGET_VERSION}" version >/dev/null 2>&1 \
+            || { echo "::error::@openg2p/registry-widgets@${WIDGET_VERSION} still not installable after retries"; exit 1; }
 
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
             ui/staff-ui/package.json ui/staff-ui/package-lock.json
@@ -150,7 +168,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
-          npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui
+          # The version was just published; npm's registry can lag several
+          # seconds before it is installable — retry until it propagates so this
+          # sync (and the commit-back below) doesn't fail on a race.
+          for i in $(seq 1 12); do
+            npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui && break
+            echo "waiting for npm to propagate @openg2p/registry-widgets@${WIDGET_VERSION} (attempt $i/12)…"
+            sleep 15
+          done
+          npm view "@openg2p/registry-widgets@${WIDGET_VERSION}" version >/dev/null 2>&1 \
+            || { echo "::error::@openg2p/registry-widgets@${WIDGET_VERSION} still not installable after retries"; exit 1; }
 
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
             ui/staff-ui/package.json ui/staff-ui/package-lock.json
