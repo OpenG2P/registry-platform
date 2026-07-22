@@ -1,19 +1,16 @@
-name: Build & Publish (base images + chart)
+name: Build & Publish
 
-# Publishes the registry-platform's deployable artifacts:
-#   - the per-component reference-registry Docker images (docker/*/Dockerfile). These bundle
-#     the platform code + a minimal reference registry (individual + household); a variant
-#     (NSR, farmer, a customer) builds FROM these and adds its extension.
-#   - the consolidated openg2p-registry Helm chart (helm/openg2p-registry),
-#     the single source of truth for registry deployment.
+# The SINGLE workflow that publishes ALL of this repo's Docker images + the Helm
+# chart, together, at ONE version per commit (per the OpenG2P Helm/Docker
+# versioning convention: docs.openg2p.org/operations/deployment/helm-docker-versioning-and-ci).
+# Images built here (all reference-registry images + the UI + the sanity suite):
+#   staff-api, partner-api, bene-api, celery, db-seed, staff-ui, sanity-tests
+# plus the consolidated openg2p-registry Helm chart. CI derives one version from
+# git and rewrites every chart image tag to it, so images and chart never drift.
 #
-# This inverts the old model where each downstream registry owned its own
-# Dockerfiles and a full copy of the chart. Downstream repos now ship only their
-# extension + a thin FROM-base Dockerfile + a values overlay.
-#
-# The Next.js Staff Portal UI image is published separately by
-# docker-staff-portal-ui.yml, and the ui-widgets npm package by
-# npm-publish-ui-widgets.yml — those are unchanged.
+# The ONLY separately-versioned artifact is the ui-widgets npm package
+# (npm-publish-ui-widgets.yml) — npm libraries follow their own semver, outside
+# the image+chart scheme.
 #
 # All versioning / build / promote / publish / changelog policy lives in
 # openg2p-packaging behind @v1.
@@ -40,12 +37,13 @@ jobs:
       changelog_skip_ai: ${{ inputs.changelog_skip_ai || false }}
       changelog_regenerate: ${{ inputs.changelog_regenerate || '' }}
 
-      # One entry per BASE image. Unlike the downstream registries, there is NO
+      # One entry per Docker image. Unlike the downstream registries, there is NO
       # REGISTRY_PLATFORM_REF pin here — the platform packages are this repo's
       # own working tree (COPY-ed in the Dockerfiles), so the only git-ref pins
       # are the external fastapi-common / iam-service libs (and openg2p-data for
       # db-seed). CI resolves each moving ref to a SHA and stamps it as an
-      # org.openg2p.pin.<arg> label for reproducibility.
+      # org.openg2p.pin.<arg> label for reproducibility. staff-ui and sanity-tests
+      # have no such pins; staff-ui builds from its own context (ui/staff-ui).
       images: |
         [
           {"name": "staff-api",
@@ -89,23 +87,29 @@ jobs:
 
           {"name": "sanity-tests",
            "repo": "openg2p/openg2p-registry-sanity-tests",
-           "dockerfile": "docker/sanity/Dockerfile"}
+           "dockerfile": "docker/sanity/Dockerfile"},
+
+          {"name": "staff-ui",
+           "repo": "openg2p/openg2p-registry-staff-ui",
+           "dockerfile": "ui/staff-ui/Dockerfile",
+           "context": "ui/staff-ui"}
         ]
 
       chart-path: helm/openg2p-registry
 
-      # These images ARE the chart's default (reference-registry) images, so CI
-      # rewrites the chart's image tags to the freshly built version — the chart
-      # then works out-of-the-box as the reference registry, and a variant
-      # overlay overrides these repos with its own. (staffUi is published by
-      # docker-staff-portal-ui.yml; sanity-tests by its own build — not here.)
+      # EVERY image the chart references is built above, so CI rewrites EVERY one
+      # of the chart's image tags to the single derived version — images and
+      # chart are locked together. A variant overlay overrides the repos with its
+      # own images but keeps the same lockstep-versioning contract.
       chart-image-paths: |
         [".staffApi.image.tag",
          ".partnerApi.image.tag",
          ".beneApi.image.tag",
          ".celeryWorker.image.tag",
          ".celeryBeat.image.tag",
-         ".dbSeed.image.tag"]
+         ".dbSeed.image.tag",
+         ".staffUi.image.tag",
+         ".sanity.image.tag"]
 
       packaging-ref: v1
 
