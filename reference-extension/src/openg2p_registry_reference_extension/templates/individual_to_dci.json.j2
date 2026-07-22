@@ -141,7 +141,7 @@
     "owl": "http://www.w3.org/2002/07/owl#",
     "common": "https://schema.spdci.org/common/v1/"
   },
-  "@id": {{ ('https://nsr.example.org/member/' ~ uin_val) | tojson }},
+  "@id": {{ ('https://example.org/member/' ~ uin_val) | tojson }},
   "@type": "spdci:member",
   "member_identifier": [
     {
@@ -193,7 +193,7 @@
         "relationship_type": {{ relationship_type(m.get('relationship_to_head')) | tojson }},
         "related_member": {
           "@type": "Member",
-          "@id": {{ ('https://nsr.example.org/member/' ~ (m.get('foundational_id') or m.get('functional_record_id') or m.get('internal_record_id'))) | tojson }},
+          "@id": {{ ('https://example.org/member/' ~ (m.get('foundational_id') or m.get('functional_record_id') or m.get('internal_record_id'))) | tojson }},
           "member_identifier": [
             {
               "@type": "Identifier",

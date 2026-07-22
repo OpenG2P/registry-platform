@@ -66,7 +66,7 @@ def test_dci_search_returns_the_consented_record(partner_client, cfg, priv, seed
 
     # Consent asked for the demographic_info scope, so it must be present AND
     # carry the values the data-seed Job injected. The reference DCI template
-    # (nsr_individual_to_dci) puts name/sex/birth_date directly under the
+    # (individual_to_dci) puts name/sex/birth_date directly under the
     # demographic_info block (DCI-standard shape).
     scope = cfg.data_scopes[0]
     record = records[0]

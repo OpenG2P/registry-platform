@@ -1,9 +1,9 @@
-# Registry Platform — Celery BASE image (workers + beat producers).
+# Registry Platform — Celery image — runnable reference registry (workers + beat producers).
 #
-# Build base only (see docker/staff-portal-api/Dockerfile for the full rationale).
+# Runnable reference registry (platform + a minimal individual+household extension).
 # Bundles openg2p-registry-core + BOTH celery packages so a single image can run
-# as worker or beat (selected at runtime via CELERY_APP). Ships NO domain model.
-# A downstream registry adds its extension on top:
+# as worker or beat (selected at runtime via CELERY_APP). Bundles the reference extension, so the image runs as-is.
+# A variant registry builds FROM this image and selects its OWN model via REGISTRY_EXTENSION_MODULE (both coexist; no uninstall):
 #
 #     FROM openg2p/openg2p-registry-celery:<version>
 #     COPY <your>-extension/ /app/extension/

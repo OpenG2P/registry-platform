@@ -129,7 +129,7 @@ class G2PCrvsVCIndividualCreateEnricherService(G2PPayloadEnricherInterface):
 
     Expects business payload ``$.body`` = ``{jwt, disclosures, kbJwt}`` (flat POST body).
     Legacy wrapped payloads ``{vc: {jwt, ...}, vcStatus}`` are normalized before lookup.
-    Field mapping is performed by ``crvsvc_to_nsr_individual.json.j2``.
+    Field mapping is performed by ``crvsvc_to_individual.json.j2``.
     """
 
     def enrich(self, data: Dict, session: Session) -> Dict:

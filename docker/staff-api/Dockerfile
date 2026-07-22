@@ -1,18 +1,22 @@
 # Registry Platform — Staff Portal API reference registry image.
 #
-# This image is a RUNNABLE reference registry (individual + household). It bundles the
-# platform code (openg2p-registry-core + the staff-portal-api service) plus the
-# fastapi-common / iam-core runtime, but deliberately ships NO domain model
-# (`openg2p_registry_extensions`). A concrete registry is produced downstream by:
+# This image is a RUNNABLE reference registry (individual + household): it bundles
+# the platform code (openg2p-registry-core + the staff-portal-api service), the
+# fastapi-common / iam-core runtime, AND the reference extension, and defaults
+# ENV REGISTRY_EXTENSION_MODULE to it — so `helm install` runs it as-is.
+#
+# A variant registry (NSR, farmer, a customer) builds FROM this image, adds its
+# own extension, and points the env var at it (both coexist, no uninstall):
 #
 #     FROM openg2p/openg2p-registry-staff-api:<version>
 #     COPY <your>-extension/ /app/extension/
-#     RUN pip install --no-cache-dir /app/extension   # installs as openg2p_registry_extensions
+#     RUN pip install --no-cache-dir /app/extension
+#     ENV REGISTRY_EXTENSION_MODULE=openg2p_registry_<your>_extension
 #
-# The ENV defaults and CMD below are inherited by that derived image, so a
-# downstream Dockerfile only supplies the extension. Because the extension is
-# imported by the fixed name `openg2p_registry_extensions` (resolved from
-# site-packages at runtime), this base is blind to which registry extends it.
+# The platform imports the domain model by name; each entrypoint aliases the
+# env-selected module into sys.modules at startup, so REGISTRY_EXTENSION_MODULE
+# alone decides which registry runs. ENV defaults + the migrate/gunicorn CMD are
+# inherited by the derived image.
 #
 # Build context = repo root (so core/ and apis/ are reachable).
 FROM python:3.12.11-alpine3.22

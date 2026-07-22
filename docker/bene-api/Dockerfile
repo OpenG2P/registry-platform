@@ -1,8 +1,8 @@
 # Registry Platform — Beneficiary Portal API reference registry image.
 #
-# Build base only (see docker/staff-portal-api/Dockerfile for the full rationale).
+# Runnable reference registry (platform + a minimal individual+household extension).
 # Bundles openg2p-registry-core + the bene-portal-api service; ships NO domain
-# model. A downstream registry adds its extension on top:
+# model. A variant registry builds FROM this image and selects its OWN model via REGISTRY_EXTENSION_MODULE (both coexist; no uninstall):
 #
 #     FROM openg2p/openg2p-registry-bene-api:<version>
 #     COPY <your>-extension/ /app/extension/

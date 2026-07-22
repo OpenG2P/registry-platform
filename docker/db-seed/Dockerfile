@@ -1,4 +1,4 @@
-# Registry Platform — DB-seed BASE image.
+# Registry Platform — DB-seed image (runnable reference registry).
 #
 # A postgres-client image that ships the generic seeding MACHINERY only:
 #   - entrypoint.sh          (applies meta_data / awe_meta_data SQL, runtime env-driven)
