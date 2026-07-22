@@ -41,7 +41,7 @@ Render Env values section
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "benePortalApi.serviceAccountName" -}}
+{{- define "beneApi.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
 {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
 {{- else -}}
@@ -52,14 +52,14 @@ Create the name of the service account to use
 {{/*
 Return the proper Docker Image Registry Secret Names
 */}}
-{{- define "benePortalApi.imagePullSecrets" -}}
+{{- define "beneApi.imagePullSecrets" -}}
 {{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.postgresCheckerInit.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
 Render Env values section
 */}}
-{{- define "benePortalApi.baseEnvVars" -}}
+{{- define "beneApi.baseEnvVars" -}}
 {{- $context := .context -}}
 {{- range $k, $v := .envVars }}
 - name: {{ $k }}
@@ -73,15 +73,15 @@ Render Env values section
 {{- end }}
 {{- end -}}
 
-{{- define "benePortalApi.envVars" -}}
+{{- define "beneApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
-{{- include "benePortalApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
+{{- include "beneApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "staffPortalApi.serviceAccountName" -}}
+{{- define "staffApi.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
 {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
 {{- else -}}
@@ -92,14 +92,14 @@ Create the name of the service account to use
 {{/*
 Return the proper Docker Image Registry Secret Names
 */}}
-{{- define "staffPortalApi.imagePullSecrets" -}}
+{{- define "staffApi.imagePullSecrets" -}}
 {{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.postgresCheckerInit.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
 Render Env values section
 */}}
-{{- define "staffPortalApi.baseEnvVars" -}}
+{{- define "staffApi.baseEnvVars" -}}
 {{- $context := .context -}}
 {{- range $k, $v := .envVars }}
 - name: {{ $k }}
@@ -113,15 +113,15 @@ Render Env values section
 {{- end }}
 {{- end -}}
 
-{{- define "staffPortalApi.envVars" -}}
+{{- define "staffApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
-{{- include "staffPortalApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
+{{- include "staffApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "celeryBeatProducer.serviceAccountName" -}}
+{{- define "celeryBeat.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
 {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
 {{- else -}}
@@ -132,14 +132,14 @@ Create the name of the service account to use
 {{/*
 Return the proper Docker Image Registry Secret Names
 */}}
-{{- define "celeryBeatProducer.imagePullSecrets" -}}
+{{- define "celeryBeat.imagePullSecrets" -}}
 {{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.postgresCheckerInit.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
 Render Env values section
 */}}
-{{- define "celeryBeatProducer.baseEnvVars" -}}
+{{- define "celeryBeat.baseEnvVars" -}}
 {{- $context := .context -}}
 {{- range $k, $v := .envVars }}
 - name: {{ $k }}
@@ -153,9 +153,9 @@ Render Env values section
 {{- end }}
 {{- end -}}
 
-{{- define "celeryBeatProducer.envVars" -}}
+{{- define "celeryBeat.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
-{{- include "celeryBeatProducer.baseEnvVars" (dict "envVars" $envVars "context" $) }}
+{{- include "celeryBeat.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
 {{/*
@@ -201,7 +201,7 @@ Render Env values section
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "staffPortalUi.serviceAccountName" -}}
+{{- define "staffUi.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
 {{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
 {{- else -}}
@@ -212,14 +212,14 @@ Create the name of the service account to use
 {{/*
 Return the proper Docker Image Registry Secret Names
 */}}
-{{- define "staffPortalUi.imagePullSecrets" -}}
+{{- define "staffUi.imagePullSecrets" -}}
 {{- include "common.images.pullSecrets" (dict "images" (list .Values.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
 Render Env values section
 */}}
-{{- define "staffPortalUi.baseEnvVars" -}}
+{{- define "staffUi.baseEnvVars" -}}
 {{- $context := .context -}}
 {{- range $k, $v := .envVars }}
 - name: {{ $k }}
@@ -233,9 +233,9 @@ Render Env values section
 {{- end }}
 {{- end -}}
 
-{{- define "staffPortalUi.envVars" -}}
+{{- define "staffUi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
-{{- include "staffPortalUi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
+{{- include "staffUi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
 {{/*

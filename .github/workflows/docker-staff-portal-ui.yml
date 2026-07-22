@@ -1,6 +1,6 @@
 name: Build & Push Staff Portal UI Docker
 
-# Builds and pushes openg2p/openg2p-registry-staff-portal-ui.
+# Builds and pushes openg2p/openg2p-registry-staff-ui.
 #
 # The image tag is derived from the branch name (e.g. develop -> :develop),
 # so there is no spec/develop.txt file to maintain — same convention as the
@@ -16,12 +16,12 @@ on:
     tags-ignore:
       - '**'
     paths:
-      - 'ui/staff-portal-ui/**'
+      - 'ui/staff-ui/**'
       - '.github/workflows/docker-staff-portal-ui.yml'
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: openg2p/openg2p-registry-staff-portal-ui
+  IMAGE_NAME: openg2p/openg2p-registry-staff-ui
 
 jobs:
   docker-build:
@@ -51,8 +51,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ui/staff-portal-ui
-          file: ui/staff-portal-ui/Dockerfile
+          context: ui/staff-ui
+          file: ui/staff-ui/Dockerfile
           push: true
           platforms: linux/amd64
           tags: ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.tag }}
@@ -63,5 +63,5 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.meta.outputs.tag }}
             org.opencontainers.image.vendor=${{ github.repository_owner }}
-            org.opencontainers.image.title=openg2p-registry-staff-portal-ui
+            org.opencontainers.image.title=openg2p-registry-staff-ui
             org.opencontainers.image.description=OpenG2P Registry Staff Portal UI

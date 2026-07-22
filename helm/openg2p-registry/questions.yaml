@@ -31,13 +31,13 @@ questions:
   label: Keycloak Init
   group: General
 
-- variable: staffPortalApi.enabled
+- variable: staffApi.enabled
   description: Install Staff Portal API
   type: boolean
   label: Staff Portal API
   group: General
 
-- variable: staffPortalUi.enabled
+- variable: staffUi.enabled
   description: Install Staff Portal UI
   type: boolean
   label: Staff Portal UI
@@ -88,7 +88,7 @@ questions:
   label: Consent Manager URL
   group: Consent & Partner API
 
-- variable: benePortalApi.enabled
+- variable: beneApi.enabled
   description: Install Beneficiary Portal API
   type: boolean
   label: Beneficiary Portal API
@@ -101,25 +101,25 @@ questions:
   group: General
 
 # Images
-- variable: staffPortalApi.image.repository
+- variable: staffApi.image.repository
   description: Docker image repository for Staff Portal API
   type: string
   label: Staff Portal API Image Repository
   group: Images
 
-- variable: staffPortalApi.image.tag
+- variable: staffApi.image.tag
   description: Docker image tag for Staff Portal API
   type: string
   label: Staff Portal API Image Tag
   group: Images
 
-- variable: staffPortalUi.image.repository
+- variable: staffUi.image.repository
   description: Docker image repository for Staff Portal UI
   type: string
   label: Staff Portal UI Image Repository
   group: Images
 
-- variable: staffPortalUi.image.tag
+- variable: staffUi.image.tag
   description: Docker image tag for Staff Portal UI
   type: string
   label: Staff Portal UI Image Tag
@@ -137,25 +137,25 @@ questions:
   label: Partner API Image Tag
   group: Images
 
-- variable: benePortalApi.image.repository
+- variable: beneApi.image.repository
   description: Docker image repository for Beneficiary Portal API
   type: string
   label: Beneficiary Portal API Image Repository
   group: Images
 
-- variable: benePortalApi.image.tag
+- variable: beneApi.image.tag
   description: Docker image tag for Beneficiary Portal API
   type: string
   label: Beneficiary Portal API Image Tag
   group: Images
 
-- variable: celeryBeatProducer.image.repository
+- variable: celeryBeat.image.repository
   description: Docker image repository for Celery Beat Producer
   type: string
   label: Celery Beat Producer Image Repository
   group: Images
 
-- variable: celeryBeatProducer.image.tag
+- variable: celeryBeat.image.tag
   description: Docker image tag for Celery Beat Producer
   type: string
   label: Celery Beat Producer Image Tag

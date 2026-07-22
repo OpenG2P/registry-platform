@@ -47,8 +47,8 @@ def main() -> None:
 
     out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("docs/openapi")
     apis = [
-        ("openg2p_registry_bene_portal_api.main", "app", "openapi-bene-portal.json"),
-        ("openg2p_registry_staff_portal_api.main", "app", "openapi-staff-portal.json"),
+        ("openg2p_registry_bene_api.main", "app", "openapi-bene-portal.json"),
+        ("openg2p_registry_staff_api.main", "app", "openapi-staff-portal.json"),
         ("openg2p_registry_partner_api.main", "app", "openapi-partner.json"),
     ]
     for module_name, app_attr, filename in apis:

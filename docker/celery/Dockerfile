@@ -5,7 +5,7 @@
 # as worker or beat (selected at runtime via CELERY_APP). Ships NO domain model.
 # A downstream registry adds its extension on top:
 #
-#     FROM openg2p/openg2p-registry-celery-base:<version>
+#     FROM openg2p/openg2p-registry-celery:<version>
 #     COPY <your>-extension/ /app/extension/
 #     RUN pip install --no-cache-dir /app/extension
 #
@@ -21,8 +21,9 @@ RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
 WORKDIR /app
 
 COPY core/openg2p-registry-core /app/core/openg2p-registry-core
-COPY celery/openg2p-registry-celery-beat-producers /app/celery/openg2p-registry-celery-beat-producers
-COPY celery/openg2p-registry-celery-workers /app/celery/openg2p-registry-celery-workers
+COPY celery/openg2p-registry-celery-beat /app/celery/openg2p-registry-celery-beat
+COPY celery/openg2p-registry-celery-worker /app/celery/openg2p-registry-celery-worker
+COPY reference-extension /app/reference-extension
 
 # Both celery components (workers + beat producers) are installed so the single
 # image can run as worker or beat, selected at runtime via CELERY_APP.
@@ -31,12 +32,15 @@ RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-auth" \
       "git+https://github.com/openg2p/iam-service@${IAM_CORE_REF}#subdirectory=iam-core" \
       /app/core/openg2p-registry-core \
-      /app/celery/openg2p-registry-celery-beat-producers \
-      /app/celery/openg2p-registry-celery-workers \
+      /app/celery/openg2p-registry-celery-beat \
+      /app/celery/openg2p-registry-celery-worker \
+      /app/reference-extension \
  && apk del --no-network .build-deps
 
 ENV PYTHONUNBUFFERED=1
-ENV CELERY_APP=openg2p_registry_celery_workers.main.celery_app
+# Default this image to the reference registry; a variant image overrides it.
+ENV REGISTRY_EXTENSION_MODULE=openg2p_registry_reference_extension
+ENV CELERY_APP=openg2p_registry_celery_worker.main.celery_app
 ENV CELERY_OPTS="worker --loglevel=info"
 ENV CELERY_IMPORTS=""
 

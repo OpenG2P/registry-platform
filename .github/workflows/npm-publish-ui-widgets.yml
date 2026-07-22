@@ -74,10 +74,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
-          npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-portal-ui
+          npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui
 
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
-            ui/staff-portal-ui/package.json ui/staff-portal-ui/package-lock.json
+            ui/staff-ui/package.json ui/staff-ui/package-lock.json
           if ! git diff --staged --quiet; then
             git commit -m "chore(ui-widgets): version for npm next publish, sync staff-portal-ui @${WIDGET_VERSION} [skip ci]"
           fi
@@ -150,10 +150,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
-          npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-portal-ui
+          npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui
 
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
-            ui/staff-portal-ui/package.json ui/staff-portal-ui/package-lock.json
+            ui/staff-ui/package.json ui/staff-ui/package-lock.json
           if ! git diff --staged --quiet; then
             git commit -m "chore(ui-widgets): release v${WIDGET_VERSION}, sync staff-portal-ui [skip ci]"
           fi

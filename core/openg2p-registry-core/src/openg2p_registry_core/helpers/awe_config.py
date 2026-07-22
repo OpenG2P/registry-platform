@@ -22,7 +22,7 @@ def get_awe_settings() -> "CoreSettingsType":
 
     core = CoreSettings.get_config(strict=False)
     try:
-        from openg2p_registry_staff_portal_api.config import Settings as StaffSettings
+        from openg2p_registry_staff_api.config import Settings as StaffSettings
     except ImportError:
         return core
 

@@ -9,13 +9,13 @@ matching base and adds only its domain model.
 
 | Dockerfile | Published image | Contents |
 |---|---|---|
-| `staff-portal-api/Dockerfile` | `openg2p/openg2p-registry-staff-portal-api-base` | core + staff-portal-api service |
-| `partner-api/Dockerfile` | `openg2p/openg2p-registry-partner-api-base` | core + partner-api service |
-| `bene-portal-api/Dockerfile` | `openg2p/openg2p-registry-bene-portal-api-base` | core + bene-portal-api service |
-| `celery/Dockerfile` | `openg2p/openg2p-registry-celery-base` | core + both celery packages (worker/beat via `CELERY_APP`) |
-| `db-seed/Dockerfile` | `openg2p/openg2p-registry-db-seed-base` | postgres-client + generic seeding machinery + `openg2p-data` |
+| `staff-portal-api/Dockerfile` | `openg2p/openg2p-registry-staff-api` | core + staff-portal-api service |
+| `partner-api/Dockerfile` | `openg2p/openg2p-registry-partner-api` | core + partner-api service |
+| `bene-portal-api/Dockerfile` | `openg2p/openg2p-registry-bene-api` | core + bene-portal-api service |
+| `celery/Dockerfile` | `openg2p/openg2p-registry-celery` | core + both celery packages (worker/beat via `CELERY_APP`) |
+| `db-seed/Dockerfile` | `openg2p/openg2p-registry-db-seed` | postgres-client + generic seeding machinery + `openg2p-data` |
 
-The Next.js Staff Portal UI image (`openg2p/openg2p-registry-staff-portal-ui`) is
+The Next.js Staff Portal UI image (`openg2p/openg2p-registry-staff-ui`) is
 built separately by `.github/workflows/docker-staff-portal-ui.yml`.
 
 ## The extension contract
@@ -42,7 +42,7 @@ Because the base ships no extension, there is no name collision — the downstre
 
 ```dockerfile
 ARG RP_VERSION=1.2.0
-FROM openg2p/openg2p-registry-staff-portal-api-base:${RP_VERSION}
+FROM openg2p/openg2p-registry-staff-api:${RP_VERSION}
 COPY <your>-extension/ /app/extension/
 RUN pip install --no-cache-dir /app/extension   # installs as openg2p_registry_extensions
 # ENV defaults + migrate/gunicorn CMD are inherited from the base.
@@ -51,7 +51,7 @@ RUN pip install --no-cache-dir /app/extension   # installs as openg2p_registry_e
 The db-seed base carries all the loaders; a derived image adds only its data:
 
 ```dockerfile
-FROM openg2p/openg2p-registry-db-seed-base:${RP_VERSION}
+FROM openg2p/openg2p-registry-db-seed:${RP_VERSION}
 COPY <ext>/src/<pkg>/meta_data/     /seed/meta_data/
 COPY <ext>/src/<pkg>/awe_meta_data/ /seed/awe_meta_data/
 COPY <ext>/src/<pkg>/templates/     /seed/templates/

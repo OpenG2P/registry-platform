@@ -10,7 +10,7 @@
 #
 # It ships NO registry-specific data. A concrete registry adds its seed content:
 #
-#     FROM openg2p/openg2p-registry-db-seed-base:<version>
+#     FROM openg2p/openg2p-registry-db-seed:<version>
 #     COPY <ext>/src/<pkg>/meta_data/     /seed/meta_data/
 #     COPY <ext>/src/<pkg>/awe_meta_data/ /seed/awe_meta_data/
 #     COPY <ext>/src/<pkg>/templates/     /seed/templates/
@@ -49,9 +49,13 @@ RUN mkdir -p /openg2p-data && cd /openg2p-data \
     && git checkout -q FETCH_HEAD \
     && rm -rf /openg2p-data/.git
 
-# Seed directories the derived image fills in; created here so an image with no
-# extra data still has valid (empty) dirs for the entrypoint to skip over.
+# Seed directories. This RP image ships the REFERENCE registry's seed content so
+# it is runnable/testable out of the box; a variant db-seed image FROM this one
+# clears /seed/{meta_data,awe_meta_data,templates,seed-data} and copies its own.
 RUN mkdir -p /seed/meta_data /seed/awe_meta_data /seed/templates /seed/seed-data
+COPY reference-extension/src/openg2p_registry_reference_extension/meta_data/     /seed/meta_data/
+COPY reference-extension/src/openg2p_registry_reference_extension/awe_meta_data/ /seed/awe_meta_data/
+COPY reference-extension/src/openg2p_registry_reference_extension/templates/     /seed/templates/
 
 COPY docker/db-seed/entrypoint.sh /seed/entrypoint.sh
 COPY docker/db-seed/upload_templates.py /seed/upload_templates.py

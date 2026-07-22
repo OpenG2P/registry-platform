@@ -1,8 +1,8 @@
 name: Build & Publish (base images + chart)
 
 # Publishes the registry-platform's deployable artifacts:
-#   - the per-component BASE Docker images (docker/*/Dockerfile). These bundle
-#     the platform code + runtime but NO domain model; a concrete registry
+#   - the per-component reference-registry Docker images (docker/*/Dockerfile). These bundle
+#     the platform code + a minimal reference registry (individual + household); a variant
 #     (NSR, farmer, a customer) builds FROM these and adds its extension.
 #   - the consolidated openg2p-registry Helm chart (helm/openg2p-registry),
 #     the single source of truth for registry deployment.
@@ -48,40 +48,40 @@ jobs:
       # org.openg2p.pin.<arg> label for reproducibility.
       images: |
         [
-          {"name": "staff-portal-api-base",
-           "repo": "openg2p/openg2p-registry-staff-portal-api-base",
-           "dockerfile": "docker/staff-portal-api/Dockerfile",
+          {"name": "staff-api",
+           "repo": "openg2p/openg2p-registry-staff-api",
+           "dockerfile": "docker/staff-api/Dockerfile",
            "pins": [
              {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
              {"arg": "IAM_CORE_REF",       "repo": "https://github.com/openg2p/iam-service",            "ref": "develop"}
            ]},
 
-          {"name": "partner-api-base",
-           "repo": "openg2p/openg2p-registry-partner-api-base",
+          {"name": "partner-api",
+           "repo": "openg2p/openg2p-registry-partner-api",
            "dockerfile": "docker/partner-api/Dockerfile",
            "pins": [
              {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
              {"arg": "IAM_CORE_REF",       "repo": "https://github.com/openg2p/iam-service",            "ref": "develop"}
            ]},
 
-          {"name": "bene-portal-api-base",
-           "repo": "openg2p/openg2p-registry-bene-portal-api-base",
-           "dockerfile": "docker/bene-portal-api/Dockerfile",
+          {"name": "bene-api",
+           "repo": "openg2p/openg2p-registry-bene-api",
+           "dockerfile": "docker/bene-api/Dockerfile",
            "pins": [
              {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
              {"arg": "IAM_CORE_REF",       "repo": "https://github.com/openg2p/iam-service",            "ref": "develop"}
            ]},
 
-          {"name": "celery-base",
-           "repo": "openg2p/openg2p-registry-celery-base",
+          {"name": "celery",
+           "repo": "openg2p/openg2p-registry-celery",
            "dockerfile": "docker/celery/Dockerfile",
            "pins": [
              {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
              {"arg": "IAM_CORE_REF",       "repo": "https://github.com/openg2p/iam-service",            "ref": "develop"}
            ]},
 
-          {"name": "db-seed-base",
-           "repo": "openg2p/openg2p-registry-db-seed-base",
+          {"name": "db-seed",
+           "repo": "openg2p/openg2p-registry-db-seed",
            "dockerfile": "docker/db-seed/Dockerfile",
            "pins": [
              {"arg": "OPENG2P_DATA_BRANCH", "repo": "https://github.com/openg2p/openg2p-data", "ref": "2.0"}
@@ -90,12 +90,18 @@ jobs:
 
       chart-path: helm/openg2p-registry
 
-      # The chart's default image tags are reference placeholders that every
-      # registry overlay overrides; the base images CI builds here are NOT the
-      # images the chart references (base vs. runnable-registry), so there is
-      # nothing to rewrite in-chart.
+      # These images ARE the chart's default (reference-registry) images, so CI
+      # rewrites the chart's image tags to the freshly built version — the chart
+      # then works out-of-the-box as the reference registry, and a variant
+      # overlay overrides these repos with its own. (staffUi is published by
+      # docker-staff-portal-ui.yml; sanity-tests by its own build — not here.)
       chart-image-paths: |
-        []
+        [".staffApi.image.tag",
+         ".partnerApi.image.tag",
+         ".beneApi.image.tag",
+         ".celeryWorker.image.tag",
+         ".celeryBeat.image.tag",
+         ".dbSeed.image.tag"]
 
       packaging-ref: v1
 

@@ -1,5 +1,4 @@
 global:
-  registryVariant: 'registry'
   registryHostname: '{{ .Release.Name }}.{{ .Release.Namespace }}.openg2p.org'
 
   # Database
@@ -242,7 +241,7 @@ dbSeed:
   # It's just psql replaying SQL scripts plus a one-shot python upload of the
   # sample images to MinIO — minimal footprint. Request 128Mi covers the psql
   # + upload baseline; the 512Mi limit is a generous runaway cap for larger
-  # seed bundles (no cpu limit — see staffPortalApi rationale).
+  # seed bundles (no cpu limit — see staffApi rationale).
   resources:
     requests:
       cpu: 50m
@@ -281,7 +280,7 @@ iamRegister:
   registerMaxAttempts: 10
   # Tiny one-shot hook Job (token fetch + IAM self-register). Request 64Mi
   # covers the baseline; 128Mi limit is a generous cap (no cpu limit — see
-  # staffPortalApi rationale).
+  # staffApi rationale).
   resources:
     requests:
       cpu: 25m
@@ -355,7 +354,7 @@ partnerApi:
     virtualservice:
       enabled: true
       # Hostname inlined (not `tpl .Values.hostname $`) — the component templates
-      # rebind `.Values` to staffPortalApi/partnerApi sub-tree via deepCopy,
+      # rebind `.Values` to staffApi/partnerApi sub-tree via deepCopy,
       # which boxes string values as interface{} and breaks nested `tpl`.
       # `.Values.global.*` is preserved un-boxed in the rebound context.
       host: 'partner-{{ tpl .Values.global.registryHostname $ }}'
@@ -509,7 +508,7 @@ partnerApi:
   # make memory predictable and shift scale to HPA (enabled above). Sizing
   # mirrored from NSR (same platform/worker profile, measured there): ~500Mi
   # estimated at 3 workers, with spikes during bulk ingest. Request 640Mi /
-  # 1.25Gi limit (no cpu limit — see staffPortalApi rationale). ESTIMATE for 3
+  # 1.25Gi limit (no cpu limit — see staffApi rationale). ESTIMATE for 3
   # workers — verify with `kubectl top pod` after the first rollout.
   resources:
     requests:
@@ -518,7 +517,7 @@ partnerApi:
     limits:
       memory: 1280Mi
 
-benePortalApi:
+beneApi:
   enabled: false
   nameOverride: bene-portal-api
   hostname: 'bene-{{ tpl .Values.global.registryHostname $ }}'
@@ -535,7 +534,7 @@ benePortalApi:
     create: false
     name: ""
   image:
-    repository: openg2p/openg2p-registry-bene-portal-api
+    repository: openg2p/openg2p-registry-bene-api
     tag: "1.0"
     pullPolicy: Always
   podSecurityContext:
@@ -560,7 +559,7 @@ benePortalApi:
       host: ""
       gateway: "internal"
       destination: '{{ .Release.Name }}-bene-portal-api'
-      destinationPort: '{{ .Values.benePortalApi.service.port }}'
+      destinationPort: '{{ .Values.beneApi.service.port }}'
       prefix: '{{ .Values.openapiRootPath }}/'
       rewriteUri: "/"
     gateway:
@@ -651,7 +650,7 @@ benePortalApi:
   # Beneficiary Portal API is a FastAPI process (same profile as Partner API)
   # serving the beneficiary self-service portal. Disabled by default (enabled:
   # false above); no live measurement, so it mirrors Partner API's 3-worker
-  # envelope (640Mi request / 1.25Gi limit). No cpu limit (see staffPortalApi).
+  # envelope (640Mi request / 1.25Gi limit). No cpu limit (see staffApi).
   resources:
     requests:
       cpu: 50m
@@ -659,7 +658,7 @@ benePortalApi:
     limits:
       memory: 1280Mi
 
-staffPortalApi:
+staffApi:
   enabled: true
   nameOverride: staff-portal-api
   hostname: 'staff-{{ tpl .Values.global.registryHostname $ }}'
@@ -681,7 +680,7 @@ staffPortalApi:
     create: false
     name: ""
   image:
-    repository: openg2p/openg2p-registry-staff-portal-api
+    repository: openg2p/openg2p-registry-staff-api
     tag: "develop"
     pullPolicy: Always
   podSecurityContext:
@@ -707,7 +706,7 @@ staffPortalApi:
       host: 'staff-{{ tpl .Values.global.registryHostname $ }}'
       gateway: "internal"
       destination: '{{ .Release.Name }}-staff-portal-api'
-      destinationPort: '{{ .Values.staffPortalApi.service.port }}'
+      destinationPort: '{{ .Values.staffApi.service.port }}'
       prefix: '{{ .Values.openapiRootPath }}/'
       rewriteUri: "/"
     gateway:
@@ -855,7 +854,7 @@ staffPortalApi:
     limits:
       memory: 1536Mi
 
-staffPortalUi:
+staffUi:
   enabled: true
   nameOverride: staff-portal-ui
   hostname: '{{ tpl .Values.global.registryHostname $ }}'
@@ -872,7 +871,7 @@ staffPortalUi:
     create: false
     name: ""
   image:
-    repository: openg2p/openg2p-registry-staff-portal-ui
+    repository: openg2p/openg2p-registry-staff-ui
     tag: "1.0.0"
     pullPolicy: Always
   podSecurityContext:
@@ -894,7 +893,7 @@ staffPortalUi:
   # start (JIT warmup), large page pre-render, or concurrent SSR. Sizing
   # mirrored from NSR (~67Mi idle measured there): request 192Mi covers the
   # baseline with headroom; 768Mi limit is a generous cap matching typical
-  # Next.js production sizing (no cpu limit — see staffPortalApi rationale).
+  # Next.js production sizing (no cpu limit — see staffApi rationale).
   resources:
     requests:
       cpu: 50m
@@ -994,7 +993,7 @@ staffPortalUi:
     failureThreshold: 6
     successThreshold: 1
 
-celeryBeatProducer:
+celeryBeat:
   enabled: true
   nameOverride: celery-beat-producer
   replicaCount: 1
@@ -1009,7 +1008,7 @@ celeryBeatProducer:
   # holds them in memory while creating up to 4 parallel task envelopes, and
   # dispatches to Redis. Sizing mirrored from NSR (~500Mi idle measured there):
   # request 640Mi reflects the real footprint; 1.5Gi limit is a generous cap
-  # (no cpu limit — see staffPortalApi rationale). Lower BATCH_SIZE or
+  # (no cpu limit — see staffApi rationale). Lower BATCH_SIZE or
   # NO_OF_TASKS_TO_PROCESS if you need to shrink the per-tick memory.
   resources:
     requests:
@@ -1037,7 +1036,7 @@ celeryBeatProducer:
     REGISTRY_CELERY_BEAT_OUTGEST_DATA_PUBLISH_BEAT_PRODUCER_FREQUENCY: 20
     REGISTRY_CELERY_BEAT_OUTGEST_TOPIC_REGISTER_BEAT_PRODUCER_FREQUENCY: 20
     REGISTRY_CELERY_BEAT_DEDUPLICATION_BEAT_PRODUCER_FREQUENCY: 30
-    CELERY_APP: "openg2p_registry_celery_beat_producers.main.celery_app"
+    CELERY_APP: "openg2p_registry_celery_beat.main.celery_app"
     CELERY_OPTS: "worker --beat --loglevel=info --schedule=/tmp/celery-beat-schedule.db"
 
   envVarsFrom:
@@ -1087,7 +1086,7 @@ celeryWorker:
   # Sizing mirrored from NSR (~600Mi idle measured there): request 1Gi reserves
   # the real footprint so the scheduler doesn't over-pack workers onto a node;
   # 2.5Gi limit is a generous runaway cap for the worst batch peak (no cpu
-  # limit — see staffPortalApi rationale). If ingests OOM at the cap, lower
+  # limit — see staffApi rationale). If ingests OOM at the cap, lower
   # REGISTRY_CELERY_WORKERS_BATCH_SIZE or scale out replicaCount.
   resources:
     requests:
@@ -1121,7 +1120,7 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_TEMPLATE_BUCKET_NAME: '{{ tpl .Values.global.templateBucketName $ }}'
     REGISTRY_CELERY_WORKERS_FUNCTIONAL_ID_GENERATION_URL: '{{ tpl .Values.global.idGeneratorInternalUrl $ }}'
     REGISTRY_CELERY_WORKERS_ID_GENERATION_ALLOCATION_PATH: '/idgenerator/{id_type}/id'
-    CELERY_APP: "openg2p_registry_celery_workers.main.celery_app"
+    CELERY_APP: "openg2p_registry_celery_worker.main.celery_app"
     CELERY_OPTS: "worker -Q registry_worker_queue --loglevel=info"
 
   envVarsFrom:
@@ -1415,7 +1414,7 @@ idgenerator:
 sanity:
   enabled: false
   image:
-    repository: openg2p/openg2p-registry-sanity
+    repository: openg2p/openg2p-registry-sanity-tests
     tag: develop
     pullPolicy: Always
   # In-cluster partner-api Service URL (no ingress path prefix), :80.

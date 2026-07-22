@@ -42,8 +42,8 @@ spec:
           args:
             - |
               echo "Waiting for application services to be ready..."
-              {{- if .Values.staffPortalApi.enabled }}
-              until wget -qO- --timeout=5 http://{{ .Release.Name }}-staff-portal-api:{{ .Values.staffPortalApi.service.port | default 80 }}/ping >/dev/null 2>&1; do
+              {{- if .Values.staffApi.enabled }}
+              until wget -qO- --timeout=5 http://{{ .Release.Name }}-staff-portal-api:{{ .Values.staffApi.service.port | default 80 }}/ping >/dev/null 2>&1; do
                 echo "  waiting for staff-portal-api..."; sleep 5
               done
               echo "  staff-portal-api is ready."
@@ -54,19 +54,19 @@ spec:
               done
               echo "  partner-api is ready."
               {{- end }}
-              {{- if .Values.benePortalApi.enabled }}
-              until wget -qO- --timeout=5 http://{{ .Release.Name }}-bene-portal-api:{{ .Values.benePortalApi.service.port | default 80 }}/ping >/dev/null 2>&1; do
+              {{- if .Values.beneApi.enabled }}
+              until wget -qO- --timeout=5 http://{{ .Release.Name }}-bene-portal-api:{{ .Values.beneApi.service.port | default 80 }}/ping >/dev/null 2>&1; do
                 echo "  waiting for bene-portal-api..."; sleep 5
               done
               echo "  bene-portal-api is ready."
               {{- end }}
-              {{- if .Values.staffPortalUi.enabled }}
-              until wget -qO- --timeout=5 http://{{ .Release.Name }}-staff-portal-ui:{{ .Values.staffPortalUi.service.port | default 80 }}/ >/dev/null 2>&1; do
+              {{- if .Values.staffUi.enabled }}
+              until wget -qO- --timeout=5 http://{{ .Release.Name }}-staff-portal-ui:{{ .Values.staffUi.service.port | default 80 }}/ >/dev/null 2>&1; do
                 echo "  waiting for staff-portal-ui..."; sleep 5
               done
               echo "  staff-portal-ui is ready."
               {{- end }}
-              {{- if .Values.celeryBeatProducer.enabled }}
+              {{- if .Values.celeryBeat.enabled }}
               # Celery Beat has no HTTP endpoint; wait a few seconds after APIs are up
               echo "  celery-beat-producer has no HTTP endpoint; assuming ready after APIs."
               {{- end }}

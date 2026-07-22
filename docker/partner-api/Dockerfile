@@ -1,10 +1,10 @@
-# Registry Platform — Partner API BASE image.
+# Registry Platform — Partner API reference registry image.
 #
 # Build base only (see docker/staff-portal-api/Dockerfile for the full rationale).
 # Bundles openg2p-registry-core + the partner-api service; ships NO domain model.
 # A downstream registry adds its extension on top:
 #
-#     FROM openg2p/openg2p-registry-partner-api-base:<version>
+#     FROM openg2p/openg2p-registry-partner-api:<version>
 #     COPY <your>-extension/ /app/extension/
 #     RUN pip install --no-cache-dir /app/extension
 #
@@ -21,6 +21,7 @@ WORKDIR /app
 
 COPY core/openg2p-registry-core /app/core/openg2p-registry-core
 COPY apis/openg2p-registry-partner-api /app/apis/openg2p-registry-partner-api
+COPY reference-extension /app/reference-extension
 
 RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
@@ -28,9 +29,12 @@ RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/iam-service@${IAM_CORE_REF}#subdirectory=iam-core" \
       /app/core/openg2p-registry-core \
       /app/apis/openg2p-registry-partner-api \
+      /app/reference-extension \
  && apk del --no-network .build-deps
 
 ENV PYTHONUNBUFFERED=1
+# Default this image to the reference registry; a variant image overrides it.
+ENV REGISTRY_EXTENSION_MODULE=openg2p_registry_reference_extension
 ENV PARTNER_WORKER_TYPE=gunicorn
 ENV PARTNER_HOST=0.0.0.0
 ENV PARTNER_PORT=8000

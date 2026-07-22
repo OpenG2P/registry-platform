@@ -1,0 +1,240 @@
+{%- macro norm(value) -%}
+{{- (value or '') | string | trim | upper -}}
+{%- endmacro -%}
+{%- macro sex(value) -%}
+{%- set v = norm(value) -%}
+{%- if v in ['MALE', 'M'] -%}male
+{%- elif v in ['FEMALE', 'F'] -%}female
+{%- elif v in ['OTHERS', 'OTHER'] -%}others
+{%- elif v -%}{{ v | lower }}
+{%- else -%}unknown
+{%- endif -%}
+{%- endmacro -%}
+{%- macro relationship_type(value) -%}
+{%- set v = norm(value) -%}
+{%- if v == 'SPOUSE' -%}spouse
+{%- elif v == 'CHILD' -%}child
+{%- elif v == 'PARENT' -%}parent
+{%- elif v == 'SIBLING' -%}sibling
+{%- elif v == 'OTHER_RELATIVE' -%}relative
+{%- elif v == 'NON_RELATIVE' -%}associate
+{%- elif v == 'SELF' -%}self
+{%- elif v -%}{{ v | string | trim | lower | replace('_', ' ') }}
+{%- else -%}relative
+{%- endif -%}
+{%- endmacro -%}
+{# Map NSR employment enums toward CD.COM.16 wording #}
+{%- macro employment_cd(value) -%}
+{%- set v = norm(value) -%}
+{%- if v == 'EMPLOYED' -%}employed
+{%- elif v == 'SELF_EMPLOYED' -%}self employed
+{%- elif v == 'UNEMPLOYED' -%}unemployed
+{%- elif v == 'STUDENT' -%}student
+{%- elif v == 'RETIRED' -%}retired
+{%- elif v == 'OTHER' -%}other
+{%- elif v -%}{{ v | string | trim | lower | replace('_', ' ') }}
+{%- endif -%}
+{%- endmacro -%}
+{%- macro self_id_disability_val(ds) -%}
+{%- set v = norm(ds) -%}
+{%- if v == 'YES' -%}1
+{%- elif v == 'NO' -%}0
+{%- endif -%}
+{%- endmacro -%}
+{%- macro is_disabled(ds, disability_rows) -%}
+{%- if norm(ds) == 'YES' -%}true
+{%- elif disability_rows | length > 0 -%}true
+{%- else -%}false
+{%- endif -%}
+{%- endmacro -%}
+{%- macro severity_cd(sev) -%}
+{%- set v = norm(sev) -%}
+{%- if v == 'NO_DIFFICULTY' -%}none
+{%- elif v == 'SOME_DIFFICULTY' -%}some difficulty
+{%- elif v == 'A_LOT_OF_DIFFICULTY' -%}a lot of difficulty
+{%- elif v == 'CANNOT_DO_AT_ALL' -%}unable to undertake
+{%- elif v -%}{{ sev | string | trim | lower | replace('_', ' ') }}
+{%- endif -%}
+{%- endmacro -%}
+{%- macro domain_cd(dom) -%}
+{%- set v = norm(dom) -%}
+{%- if v == 'VISION' -%}Seeing
+{%- elif v == 'HEARING' -%}Hearing
+{%- elif v == 'MOBILITY' -%}Walking or climbing stairs
+{%- elif v == 'COGNITION' -%}Remembering or concentrating
+{%- elif v == 'SELF_CARE' -%}Self-care
+{%- elif v == 'COMMUNICATION' -%}Communicating
+{%- elif v -%}{{ dom | string | trim | lower | replace('_', ' ') }}
+{%- endif -%}
+{%- endmacro -%}
+{# phone_numbers / emails: build real lists — never {% set x = macro() %} on a macro that prints a list #}
+{%- macro contact_append_from_raw(raw, target) -%}
+{%- if raw is string -%}
+  {%- set t = raw | trim -%}
+  {%- if t | length >= 2 and t[0:1] == '[' and t[-1:] == ']' -%}
+    {%- set inner = t[1:-1] | trim -%}
+    {%- if inner -%}
+      {%- set flat = inner | replace("'", '') | replace('"', '') -%}
+      {%- for part in flat.split(',') -%}
+        {%- set piece = part | trim -%}
+        {%- if piece -%}
+          {%- set _ = target.append(piece) -%}
+        {%- endif -%}
+      {%- endfor -%}
+    {%- endif -%}
+  {%- elif t -%}
+    {%- set _ = target.append(t) -%}
+  {%- endif -%}
+{%- elif raw is mapping -%}
+  {%- set n = raw.get('number') or raw.get('phone_number') or raw.get('email') or raw.get('value') -%}
+  {%- if n -%}
+    {%- set _ = target.append(n | string | trim) -%}
+  {%- endif -%}
+{%- elif raw is iterable -%}
+  {%- for item in raw -%}
+    {%- if item is string -%}
+      {%- if item | trim -%}
+        {%- set _ = target.append(item | trim) -%}
+      {%- endif -%}
+    {%- elif item is mapping -%}
+      {%- set n = item.get('number') or item.get('phone_number') or item.get('email') or item.get('value') -%}
+      {%- if n -%}
+        {%- set _ = target.append(n | string | trim) -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endif -%}
+{%- endmacro -%}
+{%- set ind = expanded -%}
+{%- set phone_list = [] -%}
+{%- set _ = contact_append_from_raw(ind.get('phone_numbers'), phone_list) -%}
+{%- set email_list = [] -%}
+{%- set _ = contact_append_from_raw(ind.get('emails'), email_list) -%}
+{%- set liv_list = ind.get('individual_livelihood') or [] -%}
+{%- set liv = liv_list[0] if liv_list else {} -%}
+{%- set vuln_list = ind.get('individual_vulnerability') or [] -%}
+{%- set vuln = vuln_list[0] if vuln_list else {} -%}
+{%- set disability_rows = ind.get('individual_disability') or [] -%}
+{%- set household = ind.get('household') or {} -%}
+{%- set household_members = household.get('individual') or [] -%}
+{%- set my_id = ind.get('internal_record_id') or '' -%}
+{%- set uin_val = ind.get('foundational_id') or ind.get('functional_record_id') or '' -%}
+{%- set nid_val = ind.get('foundational_id') or uin_val -%}
+{%- set ds = ind.get('disability_status') or vuln.get('disability_status') %}
+{%- set employment_src = liv.get('employment_status') or ind.get('employment_status') -%}
+{%- set primary_l = ind.get('primary_livelihood') or liv.get('primary_livelihood') -%}
+{%- set secondary_l = ind.get('secondary_livelihood') or liv.get('secondary_livelihood') -%}
+{%- set langs = namespace(items=[]) -%}
+{%- if ind.get('language_code') %}
+  {%- for part in (ind.get('language_code') | string).split(',') -%}
+    {%- set p = part | trim -%}
+    {%- if p -%}
+      {%- set _ = langs.items.append(p | lower) -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endif -%}
+{
+  "@context": {
+    "spdci": "https://schema.spdci.org/core/v1/data",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "owl": "http://www.w3.org/2002/07/owl#",
+    "common": "https://schema.spdci.org/common/v1/"
+  },
+  "@id": {{ ('https://nsr.example.org/member/' ~ uin_val) | tojson }},
+  "@type": "spdci:member",
+  "member_identifier": [
+    {
+      "@type": "Identifier",
+      "identifier_type": "UIN",
+      "identifier_value": {{ uin_val | tojson }}
+    }
+  ],
+  "demographic_info": {
+    "@type": "SRPerson",
+    "identifier": [
+      {
+        "@type": "Identifier",
+        "identifier_type": "NationalID",
+        "identifier_value": {{ nid_val | tojson }}
+      }
+    ],
+    "name": {
+      "@type": "Name",
+      "given_name": {{ (ind.get('first_name') or ind.get('given_name') or '') | tojson }},
+      "second_name": {{ (ind.get('middle_name') or '') | tojson }},
+      "surname": {{ (ind.get('last_name') or '') | tojson }},
+      "prefix": {{ (ind.get('prefix') or '') | tojson }},
+      "suffix": {{ (ind.get('suffix') or '') | tojson }}
+    },
+    "sex": {{ sex(ind.get('gender')) | tojson }},
+    "birth_date": {{ (ind.get('birth_date') | string if ind.get('birth_date') is not none else '') | tojson }},
+    "phone_number": [
+      {%- for p in phone_list -%}
+      {{ p | tojson }}{% if not loop.last %},{% endif %}
+      {%- endfor -%}
+    ],
+    "email": [
+      {%- for e in email_list -%}
+      {{ e | tojson }}{% if not loop.last %},{% endif %}
+      {%- endfor -%}
+    ],
+    "registration_date": {{ (ind.get('registration_date') or ind.get('created_at') or '') | string | tojson }},
+    "last_updated": {{ (ind.get('last_approved_at') or '') | string | tojson }}
+  },
+  "related_person": [
+{%- set rel_ns = namespace(need_comma=false) -%}
+    {%- for m in household_members -%}
+      {%- if m.get('internal_record_id') and m.get('internal_record_id') != my_id -%}
+      {%- if rel_ns.need_comma -%},{%- endif -%}
+      {%- set rel_ns.need_comma = true -%}
+      {
+        "@type": "RelatedPerson",
+        "relationship_type": {{ relationship_type(m.get('relationship_to_head')) | tojson }},
+        "related_member": {
+          "@type": "Member",
+          "@id": {{ ('https://nsr.example.org/member/' ~ (m.get('foundational_id') or m.get('functional_record_id') or m.get('internal_record_id'))) | tojson }},
+          "member_identifier": [
+            {
+              "@type": "Identifier",
+              "identifier_type": "UIN",
+              "identifier_value": {{ (m.get('foundational_id') or m.get('functional_record_id') or '') | tojson }}
+            }
+          ]
+        }
+      }
+      {%- endif -%}
+    {%- endfor -%}
+  ],
+  "self_id_disability": {% set sid = self_id_disability_val(ds) -%}{% if sid == '1' -%}1{% elif sid == '0' -%}0{% else -%}null{% endif %},
+  "is_disabled": {{ is_disabled(ds, disability_rows) }},
+  "disability_info": [
+    {%- for row in disability_rows -%}
+    {
+      "functional_limitation_type": {{ domain_cd(row.get('disability_domain')) | tojson }},
+      "functional_limitations_level": {{ severity_cd(row.get('disability_severity')) | tojson }}
+    }{% if not loop.last %},{% endif %}
+    {%- endfor -%}
+  ],
+  "marital_status": {{ (ind.get('marital_status') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+  "employment_status": {{ employment_cd(employment_src) | tojson }},
+  "occupation": {{ (ind.get('occupation') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+  "income_level": {{ (ind.get('income_level') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+  "language_code": {% if langs.items %}{{ langs.items | tojson }}{% else %}[]{% endif %},
+  "education_level": {{ (ind.get('education_level') or '') | string | trim | lower | replace('_', ' ') | tojson }},
+  "additional_attributes": [
+    {
+      "household_identifier": {{ (household.get('functional_record_id') or '') | tojson }},
+      "relationship_to_head": {{ (ind.get('relationship_to_head') or '') | string | trim | lower | tojson }},
+      "citizenship_category": {{ (ind.get('citizenship_category') or '') | string | trim | lower | tojson }},
+      "residency_status": {{ (ind.get('residency_status') or '') | string | trim | lower | tojson }},
+      "primary_livelihood": {{ (primary_l | string | trim | lower | replace('_', ' ') if primary_l else '') | tojson }},
+      "secondary_livelihood": {{ (secondary_l | string | trim | lower | replace('_', ' ') if secondary_l else '') | tojson }},
+      "individual_program_count": {{ (ind.get('individual_program') or []) | length }},
+      "displacement_status": {{ (ind.get('displacement_status') or vuln.get('displacement_status') or '') | string | trim | lower | tojson }},
+      "pastoralist_classification": {{ (ind.get('pastoralist_classification') or vuln.get('pastoralist_classification') or '') | string | trim | lower | replace('_', ' ') | tojson }}
+    }
+  ],
+  "registration_date": {{ (ind.get('registration_date') or ind.get('created_at') or '') | string | tojson }},
+  "last_updated": {{ (ind.get('last_approved_at') or '') | string | tojson }}
+}
