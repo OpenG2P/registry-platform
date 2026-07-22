@@ -1459,7 +1459,7 @@ sanity:
   # UI coordinates the change-request payload carries. Optional — set if the
   # deployment's metadata requires a specific tab/section.
   crTabId: "individual_info_tab"
-  crSectionId: "individual_demographic_details"
+  crSectionId: "in_demographic_details"
   # AWE applies its decision via a webhook back to the registry, so the change
   # lands asynchronously — how long the e2e waits for it.
   aweSettleTimeout: 90

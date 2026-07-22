@@ -202,7 +202,7 @@ def test_approval_through_awe_applies_the_change(cfg, staff_client, change_reque
 
 _HISTORY = (
     'SELECT "history_record_id", "change_request_id" '
-    'FROM "public"."g2p_register_history_farmers" '
+    'FROM "public"."g2p_register_history_individuals" '
     'WHERE "internal_record_id" = %s'
 )
 
