@@ -76,9 +76,9 @@ AWE_RULE_MARKER = "sanity-e2e"
 # three tables.
 TEARDOWN_SQL = {
     "registry": [
-        f"DELETE FROM g2p_register_history_farmers WHERE internal_record_id = '{FARMER_INTERNAL_ID}';",
+        f"DELETE FROM g2p_register_history_individuals WHERE internal_record_id = '{FARMER_INTERNAL_ID}';",
         f"DELETE FROM g2p_register_change_requests WHERE internal_record_id = '{FARMER_INTERNAL_ID}';",
-        f"DELETE FROM g2p_register_farmers WHERE internal_record_id = '{FARMER_INTERNAL_ID}';",
+        f"DELETE FROM g2p_register_individuals WHERE internal_record_id = '{FARMER_INTERNAL_ID}';",
     ],
     "awe": [
         # Orphaned approval requests/tasks for the sanity farmer's change requests

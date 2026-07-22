@@ -1432,8 +1432,8 @@ sanity:
   # DCI envelope sender id — PARTNER_<UPPER> must equal the PM partner reference
   # (PARTNER_CM_SANITY), i.e. sender "cm_sanity".
   dciSenderId: cm_sanity
-  regType: Farmer
-  regRecordType: 'spdci-extensions-dci:Farmer'
+  regType: Individual
+  regRecordType: 'spdci-extensions-dci:Individual'
   # What the DCI search matches on (ILIKE '%<text>%' against search_text). This
   # MUST be the sanity farmer's functional_record_id, NOT the SANITYE2E marker:
   # the change-request test runs first and its approval regenerates search_text
@@ -1450,12 +1450,12 @@ sanity:
   # farmer_personal_details, family_details, farm_details, machineries_details,
   # registration_date, last_updated — and there is no sub-field granularity
   # (farmer_personal_details carries birth_date and phone_number with it).
-  dataScopes: "farmer_personal_details"
+  dataScopes: "demographic_info"
   # Scopes deliberately NOT consented to; the e2e asserts these never come back.
-  deniedScopes: "family_details,farm_details,machineries_details"
+  deniedScopes: "member_identifier"
   # The Farmer register (must match g2p_register_definitions.sql). Used to find
   # the register's bound AWE change-request policy and to raise the CR.
-  farmerRegisterId: a1a4d25a-1cd4-4356-abac-985a0b3c6bcd
+  farmerRegisterId: a0000000-0000-4000-8000-000000000001
   # UI coordinates the change-request payload carries. Optional — set if the
   # deployment's metadata requires a specific tab/section.
   crTabId: ""

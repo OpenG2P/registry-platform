@@ -34,7 +34,7 @@ _COLUMNS = [
 # the primary key, and resets the change-request field (middle_name) and
 # search_text so every run starts from a known state.
 _UPSERT = f"""
-INSERT INTO "public"."g2p_register_farmers" ({", ".join(f'"{c}"' for c in _COLUMNS)})
+INSERT INTO "public"."g2p_register_individuals" ({", ".join(f'"{c}"' for c in _COLUMNS)})
 VALUES ({", ".join(["%s"] * len(_COLUMNS))})
 ON CONFLICT ("internal_record_id") DO UPDATE SET
     "search_text"   = EXCLUDED."search_text",
