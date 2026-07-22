@@ -1,0 +1,40 @@
+name: UI CI
+
+# Lightweight pre-merge check for the npm UI packages (ui-widgets + staff-ui):
+# install + type-check + build, NO publish and NO image/chart build. Runs on pull
+# requests that touch ui/** — including Dependabot dependency-bump PRs — so a
+# dependency update is verified to still compile/build before it lands on
+# develop, without triggering the (publishing) build-publish pipeline.
+on:
+  pull_request:
+    paths:
+      - 'ui/**'
+      - '.github/workflows/ui-ci.yml'
+
+jobs:
+  ui-widgets:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui/ui-widgets
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run type-check
+      - run: npm run build
+
+  staff-ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ui/staff-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run build

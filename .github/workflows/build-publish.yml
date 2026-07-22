@@ -17,7 +17,11 @@ name: Build & Publish
 
 on:
   push:
-    branches: ["**"]
+    # All real branches + tags, but NOT bot branches: building/publishing the full
+    # image+chart set on a Dependabot dependency-bump branch just fails and would
+    # push junk 0.0.0-dependabot-* artifacts. Those bumps are verified pre-merge by
+    # ui-ci.yml, and built+published normally once they merge to develop.
+    branches: ["**", "!dependabot/**"]
     tags: ["**"]
   workflow_dispatch:
     inputs:
