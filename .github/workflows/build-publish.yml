@@ -85,7 +85,11 @@ jobs:
            "dockerfile": "docker/db-seed/Dockerfile",
            "pins": [
              {"arg": "OPENG2P_DATA_BRANCH", "repo": "https://github.com/openg2p/openg2p-data", "ref": "2.0"}
-           ]}
+           ]},
+
+          {"name": "sanity-tests",
+           "repo": "openg2p/openg2p-registry-sanity-tests",
+           "dockerfile": "docker/sanity/Dockerfile"}
         ]
 
       chart-path: helm/openg2p-registry

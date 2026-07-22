@@ -223,15 +223,15 @@ dbSeed:
   # registry reference data, so it is seeded from here into master_data using the
   # global.masterDataDB* creds. Enable alongside loadSampleData so the geo ids the
   # registry rows derive resolve in master_data. Idempotent (ON CONFLICT DO NOTHING).
-  loadGeoData: true
+  loadGeoData: false
   # Load sample/demo data into the registry (disabled by default)
-  loadSampleData: true
+  loadSampleData: false
   # Upload sample profile images (500 colored-initials avatars) to MinIO
   # and update g2p_register_farmers.record_image_document_id. Requires
   # loadSampleData=true (individuals must exist first).
-  loadImages: true
+  loadImages: false
   # Upload flat Jinja templates from the db-seed image to MinIO after SQL seed
-  loadTemplates: true
+  loadTemplates: false
   image:
     repository: openg2p/openg2p-registry-db-seed
     tag: "develop"
