@@ -38,7 +38,7 @@ from sanity import audit, db, fixtures
 def _field_value(cfg):
     rows = db.query(
         cfg.registry_dsn,
-        f'SELECT "{fixtures.CR_FIELD}" AS v FROM "public"."g2p_register_farmers" '
+        f'SELECT "{fixtures.CR_FIELD}" AS v FROM "public"."g2p_register_individuals" '
         f'WHERE "internal_record_id" = %s',
         (fixtures.FARMER_INTERNAL_ID,),
     )
