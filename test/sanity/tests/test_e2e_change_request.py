@@ -58,13 +58,10 @@ def _wait_until(predicate, timeout, interval=3):
 @pytest.fixture(scope="module")
 def change_request(cfg, staff_client, farmer_seeded, awe_approver):
     """Raise a CR that changes CR_FIELD, and return its id."""
-    import logging
-    _log = logging.getLogger("sanity")
-    _log.info("[change_request] staff-portal-api login OK as '%s'; sanity approver registered on the AWE stages",
-              cfg.staff_username)
-    _log.info("[change_request] raising change request: set %s=%r on record %s (register=%s, tab=%s, section=%s)",
-              fixtures.CR_FIELD, fixtures.CR_VALUE_UPDATED, fixtures.FARMER_INTERNAL_ID,
-              cfg.reg_type, cfg.cr_tab_id, cfg.cr_section_id)
+    from sanity.steplog import note
+    note(f"staff-portal-api login OK as '{cfg.staff_username}'; sanity approver registered on the AWE stages")
+    note(f"raising change request: set {fixtures.CR_FIELD}={fixtures.CR_VALUE_UPDATED!r} on record "
+         f"{fixtures.FARMER_INTERNAL_ID} (register={cfg.reg_type}, tab={cfg.cr_tab_id}, section={cfg.cr_section_id})")
     payload = {
         "register_id": cfg.farmer_register_id,
         "tab_id": cfg.cr_tab_id,
@@ -99,7 +96,7 @@ def change_request(cfg, staff_client, farmer_seeded, awe_approver):
     body = (resp.get("response_body") or {}).get("response_payload") or resp
     cr_id = body.get("change_request_id") or body.get("id")
     assert cr_id, f"could not find change_request_id in response: {resp}"
-    _log.info("[change_request] change request created id=%s — status pending, awaiting AWE approval", cr_id)
+    note(f"change request created id={cr_id} — status pending, awaiting AWE approval")
     return cr_id
 
 

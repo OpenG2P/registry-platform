@@ -18,9 +18,6 @@ markers = [
   "e2e: signed DCI search round-trip (seeds a persistent PM partner + CM binding)",
   "cr: change request -> AWE approval -> version history -> audit",
 ]
-addopts = "-ra -q"
-# Live, timestamped step logging so the Job log narrates each e2e stage clearly.
-log_cli = true
-log_cli_level = "INFO"
-log_cli_format = "%(asctime)s.%(msecs)03d  %(message)s"
-log_cli_date_format = "%Y-%m-%dT%H:%M:%S"
+# -s (no capture) so the titled banners + timestamped step lines print live and
+# in order, with no pytest "live log setup/call" headers and no captured-log noise.
+addopts = "-ra -q -s -p no:cacheprovider"

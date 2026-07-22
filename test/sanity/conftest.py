@@ -114,18 +114,48 @@ def staff_client(cfg, staff_user):
 
 import logging as _logging
 
-_step_logger = _logging.getLogger("sanity")
+from sanity.steplog import note as _note
+
+# Silence the noisy third-party loggers so the Job log is only our narration
+# plus pytest's own PASSED/FAILED line.
+for _n in ("httpx", "httpcore", "asyncio", "urllib3", "hpack"):
+    _logging.getLogger(_n).setLevel(_logging.WARNING)
+
+
+def _title(item) -> str:
+    """Human title for a test = the first line of its docstring, else its name."""
+    doc = (getattr(item, "function", None) and item.function.__doc__) or ""
+    doc = doc.strip()
+    return doc.splitlines()[0].strip() if doc else item.name
+
+
+def pytest_runtest_setup(item):
+    """Print a clear, titled START banner so every e2e test has an obvious boundary."""
+    print(f"\n{'═' * 78}", flush=True)
+    print(f"  E2E TEST — {_title(item)}", flush=True)
+    print(f"  ({item.nodeid.split('::')[-1]})", flush=True)
+    print(f"{'═' * 78}", flush=True)
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    rep = outcome.get_result()
+    if rep.when == "call":
+        item._sanity_result = rep.outcome
+        item._sanity_dur = getattr(rep, "duration", 0.0)
+
+
+def pytest_runtest_teardown(item, nextitem):
+    """Print a clear RESULT footer closing the test's boundary."""
+    result = getattr(item, "_sanity_result", None)
+    if result is not None:
+        print(f"    {'─' * 74}", flush=True)
+        print(f"    RESULT — {result.upper()}   ({getattr(item, '_sanity_dur', 0.0):.2f}s)\n", flush=True)
 
 
 @pytest.fixture
 def step(request):
-    """INFO step logger that tags each message with the running test name, so the
-    Job log reads e.g.  `... [E2E test_dci_search_returns_the_consented_record] sent DCI search to partner-api`."""
-    name = request.node.name
-
-    def _log(message):
-        _step_logger.info("[%s] %s", name, message)
-
-    _log("──── START ────")
-    yield _log
-    _log("──── END ────")
+    """Return a `note`-style step logger. The titled banner (above) carries the
+    test name, so a step is just its message: `  HH:MM:SS.mmm  → <stage>`."""
+    return _note
