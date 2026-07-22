@@ -1,6 +1,6 @@
 {
   "name": "@openg2p/registry-widgets",
-  "version": "1.1.4-dev.3",
+  "version": "1.1.6-dev.0",
   "type": "module",
   "description": "Complete React widget library with generic form widgets, data binding, validation, and conditional logic",
   "main": "dist/index.js",
