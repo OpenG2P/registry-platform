@@ -65,6 +65,11 @@ spec:
               value: {{ tpl .Values.global.authClientId $ | quote }}
             - name: APP_URL
               value: {{ printf "https://%s" (tpl .Values.global.registryHostname $) | quote }}
+            # Human-readable name of THIS registry in the IAM tile. Values-driven
+            # so a variant chart (farmer, NSR, ...) names itself correctly — the
+            # payload file lives in this chart and a wrapper cannot override it.
+            - name: APP_DESCRIPTION
+              value: {{ tpl (.Values.iamRegister.applicationDescription | default "OpenG2P Registry") $ | quote }}
             - name: TOKEN_MAX_ATTEMPTS
               value: {{ .Values.iamRegister.tokenMaxAttempts | default 30 | quote }}
             - name: REGISTER_MAX_ATTEMPTS
@@ -76,6 +81,7 @@ spec:
               echo "Building registration payload for ${APP_MNEMONIC} -> ${APP_URL}"
               sed -e "s|__APPLICATION_MNEMONIC__|${APP_MNEMONIC}|g" \
                   -e "s|__APPLICATION_URL__|${APP_URL}|g" \
+                  -e "s|__APPLICATION_DESCRIPTION__|${APP_DESCRIPTION}|g" \
                   /payload/payload.json > /tmp/body.json
 
               echo "Requesting access token from ${TOKEN_URL}"

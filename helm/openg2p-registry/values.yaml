@@ -269,6 +269,12 @@ dbSeed:
 # iam-staff-portal-api/samples/README.md.
 iamRegister:
   enabled: true
+  # Human-readable name of this registry in the IAM application tile. The
+  # roles/permissions catalog in files/iam-registration/payload.json is
+  # registry-agnostic, so this description is the only variant-specific field —
+  # and it is a value (not a file) precisely so a wrapper chart can set it: a
+  # subchart's .Files cannot be overridden by its parent.
+  applicationDescription: "OpenG2P Registry"
   image:
     repository: curlimages/curl
     tag: "8.11.1"
@@ -1347,8 +1353,17 @@ idgenerator:
   idGenerator:
     enabled: true
     appConfig:
+      # Functional-ID pools, one per register. These MUST match the registers the
+      # deployed extension actually defines — this chart's default is the
+      # REFERENCE registry (Individual + Household). A variant registry overrides
+      # this block with its own register names.
+      #
+      # NB Helm MERGES maps from a parent chart and a `null` in a parent's
+      # values.yaml does NOT delete a subchart default, so a variant that names
+      # different registers inherits these too and provisions unused pools. Keep
+      # this list to what the reference registry needs.
       idTypes:
-        farmer:
+        individual:
           idLength: 12
         household:
           idLength: 10
