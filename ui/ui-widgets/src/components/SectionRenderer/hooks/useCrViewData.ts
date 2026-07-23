@@ -11,11 +11,16 @@ export const useCrViewData = (
     if (mode !== 'CRView') return null;
     const dataSource = { ...storeValues, ...currentSchemaData };
     const recordPath = Object.keys(dataSource)[0];
+    const records = (dataSource[recordPath] as { records?: unknown[] } | undefined)?.records;
+    const auditPath =
+      Array.isArray(records) && records.length > 0
+        ? `${recordPath}.records.${records.length - 1}`
+        : recordPath;
 
     return {
-      createdBy: getValueByPath(dataSource, `${recordPath}.created_by`),
-      createdDate: getValueByPath(dataSource, `${recordPath}.created_at`),
-      approvedBy: getValueByPath(dataSource, `${recordPath}.last_approved_by`),
-      approvedDate: getValueByPath(dataSource, `${recordPath}.last_approved_at`),
+      createdBy: getValueByPath(dataSource, `${auditPath}.created_by`),
+      createdDate: getValueByPath(dataSource, `${auditPath}.created_at`),
+      approvedBy: getValueByPath(dataSource, `${auditPath}.last_approved_by`),
+      approvedDate: getValueByPath(dataSource, `${auditPath}.last_approved_at`),
     };
   }, [mode, currentSchemaData, storeValues]);
