@@ -1436,9 +1436,16 @@ sanity:
   partnerBaseUrl: 'http://{{ .Release.Name }}-partner-api'
   verifyTls: false
   runE2e: false
-  # false (default) → the Job exits 0 even if tests fail, so a sanity failure
-  #   never fails the install/upgrade (read the pod logs). true → gate the deploy.
-  failOnError: false
+  # true (default) → the Job propagates pytest's exit code, so a failing suite
+  #   fails the Job and therefore the install/upgrade. A sanity run that could not
+  #   verify the registry must not be reported as a healthy deploy.
+  # false → the Job always exits 0 (opt-out; read the pod logs for results). Use
+  #   only where a red deploy is worse than an unverified one.
+  #
+  # NB this gates on FAILURES, not skips. Tests whose dependencies are not
+  # configured (no commons-services on a bring-up install) still skip and stay
+  # green; a dependency that IS configured and then breaks now fails.
+  failOnError: true
   readinessTimeout: 180
   # The consent object's audience (== the CM binding audience) + the registry's
   # controller id (== data_controller). Kept stable so the binding is reused.
