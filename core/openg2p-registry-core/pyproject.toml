@@ -34,8 +34,8 @@ dynamic = ["version"]
 [project.urls]
 Homepage = "https://openg2p.org"
 Documentation = "https://docs.openg2p.org/"
-Repository = "https://github.com/OpenG2P/openg2p-registry-gen2-core"
-Source = "https://github.com/OpenG2P/openg2p-registry-gen2-core"
+Repository = "https://github.com/OpenG2P/registry-platform"
+Source = "https://github.com/OpenG2P/registry-platform"
 
 [tool.hatch.version]
 path = "src/openg2p_registry_core/__init__.py"

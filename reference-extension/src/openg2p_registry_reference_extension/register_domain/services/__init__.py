@@ -1,0 +1,26 @@
+from .g2p_register_domain_service_individual import G2PRegisterDomainServiceIndividual
+from .g2p_register_domain_service_individual_disability import (
+    G2PRegisterDomainServiceIndividualDisability,
+)
+from .g2p_register_domain_service_household import G2PRegisterDomainServiceHousehold
+from .g2p_register_domain_service_individual_program import (
+    G2PRegisterDomainServiceIndividualProgram,
+)
+from .g2p_register_domain_service_household_program import (
+    G2PRegisterDomainServiceHouseholdProgram,
+)
+from .g2p_register_domain_service_household_asset import G2PRegisterDomainServiceHouseholdAsset
+from .g2p_register_domain_service_individual_shock import G2PRegisterDomainServiceIndividualShock
+from .g2p_register_domain_service_household_housing_and_services import (
+    G2PRegisterDomainServiceHouseholdHousingAndServices,
+)
+from .g2p_register_domain_service_individual_land import G2PRegisterDomainServiceIndividualLand
+from .g2p_register_domain_service_individual_livelihood import (
+    G2PRegisterDomainServiceIndividualLivelihood,
+)
+from .g2p_register_domain_service_individual_livestock import (
+    G2PRegisterDomainServiceIndividualLivestock,
+)
+from .g2p_register_domain_service_individual_vulnerability import (
+    G2PRegisterDomainServiceIndividualVulnerability,
+)

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openg2p-registry-reference-extension"
+description = "OpenG2P Registry Reference Extension — a minimal individual + household registry that makes the registry-platform images runnable and testable out of the box. Implementers replace it with their own extension."
+readme = "README.md"
+requires-python = ">=3.7"
+license = { text = "MPL-2.0" }
+
+authors = [
+  { name = "OpenG2P", email = "info@openg2p.org" },
+]
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+  "Operating System :: OS Independent",
+]
+
+dependencies = [
+  "openg2p-fastapi-common >=1.1.2",
+  "openg2p-g2pconnect-common-lib >=1.1.0",
+]
+
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://openg2p.org"
+Documentation = "https://docs.openg2p.org/"
+Repository = "https://github.com/OpenG2P/registry-platform"
+
+[tool.hatch.version]
+path = "src/openg2p_registry_reference_extension/__init__.py"
+
+# NOTE: Option C — this extension installs under its OWN import name
+# (openg2p_registry_reference_extension); it is NOT aliased to
+# openg2p_registry_extensions. The platform entrypoints alias the selected
+# module (env REGISTRY_EXTENSION_MODULE) into sys.modules at startup, so the
+# reference and any variant extension can coexist in one image and be selected
+# by env — no wheel.sources alias, no pip-uninstall dance.
