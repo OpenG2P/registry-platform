@@ -103,8 +103,6 @@ export default function VersionHistoryPage() {
 
     const registerId = currentRegister?.register_id ?? '';
 
-    const widgetStore = useMemo(() => createWidgetStore(), []);
-
     const [filterState, dispatch] = useReducer(filterReducer, initialFilterState);
     const {
         dateOptions,
@@ -113,6 +111,8 @@ export default function VersionHistoryPage() {
         selectedVersionId,
         sectionsWithChanges
     } = filterState;
+
+    const widgetStore = useMemo(() => createWidgetStore(), [selectedVersionId]);
 
     const prevSectionData = useRef<typeof newSectionData>(undefined);
     const prevSectionUISchema = useRef<typeof sectionUISchema>(undefined);
