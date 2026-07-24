@@ -179,7 +179,7 @@ def insert_farmers(cur, individuals: list, extras_by_id: dict) -> None:
     sql = (
         'INSERT INTO "public"."g2p_register_farmers" ('
         + ", ".join(f'"{c}"' for c in columns)
-        + ") VALUES %s"
+        + ") VALUES %s ON CONFLICT (\"internal_record_id\") DO NOTHING"
     )
     psycopg2.extras.execute_values(cur, sql, rows, template=None, page_size=200)
     print(f"[load-sample-data]   -> g2p_register_farmers: {len(rows)}")
@@ -223,7 +223,7 @@ def insert_households(cur, households: list) -> None:
     sql = (
         'INSERT INTO "public"."g2p_register_households" ('
         + ", ".join(f'"{c}"' for c in columns)
-        + ") VALUES %s"
+        + ") VALUES %s ON CONFLICT (\"internal_record_id\") DO NOTHING"
     )
     psycopg2.extras.execute_values(cur, sql, rows, template=None, page_size=200)
     print(f"[load-sample-data]   -> g2p_register_households: {len(rows)}")
@@ -276,7 +276,7 @@ def insert_household_members(cur, members: list, ind_by_id: dict) -> None:
     sql = (
         'INSERT INTO "public"."g2p_register_household_members" ('
         + ", ".join(f'"{c}"' for c in columns)
-        + ") VALUES %s"
+        + ") VALUES %s ON CONFLICT (\"internal_record_id\") DO NOTHING"
     )
     psycopg2.extras.execute_values(cur, sql, rows, template=None, page_size=200)
     print(f"[load-sample-data]   -> g2p_register_household_members: {len(rows)}")
@@ -360,7 +360,7 @@ def insert_sub_table(cur, table: str, rows_json: list, extra_cols: list, json_co
     sql = (
         f'INSERT INTO "public"."{table}" ('
         + ", ".join(f'"{c}"' for c in columns)
-        + ") VALUES %s"
+        + ") VALUES %s ON CONFLICT (\"internal_record_id\") DO NOTHING"
     )
     psycopg2.extras.execute_values(cur, sql, rows, template=None, page_size=200)
     print(f"[load-sample-data]   -> {table}: {len(rows)}")
@@ -378,7 +378,7 @@ def insert_scores(cur, scores: list) -> None:
     sql = (
         'INSERT INTO "public"."g2p_register_scores" ('
         + ", ".join(f'"{c}"' for c in columns)
-        + ") VALUES %s"
+        + ") VALUES %s ON CONFLICT (\"internal_record_id\") DO NOTHING"
     )
     psycopg2.extras.execute_values(cur, sql, rows, template=None, page_size=200)
     print(f"[load-sample-data]   -> g2p_register_scores: {len(rows)}")
