@@ -20,7 +20,7 @@
     "inji-sdk": "^0.16.0",
     "json-edit-react": "^1.29.0",
     "lucide-react": "^0.555.0",
-    "next": "16.0.7",
+    "next": "16.2.12",
     "next-intl": "^4.7.0",
     "npm": "^11.9.0",
     "react": "^19.2.0",
