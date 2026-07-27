@@ -95,3 +95,50 @@ def build_search_envelope(cfg, priv, *, with_consent: bool = True) -> dict:
     message = _message(cfg, consent_jws)
     signature = sign_dci_envelope(header, message, priv, cfg.pm_kid, alg=alg)
     return {"signature": signature, "header": header, "message": message}
+
+
+# ── Transient-dependency handling ─────────────────────────────────────────────
+#
+# The registry is a policy-ENFORCEMENT point: when the Consent Manager cannot be
+# reached or errors, it fails closed and returns `rjct` with a reason like
+#   "Consent denied for reference_id '...': cm_error - HTTP 500"
+# That is correct behaviour, but it makes a happy-path assertion fail for a
+# reason that has nothing to do with the registry.
+#
+# The observed cause is CM handing out a stale pooled DB connection
+# (asyncpg ConnectionDoesNotExistError -> HTTP 500), which is intermittent. So a
+# 5xx from a *dependency* is retried a couple of times; a genuine policy denial
+# (no consent, bad signature, unknown audience) has no 5xx in its reason and is
+# returned immediately, so fail-closed behaviour is still asserted honestly.
+
+TRANSIENT_REASON_MARKERS = ("cm_error - http 5", "pm_error - http 5")
+
+
+def is_transient_dependency_error(resp: dict) -> bool:
+    """True only for a rejection caused by a dependency returning 5xx."""
+    header = resp.get("header") or {}
+    if header.get("status") != "rjct":
+        return False
+    reason = (header.get("status_reason_message") or "").lower()
+    return any(m in reason for m in TRANSIENT_REASON_MARKERS)
+
+
+def post_search(client, path, envelope, *, attempts: int = 3, delay: float = 2.0):
+    """POST a DCI search, retrying only a transient dependency 5xx.
+
+    DCI answers HTTP 200 even for a rejection (status lives in the body), so the
+    retry decision is made on the body, not the HTTP status.
+    """
+    import time
+
+    resp = None
+    for attempt in range(1, attempts + 1):
+        r = client.post(path, json=envelope)
+        assert r.status_code == 200, r.text
+        resp = r.json()
+        if not is_transient_dependency_error(resp) or attempt == attempts:
+            return resp
+        reason = (resp.get("header") or {}).get("status_reason_message") or ""
+        print(f"    transient dependency error (attempt {attempt}/{attempts}): {reason}", flush=True)
+        time.sleep(delay)
+    return resp

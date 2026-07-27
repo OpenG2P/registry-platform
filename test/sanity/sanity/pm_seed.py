@@ -9,8 +9,10 @@ Flow (all idempotent):
   1. If PM's key-fetch API already serves the (partner_id, kid), we're done.
   2. Otherwise, using a partner_manager admin token, submit an onboarding request
      with the derived public key and approve it → partner active, key active.
-  3. If the partner already exists (409) but the key isn't served, submit a
-     key-update request for the kid and approve it, and enable the partner.
+  3. If the partner already exists but the key isn't served, submit a key-update
+     request for the kid and approve it, and enable the partner. NB PM signals
+     already-exists as HTTP 400 with body code PM-PRT-409, not HTTP 409 — see
+     _already_exists().
 """
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
@@ -84,6 +86,31 @@ def _headers(token):
     return h
 
 
+def _already_exists(r) -> bool:
+    """True when PM is telling us the partner is already onboarded.
+
+    PM does NOT use the HTTP status for this: it answers **400** and puts the
+    real code in the body, e.g.
+
+        {"errors":[{"code":"PM-PRT-409","message":"Partner 'X' already exists."}]}
+
+    Matching on `status_code == 409` alone therefore never fires, and the
+    already-exists case escapes as a hard error — which the suite reports as a
+    SKIP, silently dropping every consent/signature test. Check the body too.
+    """
+    if r.status_code == 409:
+        return True
+    if r.status_code != 400:
+        return False
+    body = r.text or ""
+    return "PM-PRT-409" in body or "already exists" in body.lower()
+
+
+def _detail(r) -> str:
+    """Status + body, so a failure is diagnosable from the test report alone."""
+    return f"HTTP {r.status_code} at {r.request.url} -> {(r.text or '')[:400]}"
+
+
 def ensure_seeded(cfg) -> str:
     """Ensure the sanity partner + key exist and are servable in PM.
 
@@ -118,7 +145,7 @@ def ensure_seeded(cfg) -> str:
         timeout=30,
     )
     outcome = "onboarded"
-    if r.status_code == 409:
+    if _already_exists(r):
         # Partner already exists — (re)add the key via a key-update request and
         # make sure the partner is enabled.
         outcome = "key-added"
@@ -141,7 +168,10 @@ def ensure_seeded(cfg) -> str:
             f"dedicated partner_manager client, or grant the sanity client "
             f"'{cfg.client_id}' the partner_manager role in the staff realm."
         )
-    r.raise_for_status()
+    if r.status_code >= 400:
+        # Include the body: raise_for_status() drops it, which is how a plain
+        # "already exists" became an unexplained skip.
+        raise RuntimeError(f"PM seed failed: {_detail(r)}")
     request_id = r.json()["id"]
 
     # 2. Approve the request → partner/key become active.

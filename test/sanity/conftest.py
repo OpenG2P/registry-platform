@@ -7,6 +7,15 @@ from sanity.signing import load_private_key_pem
 from sanity.staff import StaffClient
 
 
+# SKIP vs FAIL
+# ------------
+# A dependency that is NOT CONFIGURED (e2e off, or a PM/CM/Keycloak URL unset) is
+# a legitimate skip: the suite still gives smoke coverage on a bring-up install
+# with no commons-services. But a dependency that IS configured and then fails to
+# seed is a real defect, and skipping it produced green runs in which every
+# consent and signature test had silently vanished. Those now FAIL.
+
+
 @pytest.fixture(scope="session")
 def cfg() -> Config:
     return Config.from_env()
@@ -43,7 +52,7 @@ def seeded(cfg):
         pm_status = pm_seed.ensure_seeded(cfg)
         cm_status = cm_seed.ensure_binding(cfg)
     except Exception as exc:  # noqa: BLE001 — surface as a skip with the reason
-        pytest.skip(f"could not seed the sanity partner: {exc}")
+        pytest.fail(f"could not seed the sanity partner: {exc}", pytrace=False)
     return {"pm": pm_status, "cm": cm_status}
 
 
@@ -66,7 +75,7 @@ def farmer_seeded(cfg):
     try:
         return data_seed.ensure_seeded(cfg)
     except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"could not inject the sanity farmer: {exc}")
+        pytest.fail(f"could not inject the sanity record: {exc}", pytrace=False)
 
 
 @pytest.fixture(scope="session")
@@ -83,7 +92,7 @@ def staff_user(cfg):
     try:
         return keycloak_seed.ensure_user(cfg)
     except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"could not provision the sanity Keycloak user: {exc}")
+        pytest.fail(f"could not provision the sanity Keycloak user: {exc}", pytrace=False)
 
 
 @pytest.fixture(scope="session")
@@ -94,7 +103,7 @@ def awe_approver(cfg, staff_user):
     try:
         return awe_seed.ensure_approver(cfg)
     except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"could not register the sanity approver: {exc}")
+        pytest.fail(f"could not register the sanity approver: {exc}", pytrace=False)
 
 
 @pytest.fixture(scope="session")
@@ -105,7 +114,7 @@ def staff_client(cfg, staff_user):
     try:
         client = StaffClient.login(cfg, cfg.staff_username, cfg.staff_password)
     except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"could not log in to staff-portal-api as '{cfg.staff_username}': {exc}")
+        pytest.fail(f"could not log in to staff-portal-api as '{cfg.staff_username}': {exc}", pytrace=False)
     try:
         yield client
     finally:

@@ -5,9 +5,9 @@
 #   SANITY_RUN_E2E=false (default) -> smoke only (creates NO data, needs no PM/CM).
 #                       true       -> also the signed DCI search round-trip, which
 #                                     seeds a persistent PM partner + CM binding.
-#   SANITY_FAIL_ON_ERROR=false (default) -> always exit 0, so a failing run never
-#                       fails the install/upgrade; read the logs for results.
-#                       true       -> propagate pytest's exit code (CD gating).
+#   SANITY_FAIL_ON_ERROR=true (default) -> propagate pytest's exit code, so a
+#                       failing suite fails the Job and the install/upgrade.
+#                       false      -> always exit 0 (opt-out; read the logs).
 #   SANITY_READINESS_TIMEOUT (default 180) -> wait for partner-api /ping first.
 set -o pipefail
 cd /app
@@ -58,8 +58,11 @@ else
 fi
 rc=$?
 
-if [ "${SANITY_FAIL_ON_ERROR}" = "true" ]; then
-  exit $rc
+# Default is to FAIL. A sanity run that cannot verify the registry must not be
+# reported as a healthy deploy — a green Job that silently skipped every consent
+# and signature test is worse than a red one.
+if [ "${SANITY_FAIL_ON_ERROR:-true}" = "false" ]; then
+  echo "[sanity] SANITY_FAIL_ON_ERROR=false -> exiting 0 (deploy not affected). pytest rc=${rc}"
+  exit 0
 fi
-echo "[sanity] SANITY_FAIL_ON_ERROR=false -> exiting 0 (deploy not affected). pytest rc=${rc}"
-exit 0
+exit $rc
