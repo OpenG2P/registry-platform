@@ -48,8 +48,6 @@ export default function EditAttributeModal({
             toast.success(t('toast_attribute_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_attribute_update_failed'));
         }
     };
 

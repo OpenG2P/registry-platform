@@ -66,8 +66,6 @@ export default function EditTabSectionModal({
             toast.success('Section updated successfully');
             onSuccess?.();
             onClose();
-        } else {
-            toast.error('Failed to update section');
         }
     };
 

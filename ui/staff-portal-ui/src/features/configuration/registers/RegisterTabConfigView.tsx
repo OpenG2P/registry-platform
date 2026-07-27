@@ -58,8 +58,6 @@ export default function RegisterTabConfigView({
 		if (result) {
 			toast.success(t('toast_tab_removed'));
 			refresh();
-		} else {
-			toast.error(t('toast_tab_remove_failed'));
 		}
 	};
 

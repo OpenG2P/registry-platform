@@ -75,8 +75,6 @@ const CreateThemePage = () => {
         if (result !== null) {
             toast.success(t('theme_config_create_success'));
             router.push('/configuration/registry/themes');
-        } else {
-            toast.error(t('theme_config_create_error'));
         }
     };
 

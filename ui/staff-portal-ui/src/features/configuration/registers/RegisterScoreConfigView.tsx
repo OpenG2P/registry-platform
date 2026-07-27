@@ -55,12 +55,9 @@ export default function RegisterScoreConfigView({
             body: JSON.stringify({ score_definition_id: scoreDefinitionId }),
         });
 
-        if (result && !(result as { error?: string }).error) {
-            toast.success(t('toast_score_removed'));
-            refresh();
-        } else {
-            toast.error(t('toast_score_remove_failed'));
-        }
+        if (!result) return;
+        toast.success(t('toast_score_removed'));
+        refresh();
     };
 
     const handleDelete = (scoreDefinitionId: string) => {

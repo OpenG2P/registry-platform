@@ -51,8 +51,6 @@ export default function AddAttributeValueModal({
             toast.success(t('toast_attribute_value_created'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_attribute_value_create_failed'));
         }
     };
 

@@ -58,20 +58,14 @@ const SemanticPatternsPage = () => {
     };
 
     const proceedDelete = async (id: string) => {
-        try {
-            const result = await deletePattern('/api/configuration/ingest/delete-semantic-pattern', {
-                method: 'POST',
-                body: JSON.stringify({ semantic_pattern_id: id })
-            });
+        const result = await deletePattern('/api/configuration/ingest/delete-semantic-pattern', {
+            method: 'POST',
+            body: JSON.stringify({ semantic_pattern_id: id })
+        });
 
-            if (result?.semantic_pattern_id) {
-                toast.success(t('toast_semantic_pattern_removed'));
-                refresh();
-            } else {
-                toast.error(t('toast_semantic_pattern_remove_failed'));
-            }
-        } catch (error) {
-            toast.error(t('toast_operation_failed'));
+        if (result?.semantic_pattern_id) {
+            toast.success(t('toast_semantic_pattern_removed'));
+            refresh();
         }
     };
 

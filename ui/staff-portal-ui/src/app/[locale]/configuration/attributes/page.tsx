@@ -52,8 +52,6 @@ const AttributesListPage = () => {
         if (result?.attribute_id) {
             toast.success(t('toast_attribute_deleted'));
             refresh();
-        } else {
-            toast.error(t('toast_attribute_delete_failed'));
         }
     };
 
@@ -69,11 +67,7 @@ const AttributesListPage = () => {
                             type="button"
                             onClick={async () => {
                                 closeToast();
-                                try {
-                                    await proceedDelete(attribute);
-                                } catch {
-                                    toast.error(t('toast_operation_failed'));
-                                }
+                                await proceedDelete(attribute);
                             }}
                             className="bg-primary-second text-neutral-second px-4 py-1.5 rounded-full text-sm font-semibold hover:bg-primary-second transition-colors shadow-sm"
                         >

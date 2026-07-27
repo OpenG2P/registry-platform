@@ -41,8 +41,6 @@ export default function AddFormModal({ isOpen, onClose, onSuccess }: AddFormModa
             setFormData({ formName: '', formOrder: '' });
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error(t('toast_form_create_failed'));
         }
     };
 

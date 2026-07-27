@@ -94,8 +94,8 @@ export default function AddScoreContributingAttributeModal({
             setComputationValueJson('{}');
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_contributing_attribute_create_failed'));
+        } else if (created?.error) {
+            toast.error(created.error);
         }
     };
 

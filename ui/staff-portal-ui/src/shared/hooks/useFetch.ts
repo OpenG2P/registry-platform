@@ -1,5 +1,6 @@
 import { useAuth } from "@/context/Authcontext";
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { toast } from "react-toastify";
 import { withCsrfHeaders } from "@/shared/utils/csrf";
 
 interface UseFetchConfig {
@@ -78,11 +79,17 @@ export function useFetch<T = any>({
 
             const result = await res.json();
             if (!res.ok) {
-                console.error(`Error fetching data from ${finalUrl}:`, {
-                    status: res.status,
-                    statusText: res.statusText,
-                    error: result?.error || result
-                });
+                const errorMessage =
+                    (typeof result?.statusText === "string" && result.statusText) ||
+                    result?.errors?.[0]?.message ||
+                    res.statusText ||
+                    "Something went wrong";
+                const code = result?.code || result?.errors?.[0]?.code;
+                const toastMessage = code ? `${code} - ${errorMessage}` : errorMessage;
+
+                setError(errorMessage);
+                toast.error(toastMessage, { position: "top-right", autoClose: 6000 });
+                return null;
             }
 
             setData(result);
@@ -91,9 +98,10 @@ export function useFetch<T = any>({
             if (e instanceof DOMException && e.name === "AbortError") {
                 return null;
             }
-            const errorMessage = e instanceof Error ? e.message : "Unknown error";
+            const errorMessage = e instanceof Error ? e.message : "Something went wrong";
             setError(errorMessage);
-            throw e;
+            toast.error(errorMessage, { position: "top-right", autoClose: 6000 });
+            return null;
         } finally {
             if (controllerRef.current === controller) {
                 setLoading(false);

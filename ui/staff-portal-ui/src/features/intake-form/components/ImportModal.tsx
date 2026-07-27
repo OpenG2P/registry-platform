@@ -52,6 +52,9 @@ export default function ImportModal({
             setUploading(true);
 
             const uploadResult = await uploadFile([selectedFile]);
+            if (!uploadResult) {
+                return;
+            }
             const uploadedDoc = Array.isArray(uploadResult) ? uploadResult[0] : null;
 
             if (!uploadedDoc?.document_store_id) {
@@ -72,11 +75,7 @@ export default function ImportModal({
             if (result) {
                 toast.success(t('import_successful'));
                 onClose();
-            } else {
-                toast.error(t('import_failed'));
             }
-        } catch (err) {
-            toast.error(t('something_went_wrong'));
         } finally {
             setUploading(false);
         }

@@ -119,8 +119,6 @@ export default function DataPoliciesListPage({
         if (result?.policy_id) {
             toast.success(t('toast_policy_removed'));
             refresh();
-        } else {
-            toast.error(t('toast_policy_remove_failed'));
         }
     };
 

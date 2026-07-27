@@ -58,8 +58,6 @@ export default function AddIntakeFormModal({
             toast.success(t('toast_intake_form_created'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_intake_form_create_failed'));
         }
     };
 

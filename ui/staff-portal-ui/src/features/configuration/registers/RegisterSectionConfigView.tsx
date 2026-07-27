@@ -59,8 +59,6 @@ export default function RegisterSectionConfigView({
 		if (result) {
 			toast.success(t('toast_section_removed'));
 			refresh();
-		} else {
-			toast.error(t('toast_section_remove_failed'));
 		}
 	};
 

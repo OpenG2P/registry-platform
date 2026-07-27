@@ -184,8 +184,6 @@ export default function NewDataPolicyPageContent({
             if (result?.policy_id) {
                 toast.success(t('toast_policy_created'));
                 router.push(`${listHref}${listHref.includes('?') ? '&' : '?'}created=1`);
-            } else {
-                toast.error(t('toast_policy_create_failed'));
             }
         } finally {
             setSaving(false);

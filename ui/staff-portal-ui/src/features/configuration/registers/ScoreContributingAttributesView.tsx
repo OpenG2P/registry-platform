@@ -78,12 +78,9 @@ export default function ScoreContributingAttributesView({
             },
         );
 
-        if (result && !(result as { error?: string }).error) {
-            toast.success(t('toast_contributing_attribute_removed'));
-            refresh();
-        } else {
-            toast.error(t('toast_contributing_attribute_remove_failed'));
-        }
+        if (!result) return;
+        toast.success(t('toast_contributing_attribute_removed'));
+        refresh();
     };
 
     const handleDelete = (id: string) => {

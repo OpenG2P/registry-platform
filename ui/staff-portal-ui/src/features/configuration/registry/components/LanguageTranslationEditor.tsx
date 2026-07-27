@@ -117,20 +117,14 @@ export default function LanguageTranslationEditor({
             payload.language_id = language.language_id;
         }
 
-        try {
-            const result = await saveLanguage('/api/configuration/registry/language/update-language', {
-                method: 'POST',
-                body: JSON.stringify(payload),
-            });
+        const result = await saveLanguage('/api/configuration/registry/language/update-language', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
 
-            if (result) {
-                toast.success(t('language_updated_success'));
-                await onSaved();
-            } else {
-                toast.error(t('save_failed'));
-            }
-        } catch {
-            toast.error(t('error_occurred'));
+        if (result) {
+            toast.success(t('language_updated_success'));
+            await onSaved();
         }
     };
 
@@ -150,19 +144,13 @@ export default function LanguageTranslationEditor({
                         <button
                             onClick={async () => {
                                 closeToast();
-                                try {
-                                    const result = await removeLanguage('/api/configuration/registry/language/remove-language', {
-                                        method: 'POST',
-                                        body: JSON.stringify({ language_id: language.language_id }),
-                                    });
-                                    if (result) {
-                                        toast.success(t('language_removed_success'));
-                                        await onSaved();
-                                    } else {
-                                        toast.error(t('save_failed'));
-                                    }
-                                } catch {
-                                    toast.error(t('error_occurred'));
+                                const result = await removeLanguage('/api/configuration/registry/language/remove-language', {
+                                    method: 'POST',
+                                    body: JSON.stringify({ language_id: language.language_id }),
+                                });
+                                if (result) {
+                                    toast.success(t('language_removed_success'));
+                                    await onSaved();
                                 }
                             }}
                             className="bg-primary-second text-neutral-second px-4 py-1.5 rounded-full text-sm font-semibold hover:bg-primary-second transition-colors shadow-sm"

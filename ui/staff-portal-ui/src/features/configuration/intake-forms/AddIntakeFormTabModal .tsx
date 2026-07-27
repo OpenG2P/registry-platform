@@ -47,8 +47,6 @@ export default function AddIntakeFormTabModal({
             toast.success(t('toast_intake_form_tab_created'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_intake_form_tab_create_failed'));
         }
     };
 

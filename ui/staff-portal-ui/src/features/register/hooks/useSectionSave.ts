@@ -75,30 +75,17 @@ export const useSectionSave = (
                 }
 
                 if (filesToUpload.length > 0) {
-                    try {
-                        const uploadResult = await uploadFile(filesToUpload);
-                        if ( !uploadResult || uploadResult.length === 0) {
-                            toast.error(t("toast_upload_failed_cr_not_created"), {
-                                position: "top-right",
-                                autoClose: 6000,
-                            });
-                            return;
-                        }
-
-                        documentsResponse.push(...uploadResult);
-
-                        toast.success(t("toast_upload_success", { count: documentsResponse.length }), {
-                            position: "top-right",
-                            autoClose: 4000,
-                        });
-                    } catch (error) {
-                        toast.error(t("toast_upload_failed"), {
-                            position: "top-right",
-                            autoClose: 6000,
-                        });
-                        console.error("File upload error:", error);
+                    const uploadResult = await uploadFile(filesToUpload);
+                    if (!uploadResult || uploadResult.length === 0) {
                         return;
                     }
+
+                    documentsResponse.push(...uploadResult);
+
+                    toast.success(t("toast_upload_success", { count: documentsResponse.length }), {
+                        position: "top-right",
+                        autoClose: 4000,
+                    });
                 }
 
                 const records = normalizeEditActions(
@@ -144,11 +131,6 @@ export const useSectionSave = (
                     });
                     // Update the Pending change request count
                     onChangeRequestCreated();
-                } else {
-                    toast.error(t("toast_cr_create_failed"), {
-                        position: "top-right",
-                        autoClose: 6000,
-                    });
                 }
             } finally {
                 isSubmitting.current = false;

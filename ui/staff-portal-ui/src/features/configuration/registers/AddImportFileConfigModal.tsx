@@ -93,8 +93,6 @@ export default function AddImportFileConfigModal({
             resetForm();
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_import_file_config_create_failed'));
         }
     };
 

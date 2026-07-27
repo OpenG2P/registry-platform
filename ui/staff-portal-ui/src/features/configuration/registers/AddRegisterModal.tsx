@@ -84,8 +84,6 @@ export default function AddRegisterModal({ onClose, onSuccess }: AddRegisterModa
             setFormData(EMPTY_REGISTER_FORM);
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error('Failed to create register');
         }
     };
 
