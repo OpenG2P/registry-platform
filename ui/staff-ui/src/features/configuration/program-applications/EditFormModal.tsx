@@ -15,7 +15,7 @@ interface EditFormModalProps {
     registerId: string;
 }
 
-export default function EditFormModal({ isOpen, onClose, onSuccess, initialData, registerId }: EditFormModalProps) {
+export default function EditFormModal({ isOpen, onClose, onSuccess, initialData }: EditFormModalProps) {
     const t = useTranslations();
     const { execute: updateForm, loading } = useFetch();
     const [formData, setFormData] = useState({
@@ -38,13 +38,13 @@ export default function EditFormModal({ isOpen, onClose, onSuccess, initialData,
             return;
         }
 
-        const result = await updateForm('/api/configuration/registers/tabs/edit', {
+        const result = await updateForm('/api/configuration/registers/tab-metadata/update-tab', {
             method: 'POST',
             body: JSON.stringify({
                 tab_id: initialData.tab_id,
-                register_id: registerId,
                 tab_label: formData.tab_label,
                 tab_order: Number(formData.tab_order),
+                is_active: initialData.is_active ?? true,
             })
         });
 
