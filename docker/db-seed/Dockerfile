@@ -26,7 +26,10 @@ FROM postgres:16-alpine
 ARG GIT_COMMIT=dev
 ARG BUILD_TIME=dev
 ARG OPENG2P_DATA_REPO=https://github.com/openg2p/openg2p-data.git
-ARG OPENG2P_DATA_BRANCH=2.0
+# Tracks the matching line of openg2p-data: the develop image builds from
+# openg2p-data develop. Release builds should pass a tag or commit SHA —
+# the fetch+checkout below accepts either.
+ARG OPENG2P_DATA_BRANCH=develop
 
 ENV GIT_COMMIT=${GIT_COMMIT} \
     BUILD_TIME=${BUILD_TIME} \
