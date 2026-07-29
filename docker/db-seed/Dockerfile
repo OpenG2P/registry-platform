@@ -26,9 +26,10 @@ FROM postgres:16-alpine
 ARG GIT_COMMIT=dev
 ARG BUILD_TIME=dev
 ARG OPENG2P_DATA_REPO=https://github.com/openg2p/openg2p-data.git
-# Tracks the matching line of openg2p-data: the develop image builds from
-# openg2p-data develop. Release builds should pass a tag or commit SHA —
-# the fetch+checkout below accepts either.
+# Default for local builds ONLY. CI overrides this with --build-arg from the
+# pinned-refs list in .github/workflows/build-publish.yml, which resolves the
+# ref to a SHA and stamps it as an org.openg2p.pin label — so changing this
+# line alone has no effect on published images. Change the workflow pin too.
 ARG OPENG2P_DATA_BRANCH=develop
 
 ENV GIT_COMMIT=${GIT_COMMIT} \

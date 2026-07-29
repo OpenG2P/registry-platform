@@ -86,7 +86,7 @@ jobs:
            "repo": "openg2p/openg2p-registry-db-seed",
            "dockerfile": "docker/db-seed/Dockerfile",
            "pins": [
-             {"arg": "OPENG2P_DATA_BRANCH", "repo": "https://github.com/openg2p/openg2p-data", "ref": "2.0"}
+             {"arg": "OPENG2P_DATA_BRANCH", "repo": "https://github.com/openg2p/openg2p-data", "ref": "develop"}
            ]},
 
           {"name": "sanity-tests",
