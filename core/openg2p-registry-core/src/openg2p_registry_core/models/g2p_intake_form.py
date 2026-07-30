@@ -20,8 +20,6 @@ class G2PIntakeForm(BaseORMModel):
     submission_id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid.uuid4()))
     application_reference: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
 
-    async def get_link_internal_record_id(self, session=None):
-        pass
 
 class G2PIntakeFormSubmission(BaseORMModel):
     __tablename__ = "g2p_intake_form_submissions"

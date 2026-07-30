@@ -22,6 +22,10 @@ from openg2p_registry_core.schemas import (
     DeduplicationIntakeFormRegisterResultsResponseBody,
     DeduplicationIntakeFormIntakeFormResultsResponse,
     DeduplicationIntakeFormIntakeFormResultsResponseBody,
+    GetIntakeAllowedParentsRequest,
+    GetIntakeAllowedParentsResponse,
+    GetIntakeAllowedParentsResponseBody,
+    IntakeAllowedParentsData,
     SearchInSubmissionRequest,
     SubmissionResponse,
     SubmissionResponseBody,
@@ -116,6 +120,12 @@ class G2PIntakeFormDataController(BaseController):
             responses={200: {"model": IntakeFormSubmissionsSummaryResponse}},
             methods=["POST"],
         )
+        self.router.add_api_route(
+            "/get_intake_allowed_parents",
+            self.get_intake_allowed_parents,
+            responses={200: {"model": GetIntakeAllowedParentsResponse}},
+            methods=["POST"],
+        )
     
     @require_permissions({})
     async def get_intake_form_submissions_summary(
@@ -139,6 +149,23 @@ class G2PIntakeFormDataController(BaseController):
                 error_exception, get_intake_form_submissions_summary_request
             )
             return error_response
+
+    @require_permissions({"intakeSubmission:view"})
+    async def get_intake_allowed_parents(
+        self,
+        g2p_request: GetIntakeAllowedParentsRequest,
+    ) -> GetIntakeAllowedParentsResponse:
+        try:
+            allowed_parents_data: IntakeAllowedParentsData = (
+                await self.service.get_intake_allowed_parents(g2p_request)
+            )
+            return self.helper.construct_success_response(
+                GetIntakeAllowedParentsResponseBody(response_payload=allowed_parents_data),
+                g2p_request,
+            )
+        except Exception as error_exception:
+            _logger.error("Error in get_intake_allowed_parents: %s", error_exception)
+            return self.helper.construct_error_response(error_exception, g2p_request)
 
     @require_permissions({"intakeSubmission:edit"})
     async def save_intake_form_submission(

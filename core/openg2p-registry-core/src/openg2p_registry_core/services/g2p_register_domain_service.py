@@ -79,7 +79,15 @@ class G2PRegisterDomainService(BaseService):
     async def post_ingest(self, register_id: str, register_row, session: AsyncSession):
         pass
 
-    async def populate_link_internal_record_id_for_intake_form(self, session: AsyncSession):
+    async def validate_intake_parent_link(
+        self,
+        record: dict,
+        link_internal_record_id: str | None,
+        session: AsyncSession,
+    ) -> None:
+        """Optional extension hook to enforce domain-specific rules on the
+        resolved intake-form parent link. Override to raise on invalid links.
+        No-op by default."""
         pass
 
     def compute_deduplication_score_for_register(

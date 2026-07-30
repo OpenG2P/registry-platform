@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 
 from .register_payload import DisplayField
 from .file_payload import DocumentAttachment, DocumentData
+from .register_payload import AllowedParentRecordData, DisplayField
 
 
 class G2PIntakeFormSchemaBase:
@@ -276,3 +277,34 @@ class DeduplicationIntakeFormIntakeFormResultsResponseBody(G2PResponseBody):
 
 class DeduplicationIntakeFormIntakeFormResultsResponse(G2PResponse):
     response_body: Optional[DeduplicationIntakeFormIntakeFormResultsResponseBody] = None
+
+
+class GetIntakeAllowedParentsRequestPayload(BaseModel):
+    submission_id: str
+    section_register_id: str
+    form_register_id: str
+
+
+class GetIntakeAllowedParentsRequestBody(G2PRequestBody):
+    request_payload: GetIntakeAllowedParentsRequestPayload
+
+
+class GetIntakeAllowedParentsRequest(G2PRequest):
+    request_body: GetIntakeAllowedParentsRequestBody
+
+
+class IntakeAllowedParentsData(BaseModel):
+    parent_register_id: Optional[str] = None
+    parent_register_mnemonic: Optional[str] = None
+    link_required: bool = False
+    allow_live_parent: bool = False
+    requires_selection: bool = False
+    allowed_parents: List[AllowedParentRecordData] = []
+
+
+class GetIntakeAllowedParentsResponseBody(G2PResponseBody):
+    response_payload: Optional[IntakeAllowedParentsData] = None
+
+
+class GetIntakeAllowedParentsResponse(G2PResponse):
+    response_body: Optional[GetIntakeAllowedParentsResponseBody] = None

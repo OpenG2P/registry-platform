@@ -1,5 +1,5 @@
 from openg2p_registry_core.models.g2p_intake_form import G2PIntakeForm
-from sqlalchemy import JSON, Boolean, Date, Integer, String, select
+from sqlalchemy import JSON, Boolean, Date, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 from openg2p_registry_core.models import (
     G2PRegister,
@@ -23,7 +23,6 @@ from .enums import (
     ResidencyStatusEnum,
     VerificationStatusEnum,
 )
-
 
 class G2PIndividual:
 
@@ -62,7 +61,6 @@ class G2PIndividual:
     employment_status: Mapped[EmploymentStatusEnum] = mapped_column(String, nullable=True)
     coping_strategies_index: Mapped[int] = mapped_column(Integer, nullable=True)
 
-
 class G2PRegisterIndividual(G2PRegister, G2PPerson, G2PGeo, G2PIndividual):
     __tablename__ = "g2p_register_individuals"
 
@@ -74,27 +72,13 @@ class G2PRegisterIndividual(G2PRegister, G2PPerson, G2PGeo, G2PIndividual):
         """Return individual fields used to build search_text."""
         return G2PRegisterDomainServiceIndividual().construct_search_text(self.to_dict())
 
-
 class G2PRegisterHistoryIndividual(
     G2PRegisterHistory, G2PPersonHistory, G2PGeoHistory, G2PIndividual
 ):
     __tablename__ = "g2p_register_history_individuals"
 
-
 class G2PIntakeFormIndividual(G2PIntakeForm, G2PRegister, G2PPerson, G2PGeo, G2PIndividual):
     __tablename__ = "g2p_intake_form_individuals"
-
-    async def get_link_internal_record_id(self, session):
-        from .household import G2PIntakeFormHousehold
-
-        result = await session.execute(
-            select(G2PIntakeFormHousehold).where(
-                G2PIntakeFormHousehold.submission_id == self.submission_id
-            )
-        )
-        household = result.scalars().first()
-        if household:
-            self.link_internal_record_id = household.internal_record_id
 
     def get_record_name_fields(self) -> str:
         """Return individual fields used to build record_name."""
