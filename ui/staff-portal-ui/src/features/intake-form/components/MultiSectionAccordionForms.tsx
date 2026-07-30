@@ -29,6 +29,7 @@ export interface AccordionFormsProps {
   onCancel?: () => void;
   showActions?: boolean;
   submissionId?: string;
+  formRegisterId?: string;
   registerType?: string;
 }
 
@@ -43,6 +44,7 @@ export default function MultiSectionAccordionForms({
   onCancel,
   showActions = true,
   submissionId,
+  formRegisterId,
 }: AccordionFormsProps) {
 
   const t = useTranslations();
@@ -165,6 +167,8 @@ export default function MultiSectionAccordionForms({
                 onSubmit={handleSubmit}
                 isSubmitDisabled={formHandle === null || !allSectionsSaved}
                 widgetStore={widgetStore}
+                submissionId={submissionId}
+                formRegisterId={formRegisterId}
               />
             </div>
 

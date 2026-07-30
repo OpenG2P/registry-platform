@@ -20,7 +20,7 @@ export default function NewIntakeFormSubmissionPage() {
 
     const { sections, form_name, form_description, loading } = useIntakeFormDetails(intake_form_id);
 
-    const { handleAction, FormActionModals, recordName } = useIntakeFormSectionAction({
+    const { handleAction, FormActionModals, recordName, activeSubmissionId } = useIntakeFormSectionAction({
         registerId,
         formId: intake_form_id,
         registerType,
@@ -57,6 +57,8 @@ export default function NewIntakeFormSubmissionPage() {
                         onAction={handleAction}
                         onCancel={() => router.push(`/intake-form/${registerType}`)}
                         registerType={registerType}
+                        submissionId={activeSubmissionId || undefined}
+                        formRegisterId={registerId}
                     />
 
                 )}

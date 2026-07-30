@@ -250,5 +250,5 @@ export const useIntakeFormSectionAction = ({
         return React.createElement(ActionModal, modalConfig);
     };
 
-    return { handleAction, FormActionModals, recordName };
+    return { handleAction, FormActionModals, recordName, activeSubmissionId };
 };
