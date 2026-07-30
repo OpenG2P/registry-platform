@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import { TopBar } from '@/components/shared';
+import Can from '@/components/shared/Can';
 import { usePagination } from '@/shared/hooks';
 import { useFetch } from '@/shared/hooks/useFetch';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-toastify';
 import {
@@ -22,6 +24,7 @@ import {
 } from '@/features/configuration/shared/components';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { ViewPolicyModal } from '@/features/configuration/data-policies';
+import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/shared/permissions';
 interface DataPoliciesListPageProps {
     policyTarget: string;
     menuLabelKey: string;
@@ -44,7 +47,9 @@ export default function DataPoliciesListPage({
     const [selectedPolicy, setSelectedPolicy] = useState<DataPolicy | null>(null);
 
     const { config } = useRuntimeConfig();
+    const { can } = useRbac();
     const { execute: removePolicy } = useFetch();
+    const canCreate = can(CONFIGURATION_REGISTERS_ACTIONS.create);
     const { registers, loading: registersLoading } = useAllRegister(1, 100);
     const [selectedRegisterId, setSelectedRegisterId] = useState('');
     const firstRegisterId = registers[0]?.register_id ?? '';
@@ -171,7 +176,7 @@ export default function DataPoliciesListPage({
                 ]}
                 showFilters={false}
                 showPagination={canListPolicies}
-                showAddNewButton={canListPolicies}
+                showAddNewButton={canListPolicies && canCreate}
                 addNewButtonText={t('add_new_policy')}
                 onAddNewButton={() => router.push(buildNewPolicyHref())}
                 pageStart={pageStart}
@@ -215,10 +220,12 @@ export default function DataPoliciesListPage({
                                     setModalType('view');
                                 }}
                             />
-                            <DeleteButton
-                                label={t('remove')}
-                                onClick={() => handleDelete(item)}
-                            />
+                            <Can action={CONFIGURATION_REGISTERS_ACTIONS.delete}>
+                                <DeleteButton
+                                    label={t('remove')}
+                                    onClick={() => handleDelete(item)}
+                                />
+                            </Can>
                         </>
                     )}
                 />

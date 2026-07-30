@@ -1839,12 +1839,11 @@ class G2PRegisterChangeRequestService(BaseService):
                             cp.get("internal_record_id") for cp in change_payloads
                             if cp.get("internal_record_id")
                         ]
-
-                        # Base history fields to exclude from current_register_data
+                        # Base fields to exclude from current_register_data
                         history_base_fields: set = {
                             'history_record_id', 'change_request_id', 'tab_id', 'section_id',
                             'submission_id', 'change_request_source', 'is_primary_section',
-                            'created_by', 'created_at', 'approved_by', 'approved_at', 'search_text'
+                            'approved_by', 'approved_at', 'search_text'
                         }
 
                         # For each internal_record_id, fetch the previous history record
@@ -1873,6 +1872,14 @@ class G2PRegisterChangeRequestService(BaseService):
                                             value = value.isoformat()
 
                                         current_register_data[column_name] = value
+
+                                approved_by = getattr(previous_history, "approved_by", None)
+                                approved_at = getattr(previous_history, "approved_at", None)
+                                if approved_at is not None and hasattr(approved_at, "isoformat"):
+                                    approved_at = approved_at.isoformat()
+                                current_register_data["last_approved_by"] = approved_by
+                                current_register_data["last_approved_at"] = approved_at
+
                                 current_register_data_list.append(current_register_data)
                     else:
                         # For PENDING/REJECTED, fetch from live register table
