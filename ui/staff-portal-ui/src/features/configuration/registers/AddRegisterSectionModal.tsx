@@ -81,8 +81,6 @@ export default function AddRegisterSectionModal({
             resetForm();
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('section_create_failed'));
         }
     };
 

@@ -41,8 +41,6 @@ export default function AddTabModal({ onClose, onSuccess }: AddTabModalProps) {
             setFormData({ tab_label: '', tab_order: '' });
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error('Failed to create tab');
         }
     };
 

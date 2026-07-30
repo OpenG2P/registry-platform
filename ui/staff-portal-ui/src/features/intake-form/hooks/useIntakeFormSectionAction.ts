@@ -66,41 +66,35 @@ export const useIntakeFormSectionAction = ({
         const targetSubmissionId = activeSubmissionId || submissionId;
         if (!targetSubmissionId || !registerId) return;
 
-        try {
-            const saveResult = await executeSave('/api/intake-form/finalize-intake-form-submission', {
-                method: 'POST',
-                body: JSON.stringify({
-                    submission_id: targetSubmissionId,
-                    register_id: registerId,
-                    form_id: formId,
-                })
-            });
+        const saveResult = await executeSave('/api/intake-form/finalize-intake-form-submission', {
+            method: 'POST',
+            body: JSON.stringify({
+                submission_id: targetSubmissionId,
+                register_id: registerId,
+                form_id: formId,
+            })
+        });
 
-            if (saveResult?.error) {
-                toast.error(`${t('toast_intake_form_submission_finalize_failed')}: ${saveResult.error}`);
-                return;
-            }
-
-            const handleSuccessClose = () => {
-                closeModal();
-                router.push(`/intake-form/${registerType}`);
-                if (onSuccess) onSuccess();
-            };
-
-            setModalConfig({
-                isOpen: true,
-                type: 'success',
-                title: t('submitted_successfully'),
-                subtitle: t('submitted_successfully_subtitle'),
-                confirmText: t('close'),
-                hideCancel: true,
-                onClose: handleSuccessClose,
-                onConfirm: handleSuccessClose
-            });
-
-        } catch (error) {
-            toast.error(t('toast_form_save_error'));
+        if (!saveResult) {
+            return;
         }
+
+        const handleSuccessClose = () => {
+            closeModal();
+            router.push(`/intake-form/${registerType}`);
+            if (onSuccess) onSuccess();
+        };
+
+        setModalConfig({
+            isOpen: true,
+            type: 'success',
+            title: t('submitted_successfully'),
+            subtitle: t('submitted_successfully_subtitle'),
+            confirmText: t('close'),
+            hideCancel: true,
+            onClose: handleSuccessClose,
+            onConfirm: handleSuccessClose
+        });
     };
 
     const performSave = async (change: SectionChanges, action: 'submit' | 'save', actionSection?: IntakeFormSection): Promise<boolean> => {
@@ -114,23 +108,11 @@ export const useIntakeFormSectionAction = ({
         let documentsResponse: UploadedDocument[] = [];
 
         if (filesToUpload.length > 0) {
-            try {
-                const uploadResult = await uploadFile(filesToUpload);
-                if ( !uploadResult || uploadResult.length === 0) {
-                    toast.error(t('toast_upload_failed'), {
-                        position: "top-right",
-                        autoClose: 6000,
-                    });
-                    return false;
-                }
-                documentsResponse.push(...uploadResult);
-            } catch (error) {
-                toast.error(t('toast_upload_failed'), {
-                    position: "top-right",
-                    autoClose: 6000,
-                });
+            const uploadResult = await uploadFile(filesToUpload);
+            if (!uploadResult || uploadResult.length === 0) {
                 return false;
             }
+            documentsResponse.push(...uploadResult);
         }
 
         // Keep existing documents that are already uploaded
@@ -151,70 +133,63 @@ export const useIntakeFormSectionAction = ({
             }))
         };
 
-        try {
-            const saveResult = await executeSave('/api/intake-form/save-intake-form-submission', {
-                method: 'POST',
-                body: JSON.stringify(savePayload)
-            });
+        const saveResult = await executeSave('/api/intake-form/save-intake-form-submission', {
+            method: 'POST',
+            body: JSON.stringify(savePayload)
+        });
 
-            if (saveResult.error) {
-                toast.error(`${t('toast_intake_form_submission_save_failed')}: ${saveResult.error}`);
-                return false;
-            }
-
-            if (saveResult.submission_id) {
-                setActiveSubmissionId(saveResult.submission_id);
-            }
-
-            if (saveResult.record_name) {
-                setRecordName(saveResult.record_name);
-            }
-
-            // Extract and cache the internal_record_id for non-list sections from the response.
-            // This ensures that subsequent saves, or other sections belonging to the same register,
-            // will reuse the existing internal_record_id rather than creating duplicate records for the same section_register_id.
-            if (saveResult && saveResult.section_payloads) {
-                const currentSectionPayload = saveResult.section_payloads.find(
-                    (payload: any) => payload.section_register_id === activeSection.section_register_id
-                );
-
-                if (currentSectionPayload && !currentSectionPayload.is_list && currentSectionPayload.records?.length > 0) {
-                    setSectionInternalIds(prev => ({
-                        ...prev,
-                        [activeSection.section_register_id]: currentSectionPayload.records[0].internal_record_id
-                    }));
-                }
-            }
-
-            if (action === 'save') {
-                toast.success(t('toast_section_saved_successfully'));
-                if (onSuccess) onSuccess();
-                return true;
-            }
-
-            const handleSuccessClose = () => {
-                closeModal();
-                if (onSuccess) onSuccess();
-                router.push(`/intake-form/${registerType}`);
-            };
-
-            setModalConfig({
-                isOpen: true,
-                type: 'success',
-                title: t('submitted_successfully'),
-                subtitle: t('submitted_successfully_subtitle'),
-                confirmText: t('close'),
-                hideCancel: true,
-                onClose: handleSuccessClose,
-                onConfirm: handleSuccessClose
-            });
-
-            return true;
-
-        } catch (error) {
-            toast.error(t('toast_form_save_error'));
+        if (!saveResult) {
             return false;
         }
+
+        if (saveResult.submission_id) {
+            setActiveSubmissionId(saveResult.submission_id);
+        }
+
+        if (saveResult.record_name) {
+            setRecordName(saveResult.record_name);
+        }
+
+        // Extract and cache the internal_record_id for non-list sections from the response.
+        // This ensures that subsequent saves, or other sections belonging to the same register,
+        // will reuse the existing internal_record_id rather than creating duplicate records for the same section_register_id.
+        if (saveResult.section_payloads) {
+            const currentSectionPayload = saveResult.section_payloads.find(
+                (payload: any) => payload.section_register_id === activeSection.section_register_id
+            );
+
+            if (currentSectionPayload && !currentSectionPayload.is_list && currentSectionPayload.records?.length > 0) {
+                setSectionInternalIds(prev => ({
+                    ...prev,
+                    [activeSection.section_register_id]: currentSectionPayload.records[0].internal_record_id
+                }));
+            }
+        }
+
+        if (action === 'save') {
+            toast.success(t('toast_section_saved_successfully'));
+            if (onSuccess) onSuccess();
+            return true;
+        }
+
+        const handleSuccessClose = () => {
+            closeModal();
+            if (onSuccess) onSuccess();
+            router.push(`/intake-form/${registerType}`);
+        };
+
+        setModalConfig({
+            isOpen: true,
+            type: 'success',
+            title: t('submitted_successfully'),
+            subtitle: t('submitted_successfully_subtitle'),
+            confirmText: t('close'),
+            hideCancel: true,
+            onClose: handleSuccessClose,
+            onConfirm: handleSuccessClose
+        });
+
+        return true;
     };
 
     const handleAction = async (sectionChanges?: SectionChanges, action: 'submit' | 'save' = 'submit', actionSection?: IntakeFormSection): Promise<boolean> => {

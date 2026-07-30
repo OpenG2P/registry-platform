@@ -86,8 +86,6 @@ export default function EditRegisterSectionModal({
             toast.success(t('section_updated_successfully'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('section_update_failed'));
         }
     };
 

@@ -88,7 +88,6 @@ export default function EditDataModelModal({
             const result = await uploadFile([selectedFile]);
             const uploadedDocumentId = Array.isArray(result) ? result[0]?.document_id : undefined;
             if (!uploadedDocumentId) {
-                toast.error(t('failed_to_upload_file'));
                 return;
             }
             toast.success(t('file_uploaded_successfully'));
@@ -111,8 +110,6 @@ export default function EditDataModelModal({
             toast.success(t('data_model_updated_successfully'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error('failed_to_update_data_model');
         }
     };
 

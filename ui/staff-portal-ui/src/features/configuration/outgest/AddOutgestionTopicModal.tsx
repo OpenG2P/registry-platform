@@ -74,8 +74,6 @@ export default function AddOutgestionTopicModal({
 
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('topic_creation_failed'));
         }
     };
 

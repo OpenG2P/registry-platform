@@ -60,20 +60,14 @@ const AwePolicyConfigurationPage = () => {
     });
 
     const proceedDelete = async (id: string) => {
-        try {
-            const result = await deleteConfig('/api/configuration/awe-policy-config/delete', {
-                method: 'POST',
-                body: JSON.stringify({ awe_policy_config_id: id }),
-            });
+        const result = await deleteConfig('/api/configuration/awe-policy-config/delete', {
+            method: 'POST',
+            body: JSON.stringify({ awe_policy_config_id: id }),
+        });
 
-            if (result?.error) {
-                toast.error(t('awe_policy_configuration_deletion_failed'));
-            } else {
-                toast.success(t('awe_policy_configuration_deleted_successfully'));
-                refresh();
-            }
-        } catch {
-            toast.error(t('awe_policy_configuration_deletion_failed'));
+        if (result) {
+            toast.success(t('awe_policy_configuration_deleted_successfully'));
+            refresh();
         }
     };
 

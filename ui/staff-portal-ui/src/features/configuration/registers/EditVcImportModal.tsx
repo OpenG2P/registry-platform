@@ -105,8 +105,6 @@ export default function EditVcImportModal({
             toast.success(t('toast_vc_import_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_vc_import_update_failed'));
         }
     };
 

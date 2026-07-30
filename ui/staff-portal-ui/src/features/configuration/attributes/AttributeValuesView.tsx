@@ -110,8 +110,6 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
         if (result?.value_id) {
             toast.success(t('toast_attribute_value_deleted'));
             refresh();
-        } else {
-            toast.error(t('toast_attribute_value_delete_failed'));
         }
     };
 
@@ -127,11 +125,7 @@ export default function AttributeValuesView({ attribute }: AttributeValuesViewPr
                             type="button"
                             onClick={async () => {
                                 closeToast();
-                                try {
-                                    await proceedDelete(value);
-                                } catch {
-                                    toast.error(t('toast_operation_failed'));
-                                }
+                                await proceedDelete(value);
                             }}
                             className="bg-primary-second text-neutral-second px-4 py-1.5 rounded-full text-sm font-semibold hover:bg-primary-second transition-colors shadow-sm"
                         >

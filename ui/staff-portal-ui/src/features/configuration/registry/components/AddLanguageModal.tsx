@@ -68,27 +68,21 @@ export default function AddLanguageModal({ onClose, onSuccess }: AddLanguageModa
             return;
         }
 
-        try {
-            const result = await saveLanguage('/api/configuration/registry/language/create-language', {
-                method: 'POST',
-                body: JSON.stringify({
-                    language_code,
-                    language_label,
-                    language_flag_base64,
-                    core_translation,
-                    domain_translation,
-                }),
-            });
+        const result = await saveLanguage('/api/configuration/registry/language/create-language', {
+            method: 'POST',
+            body: JSON.stringify({
+                language_code,
+                language_label,
+                language_flag_base64,
+                core_translation,
+                domain_translation,
+            }),
+        });
 
-            if (result) {
-                toast.success(t('language_created_success'));
-                await onSuccess();
-                onClose();
-            } else {
-                toast.error(t('save_failed'));
-            }
-        } catch {
-            toast.error(t('error_occurred'));
+        if (result) {
+            toast.success(t('language_created_success'));
+            await onSuccess();
+            onClose();
         }
     };
 

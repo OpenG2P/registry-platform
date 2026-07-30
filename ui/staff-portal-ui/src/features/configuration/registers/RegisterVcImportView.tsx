@@ -61,8 +61,6 @@ export default function RegisterVcImportView({
         if (result?.vc_config_id) {
             toast.success(t('toast_vc_import_removed'));
             refresh();
-        } else {
-            toast.error(t('toast_vc_import_remove_failed'));
         }
     };
 

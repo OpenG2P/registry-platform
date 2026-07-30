@@ -60,8 +60,6 @@ export default function AddAwePolicyConfigurationModal({ onClose, onSuccess }: P
             toast.success(t('awe_policy_configuration_created_successfully'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('failed_to_create_awe_policy_configuration'));
         }
     };
 

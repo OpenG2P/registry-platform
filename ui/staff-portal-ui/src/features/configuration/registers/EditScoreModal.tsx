@@ -36,8 +36,6 @@ export default function EditScoreModal({ isOpen, onClose, onSuccess, initialData
             toast.success(t('toast_score_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_score_update_failed'));
         }
     };
 

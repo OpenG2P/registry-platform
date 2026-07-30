@@ -129,8 +129,6 @@ const RegistryConfigurationPage = () => {
 			} else {
 				window.location.reload();
 			}
-		} else {
-			toast.error(t('toast_registry_config_save_failed'));
 		}
 	};
 

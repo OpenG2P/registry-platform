@@ -80,8 +80,6 @@ export default function EditAwePolicyConfigurationModal({ data, onClose, onSucce
             toast.success(t('awe_policy_configuration_updated_successfully'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('failed_to_update_awe_policy_configuration'));
         }
     };
 

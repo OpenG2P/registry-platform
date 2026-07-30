@@ -50,8 +50,6 @@ export default function EditIntakeFormTabSectionModal({
             toast.success(t('toast_intake_form_tab_section_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_intake_form_tab_section_update_failed'));
         }
     };
 

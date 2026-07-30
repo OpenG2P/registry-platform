@@ -66,7 +66,6 @@ export default function AddDataModelModal({
             const result = await uploadFile([selectedFile]);
             const uploadedDocumentId = Array.isArray(result) ? result[0]?.document_id : undefined;
             if (!uploadedDocumentId) {
-                toast.error(t('failed_to_upload_file'));
                 return;
             }
             toast.success(t('file_uploaded_successfully'));
@@ -96,8 +95,6 @@ export default function AddDataModelModal({
 
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('failed_to_create_data_model'));
         }
     };
 

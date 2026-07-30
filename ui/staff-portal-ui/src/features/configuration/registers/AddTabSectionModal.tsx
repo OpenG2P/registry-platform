@@ -59,8 +59,6 @@ export default function AddTabSectionModal({ onClose, onSuccess }: AddTabSection
 
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error('Failed to create section');
         }
     };
 

@@ -79,8 +79,6 @@ export default function EditSemanticPatternModal({
             toast.success(t('toast_semantic_pattern_updated'));
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error(t('toast_semantic_pattern_update_failed'));
         }
     };
 

@@ -55,8 +55,6 @@ export default function RegisterSchemaView({
         if (result) {
             toast.success(t('toast_schema_updated'));
             refresh?.();
-        } else {
-            toast.error(t('toast_schema_update_failed'));
         }
     };
 

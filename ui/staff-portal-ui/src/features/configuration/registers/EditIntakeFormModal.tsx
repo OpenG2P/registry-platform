@@ -72,8 +72,6 @@ export default function EditIntakeFormModal({
             toast.success("Intake form updated successfully");
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error("Failed to update intake form");
         }
     };
 

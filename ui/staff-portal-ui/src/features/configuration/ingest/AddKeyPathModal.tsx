@@ -57,8 +57,6 @@ export default function AddKeyPathModal({ onClose, onSuccess }: AddKeyPathModalP
             resetForm();
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error(t('toast_key_path_create_failed'));
         }
     };
 

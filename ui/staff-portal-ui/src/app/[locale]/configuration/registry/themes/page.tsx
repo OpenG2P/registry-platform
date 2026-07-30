@@ -72,8 +72,6 @@ const ThemePage = () => {
         if (result !== null) {
             toast.success(t('theme_config_update_success'));
             setDraftColors({});
-        } else {
-            toast.error(t('theme_config_update_error'));
         }
     };
 
@@ -81,18 +79,14 @@ const ThemePage = () => {
         const factoryTheme = themes.find(t => t.is_factory_shipped);
         if (!factoryTheme || !selectedThemeId) return;
 
-        try {
-            const factoryAttrs = await loadAttributes(factoryTheme.theme_id);
-            factoryAttrs.forEach(attr => {
-                setDraftColors(prev => ({
-                    ...prev,
-                    [attr.attribute_name]: attr.attribute_value
-                }));
-            });
-            toast.success(t('theme_config_reset_success'));
-        } catch (error) {
-            toast.error(t('theme_config_reset_error'));
-        }
+        const factoryAttrs = await loadAttributes(factoryTheme.theme_id);
+        factoryAttrs.forEach(attr => {
+            setDraftColors(prev => ({
+                ...prev,
+                [attr.attribute_name]: attr.attribute_value
+            }));
+        });
+        toast.success(t('theme_config_reset_success'));
     };
 
     const handleDelete = async () => {
@@ -100,8 +94,6 @@ const ThemePage = () => {
         const result = await removeTheme(selectedThemeId);
         if (result !== null) {
             toast.success(t('theme_config_remove_success'));
-        } else {
-            toast.error(t('theme_config_remove_error'));
         }
     };
 

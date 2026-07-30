@@ -50,8 +50,6 @@ export default function SectionDetailsConfigView({
 
         if (result?.section_id) {
             toast.success(t('toast_section_ui_updated') || 'Section UI schema updated successfully');
-        } else {
-            toast.error(t('toast_section_ui_update_failed') || 'Failed to update section UI schema');
         }
     };
 

@@ -12,16 +12,16 @@ export default function Error({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
-    const t = useTranslations('common');
-    const tRoot = useTranslations();
+    const t = useTranslations();
 
     useEffect(() => {
-        console.error("Rendering Error", error);
+        console.error('Rendering Error', error);
     }, [error]);
+
+    const detail = error.message?.trim();
 
     return (
         <div className="min-h-screen bg-secondary-first">
-            {/* Header / Breadcrumb */}
             <div className="w-full h-17.5 flex justify-center items-center">
                 <div className="w-full px-7.5 flex justify-between items-center">
                     <div className="flex items-end gap-2">
@@ -32,13 +32,12 @@ export default function Error({
                         </Link>
 
                         <div className="h-5.75 flex items-end font-medium text-[20px] leading-none">
-                            <span>{tRoot("error")}</span>
+                            <span>{t('error')}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Main Content Card */}
             <div className="flex flex-1 items-center justify-start px-8">
                 <div className="w-full bg-neutral-second rounded-[10px] py-36 flex flex-col items-center text-center">
                     <Image
@@ -50,13 +49,19 @@ export default function Error({
                         priority
                     />
 
-                    <h1 className="mb-1 text-[40px] font-semibold leading-11.75 text-primary-second">
+                    <h1 className="mb-2 text-[40px] font-semibold leading-11.75 text-primary-second">
                         {t('something_went_wrong')}
                     </h1>
 
-                    <p className="mb-6 text-[20px] font-light leading-6 text-neutral-first/50">
+                    <p className="mb-4 text-[20px] font-light leading-6 text-neutral-first/50">
                         {t('something_went_wrong_subtitle')}
                     </p>
+
+                    {detail && (
+                        <p className="mb-6 max-w-2xl px-6 py-3 rounded-[10px] bg-secondary-first text-left text-sm font-normal leading-5 text-neutral-first/70 break-words">
+                            {detail}
+                        </p>
+                    )}
 
                     <button
                         onClick={() => reset()}

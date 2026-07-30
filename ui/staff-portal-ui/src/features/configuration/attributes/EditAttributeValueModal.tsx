@@ -51,8 +51,6 @@ export default function EditAttributeValueModal({
             toast.success(t('toast_attribute_value_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_attribute_value_update_failed'));
         }
     };
 

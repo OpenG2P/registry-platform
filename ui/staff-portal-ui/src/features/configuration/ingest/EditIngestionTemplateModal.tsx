@@ -82,7 +82,6 @@ export default function EditIngestionTemplateModal({
             const result = await uploadFile([selectedFile]);
             const uploadedDocumentId = Array.isArray(result) ? result[0]?.document_id : undefined;
             if (!uploadedDocumentId) {
-                toast.error(t('failed_to_upload_file'));
                 return;
             }
             toast.success(t('file_uploaded_successfully'));
@@ -110,8 +109,6 @@ export default function EditIngestionTemplateModal({
             setUploadedFileName('');
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('ingest_template_update_failed'));
         }
     };
 

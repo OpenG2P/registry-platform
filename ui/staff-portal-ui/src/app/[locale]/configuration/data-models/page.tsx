@@ -45,8 +45,6 @@ const DataModelsConfigurationPage = () => {
             if (result) {
                 toast.success(t('data_models_deleted_successfully'));
                 refresh();
-            } else {
-                toast.error(t('data_model_deletion_failed'));
             }
         } catch (error) {
             console.error('Delete error');

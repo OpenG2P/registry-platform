@@ -46,20 +46,14 @@ const OutgestTopicsPage = () => {
     const { execute: toggleTopicStatus } = useFetch();
 
     const proceedDelete = async (id: string) => {
-        try {
-            const result = await deleteOutgestionTopic('/api/configuration/outgest/delete-topic', {
-                method: 'POST',
-                body: JSON.stringify({ topic_id: id })
-            });
+        const result = await deleteOutgestionTopic('/api/configuration/outgest/delete-topic', {
+            method: 'POST',
+            body: JSON.stringify({ topic_id: id })
+        });
 
-            if (result) {
-                toast.success(t("topic_deleted_success"));
-                refresh();
-            } else {
-                toast.error(t('topic_deletion_failed'));
-            }
-        } catch (error) {
-            toast.error(t('topic_deletion_failed'));
+        if (result) {
+            toast.success(t("topic_deleted_success"));
+            refresh();
         }
     };
 
@@ -70,25 +64,19 @@ const OutgestTopicsPage = () => {
         e.preventDefault();
         e.stopPropagation();
 
-        try {
-            const result = await toggleTopicStatus(
-                '/api/configuration/outgest/toggle-topic-status',
-                {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        topic_id: item.topic_id,
-                    }),
-                }
-            );
-
-            if (result) {
-                toast.success(t('topic_toggle_success'));
-                refresh();
-            } else {
-                toast.error(t('topic_toggle_failed'));
+        const result = await toggleTopicStatus(
+            '/api/configuration/outgest/toggle-topic-status',
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    topic_id: item.topic_id,
+                }),
             }
-        } catch (error) {
-            toast.error(t('topic_toggle_failed'));
+        );
+
+        if (result) {
+            toast.success(t('topic_toggle_success'));
+            refresh();
         }
     };
 
