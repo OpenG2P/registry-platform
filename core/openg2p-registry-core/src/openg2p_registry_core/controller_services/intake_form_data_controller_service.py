@@ -13,6 +13,8 @@ from ..schemas import (
     GetDeduplicationIntakeFormIntakeFormResultsRequest,
     DeduplicationIntakeFormRegisterResultData,
     DeduplicationIntakeFormIntakeFormResultData,
+    GetIntakeAllowedParentsRequest,
+    IntakeAllowedParentsData,
     SaveIntakeFormSubmissionRequest,
     SearchInSubmissionRequest,
     SectionPayloadResponseItem,
@@ -20,7 +22,7 @@ from ..schemas import (
     GetIntakeFormSubmissionsSummaryRequest,
     IntakeFormSubmissionsSummaryData
 )
-from ..services import G2PIntakeFormDataService, G2PIntakeFormDataService
+from ..services import G2PIntakeFormDataService
 
 _logger = logging.getLogger("g2p-intake-form-data-controller-service")
 
@@ -143,6 +145,17 @@ class G2PIntakeFormDataControllerService(BaseService):
             submission_id=payload.submission_id,
         )
     
+    async def get_intake_allowed_parents(
+        self,
+        request: GetIntakeAllowedParentsRequest,
+    ) -> IntakeAllowedParentsData:
+        payload = request.request_body.request_payload
+        return await G2PIntakeFormDataService.get_component().get_intake_allowed_parents(
+            submission_id=payload.submission_id,
+            section_register_id=payload.section_register_id,
+            form_register_id=payload.form_register_id,
+        )
+
     async def get_intake_form_submissions_summary(
         self,
         get_intake_form_submissions_summary_request: GetIntakeFormSubmissionsSummaryRequest,

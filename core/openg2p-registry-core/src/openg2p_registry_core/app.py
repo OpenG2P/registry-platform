@@ -114,6 +114,7 @@ from .services import (
     G2POutgestionDataService,
     G2PIngestService,
     G2PIntakeFormDataService,
+    G2PIntakeFormLinkService,
     G2PIntakeFormMetadataService,
     G2POutgestionConfigurationService,
     G2PRegisterMetadataService,
@@ -179,6 +180,7 @@ class Initializer(BaseInitializer):
         InputMechanismDataService()
         ImportFileConfigurationService()
         G2PIntakeFormDataService()
+        G2PIntakeFormLinkService()
         G2PIntakeFormMetadataService()
         G2PRegisterVerificationService()
         G2PChangeRequestCoreService()

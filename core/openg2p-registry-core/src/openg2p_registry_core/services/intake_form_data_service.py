@@ -43,12 +43,14 @@ from ..schemas import (
     DeduplicationIntakeFormRegisterResultData,
     DeduplicationIntakeFormIntakeFormResultData,
     DisplayField,
+    IntakeAllowedParentsData,
     SectionPayloadInput,
     SectionPayloadResponseItem,
     SubmissionResponsePayload,
     IntakeFormSubmissionsSummaryData
 )
 from .g2p_verification_service import G2PRegisterVerificationService
+from .g2p_intake_form_link_service import G2PIntakeFormLinkService
 
 _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 _DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
@@ -57,6 +59,35 @@ _logger = logging.getLogger("g2p-intake-form-data-service")
 
 
 class G2PIntakeFormDataService(BaseService):
+    async def get_intake_allowed_parents(
+        self,
+        submission_id: str,
+        section_register_id: str,
+        form_register_id: str,
+    ) -> IntakeAllowedParentsData:
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            await self._get_submission_or_error(submission_id, session)
+            link_service = G2PIntakeFormLinkService.get_component()
+            candidates = await link_service.list_intake_parent_candidates(
+                submission_id, section_register_id, session
+            )
+            section_register = await self._get_register_definition(
+                section_register_id, session
+            )
+            return IntakeAllowedParentsData(
+                parent_register_id=candidates.parent_register_id,
+                parent_register_mnemonic=candidates.parent_register_mnemonic,
+                link_required=link_service.is_parent_link_required(
+                    section_register, form_register_id, section_register_id
+                ),
+                allow_live_parent=link_service.is_optional_subject_parent_link(
+                    section_register, form_register_id, section_register_id
+                ),
+                requires_selection=candidates.requires_selection,
+                allowed_parents=candidates.allowed_parents,
+            )
+
     async def save_intake_form_submission(
         self,
         submission_id: str | None,
@@ -121,8 +152,17 @@ class G2PIntakeFormDataService(BaseService):
             existing_rows,
             created_by,
             session,
+            form_register_id=register_id,
+            section_register_id=section_register_id,
+            domain_service=domain_service,
         )
-        await self._delete_missing_intake_rows(existing_rows, incoming_ids, session)
+        deleted_ids = await self._delete_missing_intake_rows(existing_rows, incoming_ids, session)
+        await session.flush()
+        await G2PIntakeFormLinkService.get_component().null_child_links_for_deleted_parents(
+            submission.submission_id,
+            deleted_ids,
+            session,
+        )
 
         submission.form_id = form_id
         submission.register_id = register_id
@@ -132,8 +172,6 @@ class G2PIntakeFormDataService(BaseService):
         await self._upsert_submission_section_documents(
             submission, section_id, documents, session
         )
-        await session.flush()
-        await self._upsert_submission_search_text(submission, session)
         await session.flush()
         return submission
 
@@ -354,7 +392,15 @@ class G2PIntakeFormDataService(BaseService):
         existing_rows: dict[str, object],
         actor_name: str,
         session,
+        form_register_id: str | None = None,
+        section_register_id: str | None = None,
+        domain_service=None,
     ) -> set[str]:
+        link_service = G2PIntakeFormLinkService.get_component()
+        has_link_column = (
+            section_register_id is not None
+            and link_service.intake_model_has_link_column(intake_class)
+        )
         incoming_ids: set[str] = set()
         for record in records:
             payload = dict(record or {})
@@ -370,12 +416,30 @@ class G2PIntakeFormDataService(BaseService):
             internal_record_id = record_data["internal_record_id"]
             incoming_ids.add(internal_record_id)
             existing = existing_rows.get(internal_record_id)
+
+            if has_link_column:
+                existing_link = (
+                    getattr(existing, "link_internal_record_id", None) if existing else None
+                )
+                resolved_link = await link_service.resolve_link_internal_record_id(
+                    submission_id=submission.submission_id,
+                    form_register_id=form_register_id,
+                    section_register_id=section_register_id,
+                    record=payload,
+                    session=session,
+                    existing_link=existing_link,
+                    payload_specifies_link="link_internal_record_id" in payload,
+                )
+                record_data["link_internal_record_id"] = resolved_link
+                if domain_service:
+                    await domain_service.validate_intake_parent_link(
+                        record_data, resolved_link, session
+                    )
+
             if existing:
                 await self._update_existing_record(existing, record_data, intake_class, session)
             else:
-                new_row = intake_class(**record_data)
-                await new_row.get_link_internal_record_id(session)
-                session.add(new_row)
+                session.add(intake_class(**record_data))
         await session.flush()
         return incoming_ids
 
@@ -400,10 +464,13 @@ class G2PIntakeFormDataService(BaseService):
         existing_rows: dict[str, object],
         incoming_ids: set[str],
         session,
-    ) -> None:
+    ) -> set[str]:
+        deleted_ids: set[str] = set()
         for internal_record_id, row in existing_rows.items():
             if internal_record_id not in incoming_ids:
                 await session.delete(row)
+                deleted_ids.add(internal_record_id)
+        return deleted_ids
 
     async def create_submission(
         self,
@@ -933,6 +1000,8 @@ class G2PIntakeFormDataService(BaseService):
         actor_name: str,
         session,
     ) -> None:
+        link_service = G2PIntakeFormLinkService.get_component()
+        pending_links: list[tuple] = []
         section_map = {
             section.section_id: section
             for section in await self._get_form_sections(submission.form_id, session)
@@ -947,6 +1016,7 @@ class G2PIntakeFormDataService(BaseService):
             register_definition, intake_class, _register_class, schema_class, _history_class = (
                 await self._resolve_submission_models(section.section_register_id, session)
             )
+            section_has_link_column = link_service.intake_model_has_link_column(intake_class)
 
             existing_rows = (
                 await session.execute(
@@ -967,13 +1037,6 @@ class G2PIntakeFormDataService(BaseService):
                 action = intake_record.get("edit_action", "ADD")
                 if action != "ADD":
                     self._invalid_request("Intake-form submissions only support ADD payload records")
-                if (
-                    register_definition.register_purpose == RegisterPurposeEnum.TABLE.value
-                    and not intake_record.get("link_internal_record_id")
-                ):
-                    self._invalid_request(
-                        f"link_internal_record_id is required for section '{section.section_id}'"
-                    )
 
                 intake_record["internal_record_id"] = (
                     intake_record.get("internal_record_id") or str(uuid.uuid4())
@@ -1005,7 +1068,12 @@ class G2PIntakeFormDataService(BaseService):
                     "last_approved_by",
                     actor_name or submission.created_by,
                 )
-                session.add(intake_class(**record_data))
+                new_row = intake_class(**record_data)
+                session.add(new_row)
+                if section_has_link_column:
+                    pending_links.append(
+                        (section.section_register_id, intake_record, new_row)
+                    )
 
             await self._upsert_submission_section_documents(
                 submission,
@@ -1014,6 +1082,36 @@ class G2PIntakeFormDataService(BaseService):
                 session,
             )
 
+            await session.flush()
+
+        # Second pass: all parent rows are now flushed, so resolve links for
+        # every inserted child row regardless of section ordering.
+        domain_factory_module = importlib.import_module(
+            "openg2p_registry_extensions.register_domain.factory"
+        )
+        domain_factory = getattr(domain_factory_module, "G2PRegisterDomainFactory").get_component()
+        for section_register_id, intake_record, new_row in pending_links:
+            resolved_link = await link_service.resolve_link_internal_record_id(
+                submission_id=submission.submission_id,
+                form_register_id=submission.register_id,
+                section_register_id=section_register_id,
+                record=intake_record,
+                session=session,
+                existing_link=None,
+                payload_specifies_link="link_internal_record_id" in intake_record,
+            )
+            new_row.link_internal_record_id = resolved_link
+            register_definition = await self._get_register_definition(
+                section_register_id, session
+            )
+            domain_service = domain_factory.get_domain_service(
+                register_definition.register_mnemonic
+            )
+            if domain_service:
+                await domain_service.validate_intake_parent_link(
+                    intake_record, resolved_link, session
+                )
+        if pending_links:
             await session.flush()
 
     async def _build_section_payloads(
@@ -1571,8 +1669,6 @@ class G2PIntakeFormDataService(BaseService):
             if key in {"internal_record_id", "submission_id", "section_id"} or key not in mapper.columns:
                 continue
             setattr(existing, key, self._normalize_model_value(value, key, mapper))
-        if session is not None:
-            await existing.get_link_internal_record_id(session)
 
     def _normalize_model_value(self, value, key: str, mapper):
         if value is None or key not in mapper.columns:
