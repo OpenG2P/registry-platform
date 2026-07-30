@@ -15,4 +15,3 @@ export { default as RegistersConfigView } from './RegistersConfigView';
 export { default as SectionDetailsConfigView } from './SectionDetailsConfigView';
 export { default as ViewRegisterFieldsModal } from './ViewRegisterFieldsModal';
 export { default as ViewScoreDefinitionModal } from './ViewScoreDefinitionModal';
-export { default as EditIntakeFormModal } from './EditIntakeFormModal';

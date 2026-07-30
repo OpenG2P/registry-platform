@@ -133,6 +133,8 @@ class G2PIntakeFormDataService(BaseService):
             submission, section_id, documents, session
         )
         await session.flush()
+        await self._upsert_submission_search_text(submission, session)
+        await session.flush()
         return submission
 
     async def _upsert_submission_section_documents(

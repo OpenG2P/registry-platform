@@ -101,6 +101,20 @@ class G2PRegisterService(BaseService):
             master_register_data: RegisterData | None = await self._fetch_master_register(register_definition, session)
             return master_register_data
 
+    def _build_register_ui_tab_data(self, tab: G2PRegisterUITab) -> RegisterUITabData:
+        """Map current G2PRegisterUITab ORM columns into RegisterUITabData.
+
+        Intake-form-specific fields were removed from g2p_register_ui_tabs; response
+        schema keeps them as optional defaults for backward compatibility.
+        """
+        return RegisterUITabData(
+            tab_id=tab.tab_id,
+            register_id=tab.register_id,
+            tab_label=tab.tab_label,
+            tab_order=tab.tab_order,
+            is_active=tab.is_active,
+        )
+
     async def get_register_tabs(
         self,
         register_id: str,
@@ -111,6 +125,9 @@ class G2PRegisterService(BaseService):
         """
         Get register tabs with pagination.
         Returns (tabs_list, total_count).
+
+        ``used_for_new_intake_form`` is accepted for API compatibility but ignored;
+        that column no longer exists on g2p_register_ui_tabs.
         """
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
@@ -120,7 +137,6 @@ class G2PRegisterService(BaseService):
                 current_page,
                 page_size,
                 session,
-                used_for_new_intake_form,
             )
             return register_tabs_list, total_count
 
@@ -136,6 +152,14 @@ class G2PRegisterService(BaseService):
         intake_form_auto_approve: bool = False,
         is_active: bool = True
     ) -> RegisterUITabData:
+        # Intake-form kwargs kept for API compatibility; not stored on G2PRegisterUITab.
+        _ = (
+            used_for_new_intake_form,
+            no_of_verifications_required,
+            intake_form_name,
+            intake_form_description,
+            intake_form_auto_approve,
+        )
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
@@ -143,11 +167,6 @@ class G2PRegisterService(BaseService):
                 register_id,
                 tab_label,
                 tab_order,
-                used_for_new_intake_form,
-                no_of_verifications_required,
-                intake_form_name,
-                intake_form_description,
-                intake_form_auto_approve,
                 is_active,
                 session,
             )
@@ -158,11 +177,6 @@ class G2PRegisterService(BaseService):
         register_id: str,
         tab_label: str,
         tab_order: int,
-        used_for_new_intake_form: bool,
-        no_of_verifications_required: int,
-        intake_form_name: str | None,
-        intake_form_description: str | None,
-        intake_form_auto_approve: bool,
         is_active: bool,
         session
     ) -> RegisterUITabData:
@@ -170,30 +184,12 @@ class G2PRegisterService(BaseService):
             register_id=register_id,
             tab_label=tab_label,
             tab_order=tab_order,
-            used_for_new_intake_form=used_for_new_intake_form,
-            no_of_verifications_required=no_of_verifications_required,
-            intake_form_name=intake_form_name,
-            intake_form_description=intake_form_description,
-            intake_form_auto_approve=intake_form_auto_approve,
             is_active=is_active,
         )
         session.add(new_tab)
         await session.commit()
         await session.refresh(new_tab)
-
-        tab_data: RegisterUITabData = RegisterUITabData(
-            tab_id=new_tab.tab_id,
-            register_id=new_tab.register_id,
-            tab_label=new_tab.tab_label,
-            tab_order=new_tab.tab_order,
-            used_for_new_intake_form=new_tab.used_for_new_intake_form,
-            no_of_verifications_required=new_tab.no_of_verifications_required,
-            intake_form_name=new_tab.intake_form_name,
-            intake_form_description=new_tab.intake_form_description,
-            intake_form_auto_approve=new_tab.intake_form_auto_approve,
-            is_active=new_tab.is_active,
-        )
-        return tab_data
+        return self._build_register_ui_tab_data(new_tab)
 
     async def delete_register_tab(self, tab_id: str) -> RegisterUITabData:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -206,18 +202,7 @@ class G2PRegisterService(BaseService):
         if not tab:
             raise ValueError(f"Tab with tab_id '{tab_id}' not found.")
 
-        tab_data: RegisterUITabData = RegisterUITabData(
-            tab_id=tab.tab_id,
-            register_id=tab.register_id,
-            tab_label=tab.tab_label,
-            tab_order=tab.tab_order,
-            used_for_new_intake_form=tab.used_for_new_intake_form,
-            no_of_verifications_required=tab.no_of_verifications_required,
-            intake_form_name=tab.intake_form_name,
-            intake_form_description=tab.intake_form_description,
-            intake_form_auto_approve=tab.intake_form_auto_approve,
-            is_active=tab.is_active,
-        )
+        tab_data: RegisterUITabData = self._build_register_ui_tab_data(tab)
 
         tab_section_links = (
             await session.execute(
@@ -249,7 +234,17 @@ class G2PRegisterService(BaseService):
     ) -> RegisterUITabData:
         """
         Edit an existing UI tab.
+
+        Intake-form kwargs are accepted for API compatibility but ignored; those
+        columns no longer exist on g2p_register_ui_tabs.
         """
+        _ = (
+            used_for_new_intake_form,
+            no_of_verifications_required,
+            intake_form_name,
+            intake_form_description,
+            intake_form_auto_approve,
+        )
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             tab: G2PRegisterUITab | None = await session.get(G2PRegisterUITab, tab_id)
@@ -262,39 +257,13 @@ class G2PRegisterService(BaseService):
             if tab_order is not None:
                 tab.tab_order = tab_order
 
-            if used_for_new_intake_form is not None:
-                tab.used_for_new_intake_form = used_for_new_intake_form
-
-            if no_of_verifications_required is not None:
-                tab.no_of_verifications_required = no_of_verifications_required
-
-            if intake_form_name is not None:
-                tab.intake_form_name = intake_form_name
-
-            if intake_form_description is not None:
-                tab.intake_form_description = intake_form_description
-
-            if intake_form_auto_approve is not None:
-                tab.intake_form_auto_approve = intake_form_auto_approve
-
             if is_active is not None:
                 tab.is_active = is_active
 
             await session.commit()
             await session.refresh(tab)
 
-            return RegisterUITabData(
-                tab_id=tab.tab_id,
-                register_id=tab.register_id,
-                tab_label=tab.tab_label,
-                tab_order=tab.tab_order,
-                used_for_new_intake_form=tab.used_for_new_intake_form,
-                no_of_verifications_required=tab.no_of_verifications_required,
-                intake_form_name=tab.intake_form_name,
-                intake_form_description=tab.intake_form_description,
-                intake_form_auto_approve=tab.intake_form_auto_approve,
-                is_active=tab.is_active,
-            )
+            return self._build_register_ui_tab_data(tab)
 
     async def add_register_section(
         self,
@@ -316,16 +285,19 @@ class G2PRegisterService(BaseService):
         is_core_section: bool = False,
         section_ui_schema: dict = None
     ) -> RegisterSectionData:
+        # auto_approval / cr_auto_approve_for_intake_form / is_primary_section are no longer
+        # stored on g2p_register_sections; kept on the signature for API compatibility.
+        _ = (auto_approval, cr_auto_approve_for_intake_form, is_primary_section)
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
             await self._validate_register_tab(register_id, tab_id, session)
             section_data: RegisterSectionData = await self._create_register_section(
                 section_register_id, register_id, tab_id, section_mnemonic, section_description,
-                documents_required, no_of_verifications_required, auto_approval,
+                documents_required, no_of_verifications_required,
                 cr_auto_approve_for_bene_portal, cr_auto_approve_for_agent_portal,
-                cr_auto_approve_for_staff_portal, cr_auto_approve_for_partner, cr_auto_approve_for_intake_form,
-                is_list, is_primary_section, is_core_section, section_ui_schema, session
+                cr_auto_approve_for_staff_portal, cr_auto_approve_for_partner,
+                is_list, is_core_section, section_ui_schema, session
             )
             return section_data
 
@@ -346,14 +318,11 @@ class G2PRegisterService(BaseService):
         section_description: str,
         documents_required: bool,
         no_of_verifications_required: int,
-        auto_approval: bool,
         cr_auto_approve_for_bene_portal: bool,
         cr_auto_approve_for_agent_portal: bool,
         cr_auto_approve_for_staff_portal: bool,
         cr_auto_approve_for_partner: bool,
-        cr_auto_approve_for_intake_form: bool,
         is_list: bool,
-        is_primary_section: bool,
         is_core_section: bool,
         section_ui_schema: dict,
         session
@@ -365,14 +334,11 @@ class G2PRegisterService(BaseService):
             section_description=section_description,
             documents_required=documents_required,
             no_of_verifications_required=no_of_verifications_required,
-            auto_approval=auto_approval,
             cr_auto_approve_for_bene_portal=cr_auto_approve_for_bene_portal,
             cr_auto_approve_for_agent_portal=cr_auto_approve_for_agent_portal,
             cr_auto_approve_for_staff_portal=cr_auto_approve_for_staff_portal,
             cr_auto_approve_for_partner=cr_auto_approve_for_partner,
-            cr_auto_approve_for_intake_form=cr_auto_approve_for_intake_form,
             is_list=is_list,
-            is_primary_section=is_primary_section,
             is_core_section=is_core_section,
             section_ui_schema=section_ui_schema
         )
@@ -384,7 +350,7 @@ class G2PRegisterService(BaseService):
             register_id=register_id,
             tab_id=tab_id,
             section_id=new_section.section_id,
-            section_order=getattr(new_section, "section_order", 0),
+            section_order=0,
         )
         session.add(tab_section_mapping)
 
@@ -440,14 +406,17 @@ class G2PRegisterService(BaseService):
         is_core_section: bool = None,
         section_weightage: float = None,
     ) -> RegisterSectionData:
+        # auto_approval / cr_auto_approve_for_intake_form / is_primary_section ignored —
+        # columns removed from g2p_register_sections.
+        _ = (auto_approval, cr_auto_approve_for_intake_form, is_primary_section)
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             section_data: RegisterSectionData = await self._update_register_section(
                 section_id, section_mnemonic, section_description,
-                no_of_verifications_required, documents_required, auto_approval,
+                no_of_verifications_required, documents_required,
                 cr_auto_approve_for_bene_portal, cr_auto_approve_for_agent_portal,
-                cr_auto_approve_for_staff_portal, cr_auto_approve_for_partner, cr_auto_approve_for_intake_form,
-                is_primary_section, is_core_section, section_weightage, session
+                cr_auto_approve_for_staff_portal, cr_auto_approve_for_partner,
+                is_core_section, section_weightage, session
             )
             return section_data
 
@@ -458,13 +427,10 @@ class G2PRegisterService(BaseService):
         section_description: str,
         no_of_verifications_required: int,
         documents_required: bool,
-        auto_approval: bool,
         cr_auto_approve_for_bene_portal: bool,
         cr_auto_approve_for_agent_portal: bool,
         cr_auto_approve_for_staff_portal: bool,
         cr_auto_approve_for_partner: bool,
-        cr_auto_approve_for_intake_form: bool,
-        is_primary_section: bool,
         is_core_section: bool,
         section_weightage: float,
         session
@@ -481,8 +447,6 @@ class G2PRegisterService(BaseService):
             section.no_of_verifications_required = no_of_verifications_required
         if documents_required is not None:
             section.documents_required = documents_required
-        if auto_approval is not None:
-            section.auto_approval = auto_approval
         if cr_auto_approve_for_bene_portal is not None:
             section.cr_auto_approve_for_bene_portal = cr_auto_approve_for_bene_portal
         if cr_auto_approve_for_agent_portal is not None:
@@ -491,46 +455,10 @@ class G2PRegisterService(BaseService):
             section.cr_auto_approve_for_staff_portal = cr_auto_approve_for_staff_portal
         if cr_auto_approve_for_partner is not None:
             section.cr_auto_approve_for_partner = cr_auto_approve_for_partner
-        if cr_auto_approve_for_intake_form is not None:
-            section.cr_auto_approve_for_intake_form = cr_auto_approve_for_intake_form
         if is_core_section is not None:
             section.is_core_section = is_core_section
         if section_weightage is not None:
             section.section_weightage = section_weightage
-        if is_primary_section is not None:
-            # If setting to primary, unset any other primary section linked to the same tab(s).
-            if is_primary_section:
-                linked_tab_ids = (
-                    await session.execute(
-                        select(G2PRegisterUITabSection.tab_id).where(
-                            G2PRegisterUITabSection.register_id == section.register_id,
-                            G2PRegisterUITabSection.section_id == section.section_id,
-                        )
-                    )
-                ).scalars().all()
-
-                if linked_tab_ids:
-                    sibling_section_ids = (
-                        await session.execute(
-                            select(G2PRegisterUITabSection.section_id).where(
-                                G2PRegisterUITabSection.register_id == section.register_id,
-                                G2PRegisterUITabSection.tab_id.in_(linked_tab_ids),
-                                G2PRegisterUITabSection.section_id != section.section_id,
-                            )
-                        )
-                    ).scalars().all()
-
-                    if sibling_section_ids:
-                        existing_primary_result = await session.execute(
-                            select(G2PRegisterSection).where(
-                                G2PRegisterSection.section_id.in_(sibling_section_ids),
-                                G2PRegisterSection.is_primary_section.is_(True),
-                            )
-                        )
-                        existing_primary_sections = existing_primary_result.scalars().all()
-                        for existing_primary in existing_primary_sections:
-                            existing_primary.is_primary_section = False
-            section.is_primary_section = is_primary_section
 
         await session.commit()
         await session.refresh(section)
@@ -958,23 +886,7 @@ class G2PRegisterService(BaseService):
             )
         ).scalars().all()
 
-        register_tabs_list: list[RegisterUITabData] = []
-        for tab in register_tabs:
-            tab_data: RegisterUITabData = RegisterUITabData(
-                tab_id=tab.tab_id,
-                register_id=tab.register_id,
-                tab_label=tab.tab_label,
-                tab_order=tab.tab_order,
-                used_for_new_intake_form=tab.used_for_new_intake_form,
-                no_of_verifications_required=tab.no_of_verifications_required,
-                intake_form_name=tab.intake_form_name,
-                intake_form_description=tab.intake_form_description,
-                intake_form_auto_approve=tab.intake_form_auto_approve,
-                is_active=tab.is_active,
-            )
-            register_tabs_list.append(tab_data)
-
-        return register_tabs_list
+        return [self._build_register_ui_tab_data(tab) for tab in register_tabs]
 
     async def _fetch_register_tabs_paginated(
         self,
@@ -982,17 +894,12 @@ class G2PRegisterService(BaseService):
         current_page: int,
         page_size: int,
         session,
-        used_for_new_intake_form: bool | None = None,
     ) -> tuple[list[RegisterUITabData], int]:
         """
         Fetch register tabs with pagination.
         Returns (tabs_list, total_count).
         """
         filter_conditions: list = [G2PRegisterUITab.register_id == register_id]
-        if used_for_new_intake_form is not None:
-            filter_conditions.append(
-                G2PRegisterUITab.used_for_new_intake_form == used_for_new_intake_form
-            )
 
         # Get total count
         count_result = await session.execute(
@@ -1014,21 +921,9 @@ class G2PRegisterService(BaseService):
             )
         ).scalars().all()
 
-        register_tabs_list: list[RegisterUITabData] = []
-        for tab in register_tabs:
-            tab_data: RegisterUITabData = RegisterUITabData(
-                tab_id=tab.tab_id,
-                register_id=tab.register_id,
-                tab_label=tab.tab_label,
-                tab_order=tab.tab_order,
-                used_for_new_intake_form=tab.used_for_new_intake_form,
-                no_of_verifications_required=tab.no_of_verifications_required,
-                intake_form_name=tab.intake_form_name,
-                intake_form_description=tab.intake_form_description,
-                intake_form_auto_approve=tab.intake_form_auto_approve,
-                is_active=tab.is_active,
-            )
-            register_tabs_list.append(tab_data)
+        register_tabs_list: list[RegisterUITabData] = [
+            self._build_register_ui_tab_data(tab) for tab in register_tabs
+        ]
 
         return register_tabs_list, total_count
     
@@ -2121,7 +2016,11 @@ class G2PRegisterService(BaseService):
             section_data = await self._build_register_section_data(
                 section=section,
                 session=session,
-                register_purpose=section_register_definition.register_purpose,
+                register_purpose=(
+                    section_register_definition.register_purpose
+                    if section_register_definition is not None
+                    else None
+                ),
                 register_relation=register_relation,
             )
             sections_list.append(section_data)
@@ -2133,7 +2032,7 @@ class G2PRegisterService(BaseService):
         register_id: str,
         section_register_id: str,
         register_definition: G2PRegisterDefinition,
-        section_register_definition: G2PRegisterDefinition,
+        section_register_definition: G2PRegisterDefinition | None,
         session
     ) -> RegisterRelationEnum:
         """
@@ -2150,6 +2049,9 @@ class G2PRegisterService(BaseService):
             RegisterRelationEnum: SELF, DESCENDANT, DESCENDANT_OF_A_REGISTER, ANCESTOR, or PEER
         """
         if section_register_id == register_id:
+            return RegisterRelationEnum.SELF
+
+        if section_register_definition is None or register_definition is None:
             return RegisterRelationEnum.SELF
         
         # Direct child: section's register has this register as its master
@@ -2248,7 +2150,7 @@ class G2PRegisterService(BaseService):
                 G2PRegisterUITabSection.register_id == register_id,
                 G2PRegisterUITabSection.tab_id == tab_id,
             )
-            .order_by(G2PRegisterUITabSection.section_order, G2PRegisterSection.section_order)
+            .order_by(G2PRegisterUITabSection.section_order)
         )
         sections = result.scalars().all()
 
@@ -2289,7 +2191,11 @@ class G2PRegisterService(BaseService):
             section_data = await self._build_register_section_data(
                 section=section,
                 session=session,
-                register_purpose=section_register_definition.register_purpose,
+                register_purpose=(
+                    section_register_definition.register_purpose
+                    if section_register_definition is not None
+                    else None
+                ),
                 register_relation=register_relation,
             )
             sections_list.append(section_data)
@@ -2385,7 +2291,11 @@ class G2PRegisterService(BaseService):
             section_data = await self._build_register_section_data(
                 section=section,
                 session=session,
-                register_purpose=section_register_definition.register_purpose,
+                register_purpose=(
+                    section_register_definition.register_purpose
+                    if section_register_definition is not None
+                    else None
+                ),
                 register_relation=register_relation,
             )
             sections_list.append(section_data)
@@ -2436,7 +2346,11 @@ class G2PRegisterService(BaseService):
         return await self._build_register_section_data(
             section=section,
             session=session,
-            register_purpose=section_register_definition.register_purpose,
+            register_purpose=(
+                section_register_definition.register_purpose
+                if section_register_definition is not None
+                else None
+            ),
             register_relation=register_relation,
         )
 
@@ -2895,16 +2809,20 @@ class G2PRegisterService(BaseService):
     async def get_primary_register_section(self, register_id: str) -> RegisterSectionData | None:
         """
         Get the primary section for a register.
+
+        Primary is derived as a section whose section_register_id equals the register_id
+        (is_primary_section column was removed from g2p_register_sections). Prefer core
+        sections when multiple match.
         """
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             result = await session.execute(
                 select(G2PRegisterSection).where(
                     (G2PRegisterSection.register_id == register_id) &
-                    (G2PRegisterSection.is_primary_section == True)
-                )
+                    (G2PRegisterSection.section_register_id == register_id)
+                ).order_by(G2PRegisterSection.is_core_section.desc())
             )
-            primary_section: G2PRegisterSection = result.scalar()
+            primary_section: G2PRegisterSection = result.scalars().first()
 
             if not primary_section:
                 return None
@@ -3693,7 +3611,12 @@ class G2PRegisterService(BaseService):
         register_purpose: str | None = None,
         register_relation: RegisterRelationEnum | None = None,
     ) -> RegisterSectionData:
-        """Build RegisterSectionData."""
+        """Build RegisterSectionData from current G2PRegisterSection ORM columns.
+
+        Fields removed from the table (auto_approval, cr_auto_approve_for_intake_form,
+        is_primary_section, section_order) are derived or defaulted for API compatibility.
+        """
+        _ = session  # kept for call-site compatibility
 
         return RegisterSectionData(
             section_register_id=section.section_register_id,
@@ -3703,17 +3626,18 @@ class G2PRegisterService(BaseService):
             section_description=section.section_description,
             documents_required=section.documents_required,
             no_of_verifications_required=section.no_of_verifications_required,
-            auto_approval=section.auto_approval,
+            auto_approval=False,
             cr_auto_approve_for_bene_portal=section.cr_auto_approve_for_bene_portal,
             cr_auto_approve_for_agent_portal=section.cr_auto_approve_for_agent_portal,
             cr_auto_approve_for_staff_portal=section.cr_auto_approve_for_staff_portal,
             cr_auto_approve_for_partner=section.cr_auto_approve_for_partner,
-            cr_auto_approve_for_intake_form=section.cr_auto_approve_for_intake_form,
+            cr_auto_approve_for_intake_form=False,
             is_list=section.is_list,
             register_purpose=register_purpose,
-            is_primary_section=section.is_primary_section,
+            is_primary_section=section.section_register_id == section.register_id,
             is_core_section=section.is_core_section,
-            section_order=getattr(section, "section_order", 0),
+            section_order=0,
             section_ui_schema=section.section_ui_schema,
             register_relation=register_relation,
+            section_weightage=section.section_weightage,
         )

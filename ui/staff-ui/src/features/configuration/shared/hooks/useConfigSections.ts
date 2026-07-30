@@ -13,8 +13,8 @@ export function useConfigSections(tabId: string, page: number = 1, pageSize: num
             method: 'POST',
             body: JSON.stringify({
                 tab_id: tabId,
-                page,
-                pageSize
+                current_page: page,
+                page_size: pageSize
             })
         }
     });

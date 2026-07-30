@@ -27,12 +27,13 @@ export default function AddFormModal({ isOpen, onClose, onSuccess }: AddFormModa
             return;
         }
 
-        const result = await createForm('/api/configuration/registers/tabs/create', {
+        const result = await createForm('/api/configuration/registers/tab-metadata/create-tab', {
             method: 'POST',
             body: JSON.stringify({
                 register_id: registerId,
                 tab_label: formData.formName,
                 tab_order: Number(formData.formOrder) || 0,
+                is_active: true,
             })
         });
 

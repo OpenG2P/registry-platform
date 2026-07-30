@@ -13,8 +13,8 @@ export function useConfigTabs(registerId: string, page: number = 1, pageSize: nu
             method: 'POST',
             body: JSON.stringify({
                 register_id: registerId,
-                page,
-                pageSize
+                current_page: page,
+                page_size: pageSize
             })
         }
     });

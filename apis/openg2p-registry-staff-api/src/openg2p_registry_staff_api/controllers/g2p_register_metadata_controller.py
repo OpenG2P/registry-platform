@@ -8,19 +8,13 @@ from openg2p_registry_core.schemas import (
     ChildRegistersResponse, ChildRegisterData,
     GetChildRegistersRequest, GetMasterRegisterRequest,
     GetAllRegistersRequest,
-    GetRegisterSchemaRequest, GetRegisterFieldsRequest, GetRegisterSectionsRequest, GetRegisterTabSectionsRequest, GetRegisterTabsRequest,
-    AddRegisterTabRequest, DeleteRegisterTabRequest, EditRegisterTabRequest,
-    AddRegisterSectionRequest, DeleteRegisterSectionRequest, GetRegisterSectionUISchemaRequest,
-    UpdateRegisterSectionRequest, UpdateRegisterSectionUISchemaRequest,
+    GetRegisterSchemaRequest, GetRegisterFieldsRequest,
     CreateRegisterRequest, EditRegisterRequest, DeleteRegisterRequest, UpdateRegisterSchemaRequest,
     UpdateDedupIsEnabledRequest, UpdateDedupThresholdScoreRequest,
     UpdateDeduplicationSchemaRequest, UpdateSearchResultSchemaRequest,
     RegisterSchemaDataResponse, RegisterSchemaData,
     RegisterFieldsDataResponse,
-    RegisterSectionsDataResponse, RegisterSectionData, RegisterSectionDataResponse,
-    RegisterSectionUISchemaData, RegisterSectionUISchemaDataResponse,
-    RegisterDataResponse, RegisterUITabData, RegisterTabsDataResponse,
-    RegisterTabDataResponse
+    RegisterDataResponse,
 )
 from iam_core.user_auth.decorators import require_permissions
 
@@ -143,84 +137,10 @@ class G2PRegisterMetadataController(BaseController):
             methods=["POST"],
         )
 
-        # Register section endpoints
-        self.router.add_api_route(
-            "/get_register_sections",
-            self.get_register_sections,
-            responses={200: {"model": RegisterSectionsDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/get_register_tab_sections",
-            self.get_register_tab_sections,
-            responses={200: {"model": RegisterSectionsDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/add_register_section",
-            self.add_register_section,
-            responses={200: {"model": RegisterSectionDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/delete_register_section",
-            self.delete_register_section,
-            responses={200: {"model": RegisterSectionDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/update_register_section",
-            self.update_register_section,
-            responses={200: {"model": RegisterSectionDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/update_register_section_ui_schema",
-            self.update_register_section_ui_schema,
-            responses={200: {"model": RegisterSectionDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/get_register_section_ui_schema",
-            self.get_register_section_ui_schema,
-            responses={200: {"model": RegisterSectionUISchemaDataResponse}},
-            methods=["POST"],
-        )
-
-        # Register tab endpoints
-        self.router.add_api_route(
-            "/get_register_tabs",
-            self.get_register_tabs,
-            responses={200: {"model": RegisterTabsDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/add_register_tab",
-            self.add_register_tab,
-            responses={200: {"model": RegisterTabDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/delete_register_tab",
-            self.delete_register_tab,
-            responses={200: {"model": RegisterTabDataResponse}},
-            methods=["POST"],
-        )
-
-        self.router.add_api_route(
-            "/edit_register_tab",
-            self.edit_register_tab,
-            responses={200: {"model": RegisterTabDataResponse}},
-            methods=["POST"],
-        )
+        # Legacy /register-metadata tab and section CRUD routes removed.
+        # Use /register-tab-metadata/* and /register-section-metadata/* instead.
+        # get_register_sections remains available via bene-api
+        # (/beneficiary_portal/get_register_sections).
 
     @require_permissions({"registerDefinition:view"})
     async def get_all_registers(self, get_all_registers_request: GetAllRegistersRequest) -> AllRegistersResponse:
@@ -312,195 +232,6 @@ class G2PRegisterMetadataController(BaseController):
         except Exception as error_exception:
             _logger.error(f"Error in get_register_fields: {str(error_exception)}")
             return self.helper.construct_error_response(error_exception, get_register_fields_request)
-
-    @require_permissions({"registerSection:view"})
-    async def get_register_sections(self, get_register_sections_request: GetRegisterSectionsRequest) -> RegisterSectionsDataResponse:
-        """
-        Get all sections for a given register_id.
-        """
-        try:
-            register_sections_list: list[RegisterSectionData] = await self.g2p_register_metadata_controller_service.get_register_sections(get_register_sections_request)
-            register_sections_response: RegisterSectionsDataResponse = self.helper.construct_register_sections_success_response(
-                register_sections_list=register_sections_list, g2p_request=get_register_sections_request
-            )
-            return register_sections_response
-        except Exception as error_exception:
-            _logger.error(f"Error in get_register_sections: {str(error_exception)}")
-            error_response: RegisterSectionsDataResponse = self.helper.construct_error_response(error_exception, get_register_sections_request)
-            return error_response
-
-    @require_permissions({"registerSection:view"})
-    async def get_register_tab_sections(self, get_register_tab_sections_request: GetRegisterTabSectionsRequest) -> RegisterSectionsDataResponse:
-        """
-        Get all sections for a given register_id and tab_id with pagination.
-        """
-        try:
-            register_tab_sections_list, total_items, number_of_pages = await self.g2p_register_metadata_controller_service.get_register_tab_sections(get_register_tab_sections_request)
-            register_tab_sections_response: RegisterSectionsDataResponse = self.helper.construct_register_sections_success_response(
-                register_sections_list=register_tab_sections_list,
-                g2p_request=get_register_tab_sections_request,
-                number_of_items=total_items,
-                number_of_pages=number_of_pages
-            )
-            return register_tab_sections_response
-        except Exception as error_exception:
-            _logger.error(f"Error in get_register_tab_sections: {str(error_exception)}")
-            error_response: RegisterSectionsDataResponse = self.helper.construct_error_response(error_exception, get_register_tab_sections_request)
-            return error_response
-
-    @require_permissions({"registerSection:create"})
-    async def add_register_section(self, add_register_section_request: AddRegisterSectionRequest) -> RegisterSectionDataResponse:
-        """
-        Add a new section for a given register_id.
-        """
-        try:
-            section_data: RegisterSectionData = await self.g2p_register_metadata_controller_service.add_register_section(add_register_section_request)
-            section_response: RegisterSectionDataResponse = self.helper.construct_register_section_success_response(
-                register_section_data=section_data, g2p_request=add_register_section_request
-            )
-            return section_response
-        except Exception as error_exception:
-            _logger.error(f"Error in add_register_section: {str(error_exception)}")
-            error_response: RegisterSectionDataResponse = self.helper.construct_error_response(error_exception, add_register_section_request)
-            return error_response
-
-    @require_permissions({"registerSection:delete"})
-    async def delete_register_section(self, delete_register_section_request: DeleteRegisterSectionRequest) -> RegisterSectionDataResponse:
-        """
-        Delete a section by section_id.
-        """
-        try:
-            section_data: RegisterSectionData = await self.g2p_register_metadata_controller_service.delete_register_section(delete_register_section_request)
-            section_response: RegisterSectionDataResponse = self.helper.construct_register_section_success_response(
-                register_section_data=section_data, g2p_request=delete_register_section_request
-            )
-            return section_response
-        except Exception as error_exception:
-            _logger.error(f"Error in delete_register_section: {str(error_exception)}")
-            error_response: RegisterSectionDataResponse = self.helper.construct_error_response(error_exception, delete_register_section_request)
-            return error_response
-
-    @require_permissions({"registerSection:edit"})
-    async def update_register_section(self, update_register_section_request: UpdateRegisterSectionRequest) -> RegisterSectionDataResponse:
-        """
-        Update a section's metadata (not including UI schema).
-        """
-        try:
-            section_data: RegisterSectionData = await self.g2p_register_metadata_controller_service.update_register_section(update_register_section_request)
-            section_response: RegisterSectionDataResponse = self.helper.construct_register_section_success_response(
-                register_section_data=section_data, g2p_request=update_register_section_request
-            )
-            return section_response
-        except Exception as error_exception:
-            _logger.error(f"Error in update_register_section: {str(error_exception)}")
-            error_response: RegisterSectionDataResponse = self.helper.construct_error_response(error_exception, update_register_section_request)
-            return error_response
-
-    @require_permissions({"registerSection:edit"})
-    async def update_register_section_ui_schema(self, update_register_section_ui_schema_request: UpdateRegisterSectionUISchemaRequest) -> RegisterSectionDataResponse:
-        """
-        Update a section's UI schema.
-        """
-        try:
-            section_data: RegisterSectionData = await self.g2p_register_metadata_controller_service.update_register_section_ui_schema(update_register_section_ui_schema_request)
-            section_response: RegisterSectionDataResponse = self.helper.construct_register_section_success_response(
-                register_section_data=section_data, g2p_request=update_register_section_ui_schema_request
-            )
-            return section_response
-        except Exception as error_exception:
-            _logger.error(f"Error in update_register_section_ui_schema: {str(error_exception)}")
-            error_response: RegisterSectionDataResponse = self.helper.construct_error_response(error_exception, update_register_section_ui_schema_request)
-            return error_response
-
-    @require_permissions({"registerSection:view"})
-    async def get_register_section_ui_schema(
-        self, get_register_section_ui_schema_request: GetRegisterSectionUISchemaRequest
-    ) -> RegisterSectionUISchemaDataResponse:
-        """
-        Get UI schema for a specific section.
-        """
-        try:
-            section_ui_schema_data: RegisterSectionUISchemaData = await self.g2p_register_metadata_controller_service.get_register_section_ui_schema(
-                get_register_section_ui_schema_request
-            )
-            response: RegisterSectionUISchemaDataResponse = self.helper.construct_register_section_ui_schema_success_response(
-                register_section_ui_schema_data=section_ui_schema_data,
-                g2p_request=get_register_section_ui_schema_request
-            )
-            return response
-        except Exception as error_exception:
-            _logger.error(f"Error in get_register_section_ui_schema: {str(error_exception)}")
-            error_response: RegisterSectionUISchemaDataResponse = self.helper.construct_error_response(
-                error_exception, get_register_section_ui_schema_request
-            )
-            return error_response
-
-    @require_permissions({"registerTab:view"})
-    async def get_register_tabs(self, get_register_tabs_request: GetRegisterTabsRequest) -> RegisterTabsDataResponse:
-        """
-        Get all UI tabs for a given register_id with pagination.
-        """
-        try:
-            register_tabs_list, total_items, number_of_pages = await self.g2p_register_metadata_controller_service.get_register_tabs(get_register_tabs_request)
-            register_tabs_response: RegisterTabsDataResponse = self.helper.construct_register_tabs_success_response(
-                register_tabs_list=register_tabs_list,
-                g2p_request=get_register_tabs_request,
-                number_of_items=total_items,
-                number_of_pages=number_of_pages
-            )
-            return register_tabs_response
-        except Exception as error_exception:
-            _logger.error(f"Error in get_register_tabs: {str(error_exception)}")
-            error_response: RegisterTabsDataResponse = self.helper.construct_error_response(error_exception, get_register_tabs_request)
-            return error_response
-
-    @require_permissions({"registerTab:create"})
-    async def add_register_tab(self, add_register_tab_request: AddRegisterTabRequest) -> RegisterTabDataResponse:
-        """
-        Add a new UI tab for a given register_id.
-        """
-        try:
-            register_tab_data: RegisterUITabData = await self.g2p_register_metadata_controller_service.add_register_tab(add_register_tab_request)
-            register_tab_response: RegisterTabDataResponse = self.helper.construct_register_tab_success_response(
-                register_tab_data=register_tab_data, g2p_request=add_register_tab_request
-            )
-            return register_tab_response
-        except Exception as error_exception:
-            _logger.error(f"Error in add_register_tab: {str(error_exception)}")
-            error_response: RegisterTabDataResponse = self.helper.construct_error_response(error_exception, add_register_tab_request)
-            return error_response
-
-    @require_permissions({"registerTab:delete"})
-    async def delete_register_tab(self, delete_register_tab_request: DeleteRegisterTabRequest) -> RegisterTabDataResponse:
-        """
-        Delete a UI tab by tab_id.
-        """
-        try:
-            register_tab_data: RegisterUITabData = await self.g2p_register_metadata_controller_service.delete_register_tab(delete_register_tab_request)
-            register_tab_response: RegisterTabDataResponse = self.helper.construct_register_tab_success_response(
-                register_tab_data=register_tab_data, g2p_request=delete_register_tab_request
-            )
-            return register_tab_response
-        except Exception as error_exception:
-            _logger.error(f"Error in delete_register_tab: {str(error_exception)}")
-            error_response: RegisterTabDataResponse = self.helper.construct_error_response(error_exception, delete_register_tab_request)
-            return error_response
-
-    @require_permissions({"registerTab:edit"})
-    async def edit_register_tab(self, edit_register_tab_request: EditRegisterTabRequest) -> RegisterTabDataResponse:
-        """
-        Edit an existing UI tab.
-        """
-        try:
-            register_tab_data: RegisterUITabData = await self.g2p_register_metadata_controller_service.edit_register_tab(edit_register_tab_request)
-            register_tab_response: RegisterTabDataResponse = self.helper.construct_register_tab_success_response(
-                register_tab_data=register_tab_data, g2p_request=edit_register_tab_request
-            )
-            return register_tab_response
-        except Exception as error_exception:
-            _logger.error(f"Error in edit_register_tab: {str(error_exception)}")
-            error_response: RegisterTabDataResponse = self.helper.construct_error_response(error_exception, edit_register_tab_request)
-            return error_response
 
     @require_permissions({"registerDefinition:create"})
     async def create_register(self, create_register_request: CreateRegisterRequest) -> RegisterDataResponse:
