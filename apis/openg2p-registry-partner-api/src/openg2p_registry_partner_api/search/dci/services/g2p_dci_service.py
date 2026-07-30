@@ -71,7 +71,7 @@ class G2PDciService(BaseService):
                 reg_type = search_criteria.reg_type,
                 reg_record_type = search_criteria.reg_record_type,
                 reg_records = [
-                    self._render_reg_record_with_template(datum, template_file_id)
+                    self._render_reg_record_with_template(datum, template_store_id, bucket=template_bucket)
                     for datum in search_result_data
                 ]
             )
