@@ -19,6 +19,8 @@ export const WIDGET_TYPES = [
   'display',
   'profile',
   'geo-hierarchy',
+  'register-lookup',
+  'parent-lookup',
 ] as const;
 
 export const ORIENTATIONS = ['horizontal', 'vertical'] as const;
@@ -390,7 +392,7 @@ const baseWidgetSchema = {
           description: 'Label for the apply button in the lookup popup (default: Select {widget-label})',
         },
       },
-      description: 'Register lookup widget configuration',
+      description: 'Lookup widget configuration (register-lookup / parent-lookup)',
     },
     'widget-item': {
       type: 'object' as const,

@@ -117,7 +117,7 @@ const DialogTableField = memo(function DialogTableField({
       widget: widgetType,
       'widget-type': col['widget-type'] || 'input',
       'widget-id': cellWidgetId,
-      'widget-label': col['widget-label'],
+      'widget-label': col['widget-label'] || col['column-label'] || col['column-key'] || '',
       'widget-readonly': isReadonly || col['widget-readonly'] === true,
       'widget-data-path': undefined,
       'widget-data-default': col['widget-data-default'],
@@ -430,6 +430,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
     if (cellValue === null || cellValue === undefined || cellValue === '') return '-';
     if (widgetType === 'select') return null;
+    if (widgetType === 'parent-lookup') return null;
     if (column['widget-data-format']) return formatValue(cellValue, column['widget-data-format'], column.widget);
     return String(cellValue);
   }, [rows]);
@@ -528,7 +529,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                     style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
                   >
-                    {tSchema(t, col['widget-label'])}
+                    {tSchema(t, col['column-label'] || col['widget-label'] || col['column-key'])}
                   </th>
                 ))}
                 {((operations.edit || operations.remove) && !isReadonly) && (
@@ -585,6 +586,28 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                         <td key={key} className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm" style={cellStyle}>
                             <SelectDisplayValue config={displayConfig} value={row?.[key]} />
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    if (widgetType === 'parent-lookup' && displayValue === null) {
+                      const cellWidgetId = `${widgetConfig['widget-id']}-view-row-${rowIndex}-col-${key}`;
+                      const displayConfig: BaseWidgetConfig = {
+                        ...col,
+                        'widget-id': cellWidgetId,
+                        'widget-label': '',
+                        'widget-readonly': true,
+                        'widget-data-path': undefined,
+                        'widget-data-default': row?.[key] ?? '',
+                      };
+                      return (
+                        <td key={key} className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm table-cell-widget" style={cellStyle}>
+                            <WidgetRenderer
+                              config={displayConfig}
+                              schemaData={{ [cellWidgetId]: row?.[key] ?? '' }}
+                            />
                           </div>
                         </td>
                       );
