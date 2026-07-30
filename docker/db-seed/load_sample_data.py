@@ -41,9 +41,23 @@ JSON_COLUMNS_INDIVIDUAL = {"phone_numbers"}
 JSON_COLUMNS_HOUSEHOLD = set()
 
 # Geo is carried in the seed files as plain names (country..village). The
-# internal id + hierarchy JSON the registry stores are derived here, using the
-# SAME slug-path scheme as master-data's load_geo_data.py so the runtime
-# registry<->master-data join holds.
+# internal id + hierarchy JSON the registry stores are derived here as a
+# slug-path, matching the LEGACY master-data loader (load_geo_data.py + geo.csv).
+#
+# WARNING: that join no longer holds when Master Data is seeded from a country
+# pack, which is now the default. A pack uses the unit's P-code as
+# level_value_id, so MDS holds "XK01010101" while the rows written here carry
+# "kamuntu/jasiri/baraka/umani/bimaka". Nothing errors — the names in
+# geo_code_hierarchy_json still read correctly, so reports that unpack geo
+# positionally look fine — but these records cannot be joined to a boundary and
+# so never appear on a map.
+#
+# Only the small demography fixture (~500 people) is affected. The bulk analytics
+# sample reads its geography from MDS directly and is pack-coherent.
+#
+# Fixing it properly is two changes: regenerate openg2p-data/demography from a
+# pack so the name paths are real pack paths, and resolve those names against
+# MDS here to emit the actual level_value_id.
 GEO_LEVELS = ["country", "region", "district", "ward", "village"]
 
 
