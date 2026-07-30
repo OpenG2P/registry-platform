@@ -13,6 +13,8 @@ from openg2p_fastapi_common.app import Initializer as BaseInitializer
 from openg2p_fastapi_common.exception import BaseExceptionHandler        
 from openg2p_registry_core.services import (
     G2PIngestService,
+    G2PIntakeFormDataService,
+    G2PIntakeFormLinkService,
     G2PRegisterService,
     G2PGeoHierarchyService,
 )
@@ -32,6 +34,8 @@ class Initializer(BaseInitializer):
         # Services
         G2PRegisterService()
         G2PIngestService()
+        G2PIntakeFormDataService()
+        G2PIntakeFormLinkService()
         G2PRegisterChangeRequestService()
         G2PChangeRequestWorkerService()
         G2PGeoHierarchyService()
