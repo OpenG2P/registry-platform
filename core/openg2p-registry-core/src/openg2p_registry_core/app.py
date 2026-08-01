@@ -48,6 +48,7 @@ from .models import (
     DeduplicationRegisterResult,
     G2PAttribute,
     G2PAttributeValue,
+    G2PAttributeValueRole,
     G2PInputMechanism,
     G2PIntakeFormDefinition,
     G2PIntakeFormSubmission,
@@ -292,6 +293,9 @@ class Initializer(BaseInitializer):
             # Attribute Models
             await G2PAttribute.create_migrate()
             await G2PAttributeValue.create_migrate()
+            # New table, so create_all makes it on upgrade. It stays empty
+            # until a deployment opts into seeding code lists from CDS.
+            await G2PAttributeValueRole.create_migrate()
 
             # VC Configuration Models
             await G2PInputMechanism.create_migrate()

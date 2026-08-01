@@ -23,6 +23,15 @@ set -e
 #                   "false"). Enable alongside LOAD_SAMPLE_DATA so the geo ids the
 #                   registry rows derive already resolve in master_data.
 #
+# Country code lists (read from Master Data over HTTP, not SQL):
+#   LOAD_ATTRIBUTES   — "true" to copy the country's code lists from Master Data
+#                       into this registry's own attribute tables (default:
+#                       "false"). Requires the Master Data side to have been
+#                       installed with geoSeed.load.codelists enabled.
+#   MDS_BASE_URL      — e.g. http://master-data-master-data-api
+#   ATTRIBUTE_DOMAINS — comma-separated domain subtrees, e.g. "agriculture" for a
+#                       Farmer Registry. Empty loads the core lists only.
+#
 # AWE database (implementation extension data; optional):
 #   AWE_DB_SEED_ENABLED — "true" to seed the AWE Postgres database
 #   AWE_PGHOST, AWE_PGPORT, AWE_PGDATABASE, AWE_PGUSER, AWE_PGPASSWORD
@@ -33,6 +42,7 @@ set -e
 
 PGPORT="${PGPORT:-5432}"
 LOAD_GEO_DATA="${LOAD_GEO_DATA:-false}"
+LOAD_ATTRIBUTES="${LOAD_ATTRIBUTES:-false}"
 LOAD_SAMPLE_DATA="${LOAD_SAMPLE_DATA:-false}"
 LOAD_IMAGES="${LOAD_IMAGES:-false}"
 LOAD_TEMPLATES="${LOAD_TEMPLATES:-false}"
@@ -103,6 +113,7 @@ echo " Registry DB : ${PGDATABASE}@${PGHOST}:${PGPORT}"
 echo " Master DB   : ${MD_PGDATABASE:-unset}@${MD_PGHOST:-unset}:${MD_PGPORT:-5432}"
 echo " AWE DB seed : ${AWE_DB_SEED_ENABLED}"
 echo " Geo data    : ${LOAD_GEO_DATA}"
+echo " Code lists  : ${LOAD_ATTRIBUTES} (from ${MDS_BASE_URL:-unset})"
 echo " Sample data : ${LOAD_SAMPLE_DATA}"
 echo " Images      : ${LOAD_IMAGES}"
 echo " Templates   : ${LOAD_TEMPLATES}"
@@ -118,6 +129,17 @@ if [ "$LOAD_GEO_DATA" = "true" ]; then
   python3 /seed/load_geo_data.py
 else
   echo "[db-seed] Skipping geo data (LOAD_GEO_DATA=${LOAD_GEO_DATA})."
+fi
+
+# 2b. Optionally copy the country's code lists from Master Data into this
+#     registry's own attribute tables. Runs AFTER meta_data so the extension's
+#     own fixture is in place first and the pack updates it rather than racing
+#     it, and BEFORE sample data so seeded records reference values that exist.
+if [ "$LOAD_ATTRIBUTES" = "true" ]; then
+  echo "[db-seed] Loading country code lists from Master Data ..."
+  python3 /seed/load_attributes_from_mds.py
+else
+  echo "[db-seed] Skipping code lists (LOAD_ATTRIBUTES=${LOAD_ATTRIBUTES})."
 fi
 
 # 3. Optionally load sample data from openg2p-data (CSV + farmer sub-table JSON)

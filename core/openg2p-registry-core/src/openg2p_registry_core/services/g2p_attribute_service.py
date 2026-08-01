@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..models import G2PAttribute, G2PAttributeValue
+from ..models import G2PAttribute, G2PAttributeValue, G2PAttributeValueRole
 from ..repositories import AttributeValueRepository
 from ..schemas import AttributeData, AttributeValueData
 from .g2p_data_policy_service import G2PDataPolicyService
@@ -336,6 +336,74 @@ class G2PAttributeService(BaseService):
         await session.flush()
         await self._clear_attribute_cache()
         return value_id
+
+    # ── Roles ────────────────────────────────────────────────────────────────
+    # Additive. Reads g2p_attribute_value_roles, which is empty on any
+    # deployment that has not opted into seeding code lists from CDS — so these
+    # return nothing rather than failing, and every existing caller is
+    # unaffected because none of them call this yet.
+
+    async def values_for_role(
+        self,
+        role: str,
+        session: Optional[AsyncSession] = None,
+    ) -> List[AttributeValueData]:
+        """Every value tagged with `role`, in the country's own list.
+
+        This is how logic should ask. Written as a literal —
+        ``relationship_to_head == "SELF"`` — the same question returns nothing
+        at all for a country that names that value differently, and returning
+        nothing is indistinguishable from "no such people": the registry reports
+        zero heads of household and no error anywhere.
+        """
+
+        async def _run(db_session: AsyncSession) -> List[AttributeValueData]:
+            query = (
+                select(G2PAttributeValue)
+                .join(
+                    G2PAttributeValueRole,
+                    G2PAttributeValueRole.value_id == G2PAttributeValue.value_id,
+                )
+                .where(G2PAttributeValueRole.role == role)
+                .order_by(G2PAttributeValue.attribute_id, G2PAttributeValue.sort_order)
+            )
+            result = await db_session.execute(query)
+            return [self._value_to_data(v) for v in result.scalars().all()]
+
+        if session is not None:
+            return await _run(session)
+
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as db_session:
+            return await _run(db_session)
+
+    async def value_code_for_role(
+        self,
+        role: str,
+        session: Optional[AsyncSession] = None,
+    ) -> Optional[str]:
+        """The single value code holding `role`, or None.
+
+        For the roles roles.json marks as cardinality "one" — head_of_household,
+        female, disability_yes. None means the pack does not tag it, which the
+        caller must handle: silently substituting a guess is how a literal gets
+        reintroduced.
+
+        Ambiguity is logged rather than raised. A registry that refuses to start
+        because a country pack tagged two values is worse than one that runs and
+        says so; the pack validator is where this is meant to fail, and it does.
+        """
+        values = await self.values_for_role(role, session)
+        if not values:
+            return None
+        if len(values) > 1:
+            _logger.warning(
+                "role '%s' is held by %d values (%s) but is single-valued — using the first",
+                role,
+                len(values),
+                ", ".join(v.value_code for v in values),
+            )
+        return values[0].value_code
 
     def _attribute_to_data(self, attribute: G2PAttribute) -> AttributeData:
         return AttributeData(

@@ -4,6 +4,7 @@
 #   - entrypoint.sh          (applies meta_data / awe_meta_data SQL, runtime env-driven)
 #   - load_sample_data.py    (demography CSV + registry sub-table JSON)
 #   - load_geo_data.py       (geo hierarchy into master_data)
+#   - load_attributes_from_mds.py (country code lists from Master Data)
 #   - upload_images.py       (profile images → MinIO)
 #   - upload_templates.py    (Jinja templates → MinIO)
 #   - openg2p-data           (shared demography CSV + images, cloned at build time)
@@ -66,10 +67,12 @@ COPY docker/db-seed/upload_templates.py /seed/upload_templates.py
 COPY docker/db-seed/upload_images.py /seed/upload_images.py
 COPY docker/db-seed/load_sample_data.py /seed/load_sample_data.py
 COPY docker/db-seed/load_geo_data.py /seed/load_geo_data.py
+COPY docker/db-seed/load_attributes_from_mds.py /seed/load_attributes_from_mds.py
 RUN chmod +x /seed/entrypoint.sh \
              /seed/upload_templates.py \
              /seed/upload_images.py \
              /seed/load_sample_data.py \
-             /seed/load_geo_data.py
+             /seed/load_geo_data.py \
+             /seed/load_attributes_from_mds.py
 
 ENTRYPOINT ["/seed/entrypoint.sh"]
