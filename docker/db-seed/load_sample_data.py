@@ -358,6 +358,119 @@ def load_people_from_mds() -> tuple:
     return individuals, households
 
 
+# ── Attaching the registry's own sample rows to the loaded people ───────────
+#
+# The sub-table fixtures (land, crops, housing, programmes, vulnerability) link
+# to the id space of the demography CSV — i0001, h001. Once people come from
+# master-data those ids are ETH-IND-0001 and ETH-HH-001, and every one of those
+# rows links to a record that does not exist. Nothing errors: the insert has no
+# foreign key to violate, so they land as orphans and the registry comes up with
+# farmers who own no land and households with no housing data.
+#
+# So the links are remapped onto whoever was actually loaded.
+
+_REMAP_STATS = {}
+
+
+def build_link_remap(individuals: list, households: list, fixture_rows: dict) -> dict:
+    """old link id -> loaded record id.
+
+    Distinct old ids are mapped in sorted order onto the loaded records, cycling
+    when there are fewer people than the fixtures assume — the country pack
+    carries a couple of dozen samples where the CSV carried five hundred, and
+    dropping the surplus would empty most of the form.
+
+    Person ids and household ids are mapped separately: a row linking to a
+    household must not be handed a person.
+    """
+    ind_ids = [i["internal_record_id"] for i in individuals]
+    hh_ids = [h["internal_record_id"] for h in households]
+    if not ind_ids and not hh_ids:
+        return {}
+
+    # Ids the fixtures define themselves. A crop links to its parcel, and a
+    # parcel is a fixture row, not a person — remapping that link would move the
+    # crop onto a farmer and lose the parcel. Only links pointing OUT of the
+    # fixture set name people or households.
+    fixture_own_ids = {
+        r["internal_record_id"]
+        for rows in fixture_rows.values()
+        for r in rows
+        if r.get("internal_record_id")
+    }
+
+    old_person, old_household = set(), set()
+    for rows in fixture_rows.values():
+        for r in rows:
+            link = r.get("link_internal_record_id")
+            if not link or link in fixture_own_ids:
+                continue
+            # The fixtures' own convention, and the only signal available for
+            # the rest: an id starting 'h' is a household, anything else a person.
+            (old_household if str(link).startswith("h") else old_person).add(link)
+
+    # An id that already names a loaded record maps to itself. That makes this a
+    # strict no-op on the CSV path, where the fixtures and the people share an id
+    # space — rather than relying on the two happening to be in the same order.
+    loaded = set(ind_ids) | set(hh_ids)
+    remap = {}
+    for old_set, new_ids in ((sorted(old_person), ind_ids), (sorted(old_household), hh_ids)):
+        if not new_ids:
+            continue
+        unmatched = [o for o in old_set if o not in loaded]
+        for old in old_set:
+            if old in loaded:
+                remap[old] = old
+        for index, old in enumerate(unmatched):
+            remap[old] = new_ids[index % len(new_ids)]
+    return remap
+
+
+def remap_links(table: str, rows: list, remap: dict) -> list:
+    """Repoint a fixture's links, and collapse it to one row per record when it
+    was one row per record to begin with.
+
+    Cycling turns 500 links into 21, so a table carrying exactly one row per
+    person — housing, vulnerability — would otherwise give each of them a
+    couple of dozen. Whether a table is one-per-record is read from the fixture
+    rather than configured: if every original link appeared once, it is.
+    """
+    if not remap:
+        return rows
+    links = [r.get("link_internal_record_id") for r in rows if r.get("link_internal_record_id")]
+    one_per_record = links and len(set(links)) == len(links)
+
+    out, seen, unresolved = [], set(), 0
+    for r in rows:
+        link = r.get("link_internal_record_id")
+        if link in remap:
+            r = dict(r, link_internal_record_id=remap[link])
+            if one_per_record:
+                if r["link_internal_record_id"] in seen:
+                    continue
+                seen.add(r["link_internal_record_id"])
+        elif link:
+            # Points at another sub-table row rather than a person — a crop's
+            # parcel. Those ids are internal to the fixture and stay valid.
+            unresolved += 1
+        out.append(r)
+
+    _REMAP_STATS[table] = (len(rows), len(out), unresolved)
+    return out
+
+
+def report_link_remap() -> None:
+    if not _REMAP_STATS:
+        return
+    for table, (before, after, unresolved) in sorted(_REMAP_STATS.items()):
+        note = f"{table}: {before} fixture row(s) -> {after} attached"
+        if before != after:
+            note += " (one row per record; surplus dropped)"
+        if unresolved:
+            note += f", {unresolved} linked within the fixture"
+        print(f"[load-sample-data]   {note}")
+
+
 def report_geo_resolution() -> None:
     resolved, fallback = _GEO_STATS["resolved"], _GEO_STATS["fallback"]
     if not (resolved or fallback):
@@ -787,19 +900,30 @@ def main() -> None:
     conn.autocommit = False
     cur = conn.cursor()
 
+    # Read every fixture first: the remap has to see all the links before it can
+    # assign them, or two tables referring to the same person would disagree.
+    fixtures = {fname: load_json(FARMER_DATA_DIR / fname) for _, fname, _, _ in SUB_TABLES}
+    fixtures["scores.json"] = load_json(FARMER_DATA_DIR / "scores.json")
+    fixtures["household_members.json"] = members
+    remap = build_link_remap(individuals, households, fixtures)
+    if remap:
+        print(f"[load-sample-data] attaching fixture rows to {len(set(remap.values()))} "
+              f"loaded record(s) ({len(remap)} fixture id(s) remapped):")
+
     try:
         insert_farmers(cur, individuals, farmer_extras)
         insert_households(cur, households)
-        insert_household_members(cur, members, ind_by_id)
+        insert_household_members(
+            cur, remap_links("g2p_register_household_members", members, remap), ind_by_id)
         for table, fname, extras, json_cols in SUB_TABLES:
-            rows = load_json(FARMER_DATA_DIR / fname)
+            rows = remap_links(table, fixtures[fname], remap)
             if table == "g2p_register_lands":
                 # lands.json carries geo as plain names; derive the DB id + JSON.
                 for r in rows:
                     r["geo_lowest_level_value_id"] = geo_lowest_id(r)
                     r["geo_code_hierarchy_json"] = geo_hierarchy_dict(r)
             insert_sub_table(cur, table, rows, extras, json_cols)
-        insert_scores(cur, load_json(FARMER_DATA_DIR / "scores.json"))
+        insert_scores(cur, remap_links("g2p_register_scores", fixtures["scores.json"], remap))
 
         # Seed completion-score computation queue for Farmer + Household records.
         enqueue_completion_scores(
@@ -812,6 +936,7 @@ def main() -> None:
         )
 
         conn.commit()
+        report_link_remap()
         report_geo_resolution()
         print("[load-sample-data] Done.")
     except Exception as exc:
