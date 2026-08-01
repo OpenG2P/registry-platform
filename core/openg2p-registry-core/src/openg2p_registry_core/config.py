@@ -67,6 +67,13 @@ class Settings(IamSettings):
     registrant_auth_redis_url: str | None = "redis://localhost:6379/0"  # Redis URL for storing session data
     registrant_auth_claims_encryption_key: str | None = None
 
+    # Check a record's coded values against the lists seeded from the country
+    # pack (see the db-seed LOAD_ATTRIBUTES step). Off by default: with it off,
+    # submission validates exactly as it does today, via the compiled enums.
+    # Turn it on once the lists are seeded — that is what makes the enums
+    # removable, since they are the only thing checking values until then.
+    validate_attribute_values: bool = False
+
     # AWE (Approval Workflow Engine) client
     awe_enabled: bool = False
     # Host only, e.g. https://awe.dev.openg2p.org (do not include /v1/awe)

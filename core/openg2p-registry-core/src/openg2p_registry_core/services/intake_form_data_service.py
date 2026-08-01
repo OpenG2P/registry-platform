@@ -37,6 +37,7 @@ from ..models import (
     RegisterPurposeEnum,
     SubmissionSourceEnum,
 )
+from .g2p_attribute_value_validator import G2PAttributeValueValidator
 from .filter_builder import FilterBuilder
 from ..schemas import (
     DocumentAttachment,
@@ -141,6 +142,11 @@ class G2PIntakeFormDataService(BaseService):
         module = importlib.import_module("openg2p_registry_extensions.register_domain.factory")
         domain_factory = getattr(module, "G2PRegisterDomainFactory").get_component()
         domain_service = domain_factory.get_domain_service(section_register_definition.register_mnemonic)
+        # Same coded-value check the change-request path applies. Intake forms
+        # are a second way in, so leaving it out here would mean values rejected
+        # at one door are accepted at the other.
+        await G2PAttributeValueValidator.get_component().validate_records(section_payload or [])
+
         if domain_service:
             await domain_service.validate_domain_attributes(section_payload or [])
 

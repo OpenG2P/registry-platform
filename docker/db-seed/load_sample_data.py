@@ -40,24 +40,24 @@ FARMER_DATA_DIR = Path(os.environ.get("FARMER_SEED_DATA_DIR", "/seed/seed-data")
 JSON_COLUMNS_INDIVIDUAL = {"phone_numbers"}
 JSON_COLUMNS_HOUSEHOLD = set()
 
-# Geo is carried in the seed files as plain names (country..village). The
-# internal id + hierarchy JSON the registry stores are derived here as a
-# slug-path, matching the LEGACY master-data loader (load_geo_data.py + geo.csv).
+# Geo is carried in the seed files as plain names (country..village); the id the
+# registry stores has to be derived from them.
 #
-# WARNING: that join no longer holds when Master Data is seeded from a country
-# pack, which is now the default. A pack uses the unit's P-code as
-# level_value_id, so MDS holds "XK01010101" while the rows written here carry
-# "kamuntu/jasiri/baraka/umani/bimaka". Nothing errors — the names in
-# geo_code_hierarchy_json still read correctly, so reports that unpack geo
-# positionally look fine — but these records cannot be joined to a boundary and
-# so never appear on a map.
+# It is RESOLVED against master-data rather than computed, because only
+# master-data knows what its own ids are. Seeded from a country pack — now the
+# default — a unit's id is its P-code, so master-data holds "XK01010101" while
+# the slug-path this used to compute, "kamuntu/jasiri/baraka/umani/bimaka",
+# matches nothing. Nothing errors either: the names in geo_code_hierarchy_json
+# still read correctly, so reports that unpack geo positionally look right, and
+# the only symptom is that these records never appear on a map.
 #
-# Only the small demography fixture (~500 people) is affected. The bulk analytics
-# sample reads its geography from MDS directly and is pack-coherent.
+# Resolution walks the name chain through parent links rather than matching
+# names globally, since a village name repeats under different wards.
 #
-# Fixing it properly is two changes: regenerate openg2p-data/demography from a
-# pack so the name paths are real pack paths, and resolve those names against
-# MDS here to emit the actual level_value_id.
+# The slug-path remains as the fallback for when master-data is unreachable, is
+# empty, or was seeded by the legacy loader (load_geo_data.py + geo.csv), whose
+# ids ARE slug-paths. So this works against either style and never does worse
+# than before; whichever path was taken is reported at the end.
 GEO_LEVELS = ["country", "region", "district", "ward", "village"]
 
 
@@ -65,29 +65,124 @@ def _slug(name: str) -> str:
     return name.strip().lower().replace(" ", "_")
 
 
+# (parent_level_value_id or "", lowercased name) -> level_value_id, read once
+# from master-data. Empty when master-data is unreachable or unseeded, which is
+# what puts every lookup on the slug-path fallback.
+_GEO_INDEX: dict = {}
+_GEO_STATS = {"resolved": 0, "fallback": 0, "unresolved_examples": []}
+
+
+def load_geo_index() -> dict:
+    """Index master-data's units by (parent id, name) so a name chain resolves.
+
+    Best effort on purpose. A missing MD_PG* env, an unreachable database or an
+    empty table all mean the same thing here — no ids to resolve against — and
+    none of them should stop sample data loading, which worked without any of
+    this before.
+    """
+    host = os.environ.get("MD_PGHOST")
+    dbname = os.environ.get("MD_PGDATABASE")
+    if not host or not dbname:
+        print("[load-sample-data] MD_PG* not set — geo ids fall back to slug-paths.")
+        return {}
+    try:
+        conn = psycopg2.connect(
+            host=host,
+            port=os.environ.get("MD_PGPORT", "5432"),
+            dbname=dbname,
+            user=os.environ.get("MD_PGUSER", ""),
+            password=os.environ.get("MD_PGPASSWORD", ""),
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[load-sample-data] master-data unreachable ({exc}) — geo ids fall back to slug-paths.")
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "select level_value_id, level_value_mnemonic, coalesce(parent_level_value_id, '')"
+                "  from g2p_geo_level_values"
+            )
+            index = {(parent, name.strip().lower()): vid for vid, name, parent in cur.fetchall()}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[load-sample-data] could not read master-data geo ({exc}) — slug-paths.")
+        return {}
+    finally:
+        conn.close()
+    print(f"[load-sample-data] master-data geo: {len(index)} units available for resolution.")
+    return index
+
+
+def resolve_geo_chain(rec: dict) -> list:
+    """Resolve country..village names to master-data's own ids, or [] if any
+    link is missing. Partial resolution is deliberately not returned: half a
+    chain produces a hierarchy whose upper levels join and whose lower ones do
+    not, which is harder to notice than none of it joining."""
+    if not _GEO_INDEX:
+        return []
+    ids, parent = [], ""
+    for level in GEO_LEVELS:
+        name = str(rec.get(level) or "").strip().lower()
+        found = _GEO_INDEX.get((parent, name))
+        if not found:
+            return []
+        ids.append(found)
+        parent = found
+    return ids
+
+
+def geo_ids(rec: dict) -> list:
+    """One id per level — master-data's where they resolve, slug-paths where not."""
+    resolved = resolve_geo_chain(rec)
+    if resolved:
+        _GEO_STATS["resolved"] += 1
+        return resolved
+    _GEO_STATS["fallback"] += 1
+    if len(_GEO_STATS["unresolved_examples"]) < 3:
+        _GEO_STATS["unresolved_examples"].append(
+            "/".join(str(rec.get(level) or "") for level in GEO_LEVELS)
+        )
+    return ["/".join(_slug(rec[GEO_LEVELS[i]]) for i in range(depth + 1))
+            for depth in range(len(GEO_LEVELS))]
+
+
 def geo_lowest_id(rec: dict) -> str:
-    """Slug-path of the full country..village chain (= master-data PK)."""
-    return "/".join(_slug(rec[level]) for level in GEO_LEVELS)
+    """The id of the record's lowest geo unit."""
+    return geo_ids(rec)[-1]
 
 
 def geo_hierarchy_dict(rec: dict) -> dict:
     """Build geo_code_hierarchy_json from the name columns, matching the shape
     registry-core's G2PGeoHierarchyService produces at runtime."""
-    hierarchy = []
-    for depth, level in enumerate(GEO_LEVELS):
-        node_id = "/".join(_slug(rec[GEO_LEVELS[i]]) for i in range(depth + 1))
-        hierarchy.append(
+    ids = geo_ids(rec)
+    return {
+        "hierarchy": [
             {
                 "level_mnemonic": level,
                 "level_value_mnemonic": rec[level],
-                "level_value_id": node_id,
+                "level_value_id": ids[depth],
             }
-        )
-    return {"hierarchy": hierarchy}
+            for depth, level in enumerate(GEO_LEVELS)
+        ]
+    }
 
 
 def geo_hierarchy(rec: dict):
     return to_json(geo_hierarchy_dict(rec))
+
+
+def report_geo_resolution() -> None:
+    resolved, fallback = _GEO_STATS["resolved"], _GEO_STATS["fallback"]
+    if not (resolved or fallback):
+        return
+    print(f"[load-sample-data] geo ids: {resolved} resolved against master-data, "
+          f"{fallback} fell back to slug-paths.")
+    if fallback:
+        # Never silent: a fallback id joins to nothing when master-data was
+        # seeded from a pack, and the only symptom is an empty map.
+        print("[load-sample-data]   unresolved name chains, e.g. "
+              + "; ".join(_GEO_STATS["unresolved_examples"]))
+        print("[load-sample-data]   those records will not join to a boundary. "
+              "Check the sample data's place names match the loaded country pack.")
 
 
 def env(name: str) -> str:
@@ -473,6 +568,11 @@ def main() -> None:
     print(f"[load-sample-data] OPENG2P_DATA_DIR = {OPENG2P_DATA_DIR}")
     print(f"[load-sample-data] FARMER_SEED_DATA_DIR = {FARMER_DATA_DIR}")
 
+    # Before anything derives a geo id. Read once; every record resolves
+    # against this rather than reopening master-data per row.
+    global _GEO_INDEX
+    _GEO_INDEX = load_geo_index()
+
     individuals = _read_csv_rows(DEMO_DIR / "individuals.csv", JSON_COLUMNS_INDIVIDUAL)
     households = _read_csv_rows(DEMO_DIR / "households.csv", JSON_COLUMNS_HOUSEHOLD)
     ind_by_id = {i["internal_record_id"]: i for i in individuals}
@@ -515,6 +615,7 @@ def main() -> None:
         )
 
         conn.commit()
+        report_geo_resolution()
         print("[load-sample-data] Done.")
     except Exception as exc:
         conn.rollback()

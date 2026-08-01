@@ -51,6 +51,7 @@ from .g2p_awe_status_reconcile import (
     REGISTRY_CHANGE_REQUEST_ARTIFACT,
     reconcile_artifact_status_summary,
 )
+from .g2p_attribute_value_validator import G2PAttributeValueValidator
 from .g2p_register_domain_service import G2PRegisterDomainService
 from .g2p_register_history_service import G2PRegisterHistoryService
 from .g2p_register_service import G2PRegisterService
@@ -2181,6 +2182,12 @@ class G2PRegisterChangeRequestService(BaseService):
         records: list[dict],
         section_register_mnemonic: str,
     ) -> None:
+        # Coded values first, and for every register — the check is the same one
+        # whatever the domain, and hooking it here means an extension inherits it
+        # without implementing anything. No-op unless
+        # registry_core_validate_attribute_values is on.
+        await G2PAttributeValueValidator.get_component().validate_records(records)
+
         domain_service = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)
         if domain_service:
             await domain_service.validate_domain_attributes(records)
