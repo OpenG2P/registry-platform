@@ -124,6 +124,8 @@ spec:
               value: {{ .Values.dbSeed.loadAttributes | default false | quote }}
             - name: MDS_BASE_URL
               value: {{ tpl (.Values.global.masterDataApiUrl | default "") $ | quote }}
+            - name: SYNC_GEO_WIDGETS
+              value: {{ .Values.dbSeed.syncGeoWidgets | default false | quote }}
             - name: ATTRIBUTE_DOMAINS
               value: {{ join "," (.Values.dbSeed.attributeDomains | default list) | quote }}
             - name: LOAD_SAMPLE_DATA

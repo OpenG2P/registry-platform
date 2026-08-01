@@ -31,6 +31,10 @@ set -e
 #   MDS_BASE_URL      — e.g. http://master-data-master-data-api
 #   ATTRIBUTE_DOMAINS — comma-separated domain subtrees, e.g. "agriculture" for a
 #                       Farmer Registry. Empty loads the core lists only.
+#   SYNC_GEO_WIDGETS  — "true" to match the register's geo dropdowns to the
+#                       hierarchy Master Data actually holds (default: "false").
+#                       An extension's metadata hard-codes level names and depth;
+#                       a country whose pack disagrees gets empty dropdowns.
 #
 # AWE database (implementation extension data; optional):
 #   AWE_DB_SEED_ENABLED — "true" to seed the AWE Postgres database
@@ -43,6 +47,7 @@ set -e
 PGPORT="${PGPORT:-5432}"
 LOAD_GEO_DATA="${LOAD_GEO_DATA:-false}"
 LOAD_ATTRIBUTES="${LOAD_ATTRIBUTES:-false}"
+SYNC_GEO_WIDGETS="${SYNC_GEO_WIDGETS:-false}"
 LOAD_SAMPLE_DATA="${LOAD_SAMPLE_DATA:-false}"
 LOAD_IMAGES="${LOAD_IMAGES:-false}"
 LOAD_TEMPLATES="${LOAD_TEMPLATES:-false}"
@@ -140,6 +145,15 @@ if [ "$LOAD_ATTRIBUTES" = "true" ]; then
   python3 /seed/load_attributes_from_mds.py
 else
   echo "[db-seed] Skipping code lists (LOAD_ATTRIBUTES=${LOAD_ATTRIBUTES})."
+fi
+
+# 2c. Optionally match the register's geo dropdowns to the loaded country. After
+#     meta_data, since it rewrites what meta_data just inserted.
+if [ "$SYNC_GEO_WIDGETS" = "true" ]; then
+  echo "[db-seed] Syncing geo widgets to the loaded country hierarchy ..."
+  python3 /seed/sync_geo_widgets.py
+else
+  echo "[db-seed] Skipping geo-widget sync (SYNC_GEO_WIDGETS=${SYNC_GEO_WIDGETS})."
 fi
 
 # 3. Optionally load sample data from openg2p-data (CSV + farmer sub-table JSON)

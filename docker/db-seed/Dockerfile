@@ -5,6 +5,7 @@
 #   - load_sample_data.py    (demography CSV + registry sub-table JSON)
 #   - load_geo_data.py       (geo hierarchy into master_data)
 #   - load_attributes_from_mds.py (country code lists from Master Data)
+#   - sync_geo_widgets.py    (geo dropdowns -> the loaded hierarchy)
 #   - upload_images.py       (profile images → MinIO)
 #   - upload_templates.py    (Jinja templates → MinIO)
 #   - openg2p-data           (shared demography CSV + images, cloned at build time)
@@ -68,11 +69,13 @@ COPY docker/db-seed/upload_images.py /seed/upload_images.py
 COPY docker/db-seed/load_sample_data.py /seed/load_sample_data.py
 COPY docker/db-seed/load_geo_data.py /seed/load_geo_data.py
 COPY docker/db-seed/load_attributes_from_mds.py /seed/load_attributes_from_mds.py
+COPY docker/db-seed/sync_geo_widgets.py /seed/sync_geo_widgets.py
 RUN chmod +x /seed/entrypoint.sh \
              /seed/upload_templates.py \
              /seed/upload_images.py \
              /seed/load_sample_data.py \
              /seed/load_geo_data.py \
-             /seed/load_attributes_from_mds.py
+             /seed/load_attributes_from_mds.py \
+             /seed/sync_geo_widgets.py
 
 ENTRYPOINT ["/seed/entrypoint.sh"]

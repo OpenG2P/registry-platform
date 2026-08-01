@@ -112,6 +112,60 @@ def load_geo_index() -> dict:
     return index
 
 
+def load_geo_chain_by_id() -> dict:
+    """level_value_id -> (level_mnemonic, name, parent_id), for walking upwards.
+
+    This is what makes the loader country-agnostic. A record carries the id of
+    the one unit it sits in; every level above it — and how many there are, and
+    what they are called — is read from master-data rather than assumed. The
+    five names this file used to hard-code, country/region/district/ward/village,
+    describe Kamuntu and nothing else: Ethiopia has four levels and calls the
+    middle ones zone and woreda.
+    """
+    host = os.environ.get("MD_PGHOST")
+    dbname = os.environ.get("MD_PGDATABASE")
+    if not host or not dbname:
+        return {}
+    try:
+        conn = psycopg2.connect(
+            host=host, port=os.environ.get("MD_PGPORT", "5432"), dbname=dbname,
+            user=os.environ.get("MD_PGUSER", ""), password=os.environ.get("MD_PGPASSWORD", ""),
+        )
+    except Exception:  # noqa: BLE001
+        return {}
+    try:
+        with conn.cursor() as cur:
+            cur.execute("select level_id, level_mnemonic from g2p_geo_levels")
+            mnemonic = dict(cur.fetchall())
+            cur.execute("select level_value_id, level_id, level_value_mnemonic,"
+                        " parent_level_value_id from g2p_geo_level_values")
+            return {
+                vid: (mnemonic.get(lid, lid), name, parent)
+                for vid, lid, name, parent in cur.fetchall()
+            }
+    except Exception:  # noqa: BLE001
+        return {}
+    finally:
+        conn.close()
+
+
+_GEO_BY_ID: dict = {}
+
+
+def hierarchy_from_pcode(pcode: str) -> dict:
+    """Walk a unit's ancestry in master-data, root first."""
+    chain = []
+    seen, cur = set(), pcode
+    while cur and cur in _GEO_BY_ID and cur not in seen:
+        seen.add(cur)
+        level, name, parent = _GEO_BY_ID[cur]
+        chain.append({"level_mnemonic": level, "level_value_mnemonic": name,
+                      "level_value_id": cur})
+        cur = parent
+    chain.reverse()
+    return {"hierarchy": chain}
+
+
 def resolve_geo_chain(rec: dict) -> list:
     """Resolve country..village names to master-data's own ids, or [] if any
     link is missing. Partial resolution is deliberately not returned: half a
@@ -147,12 +201,18 @@ def geo_ids(rec: dict) -> list:
 
 def geo_lowest_id(rec: dict) -> str:
     """The id of the record's lowest geo unit."""
+    # A record sourced from master-data already knows exactly where it is; only
+    # the CSV needs its names resolved.
+    if rec.get("geo_pcode"):
+        return rec["geo_pcode"]
     return geo_ids(rec)[-1]
 
 
 def geo_hierarchy_dict(rec: dict) -> dict:
     """Build geo_code_hierarchy_json from the name columns, matching the shape
     registry-core's G2PGeoHierarchyService produces at runtime."""
+    if rec.get("geo_pcode"):
+        return hierarchy_from_pcode(rec["geo_pcode"])
     ids = geo_ids(rec)
     return {
         "hierarchy": [
@@ -168,6 +228,127 @@ def geo_hierarchy_dict(rec: dict) -> dict:
 
 def geo_hierarchy(rec: dict):
     return to_json(geo_hierarchy_dict(rec))
+
+
+def _address_line(parts) -> str:
+    """One line from the pack's address parts.
+
+    The pack's address.json declares how a country composes these properly; that
+    lives in master-data's country, not here, and sample data does not warrant
+    fetching it. Joining the values keeps the information rather than inventing
+    a street.
+    """
+    if not parts:
+        return ""
+    return ", ".join(str(v) for v in parts.values() if v)
+
+
+def load_people_from_mds() -> tuple:
+    """The country's sample people, from master-data.
+
+    Returns (individuals, households) in the same dict shape the CSV produces,
+    so every insert below is unchanged — or ([], []) when master-data carries no
+    samples, which is its default.
+
+    These people belong to the country, not to this registry: master-data is
+    where the country is declared, so its samples are the ones that match the
+    geography and the code lists. What a registry adds on top is its own fields.
+    """
+    host = os.environ.get("MD_PGHOST")
+    dbname = os.environ.get("MD_PGDATABASE")
+    if not host or not dbname:
+        return [], []
+    try:
+        conn = psycopg2.connect(
+            host=host, port=os.environ.get("MD_PGPORT", "5432"), dbname=dbname,
+            user=os.environ.get("MD_PGUSER", ""), password=os.environ.get("MD_PGPASSWORD", ""),
+        )
+    except Exception:  # noqa: BLE001
+        return [], []
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            for table in ("g2p_sample_individuals", "g2p_sample_households"):
+                cur.execute("select to_regclass(%s)", (f"public.{table}",))
+                if cur.fetchone()["to_regclass"] is None:
+                    return [], []
+            cur.execute("select * from g2p_sample_individuals order by individual_id")
+            inds = [dict(r) for r in cur.fetchall()]
+            cur.execute("select * from g2p_sample_households order by household_id")
+            hhs = [dict(r) for r in cur.fetchall()]
+    except Exception as exc:  # noqa: BLE001
+        print(f"[load-sample-data] could not read master-data samples ({exc}).")
+        return [], []
+    finally:
+        conn.close()
+
+    if not inds:
+        return [], []
+
+    head_of = {h["household_id"]: h.get("head_individual_id") for h in hhs}
+    by_hh = {}
+    for i in inds:
+        by_hh.setdefault(i.get("household_id"), []).append(i)
+
+    individuals = []
+    for i in inds:
+        # The registry's columns are first/middle/last. A pack that names people
+        # as given name + father's name maps onto first + last; middle stays
+        # empty rather than being filled with something the country does not use.
+        individuals.append({
+            "internal_record_id": i["individual_id"],
+            "functional_record_id": i["individual_id"],
+            "household_id": i.get("household_id"),
+            "full_name": i.get("full_name"),
+            "first_name": i.get("given_name"),
+            "middle_name": None,
+            "last_name": i.get("fathers_name"),
+            "given_name": i.get("given_name"),
+            "gender": i.get("gender"),
+            # Only a birth year is carried; a made-up day and month would read as
+            # a precision the sample does not have.
+            "birth_date": f"{i['birth_year']}-01-01" if i.get("birth_year") else None,
+            "estimated_age": i.get("age"),
+            "marital_status": i.get("marital_status"),
+            "education_level": i.get("education_level"),
+            "foundational_id": i.get("national_id"),
+            "foundational_id_masked": None,
+            "phone_numbers": ([{"type": "personal", "number": i["phone"], "is_primary": True}]
+                              if i.get("phone") else None),
+            "emails": None,
+            "language_code": None,
+            "latitude": i.get("latitude"), "longitude": i.get("longitude"),
+            "altitude": None, "plus_code": None,
+            "address_line_1": _address_line(i.get("address_parts")),
+            "address_line_2": "",
+            "postal_code": None,
+            "country_code": i.get("country"),
+            "geo_pcode": i.get("geo_pcode"),
+        })
+
+    households = []
+    for h in hhs:
+        members = by_hh.get(h["household_id"], [])
+        head = next((m for m in members if m["individual_id"] == head_of.get(h["household_id"])), None)
+        households.append({
+            "internal_record_id": h["household_id"],
+            "functional_record_id": h["household_id"],
+            "head_name": (head or {}).get("full_name") or "",
+            "size_total": h.get("size_total") or len(members),
+            "size_children_u5": 0, "size_school_age": 0,
+            "number_of_female_members": sum(1 for m in members if m.get("gender") == "FEMALE"),
+            "number_of_male_members": sum(1 for m in members if m.get("gender") == "MALE"),
+            "latitude": h.get("latitude"), "longitude": h.get("longitude"),
+            "altitude": None, "plus_code": None,
+            "address_line_1": _address_line(h.get("address_parts")),
+            "address_line_2": "",
+            "postal_code": None,
+            "country_code": h.get("country"),
+            "geo_pcode": h.get("geo_pcode"),
+        })
+
+    print(f"[load-sample-data] master-data samples: {len(individuals)} individuals, "
+          f"{len(households)} households (country={inds[0].get('country')}).")
+    return individuals, households
 
 
 def report_geo_resolution() -> None:
@@ -570,11 +751,20 @@ def main() -> None:
 
     # Before anything derives a geo id. Read once; every record resolves
     # against this rather than reopening master-data per row.
-    global _GEO_INDEX
+    global _GEO_INDEX, _GEO_BY_ID
     _GEO_INDEX = load_geo_index()
+    _GEO_BY_ID = load_geo_chain_by_id()
 
-    individuals = _read_csv_rows(DEMO_DIR / "individuals.csv", JSON_COLUMNS_INDIVIDUAL)
-    households = _read_csv_rows(DEMO_DIR / "households.csv", JSON_COLUMNS_HOUSEHOLD)
+    # People come from master-data when it carries the country's samples. The
+    # CSV is the fallback, and it can only ever describe the one country whose
+    # five level names its columns happen to be — which is why it is no longer
+    # the primary source.
+    individuals, households = load_people_from_mds()
+    if not individuals:
+        print("[load-sample-data] no samples in master-data — falling back to the "
+              "demography CSV. Enable geoSeed.load.samples for a pack-coherent set.")
+        individuals = _read_csv_rows(DEMO_DIR / "individuals.csv", JSON_COLUMNS_INDIVIDUAL)
+        households = _read_csv_rows(DEMO_DIR / "households.csv", JSON_COLUMNS_HOUSEHOLD)
     ind_by_id = {i["internal_record_id"]: i for i in individuals}
 
     farmer_extras = {f["internal_record_id"]: f for f in load_json(FARMER_DATA_DIR / "farmers.json")}

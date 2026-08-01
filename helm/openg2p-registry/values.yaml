@@ -242,6 +242,11 @@ dbSeed:
   # Farmer Registry. Empty loads the core lists only; a social registry has no
   # use for crop types.
   attributeDomains: []
+  # Match the register's geo dropdowns to the hierarchy Master Data holds.
+  # An extension's UI metadata names its levels and fixes their number; a
+  # country whose pack disagrees gets dropdowns that silently return nothing.
+  # Off by default so an existing deployment keeps the metadata it shipped.
+  syncGeoWidgets: false
   # Load sample/demo data into the registry (disabled by default)
   loadSampleData: false
   # Upload sample profile images (500 colored-initials avatars) to MinIO
