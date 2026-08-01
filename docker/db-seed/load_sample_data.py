@@ -329,9 +329,16 @@ def load_people_from_mds() -> tuple:
     for h in hhs:
         members = by_hh.get(h["household_id"], [])
         head = next((m for m in members if m["individual_id"] == head_of.get(h["household_id"])), None)
+        adults = [m for m in members if (m.get("age") or 0) >= 18]
         households.append({
             "internal_record_id": h["household_id"],
             "functional_record_id": h["household_id"],
+            # Registries differ in what they store about a household; supplying
+            # the union costs nothing, since each takes only the keys it asks for.
+            "head_individual_id": h.get("head_individual_id"),
+            "headship_type": h.get("headship_type"),
+            "size_adults": len(adults),
+            "size_elderly": sum(1 for m in members if (m.get("age") or 0) >= 60),
             "head_name": (head or {}).get("full_name") or "",
             "size_total": h.get("size_total") or len(members),
             "size_children_u5": 0, "size_school_age": 0,
