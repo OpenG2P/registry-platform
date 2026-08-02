@@ -188,6 +188,34 @@ questions:
   label: Load Sample Data
   group: DB Seed
 
+- variable: dbSeed.loadAttributes
+  description: Copy the country's code lists from Master Data into this registry's own tables at install, then read them from there. Country-agnostic — it takes whatever pack Master Data holds, and does nothing when it holds none. This is what lets one registry image serve any country.
+  type: boolean
+  default: false
+  label: Load Code Lists from Master Data
+  group: DB Seed
+
+- variable: dbSeed.attributeDomains
+  description: "Domain code lists to copy alongside the core ones, comma-separated. Use 'agriculture' for a Farmer Registry; leave empty for a social registry."
+  type: string
+  default: ""
+  label: Domain Code Lists
+  group: DB Seed
+
+- variable: dbSeed.syncGeoWidgets
+  description: Match this register's geo dropdowns to the hierarchy Master Data actually holds. An extension hard-codes its level names and how many there are; a country whose pack disagrees gets dropdowns that silently return nothing. Leave off to keep the metadata the extension shipped.
+  type: boolean
+  default: false
+  label: Match Geo Dropdowns to Country
+  group: DB Seed
+
+- variable: dbSeed.loadGeoData
+  description: "LEGACY. Loads a five-level country..village hierarchy into Master Data from a CSV, keyed by slug-paths. Leave OFF: Master Data seeds its own geography from a country pack keyed by P-code, and enabling this writes a second hierarchy over it in a different id space. Only for a deployment with no country pack."
+  type: boolean
+  default: false
+  label: Load Legacy Geo Data (deprecated)
+  group: DB Seed
+
 - variable: dbSeed.loadImages
   description: Upload sample profile images to MinIO and link them to the seeded farmers. Requires Load Sample Data to be enabled.
   type: boolean
