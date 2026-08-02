@@ -218,11 +218,21 @@ global:
 # from openg2p-registry-gen2-extensions.
 dbSeed:
   enabled: true
-  # Load geo reference data (country->village hierarchy) into the master_data DB.
-  # master-data is a separate commons release that ships no seed data; geo is
-  # registry reference data, so it is seeded from here into master_data using the
-  # global.masterDataDB* creds. Enable alongside loadSampleData so the geo ids the
-  # registry rows derive resolve in master_data. Idempotent (ON CONFLICT DO NOTHING).
+  # LEGACY. Loads a five-level country->village hierarchy into the master_data DB
+  # from openg2p-data/geo/geo.csv, keyed by slug-paths like
+  # "kamuntu/kilima/karamu/uzima/billyu".
+  #
+  # Off, and it should stay off. Master Data seeds its own geography from a
+  # country pack now (geoSeed.countryPack there), keyed by P-code — so turning
+  # this on writes a SECOND hierarchy over the first, in a different id space and
+  # with a fixed depth of five levels that only describes Kamuntu. Ethiopia has
+  # four, ending at woreda.
+  #
+  # It is no longer needed for sample data either: load_sample_data.py reads the
+  # hierarchy and the sample people from Master Data directly, whatever country
+  # and however many levels it holds.
+  #
+  # Kept only for a deployment that still has no Master Data country pack.
   loadGeoData: false
   # Copy the country's code lists (gender, education level, water source, ...)
   # from Master Data into this registry's own attribute tables at install.
