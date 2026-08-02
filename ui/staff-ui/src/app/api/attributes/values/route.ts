@@ -9,7 +9,12 @@ export async function POST(req: NextRequest) {
 		buildPayload: (body) => ({
 			pagination_request: {
 				current_page: body.current_page ?? 1,
-				page_size: body.page_size ?? 20,
+				// A dropdown asks for a whole code list, not a page of one. At 20
+				// a longer list was silently truncated — the widget rendered 20
+				// options with nothing to say the rest existed, so a value simply
+				// could not be chosen. Callers that do want paging still pass
+				// page_size explicitly.
+				page_size: body.page_size ?? 500,
 				sort_by: body.sort_by ?? "",
 				filter_by: body.filter_by ?? "",
 				search_text: body.search_text ?? "",
