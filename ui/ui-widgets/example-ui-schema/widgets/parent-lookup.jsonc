@@ -1,0 +1,44 @@
+{
+  "widget": "parent-lookup",
+  "widget-type": "input",
+  "widget-id": "parent_link",
+  "widget-label": "Parent",
+  "widget-required": true,
+  "widget-data-source": {
+    "type": "api",
+    "method": "POST",
+    "service": "register",
+    "endpoint": "get-allowed-parents-for-a-child-section",
+    "params": {
+      "section_register_id": "<child_section_register_id>"
+    }
+  },
+  "widget-lookup-config": {
+    "page_size": 10,
+    "action_label": "Select",
+    "search_placeholder": "Search parent...",
+    "select_record_label": "Select Parent"
+  }
+
+  // --- TABLE column (add-row flow) ---
+  // Header uses widget-label (or column-label). Include one of them.
+  // {
+  //   "column-key": "link_internal_record_id",
+  //   "column-label": "Parent",
+  //   "widget-label": "Parent",
+  //   "widget": "parent-lookup",
+  //   "widget-type": "input",
+  //   "widget-required": true,
+  //   "widget-data-source": {
+  //     "type": "api",
+  //     "method": "POST",
+  //     "service": "register",
+  //     "endpoint": "get-allowed-parents-for-a-child-section",
+  //     "params": { "section_register_id": "<child_section_register_id>" }
+  //   },
+  //   "widget-lookup-config": {
+  //     "page_size": 10,
+  //     "action_label": "Select"
+  //   }
+  // }
+}

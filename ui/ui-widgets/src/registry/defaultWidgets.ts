@@ -19,6 +19,7 @@ import {
   ScoresDisplayWidget,
   IdAuthenticationWidget,
   RegisterLookupWidget,
+  ParentLookupWidget,
   MultiSelectWidget,
   GeoHierarchyWidget,
   DocsWidget,
@@ -44,6 +45,7 @@ export const registerDefaultWidgets = () => {
   widgetRegistry.register({ widget: 'scores-display', component: ScoresDisplayWidget });
   widgetRegistry.register({ widget: 'id-authentication', component: IdAuthenticationWidget });
   widgetRegistry.register({ widget: 'register-lookup', component: RegisterLookupWidget });
+  widgetRegistry.register({ widget: 'parent-lookup', component: ParentLookupWidget });
   widgetRegistry.register({ widget: 'multi-select', component: MultiSelectWidget });
   widgetRegistry.register({ widget: 'geo-hierarchy', component: GeoHierarchyWidget });
   widgetRegistry.register({ widget: 'docs', component: DocsWidget });

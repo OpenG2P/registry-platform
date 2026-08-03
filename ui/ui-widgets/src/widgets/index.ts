@@ -17,6 +17,7 @@ export { HeaderSectionWidget } from './HeaderSectionWidget';
 export { ScoresDisplayWidget } from './ScoresDisplayWidget';
 export { IdAuthenticationWidget } from './IdAuthenticationWidget';
 export { RegisterLookupWidget } from './RegisterLookupWidget';
+export { ParentLookupWidget } from './ParentLookupWidget';
 export { MultiSelectWidget } from './MultiSelectWidget';
 export { GeoHierarchyWidget } from './GeoHierarchyWidget';
 export { DocsWidget } from './DocsWidget';

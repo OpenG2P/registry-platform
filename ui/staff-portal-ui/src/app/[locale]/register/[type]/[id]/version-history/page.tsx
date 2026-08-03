@@ -95,12 +95,14 @@ function filterReducer(state: FilterState, action:
 export default function VersionHistoryPage() {
     const t = useTranslations();
 
-    const { type: registerType, id: internalRecordId } =
+    const { type: registerType, id: routeRecordId } =
         useParams<{ type: string; id: string }>();
 
     const { currentRegister } = useRegister();
-    const { functionalRecordId, recordName } = useRegisterRecord();
+    const { internalRecordId: resolvedInternalRecordId, functionalRecordId, recordName } =
+        useRegisterRecord();
 
+    const internalRecordId = resolvedInternalRecordId || decodeURIComponent(routeRecordId || '');
     const registerId = currentRegister?.register_id ?? '';
 
     const [filterState, dispatch] = useReducer(filterReducer, initialFilterState);
@@ -354,6 +356,10 @@ export default function VersionHistoryPage() {
                                     schemaData={stableSectionData}
                                     t={t}
                                     dataSourceRequestHandler={dataSourceRequestHandler}
+                                    hostContext={{
+                                        subject_register_id: registerId || undefined,
+                                        internal_record_id: internalRecordId || undefined,
+                                    }}
                                 >
                                     <SectionRenderer
                                         section={stableSectionUISchema}
