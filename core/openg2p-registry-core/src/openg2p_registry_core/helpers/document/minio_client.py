@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import BinaryIO
+from typing import BinaryIO, Optional
 
 from minio import Minio
 from minio.error import S3Error
@@ -9,13 +9,17 @@ from .document_handlers import DocumentHandler
 
 
 class MinioClient(DocumentHandler):
-    """
-    MinIO implementation of DocumentHandler.
+    """MinIO DocumentHandler. Obtain via document_factory.get_document_handler()."""
 
-    Do not use directly; obtain via document_factory.get_document_handler().
-    """
-
-    def __init__(self, endpoint: str, access_key: str, secret_key: str, secure: bool):
+    def __init__(
+        self,
+        endpoint: str,
+        access_key: str,
+        secret_key: str,
+        secure: bool,
+        read_access_key: Optional[str] = None,
+        read_secret_key: Optional[str] = None,
+    ):
         super().__init__()
         self.client = Minio(
             endpoint=endpoint,
@@ -23,9 +27,14 @@ class MinioClient(DocumentHandler):
             secret_key=secret_key,
             secure=secure,
         )
+        self.readonly_client = Minio(
+            endpoint=endpoint,
+            access_key=read_access_key or access_key,
+            secret_key=read_secret_key or secret_key,
+            secure=secure,
+        )
 
     def _ensure_bucket(self, bucket: DocumentBucket) -> DocumentBucket:
-        # DocumentBucket is a StrEnum, so it can be passed directly as the bucket name.
         if not self.client.bucket_exists(bucket):
             self.client.make_bucket(bucket)
         return bucket
@@ -67,7 +76,7 @@ class MinioClient(DocumentHandler):
         bucket: DocumentBucket,
         expires: timedelta = timedelta(hours=1),
     ) -> str:
-        return self.client.presigned_get_object(
+        return self.readonly_client.presigned_get_object(
             bucket_name=bucket,
             object_name=document_store_id,
             expires=expires,

@@ -23,10 +23,12 @@ global:
   # Redis
   redisInstallationName: '{{ .Release.Name }}-redis-master'
 
-  # Minio
+  # MinIO — commons-minio: root-user/root-password + readonly-user/readonly-password
   minioSecret: commons-minio
   minioAccessKey: root-user
   minioSecretKey: root-password
+  minioReadonlyAccessKey: readonly-user
+  minioReadonlySecretKey: readonly-password
   # External MinIO S3 API endpoint. Must be reachable from end-user browsers
   # because the registry generates pre-signed S3 URLs that browsers follow
   # directly. Commons-base's Istio VirtualService exposes the S3 API at
@@ -487,6 +489,14 @@ partnerApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
         key: '{{ tpl .Values.global.minioSecretKey $ }}'
+    REGISTRY_PARTNER_API_MINIO_READ_ACCESS_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.minioSecret $ }}'
+        key: '{{ tpl .Values.global.minioReadonlyAccessKey $ }}'
+    REGISTRY_PARTNER_API_MINIO_READ_SECRET_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.minioSecret $ }}'
+        key: '{{ tpl .Values.global.minioReadonlySecretKey $ }}'
     REGISTRY_PARTNER_API_OAUTH_CLIENT_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.authClientSecret $ }}'
@@ -638,6 +648,14 @@ beneApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
         key: '{{ tpl .Values.global.minioSecretKey $ }}'
+    REGISTRY_BENE_PORTAL_API_MINIO_READ_ACCESS_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.minioSecret $ }}'
+        key: '{{ tpl .Values.global.minioReadonlyAccessKey $ }}'
+    REGISTRY_BENE_PORTAL_API_MINIO_READ_SECRET_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.minioSecret $ }}'
+        key: '{{ tpl .Values.global.minioReadonlySecretKey $ }}'
 
   startupProbe:
     enabled: true
@@ -823,6 +841,14 @@ staffApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
         key: '{{ tpl .Values.global.minioSecretKey $ }}'
+    REGISTRY_STAFF_PORTAL_API_MINIO_READ_ACCESS_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.minioSecret $ }}'
+        key: '{{ tpl .Values.global.minioReadonlyAccessKey $ }}'
+    REGISTRY_STAFF_PORTAL_API_MINIO_READ_SECRET_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.minioSecret $ }}'
+        key: '{{ tpl .Values.global.minioReadonlySecretKey $ }}'
     REGISTRY_STAFF_PORTAL_API_AWE_CALLBACK_HMAC_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.aweCallbackHmacSecretName $ }}'
@@ -1171,6 +1197,14 @@ celeryWorker:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
         key: '{{ tpl .Values.global.minioSecretKey $ }}'
+    REGISTRY_CELERY_WORKERS_MINIO_READ_ACCESS_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.minioSecret $ }}'
+        key: '{{ tpl .Values.global.minioReadonlyAccessKey $ }}'
+    REGISTRY_CELERY_WORKERS_MINIO_READ_SECRET_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.minioSecret $ }}'
+        key: '{{ tpl .Values.global.minioReadonlySecretKey $ }}'
     REGISTRY_CELERY_WORKERS_DB_PASSWORD:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
