@@ -28,6 +28,9 @@ class Settings(IamSettings):
     minio_endpoint: str = "localhost:9000"
     minio_access_key: str = "admin"
     minio_secret_key: str = "secret"
+    # Presigned GET URLs; empty falls back to minio_access_key
+    minio_read_access_key: str = ""
+    minio_read_secret_key: str = ""
     minio_secure: bool = False
 
     # Document upload validation (`documents` / `default` buckets)
