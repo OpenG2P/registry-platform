@@ -112,7 +112,6 @@ class G2PRegisterChangerequestControllerService(BaseService):
     async def get_change_requests(
         self,
         get_change_requests_request: GetChangeRequestsRequest,
-        http_request,
         data_policies: list[dict] | None = None,
     ) -> tuple[list[dict], G2PPaginationResponse]:
         payload = get_change_requests_request.request_body.request_payload
@@ -122,8 +121,6 @@ class G2PRegisterChangerequestControllerService(BaseService):
         tab_id = payload.tab_id
         _logger.info(f"Getting change requests for subject_register_id: {subject_register_id}, subject_record_id: {subject_record_id}, tab_id: {tab_id} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
-        if data_policies is None:
-            data_policies = get_data_policies(http_request)
         # Use flattened version to return change_payload fields at root level
         change_requests_list, total_items = await service.get_change_requests_flattened(
             subject_register_id,
@@ -141,14 +138,11 @@ class G2PRegisterChangerequestControllerService(BaseService):
     async def get_change_request(
         self,
         get_change_request_request: GetChangeRequestRequest,
-        http_request,
         data_policies: list[dict] | None = None,
     ) -> ChangeRequestData:
         change_request_id = get_change_request_request.request_body.request_payload.change_request_id
         _logger.info(f"Getting change request for change_request_id: {change_request_id} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
-        if data_policies is None:
-            data_policies = get_data_policies(http_request)
         change_request_data: ChangeRequestData = await service.get_change_request(
             change_request_id,
             data_policies=data_policies,
@@ -219,13 +213,10 @@ class G2PRegisterChangerequestControllerService(BaseService):
     async def get_change_request_summary_data(
         self,
         get_change_request_summary_data_request: GetChangeRequestSummaryDataRequest,
-        http_request,
         data_policies: list[dict] | None = None,
     ) -> ChangeRequestSummaryData:
         _logger.info("Fetching change_request summary data through controller service")
         service = G2PRegisterChangeRequestService.get_component()
-        if data_policies is None:
-            data_policies = get_data_policies(http_request)
         change_request_summary_data: ChangeRequestSummaryData = await service.get_change_request_summary_data(
             data_policies=data_policies,
         )
@@ -234,14 +225,11 @@ class G2PRegisterChangerequestControllerService(BaseService):
     async def search_in_change_request(
         self,
         search_change_request_request: SearchChangeRequestRequest,
-        http_request,
         data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestSearchResultData], G2PPaginationResponse]:
         pagination = search_change_request_request.request_body.pagination_request
         _logger.info(f"Searching in change requests with search_text: {pagination.search_text} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
-        if data_policies is None:
-            data_policies = get_data_policies(http_request)
         search_results_list, total_items = await service.search_in_change_request(
             pagination.search_text,
             pagination.current_page,
