@@ -502,7 +502,6 @@ class G2PRegisterService(BaseService):
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
-            print(data_policies, "**********************************************************************")
             search_results_list, total_items = await self._search_in_register(register_id, search_text, current_page, page_size, sort_by, filter_by, session, data_policies)
             return search_results_list, total_items
     
@@ -998,7 +997,6 @@ class G2PRegisterService(BaseService):
             data_policies, register_id
         )
 
-        print(merged_expression, "%%%%%%%%%%%%%%%%%%%%%%%%%%")
         if not merged_expression:
             return None
             
@@ -1100,7 +1098,7 @@ class G2PRegisterService(BaseService):
         policy_condition = self._build_register_policy_condition(
             register_id, implementation_class, data_policies, session
         )
-        print(policy_condition,"&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+
         if policy_condition is not None:
             filter_conditions.append(policy_condition)
 

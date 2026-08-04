@@ -72,8 +72,11 @@ class G2PRegisterHierarchicalService(BaseService):
                 )
 
             # Build hierarchy path and determine direction
-            path = await self._build_hierarchy_path(subject_register, section_register, session)
-            direction = self._determine_traversal_direction(subject_register, section_register, path)
+            path: list[G2PRegisterDefinition] = []
+            path, direction = await self._build_register_hierarchy_path(
+                subject_register_id, section_register_id, session
+            )
+
 
             if direction == "DOWN":
                 # Subject is ancestor, traverse DOWN to get section records
