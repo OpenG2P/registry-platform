@@ -77,7 +77,6 @@ class G2PRegisterHierarchicalService(BaseService):
                 subject_register_id, section_register_id, session
             )
 
-
             if direction == "DOWN":
                 # Subject is ancestor, traverse DOWN to get section records
                 return await self._traverse_down_hierarchy(

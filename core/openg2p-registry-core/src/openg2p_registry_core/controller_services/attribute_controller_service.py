@@ -111,7 +111,6 @@ class G2PAttributeControllerService(BaseService):
     async def get_attribute_values(
         self,
         request: GetAttributeValuesRequest,
-        http_request,
         data_policies: list[dict] | None = None,
     ) -> Tuple[List[AttributeValueData], Optional[G2PPaginationResponse]]:
         _logger.info("Fetching attribute values through controller service")

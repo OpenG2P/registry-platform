@@ -37,7 +37,6 @@ class G2PRegisterDataControllerService(BaseService):
     async def get_record_history(
         self,
         get_record_history_request: GetRecordHistoryRequest,
-        request,
         data_policies: list[dict] | None = None,
     ) -> RecordHistoryListData:
         """Get the history records for a given register, internal_record_id and tab_id"""
@@ -75,7 +74,6 @@ class G2PRegisterDataControllerService(BaseService):
     async def get_subject_record(
         self,
         get_subject_record_request: GetSubjectRecordRequest,
-        request,
         data_policies: list[dict] | None = None,
     ) -> RecordData:
         subject_register_id = get_subject_record_request.request_body.request_payload.subject_register_id
@@ -160,7 +158,6 @@ class G2PRegisterDataControllerService(BaseService):
     async def get_tab_records(
         self,
         get_register_tab_records_request: GetRegisterTabRecordsRequest,
-        request,
         data_policies: list[dict] | None = None,
     ) -> list[RegisterTabRecordData]:
         """
@@ -185,7 +182,6 @@ class G2PRegisterDataControllerService(BaseService):
     async def get_register_summary_data(
         self,
         get_register_summary_data_request: GetRegisterSummaryDataRequest,
-        request,
         data_policies: list[dict] | None = None,
     ) -> list[RegisterSummaryData]:
         _logger.info("Fetching register summary data through controller service")
@@ -195,7 +191,7 @@ class G2PRegisterDataControllerService(BaseService):
         )
         return register_summary_data_list
 
-    async def search_in_a_register(self, search_register_request: SearchRegisterRequest, request, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int, int]:
+    async def search_in_a_register(self, search_register_request: SearchRegisterRequest, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int, int]:
         payload = search_register_request.request_body.request_payload
         pagination = search_register_request.request_body.pagination_request
         register_id = payload.register_id

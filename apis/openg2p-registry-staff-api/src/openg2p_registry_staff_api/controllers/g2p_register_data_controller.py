@@ -357,7 +357,6 @@ class G2PRegisterDataController(BaseController):
         try:
             search_results_list, total_items, number_of_pages = await self.g2p_register_data_controller_service.search_in_a_register(
                 search_register_request,
-                http_request,
                 data_policies=get_data_policies(http_request),
             )
             search_results_response: SearchResultsResponse = self.helper.construct_search_results_success_response(

@@ -621,7 +621,13 @@ class G2PRegisterService(BaseService):
         session,
         data_policies: list[dict] | None = None,
     ) -> list[RegisterSummaryData]:
-        register_definitions: list[G2PRegisterDefinition] = await self._get_all_register_definitions(session)
+        register_definitions: list[G2PRegisterDefinition] = (
+            await session.execute(
+                select(G2PRegisterDefinition)
+                .where(G2PRegisterDefinition.register_purpose == RegisterPurposeEnum.REGISTER.value)
+            )
+        ).scalars().all()
+
         register_summary_data_list: list[RegisterSummaryData] = []
 
         for register_definition in register_definitions:
@@ -996,7 +1002,6 @@ class G2PRegisterService(BaseService):
         merged_expression = DataPolicyHelper.resolve_register_record_policy(
             data_policies, register_id
         )
-
         if not merged_expression:
             return None
             

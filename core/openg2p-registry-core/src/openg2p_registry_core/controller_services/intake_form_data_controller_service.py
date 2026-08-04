@@ -92,7 +92,6 @@ class G2PIntakeFormDataControllerService(BaseService):
     async def get_intake_form_submission(
         self,
         request: GetSubmissionRequest,
-        http_request,
         data_policies: list[dict] | None = None,
     ) -> SubmissionResponsePayload:
         payload = request.request_body.request_payload
@@ -104,7 +103,6 @@ class G2PIntakeFormDataControllerService(BaseService):
     async def get_tab_records(
         self,
         request: GetIntakeFormTabRecordsRequest,
-        http_request,
         data_policies: list[dict] | None = None,
     ) -> list[SectionPayloadResponseItem]:
         payload = request.request_body.request_payload
@@ -117,7 +115,6 @@ class G2PIntakeFormDataControllerService(BaseService):
     async def search_in_intake_form_submissions(
         self,
         request: SearchInSubmissionRequest,
-        http_request,
         data_policies: list[dict] | None = None,
     ):
         payload = request.request_body.request_payload
