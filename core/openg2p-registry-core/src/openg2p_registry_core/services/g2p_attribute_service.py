@@ -12,7 +12,7 @@ from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PAttribute, G2PAttributeValue, G2PAttributeValueRole
 from ..repositories import AttributeValueRepository
 from ..schemas import AttributeData, AttributeValueData
-from .g2p_data_policy_service import G2PDataPolicyService
+from iam_core.helpers.data_policy_helper import DataPolicyHelper
 
 _logger = logging.getLogger("g2p-attribute-service")
 
@@ -146,7 +146,7 @@ class G2PAttributeService(BaseService):
         page_size: Optional[int] = None,
         search_text: Optional[str] = None,
         session: Optional[AsyncSession] = None,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> tuple[List[AttributeValueData], int]:
         async def _run(db_session: AsyncSession) -> tuple[List[AttributeValueData], int]:
             filters = []
@@ -158,7 +158,7 @@ class G2PAttributeService(BaseService):
                 filters.append(G2PAttributeValue.value_code.ilike(f"%{search_text}%"))
 
             policy_condition = await self._build_attribute_value_policy_condition(
-                policy_mnemonics,
+                data_policies,
                 db_session,
                 attribute_id=attribute_id,
             )
@@ -192,16 +192,16 @@ class G2PAttributeService(BaseService):
 
     async def _build_attribute_value_policy_condition(
         self,
-        policy_mnemonics: list[str] | None,
+        data_policies: list[dict] | None,
         session: AsyncSession,
         attribute_id: str | None = None,
     ):
         """Resolve ATTRIBUTE policy and translate it for ``G2PAttributeValue`` rows."""
-        if not policy_mnemonics:
+        if not data_policies:
             return None
 
-        merged_expression = await G2PDataPolicyService.get_component().resolve_attribute_policy(
-            policy_mnemonics, session
+        merged_expression = DataPolicyHelper.resolve_attribute_policy(
+            data_policies
         )
         if not merged_expression:
             return None

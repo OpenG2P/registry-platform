@@ -28,10 +28,10 @@ from openg2p_registry_core.schemas import (
     SearchRegisterRequest,
     GetAllowedParentsForChildSectionRequest, AllowedParentsData, AllowedParentsDataResponse
 )
-from iam_core.user_auth.decorators import require_permissions
+from iam_core.user_auth.decorators import require_permissions, data_policy
 
 from ..helpers import RequestResponseHelper
-from ..helpers.data_policy_request_helper import get_data_policy_mnemonics
+from ..helpers.data_policy_request_helper import get_data_policies
 from ..config import Settings
 
 _config = Settings.get_config()
@@ -152,6 +152,7 @@ class G2PRegisterDataController(BaseController):
             return error_response
 
     @require_permissions({"registerHistory:view"})
+    @data_policy
     async def get_record_history(
         self,
         http_request: Request,
@@ -164,7 +165,7 @@ class G2PRegisterDataController(BaseController):
         try:
             record_history_data: RecordHistoryListData = await self.g2p_register_data_controller_service.get_record_history(
                 get_record_history_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             record_history_response: RecordHistoryDataResponse = self.helper.construct_record_history_success_response(
                 record_history_data=record_history_data, g2p_request=get_record_history_request
@@ -211,11 +212,12 @@ class G2PRegisterDataController(BaseController):
             return error_response
 
     @require_permissions({"register:view"})
+    @data_policy
     async def get_subject_record(self, http_request: Request, get_subject_record_request: GetSubjectRecordRequest) -> RecordDataResponse:
         try:
             record_data: RecordData = await self.g2p_register_data_controller_service.get_subject_record(
                 get_subject_record_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             record_response: RecordDataResponse = self.helper.construct_record_success_response(
                 record_data=record_data, g2p_request=get_subject_record_request
@@ -302,6 +304,7 @@ class G2PRegisterDataController(BaseController):
             return error_response
 
     @require_permissions({"register:view"})
+    @data_policy
     async def get_tab_records(
         self,
         http_request: Request,
@@ -314,7 +317,7 @@ class G2PRegisterDataController(BaseController):
         try:
             tab_records: list[RegisterTabRecordData] = await self.g2p_register_data_controller_service.get_tab_records(
                 get_register_tab_records_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             tab_records_response: RegisterTabRecordsDataResponse = self.helper.construct_register_tab_records_success_response(
                 tab_records=tab_records, g2p_request=get_register_tab_records_request
@@ -328,6 +331,7 @@ class G2PRegisterDataController(BaseController):
             return error_response
 
     @require_permissions({})
+    @data_policy
     async def get_register_summary_data(
         self,
         http_request: Request,
@@ -336,7 +340,7 @@ class G2PRegisterDataController(BaseController):
         try:
             register_summary_data_list: list[RegisterSummaryData] = await self.g2p_register_data_controller_service.get_register_summary_data(
                 get_register_summary_data_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             register_summary_data_response: RegisterSummaryDataResponse = self.helper.construct_register_summary_data_success_response(
                 register_summary_data_list=register_summary_data_list, g2p_request=get_register_summary_data_request
@@ -348,11 +352,13 @@ class G2PRegisterDataController(BaseController):
             return error_response
 
     @require_permissions({"register:view"})
+    @data_policy
     async def search_in_a_register(self, http_request: Request, search_register_request: SearchRegisterRequest) -> SearchResultsResponse:
         try:
             search_results_list, total_items, number_of_pages = await self.g2p_register_data_controller_service.search_in_a_register(
                 search_register_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                http_request,
+                data_policies=get_data_policies(http_request),
             )
             search_results_response: SearchResultsResponse = self.helper.construct_search_results_success_response(
                 search_results_list=search_results_list, g2p_request=search_register_request,

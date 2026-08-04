@@ -2,6 +2,9 @@ import logging
 from openg2p_fastapi_common.schemas import G2PPaginationResponse
 from openg2p_fastapi_common.service import BaseService
 
+from openg2p_registry_staff_portal_api.helpers.data_policy_request_helper import (
+    get_data_policies,
+)
 from openg2p_registry_core.models import G2PRegisterChangeRequest
 
 from ..services import G2PRegisterChangeRequestService, G2PRegisterVerificationService
@@ -109,7 +112,8 @@ class G2PRegisterChangerequestControllerService(BaseService):
     async def get_change_requests(
         self,
         get_change_requests_request: GetChangeRequestsRequest,
-        policy_mnemonics: list[str] | None = None,
+        http_request,
+        data_policies: list[dict] | None = None,
     ) -> tuple[list[dict], G2PPaginationResponse]:
         payload = get_change_requests_request.request_body.request_payload
         pagination = get_change_requests_request.request_body.pagination_request
@@ -118,6 +122,8 @@ class G2PRegisterChangerequestControllerService(BaseService):
         tab_id = payload.tab_id
         _logger.info(f"Getting change requests for subject_register_id: {subject_register_id}, subject_record_id: {subject_record_id}, tab_id: {tab_id} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
+        if data_policies is None:
+            data_policies = get_data_policies(http_request)
         # Use flattened version to return change_payload fields at root level
         change_requests_list, total_items = await service.get_change_requests_flattened(
             subject_register_id,
@@ -127,7 +133,7 @@ class G2PRegisterChangerequestControllerService(BaseService):
             pagination.page_size,
             pagination.sort_by,
             pagination.filter_by,
-            policy_mnemonics=policy_mnemonics,
+            data_policies=data_policies,
         )
         pagination_response = self._build_pagination_response(total_items, pagination.page_size)
         return change_requests_list, pagination_response
@@ -135,14 +141,17 @@ class G2PRegisterChangerequestControllerService(BaseService):
     async def get_change_request(
         self,
         get_change_request_request: GetChangeRequestRequest,
-        policy_mnemonics: list[str] | None = None,
+        http_request,
+        data_policies: list[dict] | None = None,
     ) -> ChangeRequestData:
         change_request_id = get_change_request_request.request_body.request_payload.change_request_id
         _logger.info(f"Getting change request for change_request_id: {change_request_id} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
+        if data_policies is None:
+            data_policies = get_data_policies(http_request)
         change_request_data: ChangeRequestData = await service.get_change_request(
             change_request_id,
-            policy_mnemonics=policy_mnemonics,
+            data_policies=data_policies,
         )
         return change_request_data
 
@@ -210,30 +219,36 @@ class G2PRegisterChangerequestControllerService(BaseService):
     async def get_change_request_summary_data(
         self,
         get_change_request_summary_data_request: GetChangeRequestSummaryDataRequest,
-        policy_mnemonics: list[str] | None = None,
+        http_request,
+        data_policies: list[dict] | None = None,
     ) -> ChangeRequestSummaryData:
         _logger.info("Fetching change_request summary data through controller service")
         service = G2PRegisterChangeRequestService.get_component()
+        if data_policies is None:
+            data_policies = get_data_policies(http_request)
         change_request_summary_data: ChangeRequestSummaryData = await service.get_change_request_summary_data(
-            policy_mnemonics=policy_mnemonics,
+            data_policies=data_policies,
         )
         return change_request_summary_data
     
     async def search_in_change_request(
         self,
         search_change_request_request: SearchChangeRequestRequest,
-        policy_mnemonics: list[str] | None = None,
+        http_request,
+        data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestSearchResultData], G2PPaginationResponse]:
         pagination = search_change_request_request.request_body.pagination_request
         _logger.info(f"Searching in change requests with search_text: {pagination.search_text} through controller service")
         service = G2PRegisterChangeRequestService.get_component()
+        if data_policies is None:
+            data_policies = get_data_policies(http_request)
         search_results_list, total_items = await service.search_in_change_request(
             pagination.search_text,
             pagination.current_page,
             pagination.page_size,
             pagination.sort_by,
             pagination.filter_by,
-            policy_mnemonics=policy_mnemonics,
+            data_policies=data_policies,
         )
         pagination_response = self._build_pagination_response(total_items, pagination.page_size)
         return search_results_list, pagination_response

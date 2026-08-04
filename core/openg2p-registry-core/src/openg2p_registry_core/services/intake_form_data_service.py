@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..repositories.register_repository import RegisterRecordRepository
-from .g2p_data_policy_service import G2PDataPolicyService
+from iam_core.helpers.data_policy_helper import DataPolicyHelper
 from .g2p_awe_integration_service import G2PAweIntegrationService
 from .g2p_awe_status_reconcile import (
     REGISTRY_INTAKE_FORM_ARTIFACT,
@@ -313,7 +313,7 @@ class G2PIntakeFormDataService(BaseService):
         filter_by: dict | None,
         intake_class,
         session,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ):
         conditions: list = []
         if search_text:
@@ -326,7 +326,7 @@ class G2PIntakeFormDataService(BaseService):
                 self._invalid_request(str(validation_error))
 
         policy_condition = await self._build_intake_policy_condition(
-            register_id, intake_class, policy_mnemonics, session
+            register_id, intake_class, data_policies, session
         )
         if policy_condition is not None:
             conditions.append(policy_condition)
@@ -736,12 +736,12 @@ class G2PIntakeFormDataService(BaseService):
     async def get_intake_form_submission(
         self,
         submission_id: str,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> SubmissionResponsePayload:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             submission = await self._ensure_submission_readable(
-                submission_id, policy_mnemonics, session
+                submission_id, data_policies, session
             )
 
             sections = await self._build_section_payloads(submission, session)
@@ -782,7 +782,7 @@ class G2PIntakeFormDataService(BaseService):
         page_size: int,
         sort_by: str | None = None,
         filter_by: dict | None = None,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> tuple[list[SubmissionResponsePayload], int]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
@@ -793,7 +793,7 @@ class G2PIntakeFormDataService(BaseService):
                 filter_by,
                 intake_class,
                 session,
-                policy_mnemonics,
+                data_policies,
             )
             base_filters = [G2PIntakeFormSubmission.register_id == register_id]
             if match_subquery is not None:
@@ -825,12 +825,12 @@ class G2PIntakeFormDataService(BaseService):
         self,
         submission_id: str,
         tab_id: str,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[SectionPayloadResponseItem]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             submission = await self._ensure_submission_readable(
-                submission_id, policy_mnemonics, session
+                submission_id, data_policies, session
             )
 
             tab = await session.get(G2PIntakeFormUITab, tab_id)
@@ -870,7 +870,7 @@ class G2PIntakeFormDataService(BaseService):
                 policy_condition = await self._build_intake_policy_condition(
                     section.section_register_id,
                     intake_class,
-                    policy_mnemonics,
+                    data_policies,
                     session,
                 )
                 if policy_condition is not None:
@@ -1426,19 +1426,19 @@ class G2PIntakeFormDataService(BaseService):
             )
         return submission
 
-    async def _build_intake_policy_condition(
+    def _build_intake_policy_condition(
         self,
         register_id: str,
         intake_class,
-        policy_mnemonics: list[str] | None,
+        data_policies: list[dict] | None,
         session: AsyncSession,
     ):
         """Resolve REGISTER_RECORD policy and translate it for a G2PIntakeForm* model."""
-        if not policy_mnemonics:
+        if not data_policies:
             return None
 
-        merged_expression = await G2PDataPolicyService.get_component().resolve_register_record_policy(
-            register_id, policy_mnemonics, session
+        merged_expression = DataPolicyHelper.resolve_register_record_policy(
+            data_policies, register_id
         )
         if not merged_expression:
             return None
@@ -1448,7 +1448,7 @@ class G2PIntakeFormDataService(BaseService):
     async def _ensure_submission_readable(
         self,
         submission_id: str,
-        policy_mnemonics: list[str] | None,
+        data_policies: list[dict] | None,
         session: AsyncSession,
     ) -> G2PIntakeFormSubmission:
         """Raise if the submission is missing or its intake rows are blocked by data policy."""
@@ -1457,7 +1457,7 @@ class G2PIntakeFormDataService(BaseService):
         policy_condition = await self._build_intake_policy_condition(
             submission.register_id,
             intake_class,
-            policy_mnemonics,
+            data_policies,
             session,
         )
         if policy_condition is None:
@@ -1489,11 +1489,11 @@ class G2PIntakeFormDataService(BaseService):
 
     async def _build_submission_summary_policy_condition(
         self,
-        policy_mnemonics: list[str] | None,
+        data_policies: list[dict] | None,
         session: AsyncSession,
     ):
         """OR across registers: submission visible when its intake rows pass that register's policy."""
-        if not policy_mnemonics:
+        if not data_policies:
             return None
 
         register_definitions = (
@@ -1521,7 +1521,7 @@ class G2PIntakeFormDataService(BaseService):
             policy_condition = await self._build_intake_policy_condition(
                 register_definition.register_id,
                 intake_class,
-                policy_mnemonics,
+                data_policies,
                 session,
             )
 
@@ -1802,7 +1802,7 @@ class G2PIntakeFormDataService(BaseService):
 
     async def get_intake_form_submissions_summary(
         self,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> IntakeFormSubmissionsSummaryData:
         """Fetch aggregate summary counts for intake form submissions."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -1837,7 +1837,7 @@ class G2PIntakeFormDataService(BaseService):
             ).select_from(G2PIntakeFormSubmission)
 
             policy_condition = await self._build_submission_summary_policy_condition(
-                policy_mnemonics, session
+                data_policies, session
             )
             if policy_condition is not None:
                 summary_query = summary_query.where(policy_condition)

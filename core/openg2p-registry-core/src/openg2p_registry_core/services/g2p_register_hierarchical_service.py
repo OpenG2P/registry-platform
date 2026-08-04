@@ -12,7 +12,7 @@ from ..models import G2PRegisterDefinition, G2PRegisterSection, G2PRegisterUITab
 from ..schemas import RecordData, RegisterTabRecordData, AllowedParentsData, AllowedParentRecordData
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..repositories import RegisterRecordRepository
-from .g2p_data_policy_service import G2PDataPolicyService
+from iam_core.helpers.data_policy_helper import DataPolicyHelper
 
 _logger = logging.getLogger('g2p-register-hierarchical-service')
 
@@ -28,7 +28,7 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_register_id: str,
         subject_record_id: str,
         section_register_id: str,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RecordData]:
         """
         Get records from section_register that are linked to subject_record.
@@ -68,29 +68,27 @@ class G2PRegisterHierarchicalService(BaseService):
             # If same register, return the subject record directly
             if subject_register_id == section_register_id:
                 return await self._get_same_register_record(
-                    subject_register, subject_record_id, session, policy_mnemonics
+                    subject_register, subject_record_id, session, data_policies
                 )
 
             # Build hierarchy path and determine direction
-            path: list[G2PRegisterDefinition] = []
-            path, direction = await self._build_register_hierarchy_path(
-                subject_register_id, section_register_id, session
-            )
+            path = await self._build_hierarchy_path(subject_register, section_register, session)
+            direction = self._determine_traversal_direction(subject_register, section_register, path)
 
             if direction == "DOWN":
                 # Subject is ancestor, traverse DOWN to get section records
                 return await self._traverse_down_hierarchy(
-                    subject_register, subject_record_id, path, session, policy_mnemonics
+                    subject_register, subject_record_id, path, session, data_policies
                 )
             elif direction == "UP":
                 # Subject is descendant, traverse UP to get section record
                 return await self._traverse_up_hierarchy(
-                    subject_register, subject_record_id, path, session, policy_mnemonics
+                    subject_register, subject_record_id, path, session, data_policies
                 )
             elif direction == "PEER":
                 # Subject and section are peers, traverse both directions
                 return await self._traverse_peer_hierarchy(
-                    subject_register, subject_record_id, path, session, policy_mnemonics
+                    subject_register, subject_record_id, path, session, data_policies
                 )
 
             else:
@@ -99,18 +97,18 @@ class G2PRegisterHierarchicalService(BaseService):
                     message=f"Register with id {section_register_id} not found"
                 )
 
-    async def _build_register_policy_condition(
+    def _build_register_policy_condition(
         self,
         register_id: str,
         implementation_class,
-        policy_mnemonics: list[str] | None,
+        data_policies: list[dict] | None,
         session,
     ):
-        if not policy_mnemonics:
+        if not data_policies:
             return None
 
-        merged_expression = await G2PDataPolicyService.get_component().resolve_register_record_policy(
-            register_id, policy_mnemonics, session
+        merged_expression = DataPolicyHelper.resolve_register_record_policy(
+            data_policies, register_id
         )
         if not merged_expression:
             return None
@@ -121,14 +119,14 @@ class G2PRegisterHierarchicalService(BaseService):
         self,
         register: G2PRegisterDefinition,
         record_id: str,
-        policy_mnemonics: list[str] | None,
+        data_policies: list[dict] | None,
         session,
     ) -> None:
         """Raise if the subject record is missing or blocked by data policy."""
         impl_class = self._get_implementation_class(register.register_mnemonic, register.register_purpose)
         filter_conditions = [impl_class.internal_record_id == record_id]
         policy_condition = await self._build_register_policy_condition(
-            register.register_id, impl_class, policy_mnemonics, session
+            register.register_id, impl_class, data_policies, session
         )
         if policy_condition is not None:
             filter_conditions.append(policy_condition)
@@ -162,7 +160,7 @@ class G2PRegisterHierarchicalService(BaseService):
         register: G2PRegisterDefinition,
         record_id: str,
         session,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RecordData]:
         """
         Get a record from the same register (no hierarchy traversal needed).
@@ -178,7 +176,7 @@ class G2PRegisterHierarchicalService(BaseService):
         impl_class = self._get_implementation_class(register.register_mnemonic, register.register_purpose)
         filter_conditions = [impl_class.internal_record_id == record_id]
         policy_condition = await self._build_register_policy_condition(
-            register.register_id, impl_class, policy_mnemonics, session
+            register.register_id, impl_class, data_policies, session
         )
         if policy_condition is not None:
             filter_conditions.append(policy_condition)
@@ -447,7 +445,7 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_record_id: str,
         path: list[G2PRegisterDefinition],
         session,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RecordData]:
         
         # Get subject record from subject register
@@ -467,7 +465,7 @@ class G2PRegisterHierarchicalService(BaseService):
             peer_record_impl_class.link_internal_record_id == subject_record.link_internal_record_id
         ]
         policy_condition = await self._build_register_policy_condition(
-            peer_register.register_id, peer_record_impl_class, policy_mnemonics, session
+            peer_register.register_id, peer_record_impl_class, data_policies, session
         )
         if policy_condition is not None:
             filter_conditions.append(policy_condition)
@@ -486,7 +484,7 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_record_id: str,
         path: list[G2PRegisterDefinition],
         session,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RecordData]:
         """
         Traverse DOWN from ancestor to descendant, collecting all linked records.
@@ -549,7 +547,7 @@ class G2PRegisterHierarchicalService(BaseService):
             filter_conditions = [impl_class.link_internal_record_id.in_(current_record_ids)]
             if i == len(path_reversed) - 1:
                 policy_condition = await self._build_register_policy_condition(
-                    register_def.register_id, impl_class, policy_mnemonics, session
+                    register_def.register_id, impl_class, data_policies, session
                 )
                 if policy_condition is not None:
                     filter_conditions.append(policy_condition)
@@ -577,7 +575,7 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_record_id: str,
         path: list[G2PRegisterDefinition],
         session,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RecordData]:
         """
         Traverse UP from descendant to ancestor, following link_internal_record_id.
@@ -622,7 +620,7 @@ class G2PRegisterHierarchicalService(BaseService):
         impl_class = self._get_implementation_class(related_register.register_mnemonic, related_register.register_purpose)
         filter_conditions = [impl_class.internal_record_id == current_record_id]
         policy_condition = await self._build_register_policy_condition(
-            related_register.register_id, impl_class, policy_mnemonics, session
+            related_register.register_id, impl_class, data_policies, session
         )
         if policy_condition is not None:
             filter_conditions.append(policy_condition)
@@ -642,7 +640,7 @@ class G2PRegisterHierarchicalService(BaseService):
         subject_register_id: str,
         subject_record_id: str,
         tab_id: str,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RegisterTabRecordData]:
         """
         Get all records for a tab, grouped by unique section_register_id.
@@ -661,7 +659,7 @@ class G2PRegisterHierarchicalService(BaseService):
             # Validate subject register exists
             subject_register: G2PRegisterDefinition = await self._validate_register_definition(subject_register_id, session)
             await self._ensure_subject_record_readable(
-                subject_register, subject_record_id, policy_mnemonics, session
+                subject_register, subject_record_id, data_policies, session
             )
             completion_score_required: bool = bool(subject_register.completion_score_required) if subject_register else False
 
@@ -728,7 +726,7 @@ class G2PRegisterHierarchicalService(BaseService):
                     subject_register_id=subject_register_id,
                     subject_record_id=subject_record_id,
                     section_register_id=section_register_id,
-                    policy_mnemonics=policy_mnemonics,
+                    data_policies=data_policies,
                 )
 
                 # Add completion scores to each record

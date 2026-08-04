@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import Depends, Request
-from iam_core.user_auth.decorators import require_permissions
+from iam_core.user_auth.decorators import require_permissions, data_policy
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_fastapi_common.schemas import G2PPaginationResponse, G2PResponse
 from openg2p_registry_core.controller_services import G2PIntakeFormDataControllerService
@@ -39,7 +39,7 @@ from openg2p_registry_core.schemas import (
 
 from ..config import Settings
 from ..helpers import RequestResponseHelper
-from ..helpers.data_policy_request_helper import get_data_policy_mnemonics
+from ..helpers.data_policy_request_helper import get_data_policies
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -128,6 +128,7 @@ class G2PIntakeFormDataController(BaseController):
         )
     
     @require_permissions({})
+    @data_policy
     async def get_intake_form_submissions_summary(
         self,
         http_request: Request,
@@ -136,7 +137,7 @@ class G2PIntakeFormDataController(BaseController):
         try:
             summary_data: IntakeFormSubmissionsSummaryData = await self.service.get_intake_form_submissions_summary(
                 get_intake_form_submissions_summary_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             summary_response: IntakeFormSubmissionsSummaryResponse = self.helper.construct_intake_form_submissions_summary_success_response(
                 summary_data=summary_data,
@@ -258,6 +259,7 @@ class G2PIntakeFormDataController(BaseController):
             return self.helper.construct_error_response(error_exception, g2p_request)
 
     @require_permissions({"intakeSubmission:view"})
+    @data_policy
     async def get_intake_form_submission(
         self,
         http_request: Request,
@@ -266,7 +268,7 @@ class G2PIntakeFormDataController(BaseController):
         try:
             payload: SubmissionResponsePayload = await self.service.get_intake_form_submission(
                 g2p_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             return self.helper.construct_success_response(
                 SubmissionResponseBody(response_payload=payload),
@@ -277,6 +279,7 @@ class G2PIntakeFormDataController(BaseController):
             return self.helper.construct_error_response(error_exception, g2p_request)
 
     @require_permissions({"intakeSubmission:view"})
+    @data_policy
     async def search_in_intake_form_submissions(
         self,
         http_request: Request,
@@ -285,7 +288,7 @@ class G2PIntakeFormDataController(BaseController):
         try:
             payloads, total_items, number_of_pages = await self.service.search_in_intake_form_submissions(
                 g2p_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             return self.helper.construct_success_response(
                 SubmissionSearchResultsResponseBody(response_payload=payloads),
@@ -300,6 +303,7 @@ class G2PIntakeFormDataController(BaseController):
             return self.helper.construct_error_response(error_exception, g2p_request)
 
     @require_permissions({"intakeSubmission:view"})
+    @data_policy
     async def get_tab_records(
         self,
         http_request: Request,
@@ -308,7 +312,7 @@ class G2PIntakeFormDataController(BaseController):
         try:
             payload = await self.service.get_tab_records(
                 g2p_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             return self.helper.construct_success_response(
                 GetIntakeFormTabRecordsResponseBody(response_payload=payload),
