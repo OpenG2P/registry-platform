@@ -658,7 +658,7 @@ class G2PRegisterService(BaseService):
             register_class = getattr(module, implementation_class_name)
 
             filter_conditions = [register_class.record_status == RecordStatusEnum.ACTIVE.value]
-            policy_condition = await self._build_register_policy_condition(
+            policy_condition = self._build_register_policy_condition(
                 register_definition.register_id,
                 register_class,
                 data_policies,
@@ -1014,7 +1014,7 @@ class G2PRegisterService(BaseService):
     ) -> None:
         """Raise if the register record is missing or blocked by data policy."""
         filter_conditions = [implementation_class.internal_record_id == internal_record_id]
-        policy_condition = await self._build_register_policy_condition(
+        policy_condition = self._build_register_policy_condition(
             register_id, implementation_class, data_policies, session
         )
         if policy_condition is not None:
@@ -1097,7 +1097,7 @@ class G2PRegisterService(BaseService):
                 )
 
         # Apply record-level data policy (DP_ roles -> policy mnemonics -> SQL)
-        policy_condition = await self._build_register_policy_condition(
+        policy_condition = self._build_register_policy_condition(
             register_id, implementation_class, data_policies, session
         )
         print(policy_condition,"&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")

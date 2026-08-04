@@ -1198,7 +1198,7 @@ class G2PRegisterChangeRequestService(BaseService):
                 )
                 continue
 
-            policy_condition = await register_service._build_register_policy_condition(
+            policy_condition = register_service._build_register_policy_condition(
                 register_definition.register_id,
                 implementation_class,
                 data_policies,

@@ -1,7 +1,7 @@
 import logging
 from openg2p_fastapi_common.service import BaseService
 
-from openg2p_registry_staff_portal_api.helpers.data_policy_request_helper import (
+from openg2p_registry_staff_api.helpers.data_policy_request_helper import (
     get_data_policies,
 )
 from ..services import G2PRegisterService, G2PRegisterHierarchicalService

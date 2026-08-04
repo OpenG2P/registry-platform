@@ -125,7 +125,7 @@ class G2PRegisterHierarchicalService(BaseService):
         """Raise if the subject record is missing or blocked by data policy."""
         impl_class = self._get_implementation_class(register.register_mnemonic, register.register_purpose)
         filter_conditions = [impl_class.internal_record_id == record_id]
-        policy_condition = await self._build_register_policy_condition(
+        policy_condition = self._build_register_policy_condition(
             register.register_id, impl_class, data_policies, session
         )
         if policy_condition is not None:
@@ -175,7 +175,7 @@ class G2PRegisterHierarchicalService(BaseService):
         """
         impl_class = self._get_implementation_class(register.register_mnemonic, register.register_purpose)
         filter_conditions = [impl_class.internal_record_id == record_id]
-        policy_condition = await self._build_register_policy_condition(
+        policy_condition = self._build_register_policy_condition(
             register.register_id, impl_class, data_policies, session
         )
         if policy_condition is not None:
@@ -464,7 +464,7 @@ class G2PRegisterHierarchicalService(BaseService):
         filter_conditions = [
             peer_record_impl_class.link_internal_record_id == subject_record.link_internal_record_id
         ]
-        policy_condition = await self._build_register_policy_condition(
+        policy_condition = self._build_register_policy_condition(
             peer_register.register_id, peer_record_impl_class, data_policies, session
         )
         if policy_condition is not None:
@@ -546,7 +546,7 @@ class G2PRegisterHierarchicalService(BaseService):
             # Find all records in this register where link_internal_record_id is in current_record_ids
             filter_conditions = [impl_class.link_internal_record_id.in_(current_record_ids)]
             if i == len(path_reversed) - 1:
-                policy_condition = await self._build_register_policy_condition(
+                policy_condition = self._build_register_policy_condition(
                     register_def.register_id, impl_class, data_policies, session
                 )
                 if policy_condition is not None:
@@ -619,7 +619,7 @@ class G2PRegisterHierarchicalService(BaseService):
         related_register: G2PRegisterDefinition = path[-1]
         impl_class = self._get_implementation_class(related_register.register_mnemonic, related_register.register_purpose)
         filter_conditions = [impl_class.internal_record_id == current_record_id]
-        policy_condition = await self._build_register_policy_condition(
+        policy_condition = self._build_register_policy_condition(
             related_register.register_id, impl_class, data_policies, session
         )
         if policy_condition is not None:
