@@ -318,6 +318,55 @@ questions:
   label: Sanity - Run Full E2E
   group: Sanity
 
+- variable: sanity.failOnError
+  description: Fail the install/upgrade when a sanity test FAILS. Gates on failures, not skips — a test whose dependencies are not configured (no commons-services on a bring-up install) still skips and stays green. Turn off only where a red deploy is worse than an unverified one.
+  type: boolean
+  default: true
+  label: Sanity - Fail the Deploy on Test Failure
+  group: Sanity
+
+- variable: sanity.readinessTimeout
+  description: Seconds the suite waits for the registry APIs to come up before giving up. Raise it on a slow or heavily-loaded cluster where pods take longer to pass their probes.
+  type: int
+  default: 180
+  label: Sanity - API Readiness Timeout (s)
+  group: Sanity
+
+- variable: sanity.searchText
+  description: "What the e2e DCI search matches on (ILIKE against search_text). Must be the sanity record's functional_record_id: the change-request test runs first and its approval regenerates search_text from the record's real columns, dropping any manually-stuffed marker. The seeder builds its record from this same value, so the two cannot drift."
+  type: string
+  default: SANITY-INDIVIDUAL-0001
+  label: Sanity - Record Search Text
+  group: Sanity
+
+- variable: sanity.regType
+  description: Register type the e2e exercises. Must match a register this deployment actually ships — the reference registry is Individual; a variant overrides it (farmer-registry uses Farmer).
+  type: string
+  default: Individual
+  label: Sanity - Register Type
+  group: Sanity
+
+- variable: sanity.dataScopes
+  description: "Comma-separated scopes the seeded consent policy allows, and which the e2e asserts come back. These MUST be top-level keys of this register's outgoing DCI template — clamping is a strict allow-list over the rendered record's top-level keys, so a scope naming anything else silently clamps every record to empty."
+  type: string
+  default: "demographic_info"
+  label: Sanity - Consented Data Scopes
+  group: Sanity
+
+- variable: sanity.deniedScopes
+  description: Comma-separated scopes deliberately NOT consented to. The e2e asserts these never appear in a response — this is the test that proves consent clamping actually clamps.
+  type: string
+  default: "member_identifier"
+  label: Sanity - Denied Data Scopes
+  group: Sanity
+
+- variable: sanity.aweSettleTimeout
+  description: Seconds the e2e waits for AWE to apply an approved change request. AWE calls back asynchronously via webhook, so the change lands after the approval returns; too low a value fails a working deployment.
+  type: int
+  default: 90
+  label: Sanity - AWE Settle Timeout (s)
+  group: Sanity
+
 - variable: global.consentManagerStaffUrl
   description: Consent Manager staff-portal-api base URL — used only by the sanity e2e to seed the test partner's binding + policy.
   type: string

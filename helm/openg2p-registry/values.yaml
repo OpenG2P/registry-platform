@@ -1494,7 +1494,13 @@ idgenerator:
 #     clients' Keycloak roles (partner_manager on PM, CONSENT_MANAGER_ADMIN on CM),
 #     and the enforcement switches ON to exercise consent (global.*Enabled).
 sanity:
-  enabled: false
+  # On by default. A bare platform install carries no sample and no bulk data —
+  # every dbSeed loader below is off — so the smoke suite is the ONLY thing that
+  # says whether the deploy is actually serving. It creates nothing and needs
+  # nothing beyond the registry itself, and questions.yaml has advertised this as
+  # `default: true` all along; the value said otherwise, which is the bug.
+  # runE2e stays off: the full round-trip needs PM, CM, AWE and Keycloak admin.
+  enabled: true
   image:
     repository: registry.gitlab.com/openg2p/registry/registry-platform/sanity-tests
     tag: develop
@@ -1516,34 +1522,41 @@ sanity:
   readinessTimeout: 180
   # The consent object's audience (== the CM binding audience) + the registry's
   # controller id (== data_controller). Kept stable so the binding is reused.
-  cmAudience: FR_SANITY_PARTNER
-  controllerId: fr-sanity-controller
+  # Variant-neutral: this is the PLATFORM's fixture, and every variant inherits
+  # it. They were named for the farmer registry, which is where they were first
+  # written, not because anything farmer-specific reads them.
+  cmAudience: OPENG2P_SANITY_PARTNER
+  controllerId: openg2p-sanity-controller
   # DCI envelope sender id — PARTNER_<UPPER> must equal the PM partner reference
   # (PARTNER_CM_SANITY), i.e. sender "cm_sanity".
   dciSenderId: cm_sanity
   regType: Individual
   regRecordType: 'spdci-extensions-dci:Individual'
   # What the DCI search matches on (ILIKE '%<text>%' against search_text). This
-  # MUST be the sanity farmer's functional_record_id, NOT the SANITYE2E marker:
+  # MUST be the sanity record's functional_record_id, NOT the SANITYE2E marker:
   # the change-request test runs first and its approval regenerates search_text
   # from the record's real columns, dropping the manually-stuffed marker. The
   # functional_record_id is a genuine search-text field, so it survives — and it
   # appears in no seeded sample data, so the e2e only ever matches its own record.
-  searchText: SANITY-FARMER-0001
+  # data_seed.py builds the record from this same value, so the two cannot drift.
+  searchText: SANITY-INDIVIDUAL-0001
   # Scopes the seeded CM policy allows + the consent object requests.
   #
-  # These MUST be top-level keys of the register's outgoing DCI template
-  # (openg2p_farmer_to_dci.json.j2): clamping is a strict allow-list over the
-  # rendered record's top-level keys, so a scope naming anything else silently
-  # clamps every record to {}. The farmer template emits exactly six —
-  # farmer_personal_details, family_details, farm_details, machineries_details,
-  # registration_date, last_updated — and there is no sub-field granularity
-  # (farmer_personal_details carries birth_date and phone_number with it).
+  # These MUST be top-level keys of THIS register's outgoing DCI template:
+  # clamping is a strict allow-list over the rendered record's top-level keys, so
+  # a scope naming anything else silently clamps every record to {}. There is no
+  # sub-field granularity — a scope carries everything nested under it. The values
+  # below are the reference Individual register's; a variant that ships a
+  # different template must override them (farmer-registry does).
   dataScopes: "demographic_info"
   # Scopes deliberately NOT consented to; the e2e asserts these never come back.
   deniedScopes: "member_identifier"
-  # The Farmer register (must match g2p_register_definitions.sql). Used to find
-  # the register's bound AWE change-request policy and to raise the CR.
+  # The reference Individual register (must match g2p_register_definitions.sql).
+  # Used to find the register's bound AWE change-request policy and to raise the
+  # CR. NB the KEY is still named farmerRegisterId — renaming it means changing
+  # the SANITY_FARMER_REGISTER_ID env in _helpers.tpl, cfg.farmer_register_id in
+  # the sanity suite, and farmer-registry's override, so it is left for a
+  # coordinated change rather than half-renamed here.
   farmerRegisterId: a0000000-0000-4000-8000-000000000001
   # UI coordinates the change-request payload carries. Optional — set if the
   # deployment's metadata requires a specific tab/section.

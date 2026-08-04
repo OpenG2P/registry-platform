@@ -525,8 +525,17 @@ def _as_int(v):
 
 
 def _fr_id(ind: dict) -> str:
-    """Farmer functional id from the individual's IND-#### id -> FR-####."""
-    return "FR-" + ind["functional_record_id"].split("-")[1]
+    """Farmer functional id from the individual's id -> FR-####.
+
+    Take the LAST segment, not [1]. The docstring's `IND-####` was only ever the
+    two-segment shape; Master Data's sample population is country-prefixed
+    (`ETH-IND-0001`), where [1] is the literal 'IND' — so every farmer got the
+    same `FR-IND`. The insert only carries `ON CONFLICT (internal_record_id)`,
+    which does not cover the unique index on functional_record_id, so the second
+    row aborted the transaction: db-seed failed with zero rows loaded, retried,
+    and failed identically until BackoffLimitExceeded.
+    """
+    return "FR-" + ind["functional_record_id"].rsplit("-", 1)[-1]
 
 
 def search_text_person(p: dict) -> str:
@@ -640,7 +649,10 @@ def insert_households(cur, households: list) -> None:
 
 
 def _seq(record: dict) -> int:
-    return int(record["functional_record_id"].split("-")[1])
+    # Last segment, for the same reason as _fr_id: on a country-prefixed id
+    # (`ETH-HH-001`) index [1] is 'HH' and int() raises. This is only reached
+    # after the farmers insert, which is why _fr_id failed first.
+    return int(record["functional_record_id"].rsplit("-", 1)[-1])
 
 
 def insert_household_members(cur, members: list, ind_by_id: dict) -> None:

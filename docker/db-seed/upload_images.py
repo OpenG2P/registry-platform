@@ -34,9 +34,14 @@ def env(name: str, default: str | None = None) -> str:
 
 
 def individual_uuid_from_stem(stem: str) -> str | None:
-    """IND-0001 -> i0001."""
+    """IND-0001 -> i0001. Also ETH-IND-0001 -> i0001.
+
+    Last segment, not [1]: a country-prefixed stem would otherwise hit the
+    ValueError branch and silently skip every image. Same trap as _fr_id in
+    load_sample_data.py, but this one fails quietly rather than loudly.
+    """
     try:
-        seq = int(stem.split("-")[1])
+        seq = int(stem.rsplit("-", 1)[-1])
     except (IndexError, ValueError):
         return None
     return f"{INDIVIDUAL_ID_PREFIX}{seq:04d}"
