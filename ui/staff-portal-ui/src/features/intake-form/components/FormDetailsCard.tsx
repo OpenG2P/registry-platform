@@ -29,7 +29,6 @@ export default function FormDetailsCard({
                         alt=""
                         width={16}
                         height={16}
-                        className="scale-x-[-1]"
                     />
                 </button>
             </div>

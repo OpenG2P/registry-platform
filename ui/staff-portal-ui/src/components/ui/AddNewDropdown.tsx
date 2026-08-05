@@ -99,16 +99,19 @@ export default function AddNewDropdown({
                     );
                 }
 
-                return forms.map((form: any) => (
-                    <div
-                        key={form.form_id}
-                        onClick={() => handleNavigateForm(form.form_id)}
-                        className="px-4 py-1 font-medium hover:bg-secondary-second cursor-pointer truncate text-[16px]"
-                        title={form.form_mnemonic}
-                    >
-                        {form.form_mnemonic}
-                    </div>
-                ));
+                return forms.map((form: any) => {
+                    const label = t.has(form.form_mnemonic) ? t(form.form_mnemonic) : form.form_mnemonic;
+                    return (
+                        <div
+                            key={form.form_id}
+                            onClick={() => handleNavigateForm(form.form_id)}
+                            className="px-4 py-1 font-medium hover:bg-secondary-second cursor-pointer truncate text-[16px]"
+                            title={label}
+                        >
+                            {label}
+                        </div>
+                    );
+                });
 
             case 'IMPORT_FILE':
                 if (isLoadingImportFiles) {
@@ -127,16 +130,21 @@ export default function AddNewDropdown({
                     );
                 }
 
-                return importFileOptions.map((file: any) => (
-                    <div
-                        key={file.import_file_configuration_id}
-                        onClick={() => handleImport(file)}
-                        className="px-4 py-1 font-medium hover:bg-secondary-second cursor-pointer text-[16px] truncate"
-                        title={file.import_file_template_mnemonic}
-                    >
-                        {file.import_file_template_mnemonic}
-                    </div>
-                ));
+                return importFileOptions.map((file: any) => {
+                    const label = t.has(file.import_file_template_mnemonic)
+                        ? t(file.import_file_template_mnemonic)
+                        : file.import_file_template_mnemonic;
+                    return (
+                        <div
+                            key={file.import_file_configuration_id}
+                            onClick={() => handleImport(file)}
+                            className="px-4 py-1 font-medium hover:bg-secondary-second cursor-pointer text-[16px] truncate"
+                            title={label}
+                        >
+                            {label}
+                        </div>
+                    );
+                });
 
             case 'VERIFIABLE_CREDENTIAL':
                 if (isLoadingVCs) {
@@ -155,16 +163,26 @@ export default function AddNewDropdown({
                     );
                 }
 
-                return vcOptions.map((vc: any) => (
-                    <div
-                        key={vc.vc_config_id}
-                        onClick={() => handleVCSelect(vc)}
-                        className="px-4 py-1 font-medium hover:bg-secondary-second cursor-pointer text-[16px] truncate"
-                        title={`${vc.vc_mnemonic} - ${vc.data_model_mnemonic} - ${vc.intake_form_mnemonic}`}
-                    >
-                        {vc.vc_mnemonic} - {vc.data_model_mnemonic} - {vc.intake_form_mnemonic}
-                    </div>
-                ));
+                return vcOptions.map((vc: any) => {
+                    const vcLabel = t.has(vc.vc_mnemonic) ? t(vc.vc_mnemonic) : vc.vc_mnemonic;
+                    const dataModelLabel = t.has(vc.data_model_mnemonic)
+                        ? t(vc.data_model_mnemonic)
+                        : vc.data_model_mnemonic;
+                    const formLabel = t.has(vc.intake_form_mnemonic)
+                        ? t(vc.intake_form_mnemonic)
+                        : vc.intake_form_mnemonic;
+                    const label = `${vcLabel} - ${dataModelLabel} - ${formLabel}`;
+                    return (
+                        <div
+                            key={vc.vc_config_id}
+                            onClick={() => handleVCSelect(vc)}
+                            className="px-4 py-1 font-medium hover:bg-secondary-second cursor-pointer text-[16px] truncate"
+                            title={label}
+                        >
+                            {label}
+                        </div>
+                    );
+                });
 
             default:
                 return null;
