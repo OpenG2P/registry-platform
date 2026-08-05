@@ -28,6 +28,8 @@ def _create_document_handler() -> DocumentHandler:
             access_key=_config.minio_access_key,
             secret_key=_config.minio_secret_key,
             secure=_config.minio_secure,
+            read_access_key=getattr(_config, "minio_read_access_key", None) or None,
+            read_secret_key=getattr(_config, "minio_read_secret_key", None) or None,
         )
 
     raise ValueError(f"Unsupported document storage backend: {backend}")
