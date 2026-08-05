@@ -83,8 +83,14 @@ export default function MultiSectionAccordionForms({
     [sections]
   );
 
-  const intakeFormHeading = useMemo(() => form_name, [form_name]);
-  const intakeFormDescription = useMemo(() => form_description, [form_description]);
+  const intakeFormHeading = useMemo(
+    () => (form_name ? (t.has(form_name) ? t(form_name) : form_name) : undefined),
+    [form_name, t]
+  );
+  const intakeFormDescription = useMemo(
+    () => (form_description ? (t.has(form_description) ? t(form_description) : form_description) : undefined),
+    [form_description, t]
+  );
 
 
   const handleSectionSave = useCallback(
