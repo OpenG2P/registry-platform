@@ -156,18 +156,39 @@ else
   echo "[db-seed] Skipping geo-widget sync (SYNC_GEO_WIDGETS=${SYNC_GEO_WIDGETS})."
 fi
 
-# 3. Optionally load sample data from openg2p-data (CSV + farmer sub-table JSON)
+# 3. Optionally load sample data.
+#
+# The loader is NOT part of this image. Sample data is written against a specific
+# register's schema — the tables and the seed JSON both belong to a variant — so
+# each variant ships its own /seed/load_sample_data.py. The platform owns the
+# HOOK and the ordering, not the loader. A base install has no sample data at all
+# (loadSampleData=false, no seed-data), which is deliberate.
 if [ "$LOAD_SAMPLE_DATA" = "true" ]; then
-  echo "[db-seed] Loading sample data from openg2p-data ..."
-  python3 /seed/load_sample_data.py
+  if [ -f /seed/load_sample_data.py ]; then
+    echo "[db-seed] Loading sample data ..."
+    python3 /seed/load_sample_data.py
+  else
+    echo "[db-seed] ERROR: LOAD_SAMPLE_DATA=true but this image ships no" \
+         "/seed/load_sample_data.py. Sample data is variant-specific — use a" \
+         "registry variant's db-seed image, or set loadSampleData=false." >&2
+    exit 1
+  fi
 else
   echo "[db-seed] Skipping sample data (LOAD_SAMPLE_DATA=${LOAD_SAMPLE_DATA})."
 fi
 
-# 4. Optionally upload profile images to MinIO
+# 4. Optionally upload profile images to MinIO. Variant-supplied, same as above:
+#    the images are linked to the sample records that loader created.
 if [ "$LOAD_IMAGES" = "true" ]; then
-  echo "[db-seed] Uploading profile images to MinIO ..."
-  python3 /seed/upload_images.py
+  if [ -f /seed/upload_images.py ]; then
+    echo "[db-seed] Uploading profile images to MinIO ..."
+    python3 /seed/upload_images.py
+  else
+    echo "[db-seed] ERROR: LOAD_IMAGES=true but this image ships no" \
+         "/seed/upload_images.py. Profile images accompany a variant's sample" \
+         "data — use a variant's db-seed image, or set loadImages=false." >&2
+    exit 1
+  fi
 else
   echo "[db-seed] Skipping image upload (LOAD_IMAGES=${LOAD_IMAGES})."
 fi

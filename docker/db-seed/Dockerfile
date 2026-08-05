@@ -2,13 +2,17 @@
 #
 # A postgres-client image that ships the generic seeding MACHINERY only:
 #   - entrypoint.sh          (applies meta_data / awe_meta_data SQL, runtime env-driven)
-#   - load_sample_data.py    (demography CSV + registry sub-table JSON)
 #   - load_geo_data.py       (geo hierarchy into master_data)
 #   - load_attributes_from_mds.py (country code lists from Master Data)
 #   - sync_geo_widgets.py    (geo dropdowns -> the loaded hierarchy)
-#   - upload_images.py       (profile images → MinIO)
 #   - upload_templates.py    (Jinja templates → MinIO)
 #   - openg2p-data           (shared demography CSV + images, cloned at build time)
+#
+# NOT here: load_sample_data.py / upload_images.py. Sample data is written against
+# a specific register's tables and seed JSON, so each variant ships its own pair
+# (see farmer-registry and national-social-registry). The entrypoint keeps the
+# LOAD_SAMPLE_DATA / LOAD_IMAGES hooks and errors clearly if they are enabled on
+# an image that carries no loader.
 #
 # It ships NO registry-specific data. A concrete registry adds its seed content:
 #
@@ -63,17 +67,19 @@ COPY reference-extension/src/openg2p_registry_reference_extension/meta_data/    
 COPY reference-extension/src/openg2p_registry_reference_extension/awe_meta_data/ /seed/awe_meta_data/
 COPY reference-extension/src/openg2p_registry_reference_extension/templates/     /seed/templates/
 
+# Generic machinery only. load_sample_data.py and upload_images.py are NOT here:
+# they are written against a specific register's schema (which tables to INSERT,
+# which seed JSON to read), so they belong to the variant that declares those
+# tables — farmer-registry and NSR each ship their own. This image installs with
+# loadSampleData=false and no seed-data, and the entrypoint reports a clear error
+# if the flag is turned on without a variant loader present.
 COPY docker/db-seed/entrypoint.sh /seed/entrypoint.sh
 COPY docker/db-seed/upload_templates.py /seed/upload_templates.py
-COPY docker/db-seed/upload_images.py /seed/upload_images.py
-COPY docker/db-seed/load_sample_data.py /seed/load_sample_data.py
 COPY docker/db-seed/load_geo_data.py /seed/load_geo_data.py
 COPY docker/db-seed/load_attributes_from_mds.py /seed/load_attributes_from_mds.py
 COPY docker/db-seed/sync_geo_widgets.py /seed/sync_geo_widgets.py
 RUN chmod +x /seed/entrypoint.sh \
              /seed/upload_templates.py \
-             /seed/upload_images.py \
-             /seed/load_sample_data.py \
              /seed/load_geo_data.py \
              /seed/load_attributes_from_mds.py \
              /seed/sync_geo_widgets.py

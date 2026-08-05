@@ -44,7 +44,9 @@ global:
   defaultBucketName: 'default'
   templateBucketName: 'templates'
   # Registrant photos / record images land in the documents bucket and are
-  # catalogued in g2p_registry_documents (see docker/db-seed/upload_images.py).
+  # catalogued in g2p_registry_documents. The uploader that does the cataloguing
+  # is variant-specific (upload_images.py ships in a variant's db-seed image, not
+  # this one) because the images belong to that variant's sample records.
   documentsBucketName: 'documents'
   minioSecure: true
 
