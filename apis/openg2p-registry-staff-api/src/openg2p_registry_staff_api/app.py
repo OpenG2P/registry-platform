@@ -35,7 +35,6 @@ from .controllers import (
     G2PAwePolicyConfigurationController,
     G2PAWEWebhookController,
     G2PAweProxyController,
-    G2PDataPolicyController,
 )
 
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -75,7 +74,6 @@ class Initializer(BaseInitializer):
         G2PAwePolicyConfigurationController().post_init()
         G2PAWEWebhookController().post_init()
         G2PAweProxyController().post_init()
-        G2PDataPolicyController().post_init()
 
     def migrate_database(self, args):
         _logger.info("Starting database migration")

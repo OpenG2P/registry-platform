@@ -20,10 +20,6 @@ export type ConfigActiveOption =
     | "ingest-templates"
     | "outgest-topics"
     | "outgest-templates"
-    | "data-policies"
-    | "data-policies-register"
-    | "data-policies-reference-data"
-    | "data-policies-administrative-areas"
     | "awe-policy-config"
 
 interface ConfigLayoutProps {

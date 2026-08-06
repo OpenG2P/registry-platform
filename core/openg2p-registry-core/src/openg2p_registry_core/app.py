@@ -38,7 +38,6 @@ from .controller_services import (
     G2PRegistrantAuthenticationControllerService,
     G2PAwePolicyConfigurationControllerService,
     G2PAweProxyControllerService,
-    G2PDataPolicyControllerService,
 )
 from .helpers import AweHelper, ApplicationReferenceGenerator, PatternMatcher, TemplateHelper, get_document_handler
 
@@ -136,7 +135,6 @@ from .services import (
     G2PAwePolicyConfigurationService,
     G2PAweIntegrationService,
     G2PAweWebhookService,
-    G2PDataPolicyService,
     InputMechanismMetadataService,
     InputMechanismDataService,
     ImportFileConfigurationService,
@@ -195,7 +193,6 @@ class Initializer(BaseInitializer):
         G2PAwePolicyConfigurationService()
         G2PAweIntegrationService()
         G2PAweWebhookService()
-        G2PDataPolicyService()
 
         # Controller Services
         G2PDataModelControllerService()
@@ -228,7 +225,6 @@ class Initializer(BaseInitializer):
         G2PRegistrantAuthenticationControllerService()
         G2PAwePolicyConfigurationControllerService()
         G2PAweProxyControllerService()
-        G2PDataPolicyControllerService()
 
     def migrate_database(self, args):
         super().migrate_database(args)
