@@ -1,3 +1,4 @@
-from .keymanager_helper import DciKeymanagerHelper
+from .consent_helper import DciConsentHelper
+from .keymanager_helper import DciKeymanagerHelper, partner_reference_id
 from .query_helper import DciQueryHelper
 from .request_response_helper import DciRequestResponseHelper
