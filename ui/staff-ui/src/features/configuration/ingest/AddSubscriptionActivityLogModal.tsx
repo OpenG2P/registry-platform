@@ -70,8 +70,6 @@ export default function AddSubscriptionActivityLogModal({ onClose, onSuccess }: 
                 resetForm();
                 if (onSuccess) onSuccess();
                 onClose();
-            } else {
-                toast.error(t('toast_subscription_log_create_failed'));
             }
         } catch (e) {
             toast.error(t('invalid_json_format'));

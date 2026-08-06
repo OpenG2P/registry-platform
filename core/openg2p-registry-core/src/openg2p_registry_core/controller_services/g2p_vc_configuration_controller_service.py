@@ -45,12 +45,15 @@ class G2PVcConfigurationControllerService(BaseService):
         _logger.info("Fetching all registry vc configurations through controller service")
         pagination_request = vc_configuration_request.request_body.pagination_request
         current_page, page_size = self._extract_pagination_values(pagination_request)
+        payload = vc_configuration_request.request_body.request_payload
+        register_id = payload.register_id if payload else None
 
         g2p_vc_configuration_service = G2PVcConfigurationService.get_component()
         vc_configuration_data, total_items = (
             await g2p_vc_configuration_service.get_all_vc_configurations(
                 current_page=current_page,
                 page_size=page_size,
+                register_id=register_id,
             )
         )
         pagination_response = self._build_pagination_response(
@@ -78,13 +81,16 @@ class G2PVcConfigurationControllerService(BaseService):
         self,
         vc_configuration_request: VcConfigurationRequest,
     ) -> List[VcConfigurationData]:
-        """Edit registry vc configuration."""
+        """Update registry vc configuration fields."""
         _logger.info("Edit vc configurations through controller service")
         payload = vc_configuration_request.request_body.request_payload
         g2p_vc_configuration_service = G2PVcConfigurationService.get_component()
-        return await g2p_vc_configuration_service.edit_descriptor_schema(
+        return await g2p_vc_configuration_service.update_vc_configuration(
             vc_config_id=payload.vc_config_id,
             descriptor_schema=payload.descriptor_schema,
+            intake_form_id=payload.intake_form_id,
+            data_model_id=payload.data_model_id,
+            vc_mnemonic=payload.vc_mnemonic,
         )
 
     async def delete_vc_configuration(

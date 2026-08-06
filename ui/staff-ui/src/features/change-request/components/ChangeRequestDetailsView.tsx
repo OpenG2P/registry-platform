@@ -144,6 +144,10 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
                                 sectionUISchema={sectionUISchema}
                                 t={t}
                                 changeId={changeId}
+                                hostContext={{
+                                    subject_register_id: details.register_id,
+                                    internal_record_id: details.internal_record_id,
+                                }}
                             />
                         )
                     )}

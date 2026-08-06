@@ -74,20 +74,14 @@ const IntakeFormIdPage = () => {
     };
 
     const proceedDelete = async (id: string) => {
-        try {
-            const result = await deleteIntakeFormTab('/api/configuration/intake-forms/delete-tab', {
-                method: 'POST',
-                body: JSON.stringify({ tab_id: id })
-            });
+        const result = await deleteIntakeFormTab('/api/configuration/intake-forms/delete-tab', {
+            method: 'POST',
+            body: JSON.stringify({ tab_id: id })
+        });
 
-            if (result?.tab_id) {
-                toast.success(t('intake_form_tab_deleted'));
-                editRefresh();
-            } else {
-                toast.error(t('toast_intake_form_tab_deletion_failed'));
-            }
-        } catch (error) {
-            toast.error(t('toast_operation_failed'));
+        if (result?.tab_id) {
+            toast.success(t('intake_form_tab_deleted'));
+            editRefresh();
         }
     };
 

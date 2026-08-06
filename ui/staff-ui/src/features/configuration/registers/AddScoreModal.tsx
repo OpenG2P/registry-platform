@@ -42,8 +42,6 @@ export default function AddScoreModal({ isOpen, onClose, onSuccess }: AddScoreMo
             setScoreType('');
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_score_create_failed'));
         }
     };
 

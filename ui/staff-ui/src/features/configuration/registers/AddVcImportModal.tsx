@@ -106,8 +106,6 @@ export default function AddVcImportModal({ isOpen, onClose, onSuccess }: AddVcIm
             resetForm();
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_vc_import_create_failed'));
         }
     };
 

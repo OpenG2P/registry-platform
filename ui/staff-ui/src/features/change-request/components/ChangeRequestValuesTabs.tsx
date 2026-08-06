@@ -19,6 +19,7 @@ export function ChangeRequestValuesTabs({
     sectionUISchema,
     t,
     changeId,
+    hostContext,
 }: any) {
     const [activeTab, setActiveTab] = useState<TabType>("change_request_values");
 
@@ -78,6 +79,7 @@ export function ChangeRequestValuesTabs({
                         schemaData={newSectionData}
                         t={t}
                         dataSourceRequestHandler={dataSourceRequestHandler}
+                        hostContext={hostContext}
                     >
                         <SectionRenderer
                             section={sectionUISchema}
@@ -92,6 +94,7 @@ export function ChangeRequestValuesTabs({
                         schemaData={oldSectionData}
                         t={t}
                         dataSourceRequestHandler={dataSourceRequestHandler}
+                        hostContext={hostContext}
                     >
                         <SectionRenderer
                             section={sectionUISchema}

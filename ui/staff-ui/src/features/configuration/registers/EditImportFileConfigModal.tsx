@@ -86,8 +86,6 @@ export default function EditImportFileConfigModal({
             toast.success(t('toast_import_file_config_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_import_file_config_update_failed'));
         }
     };
 

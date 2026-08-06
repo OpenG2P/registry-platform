@@ -29,6 +29,7 @@ export interface AccordionFormsProps {
   onCancel?: () => void;
   showActions?: boolean;
   submissionId?: string;
+  formRegisterId?: string;
   registerType?: string;
 }
 
@@ -43,6 +44,7 @@ export default function MultiSectionAccordionForms({
   onCancel,
   showActions = true,
   submissionId,
+  formRegisterId,
 }: AccordionFormsProps) {
 
   const t = useTranslations();
@@ -81,8 +83,14 @@ export default function MultiSectionAccordionForms({
     [sections]
   );
 
-  const intakeFormHeading = useMemo(() => form_name, [form_name]);
-  const intakeFormDescription = useMemo(() => form_description, [form_description]);
+  const intakeFormHeading = useMemo(
+    () => (form_name ? (t.has(form_name) ? t(form_name) : form_name) : undefined),
+    [form_name, t]
+  );
+  const intakeFormDescription = useMemo(
+    () => (form_description ? (t.has(form_description) ? t(form_description) : form_description) : undefined),
+    [form_description, t]
+  );
 
 
   const handleSectionSave = useCallback(
@@ -165,6 +173,8 @@ export default function MultiSectionAccordionForms({
                 onSubmit={handleSubmit}
                 isSubmitDisabled={formHandle === null || !allSectionsSaved}
                 widgetStore={widgetStore}
+                submissionId={submissionId}
+                formRegisterId={formRegisterId}
               />
             </div>
 

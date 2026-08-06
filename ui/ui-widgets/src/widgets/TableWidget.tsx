@@ -449,24 +449,52 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   
   const isAnyRowEditing = editingState !== null || isAdding;
 
+  const resolveEditingRowData = useCallback(() => {
+    if (!editingState) return null;
+    const row: Record<string, any> = { ...editingState.currentValue };
+    columns.forEach((col) => {
+      const key = col['column-key'];
+      const cellWidgetId = `${widgetConfig['widget-id']}-row-${editingState.rowIndex}-col-${key}`;
+      if (storeValues[cellWidgetId] !== undefined) {
+        row[key] = storeValues[cellWidgetId];
+      }
+    });
+    return row;
+  }, [editingState, columns, widgetConfig, storeValues]);
+
+  const resolveNewRowData = useCallback(() => {
+    if (!isAdding || !newRowData) return null;
+    const row: Record<string, any> = { ...newRowData };
+    columns.forEach((col) => {
+      const key = col['column-key'];
+      const cellWidgetId = `${widgetConfig['widget-id']}-row-${rows.length}-col-${key}`;
+      if (storeValues[cellWidgetId] !== undefined) {
+        row[key] = storeValues[cellWidgetId];
+      }
+    });
+    return row;
+  }, [isAdding, newRowData, columns, widgetConfig, rows.length, storeValues]);
+
   const canSaveEditingRow = useMemo(() => {
-    if (!editingState) {
+    const rowData = resolveEditingRowData();
+    if (!rowData) {
       return false;
     }
     return isTableRowDataValid(
-      editingState.currentValue,
+      rowData,
       columns,
       isReadonly,
       resolveSchemaLabel,
     );
-  }, [editingState, columns, isReadonly, resolveSchemaLabel]);
+  }, [resolveEditingRowData, columns, isReadonly, resolveSchemaLabel]);
 
   const canSaveNewRow = useMemo(() => {
-    if (!isAdding || !newRowData) {
+    const rowData = resolveNewRowData();
+    if (!rowData) {
       return false;
     }
-    return isTableRowDataValid(newRowData, columns, isReadonly, resolveSchemaLabel);
-  }, [isAdding, newRowData, columns, isReadonly, resolveSchemaLabel]);
+    return isTableRowDataValid(rowData, columns, isReadonly, resolveSchemaLabel);
+  }, [resolveNewRowData, columns, isReadonly, resolveSchemaLabel]);
 
   const showConfirmation = useCallback((message: string, onConfirm: () => void, onCancel: () => void) => {
     setConfirmationState({
@@ -533,29 +561,40 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
 
   const updateCellValue = useCallback((columnKey: string, newValue: any, rowIndex?: number) => {
     if (editingState && rowIndex !== undefined) {
-      setEditingState({
-        ...editingState,
-        currentValue: {
-          ...editingState.currentValue,
-          [columnKey]: newValue,
-        },
+      setEditingState((prev) => {
+        if (!prev || prev.rowIndex !== rowIndex) return prev;
+        return {
+          ...prev,
+          currentValue: {
+            ...prev.currentValue,
+            [columnKey]: newValue,
+          },
+        };
       });
-      
+
       const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
       dispatch(setValue({ widgetId: cellWidgetId, value: newValue }));
-    } else if (isAdding && newRowData) {
-      setNewRowData({
-        ...newRowData,
-        [columnKey]: newValue,
+    } else if (isAdding) {
+      setNewRowData((prev: Record<string, any> | null) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          [columnKey]: newValue,
+        };
       });
+
+      if (rowIndex !== undefined) {
+        const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
+        dispatch(setValue({ widgetId: cellWidgetId, value: newValue }));
+      }
     }
-  }, [editingState, isAdding, newRowData, widgetConfig, dispatch]);
+  }, [editingState, isAdding, widgetConfig, dispatch]);
 
   const saveEdit = useCallback(async () => {
-    if (!editingState) return;
+    const rowData = resolveEditingRowData();
+    if (!editingState || !rowData) return;
     if (!canSaveEditingRow) return;
 
-    const rowData = editingState.currentValue;
     const rowIndex = editingState.rowIndex;
     setLoadingRowIndex(rowIndex);
 
@@ -616,7 +655,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [editingState, canSaveEditingRow, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
+  }, [editingState, canSaveEditingRow, resolveEditingRowData, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
 
   const startAdd = useCallback(() => {
     if (isAnyRowEditing) {
@@ -631,26 +670,30 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   }, [isAnyRowEditing, columns, cancelEdit]);
 
   const saveAdd = useCallback(async () => {
-    if (!isAdding || !newRowData) return;
+    const rowData = resolveNewRowData();
+    if (!isAdding || !rowData) return;
     if (!canSaveNewRow) return;
 
-    setLoadingRowIndex(-1); // Use -1 to indicate new row
+    setLoadingRowIndex(-1);
 
     try {
-      let savedRow = { ...newRowData };
+      let savedRow = { ...rowData };
 
-      // TODO: Update to use dataSourceRequestHandler pattern
       if (dataSourceRequestHandler && apiConfig.add) {
         console.warn('[TableWidget] API add operations require migration to dataSourceRequestHandler pattern');
-        const response = newRowData;
-        if (response && typeof response === 'object') {
-          savedRow = { ...savedRow, ...response };
+        if (rowData && typeof rowData === 'object') {
+          savedRow = { ...savedRow, ...rowData };
         }
       }
 
       savedRow = { ...savedRow, edit_action: 'ADD' };
 
       onChange([...rows, savedRow]);
+
+      columns.forEach((col) => {
+        const cellWidgetId = `${widgetConfig['widget-id']}-row-${rows.length}-col-${col['column-key']}`;
+        dispatch(resetWidget(cellWidgetId));
+      });
 
       setIsAdding(false);
       setNewRowData(null);
@@ -660,7 +703,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [isAdding, newRowData, canSaveNewRow, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode]);
+  }, [isAdding, resolveNewRowData, canSaveNewRow, rows, onChange, dataSourceRequestHandler, apiConfig, t, columns, widgetConfig, dispatch]);
 
   const deleteRow = useCallback(async (rowIndex: number) => {
     if (isAnyRowEditing) {
@@ -716,6 +759,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       return editingState.currentValue[columnKey];
     }
     if (isAdding && rowIndex === rows.length) {
+      const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
+      const storeValue = storeValues[cellWidgetId];
+      if (storeValue !== undefined) {
+        return storeValue;
+      }
       return newRowData?.[columnKey];
     }
     return rows[rowIndex]?.[columnKey];
@@ -732,6 +780,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
 
     if (widgetType === 'select') {
       return null; // Will be handled by SelectDisplayValue component
+    }
+
+    if (widgetType === 'parent-lookup') {
+      return null;
     }
 
     if (column['widget-data-format']) {
@@ -753,7 +805,15 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     }
   }, [isSectionEditMode, rows, originalRows]);
 
+  const editSessionKey = editingState
+    ? `edit-${editingState.rowIndex}`
+    : isAdding
+      ? `add-${rows.length}`
+      : null;
+
   useEffect(() => {
+    if (!editSessionKey) return;
+
     if (editingState) {
       columns.forEach((col) => {
         const columnKey = col['column-key'];
@@ -762,10 +822,9 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         const defaultValue = cellValue !== undefined ? cellValue : (col['widget-data-default'] ?? '');
         dispatch(setValue({ widgetId: cellWidgetId, value: defaultValue }));
       });
+      return;
     }
-  }, [editingState, columns, widgetConfig, dispatch]);
 
-  useEffect(() => {
     if (isAdding && newRowData) {
       columns.forEach((col) => {
         const columnKey = col['column-key'];
@@ -775,7 +834,9 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         dispatch(setValue({ widgetId: cellWidgetId, value: defaultValue }));
       });
     }
-  }, [isAdding, newRowData, columns, widgetConfig, rows.length, dispatch]);
+    // Seed only when add/edit session starts — not on every cell change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editSessionKey]);
 
   const getRowValuesForEdit = useCallback(
     (rowIndex: number): Record<string, any> => {
@@ -888,6 +949,29 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         return (
           <div className="text-sm" style={getCellStyle()}>
             <SelectDisplayValue config={cellConfig} value={cellValue} />
+          </div>
+        );
+      }
+
+      if (widgetType === 'parent-lookup' && displayValue === null) {
+        const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
+        const cellConfig: BaseWidgetConfig = {
+          ...column,
+          'widget-id': cellWidgetId,
+          'widget-label': '',
+          'widget-readonly': true,
+          'widget-data-path': undefined,
+          'widget-data-default': cellValue !== undefined ? cellValue : '',
+        };
+
+        return (
+          <div className="text-sm table-cell-widget" style={getCellStyle()}>
+            <WidgetRenderer
+              config={cellConfig}
+              schemaData={{
+                [cellWidgetId]: cellValue !== undefined ? cellValue : '',
+              }}
+            />
           </div>
         );
       }
@@ -1049,7 +1133,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
                     style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
                   >
-                    {tSchema(t, col['widget-label'])}
+                    {tSchema(t, col['column-label'] || col['widget-label'] || col['column-key'])}
                   </th>
                 ))}
                 {((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode ? (

@@ -47,20 +47,14 @@ const IntakeFormPage = () => {
     };
 
     const proceedDelete = async (id: string) => {
-        try {
-            const result = await deleteIntakeForm('/api/configuration/intake-forms/delete-intake-form', {
-                method: 'POST',
-                body: JSON.stringify({ form_id: id })
-            });
+        const result = await deleteIntakeForm('/api/configuration/intake-forms/delete-intake-form', {
+            method: 'POST',
+            body: JSON.stringify({ form_id: id })
+        });
 
-            if (result?.form_id) {
-                toast.success(t('intake_form_deleted'));
-                refresh();
-            } else {
-                toast.error(t('toast_intake_form_deletion_failed'));
-            }
-        } catch (error) {
-            toast.error(t('toast_operation_failed'));
+        if (result?.form_id) {
+            toast.success(t('intake_form_deleted'));
+            refresh();
         }
     };
 

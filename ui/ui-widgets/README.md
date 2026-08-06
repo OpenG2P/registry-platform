@@ -61,7 +61,7 @@ Input: `text`, `textarea`, `number`, `boolean`, `date`, `datetime`, `select`, `r
 
 Collections: `table`, `dialog-table`.
 
-Special: `profile`, `header-section`, `scores-display`, `id-authentication`, `register-lookup`.
+Special: `profile`, `header-section`, `scores-display`, `id-authentication`, `register-lookup`, `parent-lookup`.
 
 Custom widgets can be registered via `widgetRegistry`.
 

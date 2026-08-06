@@ -52,8 +52,6 @@ export default function EditFormModal({ isOpen, onClose, onSuccess, initialData 
             toast.success(t('toast_form_updated'));
             onSuccess();
             onClose();
-        } else {
-            toast.error(t('toast_form_update_failed'));
         }
     };
 

@@ -44,8 +44,6 @@ const OutgestTemplatesPage = () => {
             if (result) {
                 toast.success(t("outgest_template_deleted_success"));
                 refresh();
-            } else {
-               toast.error(t('outgest_template_deletion_failed'));
             }
         } catch (error) {
             console.error('Delete error');

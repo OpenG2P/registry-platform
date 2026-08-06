@@ -129,6 +129,7 @@ export default function IntakeFormSubmissionView({
                                 showActions={isDraft && canCreate}
                                 onAction={handleAction}
                                 submissionId={submissionId}
+                                formRegisterId={submission?.register_id || currentRegister?.register_id}
                                 registerType={registerType}
                             />
                         </div>

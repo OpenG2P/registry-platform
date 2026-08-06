@@ -63,8 +63,6 @@ export default function AddSemanticPatternModal({ onClose, onSuccess }: AddSeman
             resetForm();
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error(t('toast_semantic_pattern_create_failed'));
         }
     };
 

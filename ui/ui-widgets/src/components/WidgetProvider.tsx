@@ -12,6 +12,7 @@ export interface WidgetProviderProps {
   store?: WidgetStore;
   dataSourceRequestHandler?: DataSourceRequestHandler;
   schemaData?: Record<string, any>;
+  hostContext?: Record<string, string | undefined>;
   t?: (key: string, options?: any) => string;
   theme?: WidgetTheme;
   children: ReactNode;
@@ -20,10 +21,12 @@ export interface WidgetProviderProps {
 const WidgetContext = createContext<{
   dataSourceRequestHandler?: DataSourceRequestHandler;
   schemaData?: Record<string, any>;
+  hostContext?: Record<string, string | undefined>;
   t?: (key: string, options?: any) => string;
 }>({
   dataSourceRequestHandler: undefined,
   schemaData: undefined,
+  hostContext: undefined,
   t: undefined,
 });
 
@@ -35,6 +38,7 @@ export const WidgetProvider = ({
   store,
   dataSourceRequestHandler,
   schemaData,
+  hostContext,
   t,
   theme,
   children,
@@ -48,9 +52,10 @@ export const WidgetProvider = ({
     () => ({
       dataSourceRequestHandler,
       schemaData,
+      hostContext,
       t,
     }),
-    [dataSourceRequestHandler, schemaData, t]
+    [dataSourceRequestHandler, schemaData, hostContext, t]
   );
 
   useEffect(() => {

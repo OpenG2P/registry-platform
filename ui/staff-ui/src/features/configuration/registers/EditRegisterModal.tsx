@@ -107,8 +107,6 @@ export default function EditRegisterModal({ onClose, onSuccess, initialData }: E
             toast.success(`Register "${formData.register_mnemonic}" updated successfully`);
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error('Failed to update register');
         }
     };
 

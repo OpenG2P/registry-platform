@@ -67,8 +67,6 @@ export default function RegisterImportFileConfigView({
         if (result?.import_file_configuration_id) {
             toast.success(t('toast_import_file_config_removed'));
             refresh();
-        } else {
-            toast.error(t('toast_import_file_config_remove_failed'));
         }
     };
 

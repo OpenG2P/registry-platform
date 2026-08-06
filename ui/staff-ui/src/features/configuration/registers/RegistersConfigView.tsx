@@ -43,20 +43,14 @@ export default function RegistersConfigView({
     const [selectedRegister, setSelectedRegister] = useState<Register | null>(null);
 
     const proceedDelete = async (id: string, name: string) => {
-        try {
-            const result = await deleteRegister('/api/configuration/registers/delete', {
-                method: 'POST',
-                body: JSON.stringify({ register_id: id })
-            });
+        const result = await deleteRegister('/api/configuration/registers/delete', {
+            method: 'POST',
+            body: JSON.stringify({ register_id: id })
+        });
 
-            if (result) {
-                toast.success(t('toast_register_deleted', { name }));
-                refresh();
-            } else {
-                toast.error(t('toast_register_delete_failed'));
-            }
-        } catch (error) {
-            toast.error(t('toast_register_delete_error'));
+        if (result) {
+            toast.success(t('toast_register_deleted', { name }));
+            refresh();
         }
     };
 

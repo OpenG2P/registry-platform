@@ -54,8 +54,6 @@ export default function EditIntakeFormTabModal({
             toast.success(t('toast_intake_form_tab_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_intake_form_tab_update_failed'));
         }
     };
 

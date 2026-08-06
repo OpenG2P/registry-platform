@@ -53,8 +53,6 @@ export default function EditTabModal({ onClose, onSuccess, initialData, register
             toast.success(`Tab "${formData.tab_label}" updated successfully`);
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error('Failed to update tab');
         }
     };
 

@@ -18,6 +18,8 @@ interface Props {
   onSubmit: () => void;
   isSubmitDisabled: boolean;
   widgetStore: any;
+  submissionId?: string;
+  formRegisterId?: string;
 }
 
 export default function IntakeFormSections({
@@ -30,6 +32,8 @@ export default function IntakeFormSections({
   onSubmit,
   isSubmitDisabled,
   widgetStore,
+  submissionId,
+  formRegisterId,
 }: Props) {
   const t = useTranslations();
 
@@ -39,6 +43,10 @@ export default function IntakeFormSections({
       schemaData={schemaData}
       t={t}
       dataSourceRequestHandler={dataSourceRequestHandler}
+      hostContext={{
+        submission_id: submissionId,
+        form_register_id: formRegisterId,
+      }}
     >
       <div className="flex flex-col gap-1">
         <SectionsContainer

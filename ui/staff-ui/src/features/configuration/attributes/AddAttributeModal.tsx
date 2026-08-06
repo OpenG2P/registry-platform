@@ -44,8 +44,6 @@ export default function AddAttributeModal({
             toast.success(t('toast_attribute_created'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_attribute_create_failed'));
         }
     };
 

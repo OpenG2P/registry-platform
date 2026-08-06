@@ -56,7 +56,8 @@ export function normalizeEditActions(
         }
 
         if (result.edit_action === "ADD") {
-            result.link_internal_record_id = linkInternalRecordId;
+            result.link_internal_record_id =
+                result.link_internal_record_id || linkInternalRecordId;
             result.internal_record_id = "";
         }
         // delete the profile image
@@ -81,7 +82,9 @@ export function intakeNormalisedRecords(records: any[], InternalRecordId?: strin
 
         if (result.edit_action == null) {
             result.edit_action = "ADD";
-            result.link_internal_record_id = "";
+            if (result.link_internal_record_id == null) {
+                result.link_internal_record_id = "";
+            }
             result.internal_record_id = "";
         }
 

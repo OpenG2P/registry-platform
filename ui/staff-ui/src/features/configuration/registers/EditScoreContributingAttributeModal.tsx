@@ -113,8 +113,8 @@ export default function EditScoreContributingAttributeModal({
             toast.success(t('toast_contributing_attribute_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('toast_contributing_attribute_update_failed'));
+        } else if (updated?.error) {
+            toast.error(updated.error);
         }
     };
 

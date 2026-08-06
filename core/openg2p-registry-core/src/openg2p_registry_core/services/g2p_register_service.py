@@ -12,7 +12,7 @@ from openg2p_fastapi_common.context import dbengine
 from openg2p_registry_core.schemas import ChangeRequestRequestPayload
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, insert, select, inspect, Date as SQLDate, or_, update
+from sqlalchemy import func, insert, select, inspect, Date as SQLDate, and_, or_, update
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
@@ -523,6 +523,8 @@ class G2PRegisterService(BaseService):
         history_dict = {k: v for k, v in history_schema_instance.dict().items() if v is not None}
         history_dict["history_record_id"] = str(uuid.uuid4())
         history_dict["internal_record_id"] = change_payload.get("internal_record_id")
+        if "subject_internal_record_id" in history_class.__table__.columns:
+            history_dict["subject_internal_record_id"] = change_request.internal_record_id
         history_dict["tab_id"] = change_request.tab_id
         history_dict["section_id"] = change_request.section_id
         if "change_request_source" in history_class.__table__.columns:
@@ -1270,36 +1272,26 @@ class G2PRegisterService(BaseService):
                 if not section_register_def:
                     continue
 
-                # Get all internal_record_ids to query by traversing the hierarchy
-                history_internal_record_ids: list[str] = await self._get_history_internal_record_ids(
-                    section_register_id=section_register_id,
-                    subject_internal_record_id=internal_record_id,
-                    subject_register_id=register_id,
-                    session=session
-                )
-                
-                if not history_internal_record_ids:
-                    continue
-
-                # Resolve history class for this section register
+                # Get all history records for this section under the subject
                 history_class_name = f"{history_class_prefix}{section_register_def.register_mnemonic}"
                 try:
                     history_class = getattr(module, history_class_name)
                 except AttributeError:
                     continue
-                
-                # Query history records where internal_record_id is in the traversed IDs
-                history_records_result = await session.execute(
-                    select(history_class).where(
-                        history_class.tab_id == tab_id,
-                        history_class.internal_record_id.in_(history_internal_record_ids)
-                    )
+
+                history_records = await self._query_history_records_for_subject(
+                    history_class=history_class,
+                    subject_internal_record_id=internal_record_id,
+                    subject_register_id=register_id,
+                    section_register_id=section_register_id,
+                    tab_id=tab_id,
+                    session=session,
                 )
-                history_records = history_records_result.scalars().all()
-                
+
                 # Collect unique change_request_ids and track latest record
                 for history_record in history_records:
-                    unique_change_request_ids.add(history_record.change_request_id)
+                    if history_record.change_request_id:
+                        unique_change_request_ids.add(history_record.change_request_id)
                     # Track the most recent history record by approved_at
                     if history_record.approved_at:
                         if latest_approved_at is None or history_record.approved_at > latest_approved_at:
@@ -1407,12 +1399,14 @@ class G2PRegisterService(BaseService):
             base_columns.update([
                 'history_record_id', 'internal_record_id', 'change_request_id', 'tab_id', 'section_id',
                 'is_primary_section', 'submission_id', 'change_request_source', 'created_by', 'created_at',
-                'approved_by', 'approved_at'
+                'approved_by', 'approved_at', 'subject_internal_record_id',
             ])
 
             # Get all columns from history_class to identify additional fields
             history_columns = set(history_class.__table__.columns.keys())
             additional_columns = history_columns - base_columns
+            # Keep subject stamp internal; do not surface in API history payloads.
+            additional_columns.discard('subject_internal_record_id')
 
             history_data_list: list[RecordHistoryData] = []
             for history_record in history_records:
@@ -1506,34 +1500,22 @@ class G2PRegisterService(BaseService):
                 if not section_register_def:
                     continue
 
-                # Get all internal_record_ids to query by traversing the hierarchy
-                # This handles multi-level hierarchies (e.g., Farmer → Lands → Crops)
-                history_internal_record_ids: list[str] = await self._get_history_internal_record_ids(
-                    section_register_id=section_register_id,
-                    subject_internal_record_id=internal_record_id,
-                    subject_register_id=register_id,
-                    session=session
-                )
-                
-                if not history_internal_record_ids:
-                    continue
-
                 # Resolve history class for this section register
                 history_class_name = f"{history_class_prefix}{section_register_def.register_mnemonic}"
                 try:
                     history_class = getattr(module, history_class_name)
                 except AttributeError:
                     continue
-                
-                # Query history records where internal_record_id is in the traversed IDs
-                history_records_result = await session.execute(
-                    select(history_class).where(
-                        history_class.tab_id == tab_id,
-                        history_class.internal_record_id.in_(history_internal_record_ids)
-                    )
+
+                history_records = await self._query_history_records_for_subject(
+                    history_class=history_class,
+                    subject_internal_record_id=internal_record_id,
+                    subject_register_id=register_id,
+                    section_register_id=section_register_id,
+                    tab_id=tab_id,
+                    session=session,
                 )
-                history_records = history_records_result.scalars().all()
-                
+
                 # Extract dates from this history class
                 for history_record in history_records:
                     if history_record.created_at:
@@ -1600,39 +1582,27 @@ class G2PRegisterService(BaseService):
                 if not section_register_def:
                     continue
 
-                # Get all internal_record_ids to query by traversing the hierarchy
-                # This handles multi-level hierarchies (e.g., Farmer → Lands → Crops)
-                history_internal_record_ids: list[str] = await self._get_history_internal_record_ids(
-                    section_register_id=section.section_register_id,
-                    subject_internal_record_id=internal_record_id,
-                    subject_register_id=register_id,
-                    session=session
-                )
-                
-                if not history_internal_record_ids:
-                    continue
-                
                 # Resolve history class for this section register
                 history_class_name = f"{history_class_prefix}{section_register_def.register_mnemonic}"
                 try:
                     history_class = getattr(module, history_class_name)
                 except AttributeError:
                     continue
-                
-                # Query history records where internal_record_id is in the traversed IDs
-                history_records_result = await session.execute(
-                    select(history_class).where(
-                        history_class.tab_id == tab_id,
-                        history_class.internal_record_id.in_(history_internal_record_ids)
-                    ).where(
-                        func.date(history_class.created_at) == date.fromisoformat(truncated_created_date)
-                    ).where(
-                        history_class.section_id == section.section_id
-                    )
-                    .order_by(history_class.created_at.desc())
+
+                history_records = await self._query_history_records_for_subject(
+                    history_class=history_class,
+                    subject_internal_record_id=internal_record_id,
+                    subject_register_id=register_id,
+                    section_register_id=section.section_register_id,
+                    tab_id=tab_id,
+                    session=session,
+                    extra_filters=[
+                        func.date(history_class.created_at) == date.fromisoformat(truncated_created_date),
+                        history_class.section_id == section.section_id,
+                    ],
+                    order_by=history_class.created_at.desc(),
                 )
-                history_records = history_records_result.scalars().all()
-                
+
                 # Build changes list, deduplicating by change_request_id
                 # (Multiple records may share the same change_request_id in hierarchical queries)
                 seen_change_requests: dict[str, VersionForDateData] = {}
@@ -3503,6 +3473,71 @@ class G2PRegisterService(BaseService):
                 message=f"Register implementation not found for {register_mnemonic}"
             )
 
+    async def _query_history_records_for_subject(
+        self,
+        history_class,
+        subject_internal_record_id: str,
+        subject_register_id: str,
+        section_register_id: str,
+        tab_id: str,
+        session,
+        extra_filters: list | None = None,
+        order_by=None,
+    ) -> list:
+        """
+        Load history rows for a subject under a tab.
+
+        Prefer denormalized subject_internal_record_id. If unbackfilled nulls remain,
+        also include legacy hierarchy-walk matches for rows missing the stamp.
+        """
+        extra_filters = list(extra_filters or [])
+        has_subject_column = hasattr(history_class, "subject_internal_record_id")
+
+        subject_condition = None
+        if has_subject_column:
+            subject_condition = history_class.subject_internal_record_id == subject_internal_record_id
+
+        legacy_ids = await self._get_history_internal_record_ids(
+            section_register_id=section_register_id,
+            subject_internal_record_id=subject_internal_record_id,
+            subject_register_id=subject_register_id,
+            session=session,
+        )
+        legacy_condition = None
+        if legacy_ids:
+            if has_subject_column:
+                legacy_condition = and_(
+                    history_class.subject_internal_record_id.is_(None),
+                    history_class.internal_record_id.in_(legacy_ids),
+                )
+            else:
+                legacy_condition = history_class.internal_record_id.in_(legacy_ids)
+        elif has_subject_column and section_register_id == subject_register_id:
+            # Same-register fallback for unstamped subject rows.
+            legacy_condition = and_(
+                history_class.subject_internal_record_id.is_(None),
+                history_class.internal_record_id == subject_internal_record_id,
+            )
+
+        if subject_condition is not None and legacy_condition is not None:
+            match_condition = or_(subject_condition, legacy_condition)
+        elif subject_condition is not None:
+            match_condition = subject_condition
+        elif legacy_condition is not None:
+            match_condition = legacy_condition
+        else:
+            return []
+
+        query = select(history_class).where(
+            history_class.tab_id == tab_id,
+            match_condition,
+            *extra_filters,
+        )
+        if order_by is not None:
+            query = query.order_by(order_by)
+
+        return (await session.execute(query)).scalars().all()
+
     async def _get_history_internal_record_ids(
         self,
         section_register_id: str,
@@ -3518,6 +3553,9 @@ class G2PRegisterService(BaseService):
         - Given farmer's internal_record_id
         - Returns all crop internal_record_ids belonging to that farmer
         
+        Kept as transitional fallback for history rows that predate
+        subject_internal_record_id stamping.
+        
         Args:
             section_register_id: The register ID of the section (e.g., Crops)
             subject_internal_record_id: The subject record's internal_record_id (e.g., Farmer's ID)
@@ -3532,18 +3570,6 @@ class G2PRegisterService(BaseService):
         if not section_register:
             _logger.warning(f"Section register {section_register_id} not found")
             return [subject_internal_record_id]
-        
-        # If section_register is CORE_TABLE, return filtered record IDs (no hierarchy)
-        # if section_register.register_purpose == RegisterPurposeEnum.CORE_TABLE.value:
-        #     impl_class = self._get_register_implementation_class(section_register.register_mnemonic, section_register.register_purpose)
-        #     result = await session.execute(
-        #         select(impl_class.internal_record_id).where(
-        #             impl_class.internal_record_id == subject_internal_record_id
-        #         )
-        #     )
-        #     filtered_record_ids = [row[0] for row in result.fetchall()]
-        #     _logger.info(f"CORE_TABLE {section_register.register_mnemonic}: returning {len(filtered_record_ids)} filtered record IDs for subject {subject_internal_record_id}")
-        #     return filtered_record_ids
         
         # If same register, no traversal needed
         if section_register_id == subject_register_id:
@@ -3572,19 +3598,6 @@ class G2PRegisterService(BaseService):
         for i in range(1, len(path_reversed)):
             register_def: G2PRegisterDefinition = path_reversed[i]
             impl_class = self._get_register_implementation_class(register_def.register_mnemonic, register_def.register_purpose)
-            
-            # Check if this register supports hierarchical operations
-            # if not hasattr(impl_class, 'link_internal_record_id'):
-            #     # For CORE_TABLE registers without link_internal_record_id, filter by internal_record_id
-            #     result = await session.execute(
-            #         select(impl_class.internal_record_id).where(
-            #             impl_class.internal_record_id.in_(current_ids)
-            #         )
-            #     )
-            #     child_ids = [row[0] for row in result.fetchall()]
-            #     # For CORE_TABLE registers, continue with filtered IDs
-            #     current_ids = child_ids
-            #     continue
             
             # Find all records where link_internal_record_id is in current_ids
             result = await session.execute(

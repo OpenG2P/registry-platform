@@ -20,9 +20,13 @@ interface BackendProxyOptions {
 }
 
 const errorCodeMap: Record<string, number> = {
-	"G2P-AUT-401": 401,
-	"G2P-AUT-403": 403,
-	"G2P-AUT-404": 404,
+	"G2P-REQ-400": 400, // Bad Request
+	"G2P-AUT-401": 401, // Unauthorized
+	"G2P-AUT-403": 403, // Forbidden
+	"G2P-REQ-404": 404, // Resource Not Found
+	"G2P-AUT-404": 404, // Authentication Not Found
+	"G2P-REQ-405": 405, // Method Not Allowed
+	"G2P-REQ-500": 500, // Internal Server Error
 };
 
 
@@ -95,8 +99,6 @@ export async function proxyToBackend({
 
 			const backendRequest = createBackendRequest(payload, origin);
 
-			// console.log(backendRequest, "backendRequest*********************", backendUrl, "backendUrl*********************")
-
 			fetchOptions.headers = {
 				...auth.backendHeaders,
 				"Content-Type": "application/json",
@@ -106,23 +108,26 @@ export async function proxyToBackend({
 
 		const response = await fetch(backendUrl, fetchOptions);
 
+		if (!response.ok) {
+			return NextResponse.json(
+				{ statusText: response.statusText, code: response.status },
+				{ status: response.status, headers: responseHeaders },
+			);
+		}
+
 		const backendResponse: BackendResponse = await response.json();
 
 		if (backendResponse.response_header?.response_status === 'ERROR') {
-			const errorCode = backendResponse.response_header.response_error_code;
-
-			const status = errorCodeMap[errorCode] || 400;
+			const header = backendResponse.response_header;
+			const errorCode = header.response_error_code;
+			const httpStatus = errorCodeMap[errorCode] ?? 400;
+			const errorMessage = header.response_error_message || 'Something went wrong';
 
 			const errorResponse = NextResponse.json(
-				{
-					error: backendResponse.response_header.response_error_message,
-					code: errorCode,
-				},
-				{
-					status,
-					headers: responseHeaders,
-				}
+				{ statusText: errorMessage,code: errorCode},
+				{ status: httpStatus, headers: responseHeaders },
 			);
+
 			applyBackendSetCookies(response, errorResponse);
 			return errorResponse;
 		}
@@ -134,21 +139,24 @@ export async function proxyToBackend({
 
 		if (data === undefined) {
 			const emptyResponse = NextResponse.json(
-				{ error: 'Empty response from backend' },
-				{ status: 500, headers: responseHeaders },
+				{ statusText: 'Empty response from backend', code: 200 },
+				{ status: 200, headers: responseHeaders },
 			);
 			applyBackendSetCookies(response, emptyResponse);
 			return emptyResponse;
 		}
 
-		const successResponse = NextResponse.json(data, { headers: responseHeaders });
+		const successResponse = NextResponse.json(data, {
+			status: 200,
+			headers: responseHeaders,
+		});
 		applyBackendSetCookies(response, successResponse);
 		return successResponse;
 
 	} catch (e) {
 		return NextResponse.json(
-			{ error: e instanceof Error ? e.message : 'Internal Server Error' },
-			{ status: 500 }
+			{ statusText: e instanceof Error ? e.message : 'Internal Server Error', code: 500 },
+			{ status: 500 },
 		);
 	}
 }

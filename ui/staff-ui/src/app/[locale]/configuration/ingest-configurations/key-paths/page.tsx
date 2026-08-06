@@ -59,20 +59,14 @@ const KeyPathsPage = () => {
     };
 
     const proceedDelete = async (id: string) => {
-        try {
-            const result = await deleteKeyPath('/api/configuration/ingest/delete-key-path', {
-                method: 'POST',
-                body: JSON.stringify({ key_path_id: id })
-            });
+        const result = await deleteKeyPath('/api/configuration/ingest/delete-key-path', {
+            method: 'POST',
+            body: JSON.stringify({ key_path_id: id })
+        });
 
-            if (result?.key_path_id) {
-                toast.success(t('toast_key_path_removed'));
-                refresh();
-            } else {
-                toast.error(t('toast_key_path_remove_failed'));
-            }
-        } catch (error) {
-            toast.error(t('toast_operation_failed'));
+        if (result?.key_path_id) {
+            toast.success(t('toast_key_path_removed'));
+            refresh();
         }
     };
 

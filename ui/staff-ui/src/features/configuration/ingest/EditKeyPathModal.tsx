@@ -73,8 +73,6 @@ export default function EditKeyPathModal({
             toast.success(t('toast_key_path_updated'));
             if (onSuccess) onSuccess();
             onClose();
-        } else {
-            toast.error(t('toast_key_path_update_failed'));
         }
     };
 

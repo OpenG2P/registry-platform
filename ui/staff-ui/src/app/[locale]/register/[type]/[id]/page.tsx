@@ -66,6 +66,10 @@ export default function RegisterDetailPage() {
                                     schemaData={sectionDataMap}
                                     t={t}
                                     dataSourceRequestHandler={dataSourceRequestHandler}
+                                    hostContext={{
+                                        subject_register_id: currentRegister?.register_id,
+                                        internal_record_id: internalRecordId,
+                                    }}
                                 >
                                     {orderedTabSections.map((section) => {
                                         const { section_id, section_register_id, section_ui_schema, hideEditButton } = section;

@@ -45,8 +45,6 @@ const IngestTemplatesPage = () => {
             if (result) {
                 toast.success(t("ingest_template_deleted_success"));
                 refresh();
-            } else {
-                toast.error(t('ingest_template_deletion_failed'));
             }
         } catch (error) {
             console.error('Delete error');

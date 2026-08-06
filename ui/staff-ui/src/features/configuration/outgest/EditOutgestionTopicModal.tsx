@@ -85,8 +85,6 @@ export default function EditOutgestionTopicModal({
             toast.success(t('topic_updated'));
             onSuccess?.();
             onClose();
-        } else {
-            toast.error(t('topic_update_failed'));
         }
     };
 
