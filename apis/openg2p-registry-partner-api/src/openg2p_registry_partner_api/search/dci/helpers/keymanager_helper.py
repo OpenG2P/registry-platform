@@ -5,10 +5,8 @@ from openg2p_fastapi_common.utils.crypto import build_crypto_helper
 
 from ....config import Settings
 from ..schemas import (
-    DciRequestHeader,
     DciResponseHeader,
     DciSearchResponse,
-    DciSearchRequest,
 )
 
 _config = Settings.get_config()
@@ -62,18 +60,27 @@ class DciKeymanagerHelper(BaseService):
     async def validate_signature(
         self,
         signature: str,
-        header: DciRequestHeader,
-        message: DciSearchRequest,
+        raw_header: Dict[str, Any],
+        raw_message: Dict[str, Any],
     ) -> bool:
+        """Verify the DCI envelope signature over the **raw** ``{header, message}``
+        exactly as the partner sent it — NOT reparsed pydantic models.
+
+        Verifying over reparsed models would re-serialise through pydantic
+        (defaults filled, aliases applied) and diverge from the bytes the partner
+        actually signed. Verifying the raw body is what g2p-bridge's
+        ``JWTSignatureValidator`` does, and keeps the detached-JWS signing input
+        exact.
+        """
         signature_payload: Dict[str, Any] = {
-            "header": header.model_dump(by_alias=True),
-            "message": message.model_dump(by_alias=True),
+            "header": raw_header,
+            "message": raw_message,
         }
         signature_valid = await self.crypto_helper.verify_jwt(
             orig_jwt=signature,
             payload=signature_payload,
-            km_app_id=header.receiver_id,
-            km_ref_id=partner_reference_id(header.sender_id),
+            km_app_id=(raw_header or {}).get("receiver_id"),
+            km_ref_id=partner_reference_id((raw_header or {}).get("sender_id", "")),
         )
         if not signature_valid:
             raise G2PRegistryException(
