@@ -22,7 +22,7 @@ from openg2p_registry_core.app import Initializer as CoreInitializer
 from openg2p_registry_extensions.app import Initializer as ExtensionsInitializer
 
 from iam_core.user_auth.app import Initializer as IAMInitializer
-from iam_core.user_auth.data_policy_middleware import DataPolicyMiddleware
+from iam_core.user_auth.middleware.data_policy import DataPolicyMiddleware
 from iam_core.user_auth.middleware import (
     CsrfMiddleware,
     ResolvePermissionMiddleware,
@@ -56,7 +56,7 @@ app = initializer.return_app()
 # Audit -> CSRF -> ValidateAndRefresh -> ResolvePermission -> DataPolicy -> app
 app.add_middleware(
     DataPolicyMiddleware,
-    client_id=_config.keycloak_client_id,
+    iam_api_url=_config.auth_provider_api_url,
 )
 app.add_middleware(
     ResolvePermissionMiddleware,

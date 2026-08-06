@@ -1,6 +1,9 @@
 import logging
 from openg2p_fastapi_common.service import BaseService
 
+from openg2p_registry_staff_api.helpers.data_policy_request_helper import (
+    get_data_policies,
+)
 from ..services import G2PRegisterService, G2PRegisterHierarchicalService
 from ..schemas import (
     NumberOfVersionsData, RecordData, RegisterTabRecordData,
@@ -34,7 +37,7 @@ class G2PRegisterDataControllerService(BaseService):
     async def get_record_history(
         self,
         get_record_history_request: GetRecordHistoryRequest,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> RecordHistoryListData:
         """Get the history records for a given register, internal_record_id and tab_id"""
         register_id = get_record_history_request.request_body.request_payload.register_id
@@ -43,7 +46,7 @@ class G2PRegisterDataControllerService(BaseService):
         _logger.info(f"Getting record history for register_id: {register_id}, internal_record_id: {internal_record_id}, tab_id: {tab_id} through controller service")
         g2p_register_service = G2PRegisterService.get_component()
         record_history_data: RecordHistoryListData = await g2p_register_service.get_record_history(
-            register_id, internal_record_id, tab_id, policy_mnemonics=policy_mnemonics
+            register_id, internal_record_id, tab_id, data_policies=data_policies
         )
         return record_history_data
 
@@ -71,7 +74,7 @@ class G2PRegisterDataControllerService(BaseService):
     async def get_subject_record(
         self,
         get_subject_record_request: GetSubjectRecordRequest,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> RecordData:
         subject_register_id = get_subject_record_request.request_body.request_payload.subject_register_id
         subject_record_id = get_subject_record_request.request_body.request_payload.subject_record_id
@@ -80,7 +83,7 @@ class G2PRegisterDataControllerService(BaseService):
         record_data: RecordData = await g2p_register_service.get_record(
             subject_register_id,
             subject_record_id,
-            policy_mnemonics=policy_mnemonics,
+            data_policies=data_policies,
         )
         return record_data
 
@@ -155,7 +158,7 @@ class G2PRegisterDataControllerService(BaseService):
     async def get_tab_records(
         self,
         get_register_tab_records_request: GetRegisterTabRecordsRequest,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RegisterTabRecordData]:
         """
         Get all records for a tab, grouped by unique section_register_id.
@@ -172,23 +175,23 @@ class G2PRegisterDataControllerService(BaseService):
         )
         g2p_register_hierarchical_service = G2PRegisterHierarchicalService.get_component()
         tab_records: list[RegisterTabRecordData] = await g2p_register_hierarchical_service.get_tab_records(
-            subject_register_id, subject_record_id, tab_id, policy_mnemonics=policy_mnemonics
+            subject_register_id, subject_record_id, tab_id, data_policies=data_policies
         )
         return tab_records
 
     async def get_register_summary_data(
         self,
         get_register_summary_data_request: GetRegisterSummaryDataRequest,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RegisterSummaryData]:
         _logger.info("Fetching register summary data through controller service")
         g2p_register_service = G2PRegisterService.get_component()
         register_summary_data_list: list[RegisterSummaryData] = await g2p_register_service.get_register_summary_data(
-            policy_mnemonics=policy_mnemonics
+            data_policies=data_policies
         )
         return register_summary_data_list
 
-    async def search_in_a_register(self, search_register_request: SearchRegisterRequest, policy_mnemonics: list[str] | None = None) -> tuple[list[SearchResultData], int, int]:
+    async def search_in_a_register(self, search_register_request: SearchRegisterRequest, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int, int]:
         payload = search_register_request.request_body.request_payload
         pagination = search_register_request.request_body.pagination_request
         register_id = payload.register_id
@@ -197,7 +200,7 @@ class G2PRegisterDataControllerService(BaseService):
         g2p_register_service = G2PRegisterService.get_component()
         search_results_list, total_items = await g2p_register_service.search_in_a_register(
             register_id, pagination.search_text, pagination.current_page, pagination.page_size, pagination.sort_by, pagination.filter_by,
-            policy_mnemonics=policy_mnemonics,
+            data_policies=data_policies,
         )
 
         # Calculate number of pages

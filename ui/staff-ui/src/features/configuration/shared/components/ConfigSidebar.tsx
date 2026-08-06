@@ -74,17 +74,6 @@ const sidebarOptions: SidebarOption[] = [
             { id: 'outgest-templates', label: 'outgest_templates', path: '/configuration/outgest-configurations/templates' },
         ]
     },
-    {
-        id: 'data-policies',
-        label: 'data_policies',
-        iconUrl: "/images/config/menu_data_policies.png",
-        path: '/configuration/data-policies/register',
-        subOptions: [
-            { id: 'data-policies-register', label: 'policy_menu_register', path: '/configuration/data-policies/register' },
-            { id: 'data-policies-reference-data', label: 'policy_menu_reference_data', path: '/configuration/data-policies/reference-data' },
-            { id: 'data-policies-administrative-areas', label: 'policy_menu_administrative_areas', path: '/configuration/data-policies/administrative-areas' },
-        ],
-    },
     {   id: 'awe-policy-config',
         label: 'awe_policy_configurations',
         iconUrl: '/images/config/menu_policy_configuration_08.png',

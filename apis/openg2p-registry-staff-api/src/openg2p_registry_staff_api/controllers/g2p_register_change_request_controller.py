@@ -29,10 +29,10 @@ from openg2p_registry_core.schemas.change_request import (
     ChangeRequestSummaryDataResponse, ChangeRequestSummaryDataResponseBody, ChangeRequestSummaryData,
     SearchChangeRequestRequest, ChangeRequestSearchResultsResponse, ChangeRequestSearchResultsResponseBody
 )
-from iam_core.user_auth.decorators import require_permissions
+from iam_core.user_auth.decorators import require_permissions, data_policy
 
 from ..helpers import RequestResponseHelper
-from ..helpers.data_policy_request_helper import get_data_policy_mnemonics
+from ..helpers.data_policy_request_helper import get_data_policies
 from ..config import Settings
 
 _config = Settings.get_config()
@@ -215,6 +215,7 @@ class G2PRegisterChangerequestController(BaseController):
             return error_response
 
     @require_permissions({"changeRequest:view"})
+    @data_policy
     async def get_change_requests(
         self,
         http_request: Request,
@@ -223,7 +224,7 @@ class G2PRegisterChangerequestController(BaseController):
         try:
             change_requests_list, pagination_response = await self.g2p_register_change_request_controller_service.get_change_requests(
                 get_change_requests_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             response_body = ChangeRequestFlattenedDataResponseBody(response_payload=change_requests_list)
             return self.helper.construct_success_response(
@@ -237,6 +238,7 @@ class G2PRegisterChangerequestController(BaseController):
             return error_response
 
     @require_permissions({"changeRequest:view"})
+    @data_policy
     async def get_change_request(
         self,
         http_request: Request,
@@ -245,7 +247,7 @@ class G2PRegisterChangerequestController(BaseController):
         try:
             change_request_data: ChangeRequestData = await self.g2p_register_change_request_controller_service.get_change_request(
                 get_change_request_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             response_body = ChangeRequestDataResponseBody(response_payload=change_request_data)
             return self.helper.construct_success_response(response_body, get_change_request_request)
@@ -305,6 +307,7 @@ class G2PRegisterChangerequestController(BaseController):
             return error_response
 
     @require_permissions({})
+    @data_policy
     async def get_register_change_request_summary_data(
         self,
         http_request: Request,
@@ -313,7 +316,7 @@ class G2PRegisterChangerequestController(BaseController):
         try:
             change_request_summary_data: ChangeRequestSummaryData = await self.g2p_register_change_request_controller_service.get_change_request_summary_data(
                 get_change_request_summary_data_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             response_body = ChangeRequestSummaryDataResponseBody(response_payload=change_request_summary_data)
             return self.helper.construct_success_response(response_body, get_change_request_summary_data_request)
@@ -323,6 +326,7 @@ class G2PRegisterChangerequestController(BaseController):
             return error_response
     
     @require_permissions({"changeRequest:view"})
+    @data_policy
     async def search_in_change_request(
         self,
         http_request: Request,
@@ -331,7 +335,7 @@ class G2PRegisterChangerequestController(BaseController):
         try:
             search_results_list, pagination_response = await self.g2p_register_change_request_controller_service.search_in_change_request(
                 search_change_request_request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             response_body = ChangeRequestSearchResultsResponseBody(response_payload=search_results_list)
             return self.helper.construct_success_response(

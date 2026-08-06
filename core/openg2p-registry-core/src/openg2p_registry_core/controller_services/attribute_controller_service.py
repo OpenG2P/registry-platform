@@ -6,6 +6,10 @@ from openg2p_fastapi_common.schemas import G2PPaginationRequest, G2PPaginationRe
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from openg2p_registry_staff_api.helpers.data_policy_request_helper import (
+    get_data_policy_mnemonics,
+    get_data_policies,
+)
 from ..schemas import (
     AttributeData,
     AttributeValueData,
@@ -107,7 +111,7 @@ class G2PAttributeControllerService(BaseService):
     async def get_attribute_values(
         self,
         request: GetAttributeValuesRequest,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> Tuple[List[AttributeValueData], Optional[G2PPaginationResponse]]:
         _logger.info("Fetching attribute values through controller service")
         payload = request.request_body.request_payload
@@ -123,7 +127,7 @@ class G2PAttributeControllerService(BaseService):
             current_page=current_page,
             page_size=page_size,
             search_text=search_text,
-            policy_mnemonics=policy_mnemonics,
+            data_policies=data_policies,
         )
         pagination_response = self._build_pagination_response(
             total_items, page_size, pagination_request

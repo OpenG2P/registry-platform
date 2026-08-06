@@ -55,7 +55,7 @@ from .g2p_score_compute_service import G2PScoreComputeService
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from .filter_builder import FilterBuilder
-from .g2p_data_policy_service import G2PDataPolicyService
+from iam_core.helpers.data_policy_helper import DataPolicyHelper
 from ..repositories import RegisterRecordRepository
 
 _logger = logging.getLogger('g2p-register-service')
@@ -64,11 +64,11 @@ _config = Settings.get_config(strict=False)
 
 class G2PRegisterService(BaseService):
 
-    async def get_register_summary_data(self, policy_mnemonics: list[str] | None = None) -> list[RegisterSummaryData]:
+    async def get_register_summary_data(self, data_policies: list[dict] | None = None) -> list[RegisterSummaryData]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             register_summary_data_list: list[RegisterSummaryData] = await self._fetch_register_summary_data(
-                session, policy_mnemonics=policy_mnemonics
+                session, data_policies=data_policies
             )
             return register_summary_data_list
 
@@ -498,11 +498,11 @@ class G2PRegisterService(BaseService):
         section_data: RegisterSectionData = await self._build_register_section_data(section, session)
         return section_data
 
-    async def search_in_a_register(self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None, policy_mnemonics: list[str] | None = None) -> tuple[list[SearchResultData], int]:
+    async def search_in_a_register(self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
-            search_results_list, total_items = await self._search_in_register(register_id, search_text, current_page, page_size, sort_by, filter_by, session, policy_mnemonics)
+            search_results_list, total_items = await self._search_in_register(register_id, search_text, current_page, page_size, sort_by, filter_by, session, data_policies)
             return search_results_list, total_items
     
     async def deep_search_in_a_register(
@@ -619,7 +619,7 @@ class G2PRegisterService(BaseService):
     async def _fetch_register_summary_data(
         self,
         session,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> list[RegisterSummaryData]:
         register_definitions: list[G2PRegisterDefinition] = (
             await session.execute(
@@ -632,7 +632,7 @@ class G2PRegisterService(BaseService):
 
         for register_definition in register_definitions:
             total_record_count: int = await self._count_records_for_register(
-                register_definition, session, policy_mnemonics=policy_mnemonics
+                register_definition, session, data_policies=data_policies
             )
 
             register_summary_data: RegisterSummaryData = RegisterSummaryData(
@@ -654,7 +654,7 @@ class G2PRegisterService(BaseService):
         self,
         register_definition: G2PRegisterDefinition,
         session,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> int:
         try:
             module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
@@ -663,10 +663,10 @@ class G2PRegisterService(BaseService):
             register_class = getattr(module, implementation_class_name)
 
             filter_conditions = [register_class.record_status == RecordStatusEnum.ACTIVE.value]
-            policy_condition = await self._build_register_policy_condition(
+            policy_condition = self._build_register_policy_condition(
                 register_definition.register_id,
                 register_class,
-                policy_mnemonics,
+                data_policies,
                 session,
             )
             if policy_condition is not None:
@@ -994,13 +994,13 @@ class G2PRegisterService(BaseService):
         return deep_search_results_list, total_count
 
 
-    async def _build_register_policy_condition(self, register_id: str, implementation_class, policy_mnemonics: list[str] | None, session):
+    def _build_register_policy_condition(self, register_id: str, implementation_class, data_policies: list[dict] | None, session):
         """Resolve REGISTER_RECORD data policy for the caller into a SQLAlchemy condition."""
-        if not policy_mnemonics:
+        if not data_policies:
             return None
 
-        merged_expression = await G2PDataPolicyService.get_component().resolve_register_record_policy(
-            register_id, policy_mnemonics, session
+        merged_expression = DataPolicyHelper.resolve_register_record_policy(
+            data_policies, register_id
         )
         if not merged_expression:
             return None
@@ -1012,13 +1012,13 @@ class G2PRegisterService(BaseService):
         register_id: str,
         internal_record_id: str,
         implementation_class,
-        policy_mnemonics: list[str] | None,
+        data_policies: list[dict] | None,
         session,
     ) -> None:
         """Raise if the register record is missing or blocked by data policy."""
         filter_conditions = [implementation_class.internal_record_id == internal_record_id]
-        policy_condition = await self._build_register_policy_condition(
-            register_id, implementation_class, policy_mnemonics, session
+        policy_condition = self._build_register_policy_condition(
+            register_id, implementation_class, data_policies, session
         )
         if policy_condition is not None:
             filter_conditions.append(policy_condition)
@@ -1048,7 +1048,7 @@ class G2PRegisterService(BaseService):
             message=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[0],
         )
 
-    async def _search_in_register(self, register_id: str, search_text: str, current_page: int, page_size: int, sort_by: str, filter_by: dict, session, policy_mnemonics: list[str] | None = None) -> tuple[list[SearchResultData], int]:
+    async def _search_in_register(self, register_id: str, search_text: str, current_page: int, page_size: int, sort_by: str, filter_by: dict, session, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
         g2p_register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
 
         # Get the implementation class for this register
@@ -1100,9 +1100,10 @@ class G2PRegisterService(BaseService):
                 )
 
         # Apply record-level data policy (DP_ roles -> policy mnemonics -> SQL)
-        policy_condition = await self._build_register_policy_condition(
-            register_id, implementation_class, policy_mnemonics, session
+        policy_condition = self._build_register_policy_condition(
+            register_id, implementation_class, data_policies, session
         )
+
         if policy_condition is not None:
             filter_conditions.append(policy_condition)
 
@@ -1348,7 +1349,7 @@ class G2PRegisterService(BaseService):
         register_id: str,
         internal_record_id: str,
         tab_id: str,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> RecordHistoryListData:
         """Get the history records for a given register, internal_record_id and tab_id"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -1383,7 +1384,7 @@ class G2PRegisterService(BaseService):
                 )
 
             await self._ensure_register_record_readable(
-                register_id, internal_record_id, implementation_class, policy_mnemonics, session
+                register_id, internal_record_id, implementation_class, data_policies, session
             )
 
             # Dynamically resolve history model class based on register mnemonic
@@ -1673,7 +1674,7 @@ class G2PRegisterService(BaseService):
         self,
         register_id: str,
         internal_record_id: str,
-        policy_mnemonics: list[str] | None = None,
+        data_policies: list[dict] | None = None,
     ) -> RecordData:
         """Get a single register record by internal_record_id"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -1697,7 +1698,7 @@ class G2PRegisterService(BaseService):
 
             filter_conditions = [implementation_class.internal_record_id == internal_record_id]
             policy_condition = await self._build_register_policy_condition(
-                register_id, implementation_class, policy_mnemonics, session
+                register_id, implementation_class, data_policies, session
             )
             if policy_condition is not None:
                 filter_conditions.append(policy_condition)

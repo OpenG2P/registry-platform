@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import Request
-from iam_core.user_auth.decorators import require_permissions
+from iam_core.user_auth.decorators import require_permissions, data_policy
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_registry_core.controller_services import G2PAttributeControllerService
 from openg2p_registry_core.schemas import (
@@ -36,7 +36,7 @@ from openg2p_registry_core.schemas import (
 
 from ..config import Settings
 from ..helpers import RequestResponseHelper
-from ..helpers.data_policy_request_helper import get_data_policy_mnemonics
+from ..helpers.data_policy_request_helper import get_data_policies
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -168,6 +168,7 @@ class G2PAttributeController(BaseController):
             return self.helper.construct_error_response(error_exception, request)
 
     @require_permissions({"referenceData:view"})
+    @data_policy
     async def get_attribute_values(
         self,
         http_request: Request,
@@ -176,7 +177,7 @@ class G2PAttributeController(BaseController):
         try:
             attribute_values, pagination = await self.g2p_attribute_controller_service.get_attribute_values(
                 request,
-                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
             )
             return self.helper.construct_success_response(
                 GetAttributeValuesResponseBody(response_payload=attribute_values),
