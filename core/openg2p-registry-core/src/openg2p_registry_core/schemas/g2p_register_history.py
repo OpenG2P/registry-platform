@@ -33,6 +33,7 @@ class G2PRegisterHistorySchema(BaseModel):
     is_primary_section: Optional[bool] = None
     functional_record_id: Optional[str] = None
     link_internal_record_id: Optional[str] = None
+    subject_internal_record_id: Optional[str] = None
     link_foundational_id: Optional[str] = None
     record_status: Optional[str] = None
     record_status_reason: Optional[str] = None

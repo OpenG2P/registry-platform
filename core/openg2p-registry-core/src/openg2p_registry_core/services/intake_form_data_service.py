@@ -848,6 +848,9 @@ class G2PIntakeFormDataService(BaseService):
                         )
                     sections = await self._get_form_sections(submission.form_id, session)
                     documents_by_section = await self._get_submission_documents(submission_id, session)
+                    subject_internal_record_id = await self._resolve_submission_subject_internal_record_id(
+                        submission, sections, session
+                    )
 
                     for section in sections:
                         (
@@ -881,12 +884,18 @@ class G2PIntakeFormDataService(BaseService):
                                 intake_row,
                                 session,
                             )
+                            row_subject_id = subject_internal_record_id or (
+                                live_row.internal_record_id
+                                if section.section_register_id == submission.register_id
+                                else None
+                            )
                             await self._insert_history_row(
                                 submission,
                                 section,
                                 history_class,
                                 live_row,
                                 session,
+                                subject_internal_record_id=row_subject_id,
                             )
                             ingested_rows.append(live_row)
 
@@ -1174,6 +1183,47 @@ class G2PIntakeFormDataService(BaseService):
         await session.flush()
         return row
 
+    async def _resolve_submission_subject_internal_record_id(
+        self,
+        submission: G2PIntakeFormSubmission,
+        sections: list,
+        session,
+    ) -> str | None:
+        """Resolve the master subject internal_record_id for this intake submission."""
+        primary_sections = [
+            section for section in sections if section.section_register_id == submission.register_id
+        ]
+        for section in primary_sections:
+            _register_definition, intake_class, _register_class, _schema_class, _history_class = (
+                await self._resolve_submission_models(section.section_register_id, session)
+            )
+            intake_rows = (
+                await session.execute(
+                    select(intake_class).where(
+                        *self._submission_section_filters(
+                            intake_class,
+                            submission.submission_id,
+                            section.section_id,
+                        )
+                    )
+                )
+            ).scalars().all()
+            if not intake_rows:
+                continue
+            if len(intake_rows) > 1:
+                _logger.warning(
+                    "Submission %s has %s primary-section intake rows; using the first as subject",
+                    submission.submission_id,
+                    len(intake_rows),
+                )
+            return getattr(intake_rows[0], "internal_record_id", None)
+
+        _logger.warning(
+            "Could not resolve subject_internal_record_id for submission %s",
+            submission.submission_id,
+        )
+        return None
+
     async def _insert_history_row(
         self,
         submission: G2PIntakeFormSubmission,
@@ -1181,6 +1231,7 @@ class G2PIntakeFormDataService(BaseService):
         history_class,
         live_row,
         session,
+        subject_internal_record_id: str | None = None,
     ) -> None:
         history_data = {
             "history_record_id": str(uuid.uuid4()),
@@ -1196,6 +1247,11 @@ class G2PIntakeFormDataService(BaseService):
             "approved_by": submission.approved_by or "system",
             "approved_at": submission.approved_at or submission.last_updated_at,
         }
+        if (
+            subject_internal_record_id
+            and "subject_internal_record_id" in inspect(history_class).columns
+        ):
+            history_data["subject_internal_record_id"] = subject_internal_record_id
         for key, value in self._serialize_model(live_row).items():
             if key in inspect(history_class).columns and key not in history_data:
                 history_data[key] = value
