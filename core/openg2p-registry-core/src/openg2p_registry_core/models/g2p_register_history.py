@@ -40,6 +40,8 @@ class G2PRegisterHistory(BaseORMModel):
     # This will come from change payload 
     functional_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     link_internal_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    # Master subject for version-history queries across hierarchy
+    subject_internal_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     link_foundational_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     record_name: Mapped[str] = mapped_column(String, nullable=True)
     record_image_document_id: Mapped[str] = mapped_column(Text, nullable=True)

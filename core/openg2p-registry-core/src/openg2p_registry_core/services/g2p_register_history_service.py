@@ -66,6 +66,9 @@ class G2PRegisterHistoryService(BaseService):
         history_dict = {k: v for k, v in history_schema_instance.dict().items() if v is not None}
         history_dict["history_record_id"] = str(uuid.uuid4())
         history_dict["internal_record_id"] = change_payload.get("internal_record_id")
+        # Master subject for version-history discovery.
+        if "subject_internal_record_id" in history_class.__table__.columns:
+            history_dict["subject_internal_record_id"] = change_request.internal_record_id
         history_dict["tab_id"] = change_request.tab_id
         history_dict["section_id"] = change_request.section_id
         if "change_request_source" in history_class.__table__.columns:

@@ -73,6 +73,9 @@ async def _process_submission_async(submission_id: str) -> None:
                 documents_by_register = await _get_submission_documents_by_register(
                     submission.submission_id, session
                 )
+                subject_internal_record_id = await _resolve_submission_subject_internal_record_id(
+                    submission, sections, session
+                )
                 inserted_records: list[tuple[G2PRegisterDefinition, object]] = []
                 for section in sections:
                     register_definition, intake_class, register_class, history_class = await _resolve_classes(
@@ -91,12 +94,18 @@ async def _process_submission_async(submission_id: str) -> None:
                             register_class,
                             session,
                         )
+                        row_subject_id = subject_internal_record_id or (
+                            register_row.internal_record_id
+                            if section.section_register_id == submission.register_id
+                            else None
+                        )
                         await _insert_history_row(
                             submission,
                             section,
                             register_row,
                             history_class,
                             session,
+                            subject_internal_record_id=row_subject_id,
                         )
                         if register_documents:
                             await _upsert_live_documents(
@@ -340,14 +349,51 @@ def _queue_functional_id_if_required(
         record_data["functional_record_id"] = f"TEMP-{uuid.uuid4().hex}"
 
 
+async def _resolve_submission_subject_internal_record_id(
+    submission: G2PIntakeFormSubmission,
+    sections: list[G2PRegisterSection],
+    session,
+) -> str | None:
+    """Resolve the master subject internal_record_id for this intake submission."""
+    for section in sections:
+        if section.section_register_id != submission.register_id:
+            continue
+        _register_definition, intake_class, _register_class, _history_class = await _resolve_classes(
+            section.section_register_id, session
+        )
+        intake_rows = await _get_intake_rows(intake_class, submission.submission_id, session)
+        if not intake_rows:
+            continue
+        if len(intake_rows) > 1:
+            _logger.warning(
+                "Submission %s has %s primary-section intake rows; using the first as subject",
+                submission.submission_id,
+                len(intake_rows),
+            )
+        return getattr(intake_rows[0], "internal_record_id", None)
+
+    _logger.warning(
+        "Could not resolve subject_internal_record_id for submission %s",
+        submission.submission_id,
+    )
+    return None
+
+
 async def _insert_history_row(
     submission: G2PIntakeFormSubmission,
     section: G2PRegisterSection,
     register_row,
     history_class,
     session,
+    subject_internal_record_id: str | None = None,
 ) -> None:
-    history_data = _build_history_row_data(submission, section, register_row, history_class)
+    history_data = _build_history_row_data(
+        submission,
+        section,
+        register_row,
+        history_class,
+        subject_internal_record_id=subject_internal_record_id,
+    )
     session.add(history_class(**history_data))
 
 
@@ -356,6 +402,7 @@ def _build_history_row_data(
     section: G2PRegisterSection,
     register_row,
     history_class,
+    subject_internal_record_id: str | None = None,
 ) -> dict:
     history_data = {
         "history_record_id": str(uuid.uuid4()),
@@ -372,6 +419,8 @@ def _build_history_row_data(
         "approved_at": submission.approved_at or datetime.now(),
     }
     history_columns = inspect(history_class).columns
+    if subject_internal_record_id and "subject_internal_record_id" in history_columns:
+        history_data["subject_internal_record_id"] = subject_internal_record_id
     for key, value in _serialize_model(register_row).items():
         if key in history_columns and key not in history_data:
             history_data[key] = value
