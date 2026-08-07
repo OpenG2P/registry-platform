@@ -36,6 +36,7 @@ class G2PChangeRequestWorkerService(BaseService):
             g2p_register_definition,
             g2p_register_section,
             section_register_definition,
+            session,
         )
         await change_request_service._validate_domain_attributes(
             change_request_service._records_from_change_request_payload(change_request_request_payload),
