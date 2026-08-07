@@ -1,6 +1,6 @@
 import { SectionConfig, SupportingDocumentConfig } from '../types';
 import { collectWidgets } from './sectionValidate';
-import { getValueByPath, setValueByPath } from './pathUtils';
+import { getValueByPath, setValueByPath, deleteValueByPath } from './pathUtils';
 
 export interface SectionWidgetIdSnapshot {
   present: boolean;
@@ -93,7 +93,10 @@ export function applySectionEditSnapshot(
   let result = currentValues;
 
   for (const { path, value } of snapshot.dataPaths) {
-    result = setValueByPath(result, path, cloneValue(value));
+    result =
+      value === undefined
+        ? deleteValueByPath(result, path)
+        : setValueByPath(result, path, cloneValue(value));
   }
 
   for (const [widgetId, entry] of Object.entries(snapshot.widgetIds)) {
