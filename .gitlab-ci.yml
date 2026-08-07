@@ -15,6 +15,12 @@ include:
 variables:
   PACKAGING_REF: v1
 
+  # Reuse published layers instead of reinstalling dependencies on every build.
+  # This repo builds five images and spent ~5.8 of its ~9.4 build minutes redoing
+  # identical pip/npm/apk installs, so it is the first place this is worth it.
+  # Trial knob -- the wrapper defaults it off for every other repo.
+  BUILD_CACHE: "true"
+
   IMAGES: |
     [
       {
