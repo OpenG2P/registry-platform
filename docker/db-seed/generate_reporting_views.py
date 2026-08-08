@@ -525,7 +525,8 @@ def geo_cte(table, depth):
         lines.append(f"        MAX(CASE WHEN t.ordinality = {i} THEN t.elem ->> "
                      f"'level_value_id' END) AS geo_{i}_id")
     body = ",\n".join(lines)
-    return (f"WITH _geo AS (\n    SELECT\n{body}\n"
+    return (f"WITH _geo AS (\n    SELECT\n{body}\n"  # noqa: the "WITH " is
+            # stripped by the caller so this can be one CTE among several.
             f"    FROM \"{table}\" x,\n"
             f"         LATERAL jsonb_array_elements(x.{GEO_JSON} -> 'hierarchy')\n"
             f"                 WITH ORDINALITY AS t(elem, ordinality)\n"
@@ -562,8 +563,115 @@ def select_names(select):
     return out
 
 
+def drop_stmt(view: str) -> str:
+    """Drop the view whichever kind it currently is.
+
+    `DROP VIEW IF EXISTS` and `DROP MATERIALIZED VIEW IF EXISTS` are not
+    interchangeable: IF EXISTS suppresses "does not exist", not "is not a
+    materialized view". Issuing both in turn therefore FAILS on exactly the
+    transition this tool is built to allow — a deployment that starts with a
+    plain view and later declares it materialized, or the reverse when a country
+    decides the refresh is not worth it.
+    """
+    return (
+        f"DO $$ BEGIN\n"
+        f"  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n "
+        f"ON n.oid = c.relnamespace WHERE c.relname = '{view}' "
+        f"AND n.nspname = 'public' AND c.relkind = 'm') THEN\n"
+        f"    EXECUTE 'DROP MATERIALIZED VIEW {view} CASCADE';\n"
+        f"  ELSIF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n "
+        f"ON n.oid = c.relnamespace WHERE c.relname = '{view}' "
+        f"AND n.nspname = 'public' AND c.relkind = 'v') THEN\n"
+        f"    EXECUTE 'DROP VIEW {view} CASCADE';\n"
+        f"  END IF;\nEND $$;\n")
+
+
+# Aggregates a roll-up may declare. `any`/`all` map to bool_or/bool_and because
+# "does this farmer hold any titled parcel" is the shape these questions come in.
+AGGREGATES = {"count": None, "sum": "sum", "max": "max", "min": "min",
+              "avg": "avg", "any": "bool_or", "all": "bool_and"}
+
+
+def rollup_cte(child_table, child_cols, spec, log, label):
+    """Summarise a child onto its parent — "parcels per farmer", "head of
+    livestock per holding".
+
+    Reads the child's BASE TABLE, never the child's view. That is not an
+    optimisation, it is what keeps the views acyclic: a child view already
+    references its parent for geography, so a parent view reading the child view
+    back would be two views defined in terms of each other, which Postgres will
+    simply refuse to create.
+
+    The cost is that a roll-up sees RAW columns — it can sum a stored area but
+    not one normalised to hectares by the child's own view. Normalise inside the
+    expression, or do it in the registry's own SQL.
+    """
+    parts = []
+    for agg, decl in spec.items():
+        if agg == "count":
+            parts.append(f"count(*) AS {decl}")
+            continue
+        fn = AGGREGATES.get(agg)
+        if not fn:
+            log(f"    ! {label}: unknown aggregate '{agg}' — ignored")
+            continue
+        for source, alias in (decl or {}).items():
+            typ = child_cols.get(source)
+            if typ is None:
+                log(f"    ! {label}: rollup {agg}({source}) — no such column on "
+                    f"{child_table}; ignored")
+                continue
+            # Checked here so the failure names the declaration. Left to
+            # Postgres it surfaces at CREATE time as "function bool_or(integer)
+            # does not exist", which says nothing about which line of which
+            # reporting.yaml to go and fix.
+            if agg in ("any", "all") and typ != "boolean":
+                log(f"    ! {label}: rollup {agg}({source}) needs a boolean, "
+                    f"but {source} is {typ}; ignored")
+                continue
+            if agg in ("sum", "avg") and not any(
+                    typ.startswith(x) for x in NON_PII_TYPES):
+                log(f"    ! {label}: rollup {agg}({source}) needs a number, "
+                    f"but {source} is {typ}; ignored")
+                continue
+            parts.append(f"{fn}({source}) AS {alias}")
+    if not parts:
+        return None, []
+    body = ",\n           ".join(parts)
+    # record_status is filtered here and only here: a withdrawn parcel should not
+    # be counted in a farmer's holding, but the parcel's own row still belongs in
+    # the parcel view so somebody can see that it was withdrawn.
+    active = ""
+    return (f"    SELECT {FK} AS _id,\n           {body}\n"
+            f"    FROM \"{child_table}\"\n    WHERE {FK} IS NOT NULL{active}\n"
+            f"    GROUP BY 1"), [a.rsplit(" AS ", 1)[1] for a in parts]
+
+
+def materialization(view, id_col, spec, log):
+    """Plain view, or materialized with the indexes to make it refreshable.
+
+    Plain by default: a view has no snapshot, so it is always current and costs
+    nothing to maintain. Materialize only where measurement says to — a registry
+    with 30 million livestock records may well need it, one with 130,000 does
+    not, and that is a deployment fact rather than a platform one.
+
+    A unique index on the id is not optional for a materialized view: without it
+    REFRESH ... CONCURRENTLY is rejected, and a plain REFRESH takes a lock that
+    stops every dashboard reading it for the duration.
+    """
+    if not spec:
+        return "VIEW", ""
+    idx = [f'CREATE UNIQUE INDEX {view}_pk ON {view} ({id_col});']
+    for columns in (spec.get("indexes") if isinstance(spec, dict) else []) or []:
+        cols = ", ".join(columns)
+        idx.append(f'CREATE INDEX {view}_{"_".join(columns)} ON {view} ({cols});')
+    log(f"    {view}: MATERIALIZED, {len(idx)} index(es)")
+    return "MATERIALIZED VIEW", "\n".join(idx) + "\n"
+
+
 def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
-                withheld, pending, depth):
+                withheld, pending, depth, cfg_derived, cfg_matview,
+                cfg_rollups, by_entity, all_cols):
     """One view, one row per record of this entity."""
     name = entity_name(table)
     view = prefix + name
@@ -600,14 +708,27 @@ def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
                 f"skipping, it must be created first")
             return None
         alias = f"p{n}" if len(parent_tables) > 1 else "p"
-        # LEFT, always. An inner join against a polymorphic parent returns
-        # nothing at all and looks exactly like an empty table.
-        joins.append(f"LEFT JOIN {pview} {alias} ON {alias}.{pname}_id = e.{FK}")
-        select.append(f"    {alias}.{pname}_id")
+        needs_geo = (n == 0 and GEO_JSON not in names)
+        # With more than one candidate the join is the only way to tell which
+        # parent a row actually belongs to: the link column holds one value, so
+        # every candidate id would come out identical and the discriminator
+        # below would name whichever arm was written first.
+        if needs_geo or len(parent_tables) > 1:
+            # LEFT, always. An inner join against a polymorphic parent returns
+            # nothing at all and looks exactly like an empty table.
+            joins.append(f"LEFT JOIN {pview} {alias} ON {alias}.{pname}_id = e.{FK}")
+            select.append(f"    {alias}.{pname}_id")
+        else:
+            # No join at all: the parent's id IS the link column. Joining for it
+            # costs a hash join per row and, worse, makes every child depend on
+            # its parent's VIEW — which forbids the parent from ever rolling
+            # figures up from the child, because the two views would reference
+            # each other.
+            select.append(f"    e.{FK} AS {pname}_id")
         # Geography is INHERITED from the parent, never re-derived: a livestock
         # record has no hierarchy of its own, it is wherever its parcel is.
         # Deriving it twice is a second chance to disagree with the parent.
-        if n == 0 and GEO_JSON not in names:
+        if needs_geo:
             select += [f"    {c}" for c in geo_select(depth, alias, pcols)]
 
     if len(parent_tables) > 1:
@@ -641,11 +762,58 @@ def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
             continue
         select.append(f"    e.{col}")
 
-    sql = (f'DROP VIEW IF EXISTS {view} CASCADE;\n'
-           f'CREATE VIEW {view} AS\n{cte}SELECT\n' +
-           ",\n".join(select) +
-           f'\nFROM "{table}" e\n' + "\n".join(joins) + ";\n")
-    pending[view] = select_names(select)
+    # Roll-ups: figures summarised UP from this entity's children.
+    ctes = [cte[len("WITH "):].rstrip()] if cte else []
+    for child_entity, spec in (cfg_rollups.get(name) or {}).items():
+        child_table = by_entity.get(child_entity)
+        if not child_table:
+            log(f"    ! {view}: rollup from '{child_entity}' names no table "
+                f"— ignored")
+            continue
+        body, aliases = rollup_cte(
+            child_table, dict(all_cols.get(child_table, [])), spec, log, view)
+        if not body:
+            continue
+        cname = f"_roll_{child_entity}"
+        ctes.append(f"{cname} AS (\n{body}\n)")
+        joins.append(f"LEFT JOIN {cname} ON {cname}._id = e.{PK}")
+        for alias in aliases:
+            # COALESCE on counts: a farmer with no parcels has none, not an
+            # unknown number, and NULL would drop them out of every sum and
+            # average downstream.
+            zero = alias in (spec.get("count"), ) or "count" in alias
+            select.append(f"    COALESCE({cname}.{alias}, 0) AS {alias}"
+                          if zero else f"    {cname}.{alias}")
+
+    prelude = ("WITH " + ",\n".join(ctes) + "\n") if ctes else ""
+
+    names_out = select_names(select)
+    base = (f'{prelude}SELECT\n' + ",\n".join(select) +
+            f'\nFROM "{table}" e\n' + "\n".join(joins))
+
+    # Derived columns, declared by the registry, wrapped AROUND the base select.
+    #
+    # Wrapped rather than appended because SQL will not let a select-list
+    # expression reference another expression's alias: `age_band` is written in
+    # terms of `age`, and `age` is itself derived from a birth date the view does
+    # not expose. Inside a subquery it is just a column.
+    derived = (cfg_derived.get(name) or {})
+    if derived:
+        for alias in derived:
+            if alias in names_out:
+                log(f"    ! {view}: derived '{alias}' collides with a real "
+                    f"column — the declaration is ignored")
+        cols = ",\n".join(f"    {expr} AS {alias}"
+                           for alias, expr in derived.items()
+                           if alias not in names_out)
+        if cols:
+            base = f"SELECT _b.*,\n{cols}\nFROM (\n{base}\n) _b"
+            names_out |= {a for a in derived if a not in names_out}
+
+    kind, index_sql = materialization(view, id_col, cfg_matview.get(name), log)
+    sql = (drop_stmt(view) +
+           f'CREATE {kind} {view} AS\n{base};\n{index_sql}')
+    pending[view] = names_out
     return view, sql
 
 
@@ -673,7 +841,7 @@ def emit_change_requests(cur, cols, prefix, log):
             "                    / 3600.0, 2)\n"
             "    END AS approval_hours")
         select.append("    (e.approved_at IS NULL) AS is_pending")
-    return view, (f'DROP VIEW IF EXISTS {view} CASCADE;\n'
+    return view, (drop_stmt(view) +
                   f'CREATE VIEW {view} AS\nSELECT\n' + ",\n".join(select) +
                   f'\nFROM "{CHANGE_REQUESTS}" e;\n')
 
@@ -708,7 +876,7 @@ def emit_history(cur, tables, prefix, log):
         cast = "::text" if not arms else ""
         arms.append(f"    SELECT '{ent}'{cast} AS entity, {sel}\n      FROM \"{t}\"")
     view = prefix + "record_history"
-    return view, (f'DROP VIEW IF EXISTS {view} CASCADE;\n'
+    return view, (drop_stmt(view) +
                   f'CREATE VIEW {view} AS\n' +
                   "\n    UNION ALL\n".join(arms) + ";\n")
 
@@ -729,7 +897,7 @@ def emit_geo_levels(levels, prefix):
                        for i, m in enumerate(levels))
     view = prefix + "geo_levels"
     return view, (
-        f'DROP VIEW IF EXISTS {view} CASCADE;\n'
+        drop_stmt(view) +
         f'CREATE VIEW {view} AS\n'
         f'    SELECT * FROM (VALUES\n{rows}\n'
         f'    ) AS t(depth, level_name);\n')
@@ -754,6 +922,19 @@ def load_config(path, log):
       pii:
         deny:  [caregiver_notes]     withhold as well
         allow: [cooperative_name]    a false positive from the classifier
+
+      materialized:                  plain views by default; materialize where
+        livestock:                   measurement says to, and declare the
+          indexes: [[livestock_type]]  indexes charts group by
+      derived:                       computed columns, in the registry's own
+        household_member:            terms — the generator cannot know where a
+          age_band: "CASE WHEN ..."  country's age bands fall
+      rollups:                       figures summarised UP from a child
+        farmer:
+          land:
+            count: parcel_count
+            sum:   {land_size: total_land}
+            any:   {has_title_certificate: has_any_title}
     """
     if not path or not os.path.isfile(path):
         return {}
@@ -853,6 +1034,14 @@ def main() -> int:
         log(f"[reporting] hand-written, will not be generated: "
             f"{', '.join(sorted(custom))}")
 
+    cfg_derived = cfg.get("derived") or {}
+    cfg_rollups = cfg.get("rollups") or {}
+    cfg_matview = cfg.get("materialized") or {}
+    if isinstance(cfg_matview, list):
+        # `materialized: [livestock, crop]` — the common case, no indexes beyond
+        # the unique one every materialized view needs.
+        cfg_matview = {name: {} for name in cfg_matview}
+
     conn = psycopg2.connect(
         host=os.environ.get("PGHOST", "localhost"),
         port=int(os.environ.get("PGPORT", 5432)),
@@ -899,6 +1088,15 @@ def main() -> int:
             print(f"  {entity_name(table)}: {value}")
         return 0
 
+    known = {entity_name(x) for x in entities}
+    by_entity = {entity_name(x): x for x in entities}
+    for block, label in ((cfg_derived, "derived"), (cfg_matview, "materialized"),
+                         (cfg_rollups, "rollups")):
+        for name in block:
+            if name not in known:
+                log(f"[reporting] {label}: '{name}' names no entity in this "
+                    f"registry — the declaration does nothing")
+
     log("[reporting] entity tree (declared):")
     parents = declared_parents(cfg, entities, log)
     for table, ps in sorted(parents.items()):
@@ -922,6 +1120,17 @@ def main() -> int:
     for t in sorted(entities):
         place(t)
 
+    # A declared derived column is the registry's own expression, so the
+    # name-based classifier has nothing to say about it — `age_band` is `text`
+    # and would otherwise be withheld as a free-text notes field.
+    #
+    # Safe to exempt because of how the wrapper is built: derived expressions
+    # are evaluated OVER the base select, which has already dropped every
+    # withheld column. A declaration of `contact: phone_numbers` does not leak a
+    # phone number, it fails the job with `column "phone_numbers" does not
+    # exist`. The boundary is structural, not a matter of trusting the YAML.
+    SYNTHETIC.update(alias for spec in cfg_derived.values() for alias in spec)
+
     statements, created, withheld, pending = [], [], {}, {}
     for t in ordered:
         view = prefix + entity_name(t)
@@ -929,7 +1138,9 @@ def main() -> int:
             log(f"  {view:<28} hand-written, left alone")
             continue
         emitted = emit_entity(cur, t, entities[t], parents, prefix, custom,
-                              definitions, log, withheld, pending, depth)
+                              definitions, log, withheld, pending, depth,
+                              cfg_derived, cfg_matview, cfg_rollups,
+                              by_entity, tables)
         if not emitted:
             continue
         view, sql = emitted
