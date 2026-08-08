@@ -671,7 +671,7 @@ def materialization(view, id_col, spec, log):
 
 def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
                 withheld, pending, depth, cfg_derived, cfg_matview,
-                cfg_rollups, by_entity, all_cols):
+                cfg_rollups, by_entity, all_cols, cfg_inherit, cfg_filter):
     """One view, one row per record of this entity."""
     name = entity_name(table)
     view = prefix + name
@@ -682,6 +682,7 @@ def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
 
     # --- geography -------------------------------------------------------
     cte, joins = "", []
+    join_aliases = set()
     parent_tables = parents.get(table) or []
     if GEO_JSON in names:
         # A root: it carries its own hierarchy.
@@ -717,6 +718,7 @@ def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
             # LEFT, always. An inner join against a polymorphic parent returns
             # nothing at all and looks exactly like an empty table.
             joins.append(f"LEFT JOIN {pview} {alias} ON {alias}.{pname}_id = e.{FK}")
+            join_aliases.add("__joined__")
             select.append(f"    {alias}.{pname}_id")
         else:
             # No join at all: the parent's id IS the link column. Joining for it
@@ -730,6 +732,31 @@ def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
         # Deriving it twice is a second chance to disagree with the parent.
         if needs_geo:
             select += [f"    {c}" for c in geo_select(depth, alias, pcols)]
+
+        # Attributes carried down from the parent. A crop is grown on a parcel,
+        # so "crop mix by tenure" is a question about the crop row — and without
+        # this the answer needs a join every chart has to remember to write.
+        #
+        # Requires the parent's VIEW, so it forces the join back even where the
+        # id alone would have done.
+        for spec in (cfg_inherit.get(name) or {}).get(pname, []) or []:
+            # `land_ownership_type` to keep the name, or `{land_size_ha:
+            # parcel_land_size_ha}` to rename it — the rename matters because the
+            # same column means something different once it is on a child row.
+            if isinstance(spec, dict):
+                source, target = next(iter(spec.items()))
+            else:
+                source = target = spec
+            if source not in pcols:
+                log(f"    ! {view}: inherit {pname}.{source} — no such column "
+                    f"on {pview}; ignored")
+                continue
+            if "__joined__" not in join_aliases:
+                joins.append(f"LEFT JOIN {pview} {alias} "
+                             f"ON {alias}.{pname}_id = e.{FK}")
+                join_aliases.add("__joined__")
+            select.append(f"    {alias}.{source}"
+                          + (f" AS {target}" if target != source else ""))
 
     if len(parent_tables) > 1:
         # Which parent actually matched, so a chart can group by it and a reader
@@ -785,11 +812,18 @@ def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
             select.append(f"    COALESCE({cname}.{alias}, 0) AS {alias}"
                           if zero else f"    {cname}.{alias}")
 
+    # A row filter, declared. RP marks superseded records rather than deleting
+    # them, so a reporting view that does not filter counts a parcel and the
+    # correction that replaced it as two parcels. Which statuses count is the
+    # registry's call — some want the withdrawn rows visible.
+    where = cfg_filter.get(name)
+    where_sql = f"\nWHERE {where}" if where else ""
+
     prelude = ("WITH " + ",\n".join(ctes) + "\n") if ctes else ""
 
     names_out = select_names(select)
     base = (f'{prelude}SELECT\n' + ",\n".join(select) +
-            f'\nFROM "{table}" e\n' + "\n".join(joins))
+            f'\nFROM "{table}" e\n' + "\n".join(joins) + where_sql)
 
     # Derived columns, declared by the registry, wrapped AROUND the base select.
     #
@@ -929,6 +963,11 @@ def load_config(path, log):
       derived:                       computed columns, in the registry's own
         household_member:            terms — the generator cannot know where a
           age_band: "CASE WHEN ..."  country's age bands fall
+      inherit:                       parent attributes carried DOWN
+        crop:                        onto the child row
+          land: [farming_type, {land_size_ha: parcel_land_size_ha}]
+      filter:                        which rows belong in the view at all
+        crop: "e.record_status = 'ACTIVE'"
       rollups:                       figures summarised UP from a child
         farmer:
           land:
@@ -1036,6 +1075,8 @@ def main() -> int:
 
     cfg_derived = cfg.get("derived") or {}
     cfg_rollups = cfg.get("rollups") or {}
+    cfg_inherit = cfg.get("inherit") or {}
+    cfg_filter = cfg.get("filter") or {}
     cfg_matview = cfg.get("materialized") or {}
     if isinstance(cfg_matview, list):
         # `materialized: [livestock, crop]` — the common case, no indexes beyond
@@ -1091,7 +1132,8 @@ def main() -> int:
     known = {entity_name(x) for x in entities}
     by_entity = {entity_name(x): x for x in entities}
     for block, label in ((cfg_derived, "derived"), (cfg_matview, "materialized"),
-                         (cfg_rollups, "rollups")):
+                         (cfg_rollups, "rollups"), (cfg_inherit, "inherit"),
+                         (cfg_filter, "filter")):
         for name in block:
             if name not in known:
                 log(f"[reporting] {label}: '{name}' names no entity in this "
@@ -1140,7 +1182,7 @@ def main() -> int:
         emitted = emit_entity(cur, t, entities[t], parents, prefix, custom,
                               definitions, log, withheld, pending, depth,
                               cfg_derived, cfg_matview, cfg_rollups,
-                              by_entity, tables)
+                              by_entity, tables, cfg_inherit, cfg_filter)
         if not emitted:
             continue
         view, sql = emitted
