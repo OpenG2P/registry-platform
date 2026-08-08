@@ -4,3 +4,14 @@
 ._*
 .Spotlight-V100
 .Trashes
+
+# Python bytecode. Written whenever anything imports or byte-compiles the
+# db-seed scripts — which the image build does, and which a local `py_compile`
+# does too, so it turns up in `git status` without anyone asking for it.
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local virtualenvs
+.venv/
+venv/

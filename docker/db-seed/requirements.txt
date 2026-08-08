@@ -4,3 +4,7 @@ minio==7.2.15
 # psycopg2 / psycopg2-binary wheel, so pip would try to compile from source and
 # fail with "cc: No such file or directory". The apk package is prebuilt against
 # the system libpq — no compiler needed.
+# reporting.yaml, read by generate_reporting_views.py. Without it the script
+# falls back to JSON, which is a valid subset — so this is convenience, not a
+# hard dependency.
+PyYAML==6.0.2

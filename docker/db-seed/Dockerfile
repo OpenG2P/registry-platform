@@ -78,6 +78,7 @@ COPY docker/db-seed/upload_templates.py /seed/upload_templates.py
 COPY docker/db-seed/load_geo_data.py /seed/load_geo_data.py
 COPY docker/db-seed/load_attributes_from_mds.py /seed/load_attributes_from_mds.py
 COPY docker/db-seed/sync_geo_widgets.py /seed/sync_geo_widgets.py
+COPY docker/db-seed/generate_reporting_views.py /seed/generate_reporting_views.py
 RUN chmod +x /seed/entrypoint.sh \
              /seed/upload_templates.py \
              /seed/load_geo_data.py \
