@@ -157,8 +157,15 @@ AGE_SOURCES = {"birth_date", "date_of_birth"}
 PII_ALLOW = set()
 
 
-def is_pii(column: str, data_type: str) -> bool:
-    """Should this column be withheld?"""
+def is_pii(column: str, data_type: str, freetext_rule: bool = True) -> bool:
+    """Should this column be withheld?
+
+    `freetext_rule` turns off only the last and crudest test — "unbounded text
+    with no declared meaning". Set it False for a column INHERITED from another
+    view: `age_band` is text, and it is a band, because the parent view says so.
+    The explicit deny-list and the patterns still apply, so inheriting
+    `first_name` from a hand-written parent is still caught.
+    """
     if column in PII_ALLOW:
         return False
     if column in PII_COLUMNS:
@@ -167,6 +174,8 @@ def is_pii(column: str, data_type: str) -> bool:
         return False
     if any(p.search(column) for p in PII_PATTERNS):
         return True
+    if not freetext_rule:
+        return False
     # Unbounded free text with no declared meaning. `character varying(n)` is a
     # categorical in this schema; bare `text` is a notes field.
     if data_type in FREETEXT_TYPES and column not in FREETEXT_ALLOW:
@@ -671,7 +680,8 @@ def materialization(view, id_col, spec, log):
 
 def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
                 withheld, pending, depth, cfg_derived, cfg_matview,
-                cfg_rollups, by_entity, all_cols, cfg_inherit, cfg_filter):
+                cfg_rollups, by_entity, all_cols, cfg_inherit, cfg_filter,
+                inherited):
     """One view, one row per record of this entity."""
     name = entity_name(table)
     view = prefix + name
@@ -755,6 +765,7 @@ def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
                 joins.append(f"LEFT JOIN {pview} {alias} "
                              f"ON {alias}.{pname}_id = e.{FK}")
                 join_aliases.add("__joined__")
+            inherited.add(target)
             select.append(f"    {alias}.{source}"
                           + (f" AS {target}" if target != source else ""))
 
@@ -1018,7 +1029,7 @@ SYNTHETIC = set(GEO_COLS) | {"entity", "subject_entity", "approval_hours",
                              "depth", "level_name"}
 
 
-def verify(cur, views, log) -> int:
+def verify(cur, views, inherited, log) -> int:
     """Re-read what was actually created and refuse to pass if PII got through.
 
     Deliberately independent of the emitter: it inspects the CREATED objects, so
@@ -1035,7 +1046,7 @@ def verify(cur, views, log) -> int:
         for col, typ in cur.fetchall():
             if col in SYNTHETIC or col in PII_ALLOW or col.endswith("_id"):
                 continue
-            if is_pii(col, typ):
+            if is_pii(col, typ, freetext_rule=col not in inherited):
                 leaks.append(f"{view}.{col} ({typ})")
     if leaks:
         log("")
@@ -1174,6 +1185,9 @@ def main() -> int:
     SYNTHETIC.update(alias for spec in cfg_derived.values() for alias in spec)
 
     statements, created, withheld, pending = [], [], {}, {}
+    # Targets of `inherit:` — their meaning is settled by the parent view,
+    # so the free-text heuristic must not re-judge them.
+    inherited_names = set()
     for t in ordered:
         view = prefix + entity_name(t)
         if view in custom:
@@ -1182,7 +1196,8 @@ def main() -> int:
         emitted = emit_entity(cur, t, entities[t], parents, prefix, custom,
                               definitions, log, withheld, pending, depth,
                               cfg_derived, cfg_matview, cfg_rollups,
-                              by_entity, tables, cfg_inherit, cfg_filter)
+                              by_entity, tables, cfg_inherit, cfg_filter,
+                              inherited_names)
         if not emitted:
             continue
         view, sql = emitted
@@ -1231,7 +1246,7 @@ def main() -> int:
         return 1
 
     log(f"[reporting] created {len(created)} view(s): {', '.join(created)}")
-    return verify(cur, created, log)
+    return verify(cur, created, inherited_names, log)
 
 
 if __name__ == "__main__":
