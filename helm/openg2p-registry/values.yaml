@@ -1308,6 +1308,17 @@ keycloak-init:
             '{{ .Release.Name }}-staff-portal':
               - "Operations Administrator"
               - "Technical Administrator"
+        - username: iam.admin
+          firstName: IAM
+          lastName: Admin
+          email: iam.admin@email.com
+          password: '{{ .Values.global.aweApproverUserPassword }}'
+          enabled: true
+          clientRoleMappings:
+            iam-staff-ui:
+              - "IAM_ADMIN"
+            realm-management:
+              - "manage-clients"
         - username: alex.carter
           firstName: Alex
           lastName: Carter

@@ -1667,7 +1667,8 @@ class G2PRegisterService(BaseService):
                 )
 
             filter_conditions = [implementation_class.internal_record_id == internal_record_id]
-            policy_condition = await self._build_register_policy_condition(
+            # Sync helper (returns None when auth/policies are off) — do not await.
+            policy_condition = self._build_register_policy_condition(
                 register_id, implementation_class, data_policies, session
             )
             if policy_condition is not None:
