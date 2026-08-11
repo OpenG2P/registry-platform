@@ -55,6 +55,9 @@ from .g2p_attribute_value_validator import G2PAttributeValueValidator
 from .g2p_register_domain_service import G2PRegisterDomainService
 from .g2p_register_history_service import G2PRegisterHistoryService
 from .g2p_register_service import G2PRegisterService
+from .g2p_change_request_section_payload_service import (
+    G2PChangeRequestSectionPayloadService,
+)
 
 _logger = logging.getLogger("g2p-register-change-request-service")
 _config = Settings.get_config(strict=False)
@@ -1076,6 +1079,14 @@ class G2PRegisterChangeRequestService(BaseService):
                     raise self._invalid_request(f"internal_record_id is required for table {action} payloads.")
                 if action == ChangeActionEnum.ADD.value and not getattr(change_payload, "link_internal_record_id", None):
                     raise self._invalid_request(f"link_internal_record_id is required for table {action} payloads.")
+
+        await G2PChangeRequestSectionPayloadService.get_component().validate(
+            change_payloads,
+            section,
+            section_register_definition,
+            session,
+            has_documents=bool(payload.documents),
+        )
 
         pending_count = (
             await session.execute(
