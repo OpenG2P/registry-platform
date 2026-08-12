@@ -2,6 +2,17 @@ import { z } from 'zod';
 import { WidgetValidation } from '../types';
 import { getValidationPattern } from './validationPatterns';
 
+export const isWidgetValueEmpty = (value: unknown): boolean => {
+  if (value === null || value === undefined || value === '') {
+    return true;
+  }
+  if (typeof value === 'object' && !Array.isArray(value) && value !== null && 'value' in value) {
+    const inner = (value as { value: unknown }).value;
+    return inner === null || inner === undefined || inner === '';
+  }
+  return false;
+};
+
 /**
  * @param skipRequired - Skip required checks for per-section Save/Next navigation;
  *   format and range validation still run.
@@ -19,7 +30,7 @@ export const validateWidget = (
   }
 
   const isRequired = !skipRequired && (validation?.required ?? required);
-  const isEmpty = value === null || value === undefined || value === '';
+  const isEmpty = isWidgetValueEmpty(value);
   if (isRequired && isEmpty) {
     errors.push('This field is required');
     return errors;
