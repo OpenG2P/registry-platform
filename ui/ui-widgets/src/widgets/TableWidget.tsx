@@ -124,8 +124,18 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
   return (
     <div className="table-cell-field w-full">
       <select
-        value={value || ''}
-        onChange={(e) => onValueChange(e.target.value === '' ? undefined : e.target.value)}
+        value={value === undefined || value === null ? '' : String(value)}
+        onChange={(e) => {
+          const rawValue = e.target.value;
+          if (rawValue === '') {
+            onValueChange(undefined);
+            return;
+          }
+          const selectedOption = dataSourceOptions.find(
+            (option: any) => String(option.value) === rawValue
+          );
+          onValueChange(selectedOption ? selectedOption.value : rawValue);
+        }}
         disabled={isReadonly || loading}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
           isReadonly || loading ? 'cursor-not-allowed' : ''
@@ -138,8 +148,8 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
       >
         <option value="">{t?.('common.select') || 'Select'}</option>
         {dataSourceOptions.map((option: any) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
+          <option key={String(option.value)} value={String(option.value)}>
+            {tSchema(t, option.label)}
           </option>
         ))}
       </select>
@@ -156,6 +166,7 @@ interface SelectDisplayValueProps {
 }
 
 const SelectDisplayValue = ({ config, value }: SelectDisplayValueProps) => {
+  const { t } = useWidgetContext();
   const { dataSourceOptions, loading } = useBaseWidget({ config });
   
   if (loading) {
@@ -169,7 +180,13 @@ const SelectDisplayValue = ({ config, value }: SelectDisplayValueProps) => {
   const selectedOption = dataSourceOptions.find(
     (option: any) => option.value === value || String(option.value) === String(value)
   );
-  return <span>{selectedOption ? selectedOption.label : String(value)}</span>;
+  return (
+    <span>
+      {selectedOption
+        ? tSchema(t, selectedOption.label)
+        : tSchema(t, String(value))}
+    </span>
+  );
 };
 
 interface TableCellTextProps {

@@ -41,7 +41,8 @@ function renderLevelRows({
   loadingLevelId,
   isEnabled,
   isRequired,
-  showValidationError,
+  touched,
+  hasError,
   t,
   onBlur,
   handleLevelChange,
@@ -58,7 +59,8 @@ function renderLevelRows({
   loadingLevelId: string | null;
   isEnabled: boolean;
   isRequired: boolean;
-  showValidationError: boolean;
+  touched: boolean;
+  hasError: boolean;
   t?: (key: string, options?: Record<string, unknown>) => string;
   onBlur: () => void;
   handleLevelChange: (levelIndex: number, nextValue: string | undefined) => void;
@@ -107,6 +109,9 @@ function renderLevelRows({
     const isLoading = loadingLevelId === level.level_id;
     const levelEnabled = isLevelEnabled(levelIndex);
     const disabled = !isEnabled || loadingLevels || isLoading || !levelEnabled;
+    const levelHasValue = Boolean(selectedValues[level.level_id]);
+    const showLevelError =
+      (isRequired && !levelHasValue) || (touched && hasError && !levelHasValue);
 
     return (
       <div key={level.level_id} className="mb-[10px]">
@@ -114,7 +119,7 @@ function renderLevelRows({
           <WidgetFieldLabel
             className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
             label={levelLabel}
-            required={isRequired && levelIndex === 0}
+            required={isRequired}
           />
           <div className="flex-1 min-w-0">
             <select
@@ -126,7 +131,7 @@ function renderLevelRows({
               onBlur={onBlur}
               disabled={disabled}
               className={`w-full sm:w-[180px] max-w-full h-[30px] px-3 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                showValidationError
+                showLevelError
                   ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
                   : 'border-gray-300'
               } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
@@ -168,11 +173,10 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
   } = useGeoHierarchy({ config });
 
   const { t } = useWidgetContext();
-  const showValidationError = Boolean(
-    (touched && error.length > 0) ||
-      (widgetConfig['widget-required'] &&
-        !Object.values(selectedValues).some((value) => value)),
-  );
+  const isComplete =
+    levels.length > 0 &&
+    levels.every((level) => Boolean(selectedValues[level.level_id]));
+  const hasError = error.length > 0 || (isRequired && levels.length > 0 && !isComplete);
 
   const isReadonly = Boolean(widgetConfig['widget-readonly']);
   const rowProps = {
@@ -185,7 +189,8 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
     loadingLevelId,
     isEnabled,
     isRequired,
-    showValidationError,
+    touched,
+    hasError,
     t,
     onBlur,
     handleLevelChange,
@@ -248,8 +253,10 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
 
       {geoError && <p className="text-red-500 text-sm mb-[10px]">{geoError}</p>}
 
-      {!isReadonly && touched && error.length > 0 && (
-        <p className="text-red-500 text-sm mb-[10px]">{error[0]}</p>
+      {!isReadonly && touched && hasError && (
+        <p className="text-red-500 text-sm mb-[10px]">
+          {error[0] || 'This field is required'}
+        </p>
       )}
     </div>
   );
