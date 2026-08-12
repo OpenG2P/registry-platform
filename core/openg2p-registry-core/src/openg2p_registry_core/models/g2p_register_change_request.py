@@ -14,6 +14,7 @@ class G2PRegisterChangeRequest(BaseORMModel):
             "register_id",
             "internal_record_id",
             "tab_id",
+            "approval_status",
             "created_at",
         ),
     )

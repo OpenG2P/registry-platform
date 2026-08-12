@@ -1641,7 +1641,14 @@ class G2PRegisterChangeRequestService(BaseService):
         """Get the number of pending change requests for a given register, internal_record_id and tab_id"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            await self.validate_register_definition(subject_register_id, session)
+            register_definition = self._coerce_register_definition(
+                await self._get_register_definition(subject_register_id, session)
+            )
+            if not register_definition:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
+                )
 
             # Count pending change requests for the given internal_record_id and tab_id
             count_result = await session.execute(
@@ -1665,7 +1672,14 @@ class G2PRegisterChangeRequestService(BaseService):
         """Get the number of cross-register pending change requests by searching subject_record_id in search_text of G2PRegisterChangeRequestPayload"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            await self.validate_register_definition(subject_register_id, session)
+            register_definition = self._coerce_register_definition(
+                await self._get_register_definition(subject_register_id, session)
+            )
+            if not register_definition:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
+                )
 
             # Count pending change requests where search_text contains subject_record_id
             # Join G2PRegisterChangeRequest with G2PRegisterChangeRequestPayload and search in search_text
@@ -1690,7 +1704,14 @@ class G2PRegisterChangeRequestService(BaseService):
         """Get the list of cross-register pending change requests by searching subject_record_id in search_text of G2PRegisterChangeRequestPayload"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            await self.validate_register_definition(subject_register_id, session)
+            register_definition = self._coerce_register_definition(
+                await self._get_register_definition(subject_register_id, session)
+            )
+            if not register_definition:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
+                )
 
             # Fetch pending change requests where search_text contains subject_record_id
             # Join G2PRegisterChangeRequest with G2PRegisterChangeRequestPayload, G2PRegisterDefinition, and G2PRegisterUITab
