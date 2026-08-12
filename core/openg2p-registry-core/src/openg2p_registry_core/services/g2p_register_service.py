@@ -1256,10 +1256,10 @@ class G2PRegisterService(BaseService):
             history_class_prefix = "G2PRegisterHistory"
             register_class_prefix = "G2PRegister"
 
-            # Collect unique change_request_ids and track latest history record across all sections
+            # Collect unique change_request_ids and track latest history approval across all sections
             unique_change_request_ids: set[str] = set()
             latest_approved_at: datetime = None
-            latest_history_record = None
+            latest_approved_by: str = None
             legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
 
             for section_register_id in unique_section_register_ids:
@@ -1290,17 +1290,20 @@ class G2PRegisterService(BaseService):
                     tab_id=tab_id,
                     session=session,
                     legacy_ids_cache=legacy_ids_cache,
+                    columns=(
+                        history_class.change_request_id,
+                        history_class.approved_at,
+                        history_class.approved_by,
+                    ),
                 )
 
                 # Collect unique change_request_ids and track latest record
-                for history_record in history_records:
-                    if history_record.change_request_id:
-                        unique_change_request_ids.add(history_record.change_request_id)
-                    # Track the most recent history record by approved_at
-                    if history_record.approved_at:
-                        if latest_approved_at is None or history_record.approved_at > latest_approved_at:
-                            latest_approved_at = history_record.approved_at
-                            latest_history_record = history_record
+                for change_request_id, approved_at, approved_by in history_records:
+                    if change_request_id:
+                        unique_change_request_ids.add(change_request_id)
+                    if approved_at and (latest_approved_at is None or approved_at > latest_approved_at):
+                        latest_approved_at = approved_at
+                        latest_approved_by = approved_by
 
             # Count unique change requests (not raw history records)
             number_of_versions = len(unique_change_request_ids)
@@ -1323,11 +1326,8 @@ class G2PRegisterService(BaseService):
                 last_updated_at = register_record.last_approved_at
 
             # Get last_approved_by and last_approved_at from the latest history record across all sections
-            last_approved_by: str = None
-            last_approved_at: datetime = None
-            if latest_history_record:
-                last_approved_by = latest_history_record.approved_by
-                last_approved_at = latest_history_record.approved_at
+            last_approved_by: str = latest_approved_by
+            last_approved_at: datetime = latest_approved_at
 
             return NumberOfVersionsData(
                 register_id=register_id,
@@ -1486,7 +1486,7 @@ class G2PRegisterService(BaseService):
             for section in sections:
                 unique_section_register_ids.add(section.section_register_id)
 
-            # Collect unique dates from all history classes
+            # Collect unique dates from all history classes in SQL (no full-row fetch)
             unique_dates = set()
             module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
             history_class_prefix = "G2PRegisterHistory"
@@ -1512,7 +1512,7 @@ class G2PRegisterService(BaseService):
                 except AttributeError:
                     continue
 
-                history_records = await self._query_history_records_for_subject(
+                section_dates = await self._query_history_distinct_dates_for_subject(
                     history_class=history_class,
                     subject_internal_record_id=internal_record_id,
                     subject_register_id=register_id,
@@ -1521,12 +1521,7 @@ class G2PRegisterService(BaseService):
                     session=session,
                     legacy_ids_cache=legacy_ids_cache,
                 )
-
-                # Extract dates from this history class
-                for history_record in history_records:
-                    if history_record.created_at:
-                        truncated_date = history_record.created_at.date().isoformat()
-                        unique_dates.add(truncated_date)
+                unique_dates.update(section_dates)
 
             # Sort dates in descending order (most recent first)
             sorted_dates = sorted(list(unique_dates), reverse=True)
@@ -3491,25 +3486,22 @@ class G2PRegisterService(BaseService):
                 message=f"Register implementation not found for {register_mnemonic}"
             )
 
-    async def _query_history_records_for_subject(
+    async def _build_history_subject_match_condition(
         self,
         history_class,
         subject_internal_record_id: str,
         subject_register_id: str,
         section_register_id: str,
-        tab_id: str,
         session,
-        extra_filters: list | None = None,
-        order_by=None,
         legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
-    ) -> list:
+    ):
         """
-        Load history rows for a subject under a tab.
+        Build the subject/legacy OR predicate used by history queries for a tab section.
 
         Prefer denormalized subject_internal_record_id. If unbackfilled nulls remain,
         also include legacy hierarchy-walk matches for rows missing the stamp.
+        Returns None when nothing can match.
         """
-        extra_filters = list(extra_filters or [])
         has_subject_column = hasattr(history_class, "subject_internal_record_id")
 
         subject_condition = None
@@ -3540,23 +3532,101 @@ class G2PRegisterService(BaseService):
             )
 
         if subject_condition is not None and legacy_condition is not None:
-            match_condition = or_(subject_condition, legacy_condition)
-        elif subject_condition is not None:
-            match_condition = subject_condition
-        elif legacy_condition is not None:
-            match_condition = legacy_condition
-        else:
+            return or_(subject_condition, legacy_condition)
+        if subject_condition is not None:
+            return subject_condition
+        if legacy_condition is not None:
+            return legacy_condition
+        return None
+
+    async def _query_history_records_for_subject(
+        self,
+        history_class,
+        subject_internal_record_id: str,
+        subject_register_id: str,
+        section_register_id: str,
+        tab_id: str,
+        session,
+        extra_filters: list | None = None,
+        order_by=None,
+        legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
+        columns: tuple | None = None,
+    ) -> list:
+        """
+        Load history rows for a subject under a tab.
+
+        Prefer denormalized subject_internal_record_id. If unbackfilled nulls remain,
+        also include legacy hierarchy-walk matches for rows missing the stamp.
+
+        When ``columns`` is set, only those columns are selected (Row tuples).
+        Otherwise full ORM entities are returned.
+        """
+        extra_filters = list(extra_filters or [])
+        match_condition = await self._build_history_subject_match_condition(
+            history_class=history_class,
+            subject_internal_record_id=subject_internal_record_id,
+            subject_register_id=subject_register_id,
+            section_register_id=section_register_id,
+            session=session,
+            legacy_ids_cache=legacy_ids_cache,
+        )
+        if match_condition is None:
             return []
 
-        query = select(history_class).where(
+        if columns is None:
+            query = select(history_class).where(
+                history_class.tab_id == tab_id,
+                match_condition,
+                *extra_filters,
+            )
+            if order_by is not None:
+                query = query.order_by(order_by)
+            return (await session.execute(query)).scalars().all()
+
+        query = select(*columns).where(
             history_class.tab_id == tab_id,
             match_condition,
             *extra_filters,
         )
         if order_by is not None:
             query = query.order_by(order_by)
+        return (await session.execute(query)).all()
 
-        return (await session.execute(query)).scalars().all()
+    async def _query_history_distinct_dates_for_subject(
+        self,
+        history_class,
+        subject_internal_record_id: str,
+        subject_register_id: str,
+        section_register_id: str,
+        tab_id: str,
+        session,
+        legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
+    ) -> list[str]:
+        """Return distinct created_at calendar dates (ISO) for a subject under a tab."""
+        match_condition = await self._build_history_subject_match_condition(
+            history_class=history_class,
+            subject_internal_record_id=subject_internal_record_id,
+            subject_register_id=subject_register_id,
+            section_register_id=section_register_id,
+            session=session,
+            legacy_ids_cache=legacy_ids_cache,
+        )
+        if match_condition is None:
+            return []
+
+        result = await session.execute(
+            select(func.distinct(func.date(history_class.created_at))).where(
+                history_class.tab_id == tab_id,
+                match_condition,
+                history_class.created_at.is_not(None),
+            )
+        )
+        dates: list[str] = []
+        for (day_value,) in result.all():
+            if day_value is None:
+                continue
+            dates.append(day_value.isoformat() if hasattr(day_value, "isoformat") else str(day_value))
+        return dates
 
     async def _get_history_internal_record_ids(
         self,
