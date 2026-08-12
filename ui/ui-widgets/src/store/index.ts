@@ -9,7 +9,7 @@ export const createWidgetStore = () => {
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
         serializableCheck: {
-          ignoredActions: ['widget/setValue', 'widget/setValues', 'widget/setError'],
+          ignoredActions: ['widget/setValue', 'widget/setValues', 'widget/replaceValues', 'widget/setError'],
           ignoredPaths: ['widget.values'],
         },
       }),

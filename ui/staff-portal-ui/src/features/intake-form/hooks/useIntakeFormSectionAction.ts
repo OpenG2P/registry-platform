@@ -118,6 +118,7 @@ export const useIntakeFormSectionAction = ({
         // Keep existing documents that are already uploaded
         const existingDocuments = (change?.files || []).filter(file => file && typeof file === 'object' && ('document_id' in file));
         documentsResponse = [...existingDocuments as UploadedDocument[], ...documentsResponse];
+        console.log("change payload", change?.records);
 
         const savePayload = {
             submission_id: activeSubmissionId || submissionId,
