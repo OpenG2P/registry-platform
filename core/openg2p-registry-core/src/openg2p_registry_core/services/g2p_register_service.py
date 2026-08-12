@@ -22,7 +22,7 @@ from .g2p_completion_score_service import G2PCompletionScoreService
 from ..helpers.register_field_metadata import iter_register_orm_field_metadata
 from ..helpers.file_validation import validate_base64_file
 from ..helpers.file_validation_profiles import DASHBOARD_IMAGE_PROFILE, IMAGE_ICON_PROFILE
-from ..helpers.orm_cache import pair_id_key_builder
+from ..helpers.orm_cache import dict_to_orm, orm_row_to_dict, pair_id_key_builder, single_id_key_builder
 
 from ..cache import metadata_key_builder
 
@@ -65,6 +65,64 @@ _engine = dbengine.get()
 _config = Settings.get_config(strict=False)
 
 class G2PRegisterService(BaseService):
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_register_definition(self, register_id: str, session):
+        """Cached register metadata (column dict). Use for read/existence paths."""
+        register = await session.get(G2PRegisterDefinition, register_id)
+        return orm_row_to_dict(register) if register else None
+
+    def _coerce_register_definition(self, register_metadata) -> G2PRegisterDefinition | None:
+        if register_metadata is None:
+            return None
+        if isinstance(register_metadata, dict):
+            return dict_to_orm(G2PRegisterDefinition, register_metadata)
+        return dict_to_orm(G2PRegisterDefinition, orm_row_to_dict(register_metadata))
+
+    async def _require_register_definition(self, register_id: str, session) -> G2PRegisterDefinition:
+        """Cached lookup that raises REGISTER_NOT_FOUND when missing."""
+        register_definition = self._coerce_register_definition(
+            await self._get_register_definition(register_id, session)
+        )
+        if not register_definition:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
+            )
+        return register_definition
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_tab_sections(self, register_id: str, tab_id: str, session) -> list[dict]:
+        """Cached tab→section metadata (static schema config)."""
+        result = await session.execute(
+            select(G2PRegisterSection)
+            .join(
+                G2PRegisterUITabSection,
+                G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
+            )
+            .where(
+                G2PRegisterSection.register_id == register_id,
+                G2PRegisterUITabSection.register_id == register_id,
+                G2PRegisterUITabSection.tab_id == tab_id,
+            )
+            .order_by(G2PRegisterUITabSection.section_order)
+        )
+        return [orm_row_to_dict(section) for section in result.scalars().all()]
+
+    def _coerce_section(self, section_metadata) -> G2PRegisterSection | None:
+        if section_metadata is None:
+            return None
+        if isinstance(section_metadata, dict):
+            return dict_to_orm(G2PRegisterSection, section_metadata)
+        return dict_to_orm(G2PRegisterSection, orm_row_to_dict(section_metadata))
 
     async def get_register_summary_data(self, data_policies: list[dict] | None = None) -> list[RegisterSummaryData]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
@@ -1218,34 +1276,16 @@ class G2PRegisterService(BaseService):
         """Get the number of versions (unique change requests) for a given register, internal_record_id and tab_id across all sections"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            # Validate register exists
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == register_id
-                    )
-                )
-            ).scalar()
-            if not register_definition:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
-                )
-
-            # Fetch all sections for the given tab_id via tab-section mapping.
-            sections_result = await session.execute(
-                select(G2PRegisterSection)
-                .join(
-                    G2PRegisterUITabSection,
-                    G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-                )
-                .where(
-                    G2PRegisterSection.register_id == register_id,
-                    G2PRegisterUITabSection.register_id == register_id,
-                    G2PRegisterUITabSection.tab_id == tab_id,
-                )
+            # Validate register exists (cached metadata)
+            register_definition: G2PRegisterDefinition = await self._require_register_definition(
+                register_id, session
             )
-            sections = sections_result.scalars().all()
+
+            # Fetch all sections for the given tab_id via tab-section mapping (cached).
+            sections = [
+                self._coerce_section(section_data)
+                for section_data in await self._get_tab_sections(register_id, tab_id, session)
+            ]
 
             # Collect unique section_register_ids
             unique_section_register_ids = set()
@@ -1263,14 +1303,9 @@ class G2PRegisterService(BaseService):
             legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
 
             for section_register_id in unique_section_register_ids:
-                # Get register definition for this section
-                section_register_def = (
-                    await session.execute(
-                        select(G2PRegisterDefinition).where(
-                            G2PRegisterDefinition.register_id == section_register_id
-                        )
-                    )
-                ).scalar()
+                section_register_def = self._coerce_register_definition(
+                    await self._get_register_definition(section_register_id, session)
+                )
                 
                 if not section_register_def:
                     continue
@@ -1452,34 +1487,14 @@ class G2PRegisterService(BaseService):
         """Get unique truncated dates from history records for a given register, internal_record_id and tab_id"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            # Validate register exists
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == register_id
-                    )
-                )
-            ).scalar()
-            if not register_definition:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
-                )
+            # Validate register exists (cached metadata)
+            await self._require_register_definition(register_id, session)
 
-            # Fetch all sections for the given tab_id via tab-section mapping.
-            sections_result = await session.execute(
-                select(G2PRegisterSection)
-                .join(
-                    G2PRegisterUITabSection,
-                    G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-                )
-                .where(
-                    G2PRegisterSection.register_id == register_id,
-                    G2PRegisterUITabSection.register_id == register_id,
-                    G2PRegisterUITabSection.tab_id == tab_id,
-                )
-            )
-            sections = sections_result.scalars().all()
+            # Fetch all sections for the given tab_id via tab-section mapping (cached).
+            sections = [
+                self._coerce_section(section_data)
+                for section_data in await self._get_tab_sections(register_id, tab_id, session)
+            ]
 
             # Collect unique section_register_ids
             unique_section_register_ids = set()
@@ -1493,14 +1508,9 @@ class G2PRegisterService(BaseService):
             legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
 
             for section_register_id in unique_section_register_ids:
-                # Get register definition for this section
-                section_register_def = (
-                    await session.execute(
-                        select(G2PRegisterDefinition).where(
-                            G2PRegisterDefinition.register_id == section_register_id
-                        )
-                    )
-                ).scalar()
+                section_register_def = self._coerce_register_definition(
+                    await self._get_register_definition(section_register_id, session)
+                )
                 
                 if not section_register_def:
                     continue
@@ -1537,34 +1547,14 @@ class G2PRegisterService(BaseService):
         """Get changes from history records for a given register, internal_record_id, tab_id and specific date, grouped by section"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            # Validate register exists
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == register_id
-                    )
-                )
-            ).scalar()
-            if not register_definition:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
-                )
+            # Validate register exists (cached metadata)
+            await self._require_register_definition(register_id, session)
 
-            # Fetch all sections for the given tab_id via tab-section mapping.
-            sections_result = await session.execute(
-                select(G2PRegisterSection)
-                .join(
-                    G2PRegisterUITabSection,
-                    G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-                )
-                .where(
-                    G2PRegisterSection.register_id == register_id,
-                    G2PRegisterUITabSection.register_id == register_id,
-                    G2PRegisterUITabSection.tab_id == tab_id,
-                )
-            )
-            sections = sections_result.scalars().all()
+            # Fetch all sections for the given tab_id via tab-section mapping (cached).
+            sections = [
+                self._coerce_section(section_data)
+                for section_data in await self._get_tab_sections(register_id, tab_id, session)
+            ]
 
             module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
             history_class_prefix = "G2PRegisterHistory"
@@ -1575,14 +1565,9 @@ class G2PRegisterService(BaseService):
 
             results = []
             for section in sections:
-                # Get register definition for this section
-                section_register_def = (
-                    await session.execute(
-                        select(G2PRegisterDefinition).where(
-                            G2PRegisterDefinition.register_id == section.section_register_id
-                        )
-                    )
-                ).scalar()
+                section_register_def = self._coerce_register_definition(
+                    await self._get_register_definition(section.section_register_id, session)
+                )
                 
                 if not section_register_def:
                     continue
@@ -1657,8 +1642,10 @@ class G2PRegisterService(BaseService):
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
 
-            # Validate register exists
-            g2p_register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
+            # Validate register exists (cached metadata)
+            g2p_register_definition: G2PRegisterDefinition = await self._require_register_definition(
+                register_id, session
+            )
 
             # Get the implementation class for this register
             try:
@@ -2118,29 +2105,15 @@ class G2PRegisterService(BaseService):
 
     async def _fetch_register_tab_sections(self, register_id: str, tab_id: str, session) -> list[RegisterSectionData]:
         """Fetch register sections from g2p_register_sections table filtered by tab_id."""
-        result = await session.execute(
-            select(G2PRegisterSection)
-            .join(
-                G2PRegisterUITabSection,
-                G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-            )
-            .where(
-                G2PRegisterSection.register_id == register_id,
-                G2PRegisterUITabSection.register_id == register_id,
-                G2PRegisterUITabSection.tab_id == tab_id,
-            )
-            .order_by(G2PRegisterUITabSection.section_order)
-        )
-        sections = result.scalars().all()
+        sections = [
+            self._coerce_section(section_data)
+            for section_data in await self._get_tab_sections(register_id, tab_id, session)
+        ]
 
         # Fetch the main register definition once (for register_relation computation)
-        register_definition: G2PRegisterDefinition = (
-            await session.execute(
-                select(G2PRegisterDefinition).where(
-                    G2PRegisterDefinition.register_id == register_id
-                )
-            )
-        ).scalar()
+        register_definition = self._coerce_register_definition(
+            await self._get_register_definition(register_id, session)
+        )
 
         sections_list: list[RegisterSectionData] = []
         for section in sections:
@@ -3663,7 +3636,9 @@ class G2PRegisterService(BaseService):
             return legacy_ids_cache[cache_key]
 
         # Get section register definition to check if it's CORE_TABLE
-        section_register = await session.get(G2PRegisterDefinition, section_register_id)
+        section_register = self._coerce_register_definition(
+            await self._get_register_definition(section_register_id, session)
+        )
         if not section_register:
             _logger.warning(f"Section register {section_register_id} not found")
             result_ids = [subject_internal_record_id]
@@ -3703,7 +3678,7 @@ class G2PRegisterService(BaseService):
         # Traverse down the hierarchy (skip first register which is subject)
         for i in range(1, len(path_reversed)):
             register_def: G2PRegisterDefinition = path_reversed[i]
-            impl_class = self._get_register_implementation_class(register_def.register_mnemonic, register_def.register_purpose)
+            impl_class = self._get_registe_implementation_class(register_def.register_mnemonic, register_def.register_purpose)
             
             # Find all records where link_internal_record_id is in current_ids
             result = await session.execute(
