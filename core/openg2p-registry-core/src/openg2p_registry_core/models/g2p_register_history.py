@@ -50,7 +50,7 @@ class G2PRegisterHistory(BaseORMModel):
     record_status_reason: Mapped[str] = mapped_column(String, nullable=True)
 
     created_by: Mapped[str] = mapped_column(String, nullable=False)
-    created_at: Mapped[str] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[str] = mapped_column(DateTime, nullable=False, index=True)
     approved_by: Mapped[str] = mapped_column(String, nullable=False)
     approved_at: Mapped[str] = mapped_column(DateTime, nullable=False)
 

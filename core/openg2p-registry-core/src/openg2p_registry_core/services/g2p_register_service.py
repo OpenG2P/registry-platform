@@ -2,7 +2,7 @@ import logging
 import json
 import uuid
 import importlib
-from datetime import datetime, date
+from datetime import datetime, date, time, timedelta
 from fastapi_cache.coder import PickleCoder
 from fastapi_cache.decorator import cache
 
@@ -1260,6 +1260,7 @@ class G2PRegisterService(BaseService):
             unique_change_request_ids: set[str] = set()
             latest_approved_at: datetime = None
             latest_history_record = None
+            legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
 
             for section_register_id in unique_section_register_ids:
                 # Get register definition for this section
@@ -1288,6 +1289,7 @@ class G2PRegisterService(BaseService):
                     section_register_id=section_register_id,
                     tab_id=tab_id,
                     session=session,
+                    legacy_ids_cache=legacy_ids_cache,
                 )
 
                 # Collect unique change_request_ids and track latest record
@@ -1488,6 +1490,7 @@ class G2PRegisterService(BaseService):
             unique_dates = set()
             module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
             history_class_prefix = "G2PRegisterHistory"
+            legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
 
             for section_register_id in unique_section_register_ids:
                 # Get register definition for this section
@@ -1516,6 +1519,7 @@ class G2PRegisterService(BaseService):
                     section_register_id=section_register_id,
                     tab_id=tab_id,
                     session=session,
+                    legacy_ids_cache=legacy_ids_cache,
                 )
 
                 # Extract dates from this history class
@@ -1569,6 +1573,10 @@ class G2PRegisterService(BaseService):
 
             module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
             history_class_prefix = "G2PRegisterHistory"
+            legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
+            day = date.fromisoformat(truncated_created_date)
+            day_start = datetime.combine(day, time.min)
+            day_end = day_start + timedelta(days=1)
 
             results = []
             for section in sections:
@@ -1599,10 +1607,12 @@ class G2PRegisterService(BaseService):
                     tab_id=tab_id,
                     session=session,
                     extra_filters=[
-                        func.date(history_class.created_at) == date.fromisoformat(truncated_created_date),
+                        history_class.created_at >= day_start,
+                        history_class.created_at < day_end,
                         history_class.section_id == section.section_id,
                     ],
                     order_by=history_class.created_at.desc(),
+                    legacy_ids_cache=legacy_ids_cache,
                 )
 
                 # Build changes list, deduplicating by change_request_id
@@ -3491,6 +3501,7 @@ class G2PRegisterService(BaseService):
         session,
         extra_filters: list | None = None,
         order_by=None,
+        legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
     ) -> list:
         """
         Load history rows for a subject under a tab.
@@ -3510,6 +3521,7 @@ class G2PRegisterService(BaseService):
             subject_internal_record_id=subject_internal_record_id,
             subject_register_id=subject_register_id,
             session=session,
+            legacy_ids_cache=legacy_ids_cache,
         )
         legacy_condition = None
         if legacy_ids:
@@ -3551,7 +3563,8 @@ class G2PRegisterService(BaseService):
         section_register_id: str,
         subject_internal_record_id: str,
         subject_register_id: str,
-        session
+        session,
+        legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
     ) -> list[str]:
         """
         Get the internal_record_ids to query for history records by traversing 
@@ -3569,19 +3582,31 @@ class G2PRegisterService(BaseService):
             subject_internal_record_id: The subject record's internal_record_id (e.g., Farmer's ID)
             subject_register_id: The subject register ID (e.g., Farmer register)
             session: Database session
+            legacy_ids_cache: Optional request-scoped memo so multiple sections on the
+                same section_register reuse one live hierarchy walk.
             
         Returns:
             List of internal_record_ids to query in history table
         """
+        cache_key = (section_register_id, subject_internal_record_id, subject_register_id)
+        if legacy_ids_cache is not None and cache_key in legacy_ids_cache:
+            return legacy_ids_cache[cache_key]
+
         # Get section register definition to check if it's CORE_TABLE
         section_register = await session.get(G2PRegisterDefinition, section_register_id)
         if not section_register:
             _logger.warning(f"Section register {section_register_id} not found")
-            return [subject_internal_record_id]
+            result_ids = [subject_internal_record_id]
+            if legacy_ids_cache is not None:
+                legacy_ids_cache[cache_key] = result_ids
+            return result_ids
         
         # If same register, no traversal needed
         if section_register_id == subject_register_id:
-            return [subject_internal_record_id]
+            result_ids = [subject_internal_record_id]
+            if legacy_ids_cache is not None:
+                legacy_ids_cache[cache_key] = result_ids
+            return result_ids
         
         # Build path from section to subject (section is child, subject is ancestor)
         path: list[G2PRegisterDefinition] | None = await self._find_path_to_ancestor(
@@ -3593,7 +3618,10 @@ class G2PRegisterService(BaseService):
             _logger.warning(
                 f"No hierarchy path found from section {section_register_id} to subject {subject_register_id}"
             )
-            return [subject_internal_record_id]
+            result_ids = [subject_internal_record_id]
+            if legacy_ids_cache is not None:
+                legacy_ids_cache[cache_key] = result_ids
+            return result_ids
         
         # Reverse path to traverse from subject (top) to section (bottom)
         # path is [section, ..., subject], we need [subject, ..., section]
@@ -3617,10 +3645,14 @@ class G2PRegisterService(BaseService):
             
             if not child_ids:
                 # No records found at this level
+                if legacy_ids_cache is not None:
+                    legacy_ids_cache[cache_key] = []
                 return []
             
             current_ids = child_ids
         
+        if legacy_ids_cache is not None:
+            legacy_ids_cache[cache_key] = current_ids
         return current_ids
 
 
