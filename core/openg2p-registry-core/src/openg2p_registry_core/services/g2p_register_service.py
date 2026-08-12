@@ -124,6 +124,23 @@ class G2PRegisterService(BaseService):
             return dict_to_orm(G2PRegisterSection, section_metadata)
         return dict_to_orm(G2PRegisterSection, orm_row_to_dict(section_metadata))
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_register_schema(self, register_id: str, session) -> dict | None:
+        """Cached register schema config (column dict). Use for read paths."""
+        register_schema = await session.get(G2PRegisterSchema, register_id)
+        return orm_row_to_dict(register_schema) if register_schema else None
+
+    def _coerce_register_schema(self, schema_metadata) -> G2PRegisterSchema | None:
+        if schema_metadata is None:
+            return None
+        if isinstance(schema_metadata, dict):
+            return dict_to_orm(G2PRegisterSchema, schema_metadata)
+        return dict_to_orm(G2PRegisterSchema, orm_row_to_dict(schema_metadata))
+
     async def get_register_summary_data(self, data_policies: list[dict] | None = None) -> list[RegisterSummaryData]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
@@ -561,7 +578,7 @@ class G2PRegisterService(BaseService):
     async def search_in_a_register(self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            await self.validate_register_definition(register_id, session)
+            await self._require_register_definition(register_id, session)
             search_results_list, total_items = await self._search_in_register(register_id, search_text, current_page, page_size, sort_by, filter_by, session, data_policies)
             return search_results_list, total_items
     
@@ -1111,7 +1128,7 @@ class G2PRegisterService(BaseService):
         )
 
     async def _search_in_register(self, register_id: str, search_text: str, current_page: int, page_size: int, sort_by: str, filter_by: dict, session, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
-        g2p_register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
+        g2p_register_definition: G2PRegisterDefinition = await self._require_register_definition(register_id, session)
 
         # Get the implementation class for this register
         try:
@@ -1126,11 +1143,10 @@ class G2PRegisterService(BaseService):
                 message=f"Register implementation not found for {g2p_register_definition.register_mnemonic}"
             )
 
-        # Fetch register schema for display fields and filter configuration
-        schema_result = await session.execute(
-            select(G2PRegisterSchema).where(G2PRegisterSchema.register_id == register_id)
+        # Fetch register schema for display fields and filter configuration (cached)
+        register_schema = self._coerce_register_schema(
+            await self._get_register_schema(register_id, session)
         )
-        register_schema: G2PRegisterSchema = schema_result.scalar()
         search_result_schema: list = register_schema.search_result_schema if register_schema and register_schema.search_result_schema else []
         filter_schema: list = register_schema.filter_schema if register_schema and register_schema.filter_schema else []
 
