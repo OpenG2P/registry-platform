@@ -1,12 +1,16 @@
 import logging
 
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
 
+from ..config import Settings
 from ..errors import G2PRegistryException
+from ..helpers.orm_cache import pair_id_key_builder, single_id_key_builder
 from ..models import (
     G2PIntakeFormUITabSection,
     G2PRegisterDefinition,
@@ -27,6 +31,7 @@ from ..schemas import (
 )
 
 _logger = logging.getLogger("g2p-register-metadata-service")
+_config = Settings.get_config(strict=False)
 
 
 class G2PRegisterMetadataService(BaseService):
@@ -484,18 +489,37 @@ class G2PRegisterMetadataService(BaseService):
             result = await session.execute(count_query)
             return result.scalar() or 0
 
-    async def _validate_register(self, register_id: str, session) -> G2PRegisterDefinition:
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _fetch_register(self, register_id: str, session) -> G2PRegisterDefinition:
         register = await session.get(G2PRegisterDefinition, register_id)
         if not register:
             raise ValueError(f"Register with register_id '{register_id}' not found.")
         return register
 
+    async def _validate_register(self, register_id: str, session) -> G2PRegisterDefinition:
+        register = await self._fetch_register(register_id, session)
+        return await session.merge(register)
+
     async def _validate_tab(self, tab_id: str, session, register_id: str | None = None) -> G2PRegisterUITab:
+        # Ownership check stays outside cache so register_id is always enforced.
+        tab = await session.merge(await self._get_tab(tab_id, session))
+        if register_id is not None and tab.register_id != register_id:
+            raise ValueError(f"Tab '{tab_id}' does not belong to register '{register_id}'.")
+        return tab
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_tab(self, tab_id: str, session) -> G2PRegisterUITab:
         tab = await session.get(G2PRegisterUITab, tab_id)
         if not tab:
             raise ValueError(f"Tab with tab_id '{tab_id}' not found.")
-        if register_id is not None and tab.register_id != register_id:
-            raise ValueError(f"Tab '{tab_id}' does not belong to register '{register_id}'.")
         return tab
 
     async def _validate_section(
@@ -504,14 +528,33 @@ class G2PRegisterMetadataService(BaseService):
         session,
         register_id: str | None = None,
     ) -> G2PRegisterSection:
-        section = await session.get(G2PRegisterSection, section_id)
-        if not section:
-            raise ValueError(f"Section with section_id '{section_id}' not found.")
+        # Ownership check stays outside cache so register_id is always enforced.
+        section = await session.merge(await self._get_section(section_id, session))
         if register_id is not None and section.register_id != register_id:
             raise ValueError(f"Section '{section_id}' does not belong to register '{register_id}'.")
         return section
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_section(self, section_id: str, session) -> G2PRegisterSection:
+        section = await session.get(G2PRegisterSection, section_id)
+        if not section:
+            raise ValueError(f"Section with section_id '{section_id}' not found.")
+        return section
+
     async def _validate_tab_section(self, tab_section_id: str, session) -> G2PRegisterUITabSection:
+        tab_section = await session.merge(await self._fetch_tab_section(tab_section_id, session))
+        return tab_section
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _fetch_tab_section(self, tab_section_id: str, session) -> G2PRegisterUITabSection:
         tab_section = await session.get(G2PRegisterUITabSection, tab_section_id)
         if not tab_section:
             raise ValueError(f"Tab section with tab_section_id '{tab_section_id}' not found.")
@@ -566,6 +609,11 @@ class G2PRegisterMetadataService(BaseService):
             register_relation=register_relation,
         )
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _get_register_relation(
         self,
         register_id: str,
@@ -601,6 +649,11 @@ class G2PRegisterMetadataService(BaseService):
 
         return RegisterRelationEnum.SELF
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _has_register_in_path(
         self,
         start_register_id: str,
@@ -614,15 +667,9 @@ class G2PRegisterMetadataService(BaseService):
         is_first: bool = True
 
         while current_id and depth < max_depth:
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == current_id,
-                    )
-                )
-            ).scalar()
-
-            if not register_definition:
+            try:
+                register_definition = await self._validate_register(current_id, session)
+            except ValueError:
                 return False, False
 
             current_id = register_definition.master_register_id
