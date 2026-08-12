@@ -3,6 +3,7 @@ import json
 import uuid
 import importlib
 from datetime import datetime, date
+from fastapi_cache.coder import PickleCoder
 from fastapi_cache.decorator import cache
 
 from openg2p_fastapi_common.service import BaseService
@@ -21,6 +22,7 @@ from .g2p_completion_score_service import G2PCompletionScoreService
 from ..helpers.register_field_metadata import iter_register_orm_field_metadata
 from ..helpers.file_validation import validate_base64_file
 from ..helpers.file_validation_profiles import DASHBOARD_IMAGE_PROFILE, IMAGE_ICON_PROFILE
+from ..helpers.orm_cache import pair_id_key_builder
 
 from ..cache import metadata_key_builder
 
@@ -3383,6 +3385,11 @@ class G2PRegisterService(BaseService):
                 change_payload=payload.change_payload if payload else None
             )
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _find_path_to_ancestor(
         self,
         start_register_id: str,
