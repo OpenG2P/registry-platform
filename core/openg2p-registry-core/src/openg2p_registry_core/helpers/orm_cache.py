@@ -1,6 +1,8 @@
 """ORM serialization and fastapi_cache key helpers for static schema caching."""
 
+import hashlib
 import inspect
+import json
 
 
 def orm_row_to_dict(row) -> dict:
@@ -54,3 +56,17 @@ def pair_id_key_builder(func, namespace: str, *args, **kwargs):
     first = _call_arg(func, kwargs, 0)
     second = _call_arg(func, kwargs, 1)
     return f"{namespace}:{_func_name(func)}:{first}:{second}"
+
+
+def data_policies_key_builder(func, namespace: str, *args, **kwargs):
+    """
+    Shared key for methods keyed only by data_policies fingerprint.
+    Same policies → shared across users; different policies → separate entries.
+    """
+    try:
+        policies = _call_arg(func, kwargs, 0)
+    except (IndexError, KeyError):
+        policies = None
+    raw = json.dumps(policies if policies is not None else [], sort_keys=True, default=str)
+    digest = hashlib.sha256(raw.encode()).hexdigest()[:16]
+    return f"{namespace}:{_func_name(func)}:{digest}"

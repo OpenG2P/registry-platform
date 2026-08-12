@@ -22,7 +22,13 @@ from .g2p_completion_score_service import G2PCompletionScoreService
 from ..helpers.register_field_metadata import iter_register_orm_field_metadata
 from ..helpers.file_validation import validate_base64_file
 from ..helpers.file_validation_profiles import DASHBOARD_IMAGE_PROFILE, IMAGE_ICON_PROFILE
-from ..helpers.orm_cache import dict_to_orm, orm_row_to_dict, pair_id_key_builder, single_id_key_builder
+from ..helpers.orm_cache import (
+    data_policies_key_builder,
+    dict_to_orm,
+    orm_row_to_dict,
+    pair_id_key_builder,
+    single_id_key_builder,
+)
 
 from ..cache import metadata_key_builder
 
@@ -141,7 +147,13 @@ class G2PRegisterService(BaseService):
             return dict_to_orm(G2PRegisterSchema, schema_metadata)
         return dict_to_orm(G2PRegisterSchema, orm_row_to_dict(schema_metadata))
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=data_policies_key_builder,
+        coder=PickleCoder,
+    )
     async def get_register_summary_data(self, data_policies: list[dict] | None = None) -> list[RegisterSummaryData]:
+        """Dashboard summary; short TTL shared across users with the same data policies."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             register_summary_data_list: list[RegisterSummaryData] = await self._fetch_register_summary_data(
@@ -3694,7 +3706,7 @@ class G2PRegisterService(BaseService):
         # Traverse down the hierarchy (skip first register which is subject)
         for i in range(1, len(path_reversed)):
             register_def: G2PRegisterDefinition = path_reversed[i]
-            impl_class = self._get_registe_implementation_class(register_def.register_mnemonic, register_def.register_purpose)
+            impl_class = self._get_register_implementation_class(register_def.register_mnemonic, register_def.register_purpose)
             
             # Find all records where link_internal_record_id is in current_ids
             result = await session.execute(

@@ -171,29 +171,95 @@ class G2PRegisterMetadataService(BaseService):
     ) -> list[G2PRegisterUITabSectionData]:
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            tab = await self._validate_tab(tab_id, session)
+            # Locust / UI call unpaginated — cache the full assembled payload per tab.
+            if current_page is None or page_size is None:
+                return await self._get_cached_tab_sections(tab_id, session)
+            return await self._assemble_tab_sections(tab_id, session, current_page, page_size)
 
-            query = (
-                select(G2PRegisterUITabSection)
-                .where(G2PRegisterUITabSection.tab_id == tab_id)
-                .order_by(G2PRegisterUITabSection.section_order.asc(), G2PRegisterUITabSection.tab_section_id.asc())
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_tab_sections(self, tab_id: str, session) -> list[G2PRegisterUITabSectionData]:
+        """Full tab→sections response (static metadata). Shared across users."""
+        return await self._assemble_tab_sections(tab_id, session, None, None)
+
+    async def _assemble_tab_sections(
+        self,
+        tab_id: str,
+        session,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> list[G2PRegisterUITabSectionData]:
+        tab = await self._validate_tab(tab_id, session)
+
+        # One join instead of N per-section lookups.
+        query = (
+            select(G2PRegisterUITabSection, G2PRegisterSection)
+            .join(
+                G2PRegisterSection,
+                G2PRegisterSection.section_id == G2PRegisterUITabSection.section_id,
             )
-            query = self._apply_pagination(query, current_page, page_size)
-            tab_sections = (await session.execute(query)).scalars().all()
+            .where(G2PRegisterUITabSection.tab_id == tab_id)
+            .order_by(
+                G2PRegisterUITabSection.section_order.asc(),
+                G2PRegisterUITabSection.tab_section_id.asc(),
+            )
+        )
+        query = self._apply_pagination(query, current_page, page_size)
+        rows = (await session.execute(query)).all()
 
-            response: list[G2PRegisterUITabSectionData] = []
-            for tab_section in tab_sections:
-                section = await self._validate_section(tab_section.section_id, session, tab.register_id)
-                section_data = await self.build_section_data(
-                    section=section,
-                    session=session,
-                    include_ui_schema=True,
-                    include_register_purpose=True,
-                    include_register_relation=True,
-                    register_id_for_relation=tab.register_id,
+        register_definition = await self._validate_register(tab.register_id, session)
+        section_register_defs: dict[str, G2PRegisterDefinition] = {
+            tab.register_id: register_definition,
+        }
+        relation_by_section_register: dict[str, RegisterRelationEnum] = {}
+
+        response: list[G2PRegisterUITabSectionData] = []
+        for tab_section, section in rows:
+            if section.register_id != tab.register_id:
+                raise ValueError(
+                    f"Section '{section.section_id}' does not belong to register '{tab.register_id}'."
                 )
-                response.append(self._build_tab_section_data(tab_section, section_data=section_data))
-            return response
+
+            section_register_id = section.section_register_id
+            if section_register_id not in section_register_defs:
+                section_register_defs[section_register_id] = await self._validate_register(
+                    section_register_id, session
+                )
+            section_register_definition = section_register_defs[section_register_id]
+
+            if section_register_id not in relation_by_section_register:
+                relation_by_section_register[section_register_id] = await self._get_register_relation(
+                    register_id=tab.register_id,
+                    section_register_id=section_register_id,
+                    register_definition=register_definition,
+                    section_register_definition=section_register_definition,
+                    session=session,
+                )
+
+            section_data = G2PRegisterSectionData(
+                section_register_id=section.section_register_id,
+                register_id=section.register_id,
+                section_id=section.section_id,
+                section_mnemonic=section.section_mnemonic,
+                section_description=section.section_description,
+                documents_required=section.documents_required,
+                no_of_verifications_required=section.no_of_verifications_required,
+                cr_auto_approve_for_bene_portal=section.cr_auto_approve_for_bene_portal,
+                cr_auto_approve_for_agent_portal=section.cr_auto_approve_for_agent_portal,
+                cr_auto_approve_for_staff_portal=section.cr_auto_approve_for_staff_portal,
+                cr_auto_approve_for_partner=section.cr_auto_approve_for_partner,
+                is_list=section.is_list,
+                is_core_section=section.is_core_section,
+                section_weightage=section.section_weightage,
+                section_ui_schema=section.section_ui_schema,
+                register_purpose=self._as_text_value(section_register_definition.register_purpose),
+                register_relation=relation_by_section_register[section_register_id],
+            )
+            response.append(self._build_tab_section_data(tab_section, section_data=section_data))
+        return response
 
     async def update_tab_section(
         self,
