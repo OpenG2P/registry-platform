@@ -124,6 +124,7 @@ from .services import (
     G2PRegisterHistoryService,
     G2PRegisterService,
     G2PRegisterChangeRequestService,
+    G2PChangeRequestSectionPayloadService,
     G2PRegisterVerificationService,
     G2PTemplateService,
     G2PVcConfigurationService,
@@ -165,6 +166,7 @@ class Initializer(BaseInitializer):
         G2PRegisterDomainService()
         G2PIngestService()
         G2PRegisterService()
+        G2PChangeRequestSectionPayloadService()
         G2PRegisterChangeRequestService()
         G2PRegisterHistoryService()
         G2PRegisterMetadataService()
