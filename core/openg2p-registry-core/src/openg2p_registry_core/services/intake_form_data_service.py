@@ -142,19 +142,22 @@ class G2PIntakeFormDataService(BaseService):
         module = importlib.import_module("openg2p_registry_extensions.register_domain.factory")
         domain_factory = getattr(module, "G2PRegisterDomainFactory").get_component()
         domain_service = domain_factory.get_domain_service(section_register_definition.register_mnemonic)
+        records = section_payload or []
+        # Validate surviving rows only; DELETE is applied later during upsert.
+        records_for_validation = self._records_for_validation(records)
         # Same coded-value check the change-request path applies. Intake forms
         # are a second way in, so leaving it out here would mean values rejected
         # at one door are accepted at the other.
-        await G2PAttributeValueValidator.get_component().validate_records(section_payload or [])
+        await G2PAttributeValueValidator.get_component().validate_records(records_for_validation)
 
         if domain_service:
-            await domain_service.validate_domain_attributes(section_payload or [])
+            await domain_service.validate_domain_attributes(records_for_validation)
 
         existing_rows = await self._get_intake_rows(intake_class, submission.submission_id, session)
         incoming_ids = await self._upsert_intake_rows(
             intake_class,
             submission,
-            section_payload or [],
+            records,
             existing_rows,
             created_by,
             session,
@@ -390,6 +393,15 @@ class G2PIntakeFormDataService(BaseService):
                 payload.display_fields = display_fields_list if display_fields_list else None
             payloads.append(payload)
         return payloads
+
+    @staticmethod
+    def _records_for_validation(records: list[dict] | None) -> list[dict]:
+        """Rows that will remain after save. DELETE is not a surviving record."""
+        return [
+            record
+            for record in (records or [])
+            if (record or {}).get("edit_action") != "DELETE"
+        ]
 
     async def _upsert_intake_rows(
         self,
