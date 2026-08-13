@@ -4,10 +4,14 @@ from typing import Optional, Any
 
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 
 from sqlalchemy import select, inspect as sa_inspect
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from ..config import Settings
+from ..helpers.orm_cache import pair_id_key_builder, single_id_key_builder
 from ..models import G2PRegisterDefinition, G2PRegisterSection, G2PRegisterUITabSection, G2PRegisterSectionCompletionScore, RegisterPurposeEnum
 from ..schemas import RecordData, RegisterTabRecordData, AllowedParentsData, AllowedParentRecordData
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -15,6 +19,7 @@ from ..repositories import RegisterRecordRepository
 from iam_core.helpers.data_policy_helper import DataPolicyHelper
 
 _logger = logging.getLogger('g2p-register-hierarchical-service')
+_config = Settings.get_config(strict=False)
 
 
 class G2PRegisterHierarchicalService(BaseService):
@@ -205,6 +210,11 @@ class G2PRegisterHierarchicalService(BaseService):
 
         return [await self._convert_record_to_record_data(record, session)]
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _validate_register_definition(
         self,
         register_id: str,
@@ -227,6 +237,11 @@ class G2PRegisterHierarchicalService(BaseService):
 
         return register_definition
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _build_register_hierarchy_path(
         self,
         subject_register_id: str,
@@ -266,6 +281,45 @@ class G2PRegisterHierarchicalService(BaseService):
             code=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[1],
             message=f"No hierarchy path found between registers {subject_register_id} and {section_register_id}"
         )
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_tab_sections(self, register_id: str, tab_id: str, session) -> list[G2PRegisterSection]:
+        """Tab→section metadata (static schema config)."""
+        result = await session.execute(
+            select(G2PRegisterSection)
+            .join(
+                G2PRegisterUITabSection,
+                G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
+            )
+            .where(
+                G2PRegisterSection.register_id == register_id,
+                G2PRegisterUITabSection.register_id == register_id,
+                G2PRegisterUITabSection.tab_id == tab_id,
+            )
+            .order_by(G2PRegisterUITabSection.section_order)
+        )
+        return list(result.scalars().all())
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_register_sections(self, register_id: str, session) -> list[G2PRegisterSection]:
+        """All sections for a register (completion-score ideal totals)."""
+        rows = (
+            await session.execute(
+                select(G2PRegisterSection).where(
+                    G2PRegisterSection.register_id == register_id,
+                )
+            )
+        ).scalars().all()
+        return list(rows)
+
     async def _find_path_to_peer(
         self,
         subject_register_id: str,
@@ -666,20 +720,7 @@ class G2PRegisterHierarchicalService(BaseService):
             completion_score_required: bool = bool(subject_register.completion_score_required) if subject_register else False
 
             # Fetch all sections for this tab
-            result = await session.execute(
-                select(G2PRegisterSection)
-                .join(
-                    G2PRegisterUITabSection,
-                    G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-                )
-                .where(
-                    G2PRegisterSection.register_id == subject_register_id,
-                    G2PRegisterUITabSection.register_id == subject_register_id,
-                    G2PRegisterUITabSection.tab_id == tab_id,
-                )
-                .order_by(G2PRegisterUITabSection.section_order)
-            )
-            sections = result.scalars().all()
+            sections = await self._get_tab_sections(subject_register_id, tab_id, session)
 
             if not sections:
                 return []
@@ -691,13 +732,7 @@ class G2PRegisterHierarchicalService(BaseService):
                 sections_by_reg_id.setdefault(key, []).append(section)
 
             # Fetch register-level completion scores for this record
-            all_register_sections = (
-                await session.execute(
-                    select(G2PRegisterSection).where(
-                        G2PRegisterSection.register_id == subject_register_id,
-                    )
-                )
-            ).scalars().all()
+            all_register_sections = await self._get_register_sections(subject_register_id, session)
             ideal_score = sum(
                 s.section_weightage or 0.0
                 for s in all_register_sections

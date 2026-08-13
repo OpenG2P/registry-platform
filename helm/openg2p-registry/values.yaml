@@ -138,6 +138,10 @@ global:
   authRefreshTokenTtlSeconds: 1800
   # Double-submit CSRF validation on state-changing staff-portal-api requests.
   csrfEnabled: true
+  # Whether to verify SSL certificates for outbound HTTPS from staff-portal-api
+  # (Keycloak/IAM auth + AWE client). Set false for self-signed / internal TLS.
+  # Never disable in production. Maps to iam-core auth_verify_ssl.
+  authVerifySsl: true
 
   # Master Data API internal URL
   masterDataApiUrl: 'http://commons-services-master-data-api'
@@ -802,6 +806,7 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_AUTH_PROVIDER_API_URL: '{{ .Values.global.iamServiceUrl }}'
     REGISTRY_STAFF_PORTAL_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.authRedisInstallationName $ }}-master:6379/0'
     REGISTRY_STAFF_PORTAL_API_AUTH_REFRESH_TOKEN_TTL_SECONDS: '{{ .Values.global.authRefreshTokenTtlSeconds }}'
+    REGISTRY_STAFF_PORTAL_API_AUTH_VERIFY_SSL: '{{ .Values.global.authVerifySsl }}'
     REGISTRY_STAFF_PORTAL_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
     REGISTRY_STAFF_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'

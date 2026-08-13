@@ -3,6 +3,7 @@ import logging
 import uuid
 from datetime import datetime
 
+from fastapi_cache.coder import PickleCoder
 from fastapi_cache.decorator import cache
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
@@ -12,9 +13,9 @@ from sqlalchemy import Date as SQLDate, and_, exists, func, inspect, or_, select
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ..cache import metadata_key_builder
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from ..helpers.orm_cache import dict_to_orm, orm_row_to_dict, single_id_key_builder
 from ..models import (
     ApprovalStatusEnum,
     ChangeRequestSourceEnum,
@@ -69,17 +70,54 @@ _REGISTER_HISTORY_CLASS_PREFIX = "G2PRegisterHistory"
 
 
 class G2PRegisterChangeRequestService(BaseService):
-    @cache(expire=_config.cache_expires_in_seconds, key_builder=metadata_key_builder)
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _get_register_definition(self, register_id: str, session):
-        return await session.get(G2PRegisterDefinition, register_id)
+        register = await session.get(G2PRegisterDefinition, register_id)
+        return orm_row_to_dict(register) if register else None
 
-    @cache(expire=_config.cache_expires_in_seconds, key_builder=metadata_key_builder)
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _get_section(self, section_id: str, session):
-        return await session.get(G2PRegisterSection, section_id)
+        section = await session.get(G2PRegisterSection, section_id)
+        return orm_row_to_dict(section) if section else None
 
-    @cache(expire=_config.cache_expires_in_seconds, key_builder=metadata_key_builder)
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _get_tab(self, tab_id: str, session):
-        return await session.get(G2PRegisterUITab, tab_id)
+        tab = await session.get(G2PRegisterUITab, tab_id)
+        return orm_row_to_dict(tab) if tab else None
+
+    def _coerce_register_definition(self, register_metadata) -> G2PRegisterDefinition | None:
+        if register_metadata is None:
+            return None
+        if isinstance(register_metadata, dict):
+            return dict_to_orm(G2PRegisterDefinition, register_metadata)
+        # Stale cache may still hold a pickled ORM row — normalize to a plain instance.
+        return dict_to_orm(G2PRegisterDefinition, orm_row_to_dict(register_metadata))
+
+    def _coerce_section(self, section_metadata) -> G2PRegisterSection | None:
+        if section_metadata is None:
+            return None
+        if isinstance(section_metadata, dict):
+            return dict_to_orm(G2PRegisterSection, section_metadata)
+        return dict_to_orm(G2PRegisterSection, orm_row_to_dict(section_metadata))
+
+    def _coerce_tab(self, tab_metadata) -> G2PRegisterUITab | None:
+        if tab_metadata is None:
+            return None
+        if isinstance(tab_metadata, dict):
+            return dict_to_orm(G2PRegisterUITab, tab_metadata)
+        return dict_to_orm(G2PRegisterUITab, orm_row_to_dict(tab_metadata))
 
     async def create_change_request(
         self,
@@ -902,13 +940,14 @@ class G2PRegisterChangeRequestService(BaseService):
 
     async def insert_into_register(self, change_request: G2PRegisterChangeRequest, session) -> None:
         # Resolve register model class dynamically based on register mnemonic
-        register_definition: G2PRegisterDefinition = (
-            await session.execute(
-                select(G2PRegisterDefinition).where(
-                    G2PRegisterDefinition.register_id == change_request.section_register_id
-                )
+        register_definition = self._coerce_register_definition(
+            await self._get_register_definition(change_request.section_register_id, session)
+        )
+        if not register_definition:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
             )
-        ).scalar()
         module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
         register_class_prefix = "G2PRegister"
         implementation_class_name = f"{register_class_prefix}{register_definition.register_mnemonic}"
@@ -1563,16 +1602,15 @@ class G2PRegisterChangeRequestService(BaseService):
             change_payload = payload.change_payload if payload else None
 
             # Get register mnemonic from the register object
-            register_metadata = await self._get_register_definition(change_request.register_id, session)
-            section_metadata = await self._get_section(change_request.section_id, session)
-            tab_metadata = await self._get_tab(change_request.tab_id, session)
-
-            if isinstance(register_metadata, dict):
-                register_metadata = G2PRegisterDefinition(**register_metadata)
-            if isinstance(section_metadata, dict):
-                section_metadata = G2PRegisterSection(**section_metadata)
-            if isinstance(tab_metadata, dict):
-                tab_metadata = G2PRegisterUITab(**tab_metadata)
+            register_metadata = self._coerce_register_definition(
+                await self._get_register_definition(change_request.register_id, session)
+            )
+            section_metadata = self._coerce_section(
+                await self._get_section(change_request.section_id, session)
+            )
+            tab_metadata = self._coerce_tab(
+                await self._get_tab(change_request.tab_id, session)
+            )
 
             # Create ChangeRequestSearchResultData object
             change_request_search_result: ChangeRequestSearchResultData = ChangeRequestSearchResultData(
@@ -1603,7 +1641,14 @@ class G2PRegisterChangeRequestService(BaseService):
         """Get the number of pending change requests for a given register, internal_record_id and tab_id"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            await self.validate_register_definition(subject_register_id, session)
+            register_definition = self._coerce_register_definition(
+                await self._get_register_definition(subject_register_id, session)
+            )
+            if not register_definition:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
+                )
 
             # Count pending change requests for the given internal_record_id and tab_id
             count_result = await session.execute(
@@ -1627,7 +1672,14 @@ class G2PRegisterChangeRequestService(BaseService):
         """Get the number of cross-register pending change requests by searching subject_record_id in search_text of G2PRegisterChangeRequestPayload"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            await self.validate_register_definition(subject_register_id, session)
+            register_definition = self._coerce_register_definition(
+                await self._get_register_definition(subject_register_id, session)
+            )
+            if not register_definition:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
+                )
 
             # Count pending change requests where search_text contains subject_record_id
             # Join G2PRegisterChangeRequest with G2PRegisterChangeRequestPayload and search in search_text
@@ -1652,7 +1704,14 @@ class G2PRegisterChangeRequestService(BaseService):
         """Get the list of cross-register pending change requests by searching subject_record_id in search_text of G2PRegisterChangeRequestPayload"""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            await self.validate_register_definition(subject_register_id, session)
+            register_definition = self._coerce_register_definition(
+                await self._get_register_definition(subject_register_id, session)
+            )
+            if not register_definition:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
+                )
 
             # Fetch pending change requests where search_text contains subject_record_id
             # Join G2PRegisterChangeRequest with G2PRegisterChangeRequestPayload, G2PRegisterDefinition, and G2PRegisterUITab
@@ -1816,13 +1875,9 @@ class G2PRegisterChangeRequestService(BaseService):
         current_register_data_list = []
         try:
             # Get the register definition to find the implementation class
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == change_request.section_register_id
-                    )
-                )
-            ).scalar()
+            register_definition = self._coerce_register_definition(
+                await self._get_register_definition(change_request.section_register_id, session)
+            )
 
             if register_definition:
                 # Get the implementation class for this register
@@ -1923,13 +1978,9 @@ class G2PRegisterChangeRequestService(BaseService):
         except Exception as error:
             _logger.warning(f"Error fetching old register data for change request {change_request_id}: {str(error)}")
 
-        register_section: G2PRegisterSection = (
-            await session.execute(
-                select(G2PRegisterSection).where(
-                    G2PRegisterSection.section_id == change_request.section_id
-                )
-            )
-        ).scalar()
+        register_section = self._coerce_section(
+            await self._get_section(change_request.section_id, session)
+        )
 
         from .g2p_document_service import G2PDocumentService
 
@@ -2015,13 +2066,9 @@ class G2PRegisterChangeRequestService(BaseService):
             change_payload = payload.change_payload if payload else {}
 
             # Get section to retrieve section_mnemonic
-            register_section: G2PRegisterSection = (
-                await session.execute(
-                    select(G2PRegisterSection).where(
-                        G2PRegisterSection.section_id == change_request.section_id
-                    )
-                )
-            ).scalar()
+            register_section = self._coerce_section(
+                await self._get_section(change_request.section_id, session)
+            )
 
             # Create base ChangeRequestFlattenedData object
             change_request_data_dict = {

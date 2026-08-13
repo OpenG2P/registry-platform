@@ -23,6 +23,7 @@ Configuration (env prefix ``registry_core_``):
 
     awe_base_url                URL of the AWE service   (default: http://localhost:8000)
     awe_http_timeout_seconds    Per-request timeout      (default: 30.0)
+    auth_verify_ssl             Verify TLS (iam-core)    (default: True)
 """
 
 from __future__ import annotations
@@ -94,6 +95,7 @@ class AweHelper(BaseService):
         config = get_awe_settings()
         self._base_url: str = normalize_awe_base_url(config.awe_base_url)
         self._timeout: float = config.awe_http_timeout_seconds
+        self._verify_ssl: bool = config.auth_verify_ssl
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -111,6 +113,7 @@ class AweHelper(BaseService):
             base_url=self._base_url,
             headers=headers,
             timeout=self._timeout,
+            verify=self._verify_ssl,
         )
 
     @staticmethod
