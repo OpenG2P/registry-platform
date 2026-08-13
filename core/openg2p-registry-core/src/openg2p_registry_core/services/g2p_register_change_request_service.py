@@ -54,6 +54,9 @@ from .g2p_awe_status_reconcile import (
 from .g2p_register_domain_service import G2PRegisterDomainService
 from .g2p_register_history_service import G2PRegisterHistoryService
 from .g2p_register_service import G2PRegisterService
+from .g2p_change_request_section_payload_service import (
+    G2PChangeRequestSectionPayloadService,
+)
 
 _logger = logging.getLogger("g2p-register-change-request-service")
 _config = Settings.get_config(strict=False)
@@ -104,6 +107,7 @@ class G2PRegisterChangeRequestService(BaseService):
                 register_definition,
                 register_section,
                 section_register_definition,
+                session,
             )
             await self._validate_domain_attributes(
                 self._records_from_change_request_payload(change_request_request_payload),
@@ -1035,6 +1039,7 @@ class G2PRegisterChangeRequestService(BaseService):
         register_definition: G2PRegisterDefinition,
         section: G2PRegisterSection,
         section_register_definition: G2PRegisterDefinition,
+        session: AsyncSession,
     ) -> None:
         if register_definition.register_purpose != RegisterPurposeEnum.REGISTER.value:
             raise self._invalid_request("Change request must belong to a register")
@@ -1073,6 +1078,28 @@ class G2PRegisterChangeRequestService(BaseService):
                     raise self._invalid_request(f"internal_record_id is required for table {action} payloads.")
                 if action == ChangeActionEnum.ADD.value and not getattr(change_payload, "link_internal_record_id", None):
                     raise self._invalid_request(f"link_internal_record_id is required for table {action} payloads.")
+
+        await G2PChangeRequestSectionPayloadService.get_component().validate(
+            change_payloads,
+            section,
+            section_register_definition,
+            session,
+            has_documents=bool(payload.documents),
+        )
+
+        pending_count = (
+            await session.execute(
+                select(func.count()).select_from(G2PRegisterChangeRequest).where(
+                    G2PRegisterChangeRequest.internal_record_id == payload.internal_record_id,
+                    G2PRegisterChangeRequest.section_id == payload.section_id,
+                    G2PRegisterChangeRequest.approval_status == ApprovalStatusEnum.PENDING.value,
+                )
+            )
+        ).scalar_one()
+        if pending_count > 0:
+            raise self._invalid_request(
+                "A pending change request already exists for this record and section"
+            )
 
     async def _get_change_request_payload(self, change_request_id: str, session) -> G2PRegisterChangeRequestPayload:
         payload = (
