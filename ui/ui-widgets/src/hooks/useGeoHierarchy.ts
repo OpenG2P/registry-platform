@@ -75,30 +75,37 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
   const dataPath = useMemo(() => resolveDataPath(config), [config]);
 
   /**
-   * Approved hierarchy for hydrate/display: schema first, then store.
-   * Edits persist draft hierarchy into store values for save; schema keeps approved.
+   * Read mode: schemaData is source of truth (including empty).
+   * Edit mode: store/draft values; schema only seeds when store is empty.
    */
   const baseHierarchyJson = useMemo(() => {
     if (!hierarchyJsonPath) {
       return null;
     }
     const fromSchema = readPathValue(schemaData, hierarchyJsonPath);
-    if (fromSchema !== undefined && fromSchema !== null) {
-      return fromSchema;
+    if (isReadonly) {
+      return fromSchema ?? null;
     }
-    return getValueByPath(values, hierarchyJsonPath);
-  }, [hierarchyJsonPath, schemaData, values]);
+    const fromStore = getValueByPath(values, hierarchyJsonPath);
+    if (fromStore !== undefined && fromStore !== null) {
+      return fromStore;
+    }
+    return fromSchema ?? null;
+  }, [hierarchyJsonPath, schemaData, values, isReadonly]);
 
   const baseStoredValue = useMemo(() => {
     if (!dataPath) {
       return base.value;
     }
     const fromSchema = readPathValue(schemaData, dataPath);
-    if (fromSchema !== undefined && fromSchema !== null && String(fromSchema).trim() !== '') {
-      return fromSchema;
+    if (isReadonly) {
+      return fromSchema ?? '';
     }
-    return base.value;
-  }, [base.value, dataPath, schemaData]);
+    if (base.value !== undefined && base.value !== null && String(base.value).trim() !== '') {
+      return base.value;
+    }
+    return fromSchema ?? base.value;
+  }, [base.value, dataPath, schemaData, isReadonly]);
 
   const [levels, setLevels] = useState<GeoLevel[]>([]);
   const [selectedValues, setSelectedValues] = useState<Record<string, string>>({});
