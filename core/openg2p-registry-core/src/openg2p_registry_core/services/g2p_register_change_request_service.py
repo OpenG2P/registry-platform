@@ -58,14 +58,13 @@ from .g2p_register_service import G2PRegisterService
 from .g2p_change_request_section_payload_service import (
     G2PChangeRequestSectionPayloadService,
 )
+from ..interfaces import G2PRegisterDomainFactory
 
 _logger = logging.getLogger("g2p-register-change-request-service")
 _config = Settings.get_config(strict=False)
 
-_DOMAIN_FACTORY_MODULE = "openg2p_registry_extensions.register_domain.factory"
 _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 _DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
-_DOMAIN_FACTORY_CLASS = "G2PRegisterDomainFactory"
 _REGISTER_CLASS_PREFIX = "G2PRegister"
 _REGISTER_SCHEMA_CLASS_PREFIX = "G2PRegisterSchema"
 _REGISTER_HISTORY_CLASS_PREFIX = "G2PRegisterHistory"
@@ -2228,12 +2227,8 @@ class G2PRegisterChangeRequestService(BaseService):
     def _get_domain_service_by_register_mnemonic(self, register_mnemonic: str) -> G2PRegisterDomainService | None:
         """Resolve the domain service for a given register mnemonic via the domain factory."""
         try:
-            module = importlib.import_module(_DOMAIN_FACTORY_MODULE)
-            domain_factory_class = getattr(module, _DOMAIN_FACTORY_CLASS)
-            g2p_registry_domain_factory = domain_factory_class.get_component()
-            if not g2p_registry_domain_factory:
-                g2p_registry_domain_factory = domain_factory_class()
-            return g2p_registry_domain_factory.get_domain_service(register_mnemonic)
+            domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
+            return domain_factory.get_domain_service(register_mnemonic)
         except Exception as error:
             _logger.warning(
                 f"Unable to resolve domain service for register mnemonic '{register_mnemonic}': {error}"

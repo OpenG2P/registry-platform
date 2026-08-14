@@ -1,8 +1,8 @@
 import logging
-import importlib
 
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
+from openg2p_registry_core.interfaces import G2PRegisterDomainFactory
 from openg2p_registry_core.models import (
     G2PRegisterChangeRequest,
     G2PRegisterChangeRequestPayload,
@@ -42,13 +42,7 @@ def deduplication_change_request_worker(self, change_request_id: str):
                 raise Exception(f"Change request payload not found: {change_request_id}")
             
             # Get domain service
-            domain_factory_module = importlib.import_module(
-                "openg2p_registry_extensions.register_domain.factory"
-            )
-            FactoryClass = getattr(domain_factory_module, "G2PRegisterDomainFactory")
-            domain_factory = FactoryClass.get_component()
-            if not domain_factory:
-                domain_factory = FactoryClass()
+            domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
             
             register_definition = session.get(G2PRegisterDefinition, change_request.register_id)
 

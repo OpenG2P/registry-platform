@@ -47,7 +47,6 @@ from .register_domain.models import (
     G2PRegisterHistoryIndividualVulnerability,
     G2PIntakeFormIndividualVulnerability,
 )
-from .register_domain.factory import G2PRegisterDomainFactory
 from .register_domain.services import (
     G2PRegisterDomainServiceIndividual,
     G2PRegisterDomainServiceHousehold,
@@ -61,7 +60,6 @@ class Initializer(BaseInitializer):
         super().initialize()
         CoreInitializer().initialize()
 
-        G2PRegisterDomainFactory()
         G2PRegisterDomainServiceIndividual()
         G2PRegisterDomainServiceHousehold()
 

@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy import Date as SQLDate, inspect, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from openg2p_registry_core.interfaces import G2PRegisterDomainFactory
 from openg2p_registry_core.models import (
     ApprovalStatusEnum,
     ChangeRequestSourceEnum,
@@ -43,8 +44,6 @@ except ImportError:
     G2PCompletionScoreService = None
 
 _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
-_DOMAIN_FACTORY_MODULE = "openg2p_registry_extensions.register_domain.factory"
-_DOMAIN_FACTORY_CLASS = "G2PRegisterDomainFactory"
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -485,12 +484,8 @@ def _convert_date_strings_to_objects(data_dict: dict, model_class) -> dict:
 
 def _get_domain_service_by_register_mnemonic(register_mnemonic: str):
     try:
-        module = importlib.import_module(_DOMAIN_FACTORY_MODULE)
-        domain_factory_class = getattr(module, _DOMAIN_FACTORY_CLASS)
-        g2p_registry_domain_factory = domain_factory_class.get_component()
-        if not g2p_registry_domain_factory:
-            g2p_registry_domain_factory = domain_factory_class()
-        return g2p_registry_domain_factory.get_domain_service(register_mnemonic)
+        domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
+        return domain_factory.get_domain_service(register_mnemonic)
     except Exception as error:
         _logger.warning(
             "Unable to resolve domain service for register mnemonic '%s': %s",

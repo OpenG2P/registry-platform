@@ -52,6 +52,7 @@ from ..schemas import (
 )
 from .g2p_verification_service import G2PRegisterVerificationService
 from .g2p_intake_form_link_service import G2PIntakeFormLinkService
+from ..interfaces import G2PRegisterDomainFactory
 
 _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 _DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
@@ -139,8 +140,7 @@ class G2PIntakeFormDataService(BaseService):
         intake_class = await self._resolve_intake_form_class(section_register_id, session)
 
         section_register_definition = await self._get_register_definition(section_register_id, session)
-        module = importlib.import_module("openg2p_registry_extensions.register_domain.factory")
-        domain_factory = getattr(module, "G2PRegisterDomainFactory").get_component()
+        domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
         domain_service = domain_factory.get_domain_service(section_register_definition.register_mnemonic)
         records = section_payload or []
         # Validate surviving rows only; DELETE is applied later during upsert.
@@ -1115,10 +1115,7 @@ class G2PIntakeFormDataService(BaseService):
 
         # Second pass: all parent rows are now flushed, so resolve links for
         # every inserted child row regardless of section ordering.
-        domain_factory_module = importlib.import_module(
-            "openg2p_registry_extensions.register_domain.factory"
-        )
-        domain_factory = getattr(domain_factory_module, "G2PRegisterDomainFactory").get_component()
+        domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
         for section_register_id, intake_record, new_row in pending_links:
             resolved_link = await link_service.resolve_link_internal_record_id(
                 submission_id=submission.submission_id,

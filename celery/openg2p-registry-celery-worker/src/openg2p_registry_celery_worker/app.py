@@ -24,7 +24,7 @@ from openg2p_registry_core.services.g2p_register_change_request_service import (
 from openg2p_registry_core.services.g2p_change_request_worker_service import (
     G2PChangeRequestWorkerService,
 )
-from openg2p_registry_extensions.register_domain.factory import G2PRegisterDomainFactory
+from openg2p_registry_core.interfaces import G2PIdGeneratorFactory, G2PRegisterDomainFactory
 
 class Initializer(BaseInitializer):
     def initialize(self, **kwargs):
@@ -40,8 +40,9 @@ class Initializer(BaseInitializer):
         G2PChangeRequestWorkerService()
         G2PGeoHierarchyService()
 
-        # Domain factory (needed for dynamic domain resolution during approvals)
+        # Factories (celery does not run CoreInitializer)
         G2PRegisterDomainFactory()
+        G2PIdGeneratorFactory()
 
         # Helpers
         get_document_handler()
