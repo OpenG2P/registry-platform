@@ -124,8 +124,18 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
   return (
     <div className="table-cell-field w-full">
       <select
-        value={value || ''}
-        onChange={(e) => onValueChange(e.target.value === '' ? undefined : e.target.value)}
+        value={value === undefined || value === null ? '' : String(value)}
+        onChange={(e) => {
+          const rawValue = e.target.value;
+          if (rawValue === '') {
+            onValueChange(undefined);
+            return;
+          }
+          const selectedOption = dataSourceOptions.find(
+            (option: any) => String(option.value) === rawValue
+          );
+          onValueChange(selectedOption ? selectedOption.value : rawValue);
+        }}
         disabled={isReadonly || loading}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
           isReadonly || loading ? 'cursor-not-allowed' : ''

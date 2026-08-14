@@ -18,6 +18,7 @@ import {
   resolveHierarchyJsonPath,
   formatLevelLabel,
   getDeepestSelectedValue,
+  isGeoHierarchyComplete,
   isLevelEnabled,
   mapChainToSelections,
   mapHierarchyToChain,
@@ -227,7 +228,11 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
       }
 
       const deepest = getDeepestSelectedValue(orderedLevels, nextSelectedValues);
-      selfPersistedValueRef.current = deepest ? String(deepest) : '';
+      const complete = isGeoHierarchyComplete(orderedLevels, nextSelectedValues);
+      // When required, only persist the leaf once every level is filled so submit validation fails for partial chains.
+      const nextValue =
+        base.isRequired && !complete ? null : (deepest ?? null);
+      selfPersistedValueRef.current = nextValue ? String(nextValue) : '';
 
       const hierarchyDocument = buildHierarchyJson(
         orderedLevels,
@@ -241,7 +246,6 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
       );
 
       const rawDataPath = config['widget-data-path'];
-      const nextValue = deepest ?? null;
       if (rawDataPath && typeof rawDataPath === 'object') {
         const payload: Record<string, unknown> = { value: nextValue };
         if ('hierarchy' in rawDataPath) {
@@ -335,6 +339,41 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     [loadOptionsAlongChain, resolveStoredChain],
   );
 
+  const hydrateFromHierarchyOnly = useCallback(
+    async (orderedLevels: GeoLevel[]): Promise<boolean> => {
+      const hierarchy = parseHierarchyJson(baseHierarchyRef.current);
+      if (hierarchy.length === 0) {
+        return false;
+      }
+
+      const chain = mapHierarchyToChain(orderedLevels, hierarchy);
+      if (chain.length === 0) {
+        return false;
+      }
+
+      hydratingRef.current = true;
+      try {
+        const nextSelectedValues = mapChainToSelections(orderedLevels, chain);
+        const labelMap: Record<string, string> = {};
+        chain.forEach((entry) => {
+          if (entry.level_value_id && entry.level_value_mnemonic) {
+            labelMap[entry.level_value_id] = formatLevelLabel(entry.level_value_mnemonic);
+          }
+        });
+
+        const nextOptions = await loadOptionsAlongChain(orderedLevels, chain);
+
+        setSelectedValues(nextSelectedValues);
+        setOptions(nextOptions);
+        setResolvedLabels(labelMap);
+        return true;
+      } finally {
+        hydratingRef.current = false;
+      }
+    },
+    [loadOptionsAlongChain],
+  );
+
   const initialize = useCallback(async () => {
     if (!geoDataSource || !dataSourceRequestHandler || initializingRef.current) {
       if (!geoDataSource || !dataSourceRequestHandler) {
@@ -362,6 +401,11 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
         }
       }
 
+      // Draft/partial selections may have hierarchy without a leaf value when required.
+      if (await hydrateFromHierarchyOnly(orderedLevels)) {
+        return;
+      }
+
       setSelectedValues({});
       setOptions({});
       setResolvedLabels({});
@@ -379,6 +423,7 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     dataSourceRequestHandler,
     fetchLevels,
     geoDataSource,
+    hydrateFromHierarchyOnly,
     hydrateFromStoredValue,
     loadOptionsForLevel,
   ]);
