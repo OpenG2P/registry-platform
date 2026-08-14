@@ -248,7 +248,7 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
       {content}
 
       {loadingLevels && levels.length === 0 && (
-        <p className="text-sm text-gray-500 mb-[10px]">{t?.('common.loadingOptions')}</p>
+        <p className="text-sm text-gray-500 mb-[10px]">{t?.('common.loading')}</p>
       )}
 
       {geoError && <p className="text-red-500 text-sm mb-[10px]">{geoError}</p>}

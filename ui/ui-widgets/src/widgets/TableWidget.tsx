@@ -148,7 +148,7 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
       >
         <option value="">{t?.('common.select') || 'Select'}</option>
         {dataSourceOptions.map((option: any) => (
-          <option key={String(option.value)} value={String(option.value)}>
+          <option key={option.value} value={option.value}>
             {tSchema(t, option.label)}
           </option>
         ))}

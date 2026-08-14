@@ -3,9 +3,51 @@ import { SectionConfig } from '../../../types';
 import { getValueByPath, setWidgetValue } from '../../../utils/pathUtils';
 import { collectWidgets } from '../../../utils/sectionValidate';
 import { applySectionEditSnapshot, SectionEditSnapshot } from '../../../utils/sectionRevert';
-import { setValues } from '../../../store/widgetSlice';
+import { isTableLikeWidget } from '../../../utils/extractTableRecordsFromSnapshot';
+import { replaceValues } from '../../../store/widgetSlice';
 import { WidgetRootState } from '../../../store';
 
+const resolveSchemaValue = (
+  schemaData: Record<string, unknown> | undefined,
+  dataPath: string | Record<string, string>,
+): unknown => {
+  if (typeof dataPath === 'object') {
+    const value: Record<string, unknown> = {};
+    Object.entries(dataPath).forEach(([key, path]) => {
+      if (typeof path === 'string') {
+        value[key] = getValueByPath(schemaData, path);
+      }
+    });
+    return value;
+  }
+  return getValueByPath(schemaData, dataPath);
+};
+
+/** Empty schema → explicit empty value so replaceValues clears edited data. */
+const emptyRestoreValue = (widget: { widget?: string; 'widget-type'?: string }, schemaValue: unknown) => {
+  if (schemaValue !== undefined) return schemaValue;
+  return isTableLikeWidget(widget as any) ? [] : null;
+};
+
+const clearTableCellDraftKeys = (
+  values: Record<string, unknown>,
+  widgetId: string,
+): Record<string, unknown> => {
+  const prefix = `${widgetId}-row-`;
+  const next = { ...values };
+  for (const key of Object.keys(next)) {
+    if (key.startsWith(prefix)) {
+      delete next[key];
+    }
+  }
+  return next;
+};
+
+/**
+ * Restore section widget values after cancel/save from schemaData
+ * (approved register data). Uses replaceValues — setValues merges and would
+ * keep deleted table rows / cleared fields.
+ */
 export const revertSectionValues = ({
   section,
   store,
@@ -27,43 +69,24 @@ export const revertSectionValues = ({
 }) => {
   const sectionWidgets = collectWidgets(section.panels);
   const currentStoreValues = (store.getState() as WidgetRootState).widget.values;
-  let newStoreValues = currentStoreValues;
+  const oldSchemaData = schemaData || contextSchemaData;
+  let newStoreValues: Record<string, unknown> = { ...currentStoreValues };
 
-  if (editEntrySnapshot) {
-    newStoreValues = applySectionEditSnapshot(currentStoreValues, editEntrySnapshot);
-  } else {
-    const oldSchemaData = schemaData || contextSchemaData;
-
+  if (oldSchemaData) {
     sectionWidgets.forEach((widget) => {
       const widgetId = widget['widget-id'];
-      const originalDataPath = widget['widget-data-path'];
-      const storeDataPath = originalDataPath;
+      const dataPath = widget['widget-data-path'];
+      if (!widgetId || !dataPath) return;
 
-      if (widgetId && originalDataPath) {
-        let oldValue: unknown;
-        if (typeof originalDataPath === 'object') {
-          oldValue = {};
-          Object.entries(originalDataPath).forEach(([key, path]) => {
-            if (typeof path === 'string') {
-              (oldValue as Record<string, unknown>)[key] = getValueByPath(
-                oldSchemaData,
-                path,
-              );
-            }
-          });
-        } else if (typeof originalDataPath === 'string') {
-          oldValue = getValueByPath(oldSchemaData, originalDataPath);
-        }
+      const schemaValue = resolveSchemaValue(
+        oldSchemaData,
+        dataPath as string | Record<string, string>,
+      );
+      const restoreValue = emptyRestoreValue(widget, schemaValue);
+      newStoreValues = setWidgetValue(newStoreValues, dataPath, widgetId, restoreValue);
 
-        if (oldValue !== undefined) {
-          newStoreValues = setWidgetValue(
-            newStoreValues,
-            storeDataPath,
-            widgetId,
-            oldValue,
-          );
-          newStoreValues = { ...newStoreValues, [widgetId]: oldValue };
-        }
+      if (isTableLikeWidget(widget)) {
+        newStoreValues = clearTableCellDraftKeys(newStoreValues, widgetId);
       }
     });
 
@@ -77,11 +100,13 @@ export const revertSectionValues = ({
           newStoreValues,
           originalDataPath,
           widgetId,
-          oldValue,
+          oldValue === undefined ? null : oldValue,
         );
       });
     }
+  } else if (editEntrySnapshot) {
+    newStoreValues = applySectionEditSnapshot(currentStoreValues, editEntrySnapshot);
   }
 
-  dispatch(setValues(newStoreValues));
+  dispatch(replaceValues(newStoreValues));
 };

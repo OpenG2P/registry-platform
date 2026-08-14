@@ -34,8 +34,8 @@ export const extractFilesFromSection = (files?: unknown[]) => {
 
 /**
  * Section Change edit_action values:
- * - NO_CHANGE: No changes made (handled here)
- * - ADD: New record added (handled at widget level; 
+ * - NO_CHANGE: No changes made (omitted from payload)
+ * - ADD: New record added (handled at widget level;
  *   only additional info such as IDs and required fields are added)
  * - DELETE: Record deleted (handled at registry widget level)
  * - UPDATE: Existing record updated (handled at registry widget level)
@@ -47,30 +47,27 @@ export function normalizeEditActions(
 ) {
     if (!Array.isArray(records)) return [];
 
-    return records.map((record) => {
-        // TODO: Need to resolve 3-level structure
-        const result = { ...record };
+    return records
+        .map((record) => {
+            const result = { ...record };
 
-        if (result.edit_action === undefined) {
-            result.edit_action = "NO_CHANGE";
-        }
+            if (result.edit_action === undefined) {
+                result.edit_action = "NO_CHANGE";
+            }
 
-        if (result.edit_action === "ADD") {
-            result.link_internal_record_id =
-                result.link_internal_record_id || linkInternalRecordId;
-            result.internal_record_id = "";
-        }
-        // delete the profile image
-        if (result.record_image_url == null) {
-            result.record_image_storage_id = '';
-        }
-        // update the profile image
-        if (document_id) {
-            result.record_image_document_id = document_id;
-        }
+            if (result.edit_action === "ADD") {
+                result.link_internal_record_id =
+                    result.link_internal_record_id || linkInternalRecordId;
+                result.internal_record_id = "";
+            }
+            
+            if (document_id) {
+                result.record_image_document_id = document_id;
+            }
 
-        return result;
-    });
+            return result;
+        })
+        .filter((record) => record.edit_action !== "NO_CHANGE");
 }
 
 
