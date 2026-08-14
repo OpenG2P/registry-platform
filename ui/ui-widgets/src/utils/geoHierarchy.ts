@@ -400,6 +400,17 @@ export function getDeepestSelectedValue(
   return deepest;
 }
 
+/** True when every hierarchy level has a selected value. */
+export function isGeoHierarchyComplete(
+  orderedLevels: GeoLevel[],
+  selectedValues: Record<string, string>,
+): boolean {
+  if (orderedLevels.length === 0) {
+    return false;
+  }
+  return orderedLevels.every((level) => Boolean(selectedValues[level.level_id]));
+}
+
 /** Build geo_code_hierarchy_json document from current selections (for save payload). */
 export function buildHierarchyJson(
   orderedLevels: GeoLevel[],
