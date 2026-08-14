@@ -60,9 +60,9 @@ class G2PPersonSchema(BaseModel):
 class G2PGeoSchema(BaseModel):
     """Base schema for G2PGeo fields."""
 
-    latitude: Optional[str] = None
-    longitude: Optional[str] = None
-    altitude: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    altitude: Optional[float] = None
     plus_code: Optional[str] = None
     postal_code: Optional[str] = None
     country_code: Optional[str] = None

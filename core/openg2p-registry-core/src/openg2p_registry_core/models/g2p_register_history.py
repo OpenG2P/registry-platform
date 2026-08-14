@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Boolean, DateTime, String, Text, Date
+from sqlalchemy import Boolean, Date, DateTime, Float, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from openg2p_fastapi_common.models import BaseORMModel
@@ -80,9 +80,9 @@ class G2PPersonHistory(BaseORMModel):
 class G2PGeoHistory(BaseORMModel):
     __abstract__ = True
 
-    latitude: Mapped[str] = mapped_column(String, nullable=True)
-    longitude: Mapped[str] = mapped_column(String, nullable=True)
-    altitude: Mapped[str] = mapped_column(String, nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    altitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     plus_code: Mapped[str] = mapped_column(String, nullable=True)
     address_line_1: Mapped[str] = mapped_column(String, nullable=True)
     address_line_2: Mapped[str] = mapped_column(String, nullable=True)
