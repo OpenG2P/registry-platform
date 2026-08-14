@@ -279,7 +279,7 @@ questions:
 
 # ID Generator
 - variable: idgenerator.idGenerator.appConfig.idTypesNote
-  description: "Default ID types: farmer (12 digits), household (10 digits). To add, remove, or modify ID types, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
+  description: "One functional-ID pool per register that mints IDs. Which pools are needed depends on the registry being installed — a single-register registry needs exactly one, and its pool name is that register's mnemonic in lowercase. Pools ACCUMULATE from three layers, because Helm merges maps and a parent cannot delete a subchart default: the id-generator subchart defaults (farmer, household), this chart's defaults (individual, household), and the installed registry's own. Seeing pools you do not recognise is therefore expected — an unused pool is an empty table that allocates nothing. Check only that YOUR register's pool is present. To add, remove or modify pools, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
   type: string
   label: ID Types Configuration
   group: ID Generator

@@ -6,10 +6,6 @@ from openg2p_fastapi_common.schemas import G2PPaginationRequest, G2PPaginationRe
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from openg2p_registry_staff_api.helpers.data_policy_request_helper import (
-    get_data_policy_mnemonics,
-    get_data_policies,
-)
 from ..schemas import (
     AttributeData,
     AttributeValueData,
