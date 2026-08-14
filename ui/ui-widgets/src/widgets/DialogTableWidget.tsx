@@ -84,6 +84,7 @@ const getRowCellStyle = (editAction?: string): CSSProperties => {
 };
 
 const SelectDisplayValue = ({ config, value }: { config: BaseWidgetConfig; value: any }) => {
+  const { t } = useWidgetContext();
   const { dataSourceOptions, loading } = useBaseWidget({ config });
 
   if (loading) return <span>-</span>;
@@ -92,7 +93,13 @@ const SelectDisplayValue = ({ config, value }: { config: BaseWidgetConfig; value
   const selectedOption = dataSourceOptions.find(
     (option: any) => option.value === value || String(option.value) === String(value)
   );
-  return <span>{selectedOption ? selectedOption.label : String(value)}</span>;
+  return (
+    <span>
+      {selectedOption
+        ? tSchema(t, selectedOption.label)
+        : tSchema(t, String(value))}
+    </span>
+  );
 };
 
 interface DialogTableFieldProps {

@@ -70,9 +70,9 @@ class G2PPersonHistorySchema(BaseModel):
 class G2PGeoHistorySchema(BaseModel):
     """Base schema for G2PGeoHistory fields."""
 
-    latitude: Optional[str] = None
-    longitude: Optional[str] = None
-    altitude: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    altitude: Optional[float] = None
     plus_code: Optional[str] = None
     address_line_1: Optional[str] = None
     address_line_2: Optional[str] = None

@@ -7,6 +7,8 @@ import {
   isSerializedFile,
 } from '../../../utils/fileSerialization';
 import { SectionChanges } from '../types';
+import { isTableLikeWidget } from '../../../utils/extractTableRecordsFromSnapshot';
+import { diffSectionChangeRecords } from './diffSectionChangeRecords';
 import { trackSectionChanges } from './sectionSnapshot';
 
 export interface ExecuteSectionSaveParams {
@@ -18,6 +20,8 @@ export interface ExecuteSectionSaveParams {
   hasSupportingDocuments: boolean;
   dbSectionId?: string;
   sectionRegisterId?: string;
+  /** Registry / CR: emit only changed fields (or touched table rows). Intake keeps full records. */
+  changedFieldsOnly?: boolean;
   onSectionSave?: (changes: SectionChanges) => Promise<void> | void;
 }
 
@@ -139,6 +143,7 @@ export const executeSectionSave = async ({
   hasSupportingDocuments,
   dbSectionId,
   sectionRegisterId,
+  changedFieldsOnly = false,
   onSectionSave,
 }: ExecuteSectionSaveParams): Promise<ExecuteSectionSaveResult> => {
   const sectionWidgets = collectWidgets(section.panels);
@@ -155,7 +160,12 @@ export const executeSectionSave = async ({
     return { validated: false, saved: false, currentSchemaData };
   }
 
-  const oldSchemaData = schemaData || contextSchemaData;
+  const baselineSource = (schemaData || contextSchemaData || {}) as Record<string, unknown>;
+  const baselineRecords = trackSectionChanges(
+    sectionWidgets,
+    baselineSource,
+    sectionRegisterId,
+  );
   const newSchemaData = trackSectionChanges(
     sectionWidgets,
     currentSchemaData,
@@ -174,13 +184,26 @@ export const executeSectionSave = async ({
   const docsFiles = collectDocsWidgetFiles(section.panels, currentSchemaData);
   sectionFiles.push(...docsFiles);
 
-  if (JSON.stringify(oldSchemaData) === JSON.stringify(newSchemaData)) {
+  if (JSON.stringify(baselineRecords) === JSON.stringify(newSchemaData) && docsFiles.length === 0) {
     return { validated: true, saved: false, currentSchemaData };
   }
 
   const { records: recordsWithImage, profileImage } = extractProfileImage([...newSchemaData]);
   // Strip the docs blob objects from records — they travel in `files` instead.
-  const records = stripDocsWidgetFields(recordsWithImage, section.panels);
+  let records = stripDocsWidgetFields(recordsWithImage, section.panels);
+
+  if (changedFieldsOnly) {
+    const baselineStripped = stripDocsWidgetFields(
+      [...baselineRecords],
+      section.panels,
+    );
+    const isTable = sectionWidgets.some((widget) => isTableLikeWidget(widget));
+    records = diffSectionChangeRecords(baselineStripped, records, { isTable });
+
+    if (records.length === 0 && sectionFiles.length === 0 && !profileImage) {
+      return { validated: true, saved: false, currentSchemaData };
+    }
+  }
 
   try {
     await onSectionSave?.({
