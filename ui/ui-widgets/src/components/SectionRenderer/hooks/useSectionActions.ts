@@ -1,6 +1,5 @@
-import { useCallback } from 'react';
+import { useCallback, type RefObject } from 'react';
 import { useDispatch, useStore } from 'react-redux';
-import { MutableRefObject } from 'react';
 import { SectionConfig } from '../../../types';
 import { SectionEditSnapshot } from '../../../utils/sectionRevert';
 import { SectionMode } from '../../SectionsContainer';
@@ -46,7 +45,7 @@ export const useSectionActions = ({
   onSectionDirtyChange?: (sectionId: string, isDirty: boolean) => void;
   onSectionSaveSuccess?: (index: number) => void;
   sectionIndex?: number;
-  editEntrySnapshotRef: MutableRefObject<SectionEditSnapshot | null>;
+  editEntrySnapshotRef: RefObject<SectionEditSnapshot | null>;
   enterEditMode: () => void;
   exitEditMode: () => void;
   captureEditEntrySnapshot: () => void;
@@ -107,6 +106,7 @@ export const useSectionActions = ({
       hasSupportingDocuments,
       dbSectionId,
       sectionRegisterId,
+      changedFieldsOnly: mode === 'RegistryView' || mode === 'CRView',
       onSectionSave,
     });
 

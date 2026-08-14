@@ -94,6 +94,8 @@ export const useSectionSave = (
                     document_id
                 )
 
+                console.log("records", records);
+
                 const section = tabSections?.find(
                     (section) => section.section_id === section_id
                 );
@@ -108,10 +110,6 @@ export const useSectionSave = (
                     tab_id: activeTabId,
                     section_id: section_id,
                     section_records: records,
-                    // While creating change request 
-                    // via register always treated as
-                    // Update action at chage request lavel
-                    edit_action: "UPDATE",
                     documents: documentsResponse.map((document, index) => ({
                         document_id: document.document_id,
                         label: fileLabels[index] || "unknown_label",

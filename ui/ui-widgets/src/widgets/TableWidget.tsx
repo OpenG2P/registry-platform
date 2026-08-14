@@ -139,7 +139,7 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
         <option value="">{t?.('common.select') || 'Select'}</option>
         {dataSourceOptions.map((option: any) => (
           <option key={option.value} value={option.value}>
-            {option.label}
+            {tSchema(t, option.label)}
           </option>
         ))}
       </select>
@@ -156,6 +156,7 @@ interface SelectDisplayValueProps {
 }
 
 const SelectDisplayValue = ({ config, value }: SelectDisplayValueProps) => {
+  const { t } = useWidgetContext();
   const { dataSourceOptions, loading } = useBaseWidget({ config });
   
   if (loading) {
@@ -169,7 +170,13 @@ const SelectDisplayValue = ({ config, value }: SelectDisplayValueProps) => {
   const selectedOption = dataSourceOptions.find(
     (option: any) => option.value === value || String(option.value) === String(value)
   );
-  return <span>{selectedOption ? selectedOption.label : String(value)}</span>;
+  return (
+    <span>
+      {selectedOption
+        ? tSchema(t, selectedOption.label)
+        : tSchema(t, String(value))}
+    </span>
+  );
 };
 
 interface TableCellTextProps {
