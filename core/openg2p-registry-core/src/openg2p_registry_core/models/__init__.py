@@ -25,7 +25,6 @@ from .deduplication_results import (
     DeduplicationIntakeFormRegisterResult,
     DeduplicationIntakeFormIntakeFormResult,
 )
-from .g2p_attributes import G2PAttribute, G2PAttributeValue, G2PAttributeValueRole
 from .g2p_functional_id_generation_queue import G2PFunctionalIdGenerationQueue
 from .g2p_input_mechanisms import G2PInputMechanism
 from .g2p_intake_form import (

@@ -238,24 +238,6 @@ dbSeed:
   #
   # Kept only for a deployment that still has no Master Data country pack.
   loadGeoData: false
-  # Copy the country's code lists (gender, education level, water source, ...)
-  # from Master Data into this registry's own attribute tables at install.
-  #
-  # Off by default: an existing deployment upgrading keeps getting its lists from
-  # the extension's SQL fixture and its compiled enums, exactly as before.
-  #
-  # Turning it on requires the Master Data release to have been installed with
-  # geoSeed.load.codelists=true — otherwise there is nothing to read and the step
-  # logs that and moves on rather than failing the install.
-  #
-  # The copy is what makes one registry image serve any country: the registry
-  # validates against its own copy afterwards, so Master Data is an install-time
-  # dependency, not a runtime one on every registration.
-  loadAttributes: false
-  # Domain subtrees to pull alongside the core lists — ["agriculture"] for a
-  # Farmer Registry. Empty loads the core lists only; a social registry has no
-  # use for crop types.
-  attributeDomains: []
   # Match the register's geo dropdowns to the hierarchy Master Data holds.
   # An extension's UI metadata names its levels and fixes their number; a
   # country whose pack disagrees gets dropdowns that silently return nothing.

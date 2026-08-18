@@ -113,6 +113,7 @@ class G2PRegisterChangeRequestService(BaseService):
             await self._validate_domain_attributes(
                 self._records_from_change_request_payload(change_request_request_payload),
                 section_register_definition.register_mnemonic,
+                register_section.section_ui_schema,
             )
 
             # Extract internal_record_id from change_payload if present
@@ -2208,16 +2209,22 @@ class G2PRegisterChangeRequestService(BaseService):
         self,
         records: list[dict],
         section_register_mnemonic: str,
+        section_ui_schema: dict | None,
     ) -> None:
         # Coded values first, and for every register — the check is the same one
         # whatever the domain, and hooking it here means an extension inherits it
         # without implementing anything. No-op unless
         # registry_core_validate_attribute_values is on.
-        await G2PAttributeValueValidator.get_component().validate_records(records)
+        records_for_validation = G2PAttributeValueValidator.records_for_validation(records)
+        field_map = G2PAttributeValueValidator.field_map_from_ui_schema(section_ui_schema)
+        await G2PAttributeValueValidator.get_component().validate_records(
+            records_for_validation,
+            field_map=field_map,
+        )
 
         domain_service = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)
         if domain_service:
-            await domain_service.validate_domain_attributes(records)
+            await domain_service.validate_domain_attributes(records_for_validation)
 
     def _get_required_domain_service(self, register_mnemonic: str) -> G2PRegisterDomainService:
         domain_service = self._get_domain_service_by_register_mnemonic(register_mnemonic)

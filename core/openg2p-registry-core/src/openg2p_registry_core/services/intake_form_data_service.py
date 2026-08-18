@@ -148,7 +148,13 @@ class G2PIntakeFormDataService(BaseService):
         # Same coded-value check the change-request path applies. Intake forms
         # are a second way in, so leaving it out here would mean values rejected
         # at one door are accepted at the other.
-        await G2PAttributeValueValidator.get_component().validate_records(records_for_validation)
+        field_map = G2PAttributeValueValidator.field_map_from_ui_schema(
+            _section.section_ui_schema
+        )
+        await G2PAttributeValueValidator.get_component().validate_records(
+            records_for_validation,
+            field_map=field_map,
+        )
 
         if domain_service:
             await domain_service.validate_domain_attributes(records_for_validation)

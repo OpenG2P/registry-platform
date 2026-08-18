@@ -5,7 +5,7 @@ export async function POST(req: NextRequest) {
 	return proxyToBackend({
 		req,
 		backend: "masterdata",
-		targetEndpoint: '/geo/get_all_g2p_geo_levels',
+		targetEndpoint: '/geo/get_all_geo_levels',
 		buildPayload: (body) => ({
 			pagination_request: {
 				current_page: body.current_page ?? 1,

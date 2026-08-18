@@ -11,7 +11,6 @@ from .g2p_data_model_service import G2PDataModelService
 from .g2p_outgestion_configuration_service import G2POutgestionConfigurationService
 from .g2p_template_service import G2PTemplateService
 from .filter_builder import FilterBuilder
-from .g2p_attribute_service import G2PAttributeService
 from .g2p_attribute_value_validator import G2PAttributeValueValidator
 from .g2p_ingestion_data_service import G2PIngestionDataService
 from .g2p_outgestion_data_service import G2POutgestionDataService

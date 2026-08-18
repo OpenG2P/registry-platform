@@ -116,18 +116,8 @@ spec:
                   key: {{ include "common.tplvalues.render" (dict "value" .Values.global.masterDataDBUserPasswordKey "context" $) | quote }}
             - name: LOAD_GEO_DATA
               value: {{ .Values.dbSeed.loadGeoData | quote }}
-            {{/* Code lists come from Master Data over HTTP, not out of its
-                 database — the registry copies through the published contract
-                 rather than reaching into another service's tables. Reuses the
-                 masterDataApiUrl the APIs already use. */}}
-            - name: LOAD_ATTRIBUTES
-              value: {{ .Values.dbSeed.loadAttributes | default false | quote }}
-            - name: MDS_BASE_URL
-              value: {{ tpl (.Values.global.masterDataApiUrl | default "") $ | quote }}
             - name: SYNC_GEO_WIDGETS
               value: {{ .Values.dbSeed.syncGeoWidgets | default false | quote }}
-            - name: ATTRIBUTE_DOMAINS
-              value: {{ join "," (.Values.dbSeed.attributeDomains | default list) | quote }}
             - name: LOAD_SAMPLE_DATA
               value: {{ .Values.dbSeed.loadSampleData | quote }}
             - name: LOAD_IMAGES
