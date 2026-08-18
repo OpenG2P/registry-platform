@@ -11,5 +11,6 @@ export async function POST(request: NextRequest) {
                 tab_section_id: body.tab_section_id
             },
         }),
+        transformResponse: (responseBody) => responseBody?.response_payload ?? { deleted: true },
     });
 }
