@@ -65,11 +65,10 @@ export default function IntakeFormPage() {
     return (
         <div className="min-h-screen mx-auto bg-secondary-first">
             <TopBar
-                breadcrumb={[{ label: t("register_intake_form", { subject: currentRegister?.register_subject || t("register") }) }]}
+                breadcrumb={[{ label: t("register_form_submissions", { subject: currentRegister?.register_subject || t("register") }) }]}
                 showFilters={false}
                 showPagination
-                showCapsule={true}
-                capsule={
+                actions={
                     <Can action={INTAKE_FORM_ACTIONS.edit}>
                         <AddNewDropdown mechanisms={mechanisms} />
                     </Can>

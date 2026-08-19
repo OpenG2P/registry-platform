@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
 import {
-    StatsCardLarge,
-    StatsCardSmall,
+    StatsCard,
     StatsCardsCarousel,
     SearchBarDropdown,
     SearchBar,
@@ -31,14 +30,14 @@ import Can from '@/components/shared/Can';
 
 type ActiveStatsCard =
     | 'registers'
-    | 'intake-form'
+    | 'form-submissions'
     | 'change-request'
     | 'messages'
     | 'tasks';
 
 const ALL_CARDS: ActiveStatsCard[] = [
     'registers',
-    'intake-form',
+    'form-submissions',
     'change-request',
     'tasks',
     'messages',
@@ -83,12 +82,12 @@ export default function Home() {
         label:
             opt.value === 'change_request'
                 ? t('change_requests')
-                : t('intake_submissions'),
+                : t('form_submissions'),
     }));
 
     const searchPlaceholders: Record<ActiveStatsCard, string> = {
         'registers': t('search_registers'),
-        'intake-form': t('search_intake_form'),
+        'form-submissions': t('search_form_submissions'),
         'change-request': t('search_change_requests'),
         'messages': t('search_messages'),
         'tasks': t('search_approval_tasks'),
@@ -105,7 +104,7 @@ export default function Home() {
 
         const query = params.toString();
 
-        if (activeStatsCard === 'registers' || activeStatsCard === 'intake-form') {
+        if (activeStatsCard === 'registers' || activeStatsCard === 'form-submissions') {
             const selected =
                 register && register !== 'select'
                     ? register
@@ -144,7 +143,7 @@ export default function Home() {
         }
 
         const routeMap: Record<
-            Exclude<ActiveStatsCard, 'registers' | 'intake-form' | 'messages' | 'tasks'>,
+            Exclude<ActiveStatsCard, 'registers' | 'form-submissions' | 'messages' | 'tasks'>,
             string
         > = {
             'change-request': '/change-request'
@@ -156,12 +155,6 @@ export default function Home() {
         );
     };
 
-    const StatsCardComponent =
-        statsCardVariant === 'small'
-            ? StatsCardSmall
-            : StatsCardLarge;
-
-
     const getViewAction = (
         activeStatsCard: ActiveStatsCard,
         selectedMessageType: string
@@ -169,7 +162,7 @@ export default function Home() {
         switch (activeStatsCard) {
             case "registers":
                 return REGISTER_ACTIONS.view;
-            case "intake-form":
+            case "form-submissions":
                 return INTAKE_FORM_ACTIONS.view;
             case "change-request":
                 return CHANGE_REQUEST_ACTIONS.view;
@@ -186,8 +179,16 @@ export default function Home() {
         VERIFICATION_INTAKE_FORM_ACTIONS.create,
     ];
 
-    const statsEndpointFor = (type: ActiveStatsCard) =>
-        `/api/stats/${type === 'registers' ? 'register' : type === 'tasks' ? 'tasks' : type}`;
+    const statsEndpointFor = (type: ActiveStatsCard) => {
+        const endpointByType: Record<ActiveStatsCard, string> = {
+            registers: 'register',
+            'form-submissions': 'intake-form',
+            'change-request': 'change-request',
+            messages: 'messages',
+            tasks: 'tasks',
+        };
+        return `/api/stats/${endpointByType[type]}`;
+    };
 
     const useStatsCarousel =
         statsCardVariant === 'small' && visibleCards.length > 4;
@@ -203,7 +204,7 @@ export default function Home() {
                             cards={visibleCards}
                             activeCard={activeStatsCard}
                             onSelectCard={setActiveStatsCard}
-                            StatsCardComponent={StatsCardComponent}
+                            StatsCardComponent={StatsCard}
                             statsEndpointFor={statsEndpointFor}
                         />
                     ) : (
@@ -217,7 +218,7 @@ export default function Home() {
                                     onClick={() => setActiveStatsCard(type)}
                                     className={`bg-transparent p-0 text-left ${statsCardVariant === 'small' ? 'flex-1 min-w-40 sm:min-w-45 lg:min-w-55' : 'w-[calc(50%-12px)] sm:w-[calc(50%-10px)] lg:w-[calc(50%-12px)]'}`}
                                 >
-                                    <StatsCardComponent
+                                    <StatsCard
                                         stats_endpoint={statsEndpointFor(type)}
                                         active={activeStatsCard === type}
                                     />
@@ -243,7 +244,7 @@ export default function Home() {
                     >
                         <div className="relative border border-primary-second flex h-14 w-4/5 items-center rounded-[10px] bg-neutral-second overflow-visible">
 
-                            {(activeStatsCard === 'registers' || activeStatsCard === 'intake-form') &&
+                            {(activeStatsCard === 'registers' || activeStatsCard === 'form-submissions') &&
                                 registerList?.length > 0 && (
                                     <SearchBarDropdown
                                         options={registerList}

@@ -18,9 +18,9 @@ export default function NewIntakeFormSubmissionPage() {
     const { currentRegister } = useRegister();
     const registerId = currentRegister?.register_id;
 
-    const { sections, form_name, form_description, loading } = useIntakeFormDetails(intake_form_id);
+    const { sections, form_description, loading } = useIntakeFormDetails(intake_form_id);
 
-    const { handleAction, FormActionModals, recordName, activeSubmissionId } = useIntakeFormSectionAction({
+    const { handleAction, FormActionModals, applicationReference, activeSubmissionId } = useIntakeFormSectionAction({
         registerId,
         formId: intake_form_id,
         registerType,
@@ -32,10 +32,10 @@ export default function NewIntakeFormSubmissionPage() {
             <TopBar
                 breadcrumb={[
                     {
-                        label: t("register_intake_form", { subject: currentRegister?.register_subject || t("register") }),
+                        label: t("register_form_submissions", { subject: currentRegister?.register_subject || t("register") }),
                         href: `/intake-form/${registerType}`
                     },
-                    { label: recordName || "" }
+                    { label: applicationReference || '' }
                 ]}
 
                 showFilters={false}
@@ -52,7 +52,6 @@ export default function NewIntakeFormSubmissionPage() {
                     <MultiSectionAccordionForms
                         formDetailsCard={true}
                         sections={sections || []}
-                        form_name={form_name}
                         form_description={form_description}
                         onAction={handleAction}
                         onCancel={() => router.push(`/intake-form/${registerType}`)}

@@ -2,12 +2,9 @@
 
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
+import { KeyValue } from '@/components/ui/KeyValue';
+import { useRegister } from '@/context/RegisterContext';
 import { ApprovalTask } from '@/features/approval/types/approval';
-import { formatDateTime } from '@/shared/utils/dateUtils';
-import {
-    REGISTRY_CHANGE_REQUEST_ARTIFACT,
-    REGISTRY_INTAKE_FORM_ARTIFACT,
-} from '@/features/approval/constants';
 
 interface Props {
     task: ApprovalTask;
@@ -23,143 +20,132 @@ const taskStatusClassMap: Record<string, string> = {
     cancelled: 'text-toast-failed',
 };
 
-function KeyValue({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="flex w-full text-neutral-first leading-relaxed overflow-hidden">
-            <span
-                className="w-1/2 font-normal text-neutral-first/50 text-[16px] truncate"
-                title={label}
-            >
-                {label}:
-            </span>
-            <span className="w-1/2 font-medium text-[14px] truncate pl-4" title={value}>
-                {value}
-            </span>
-        </div>
-    );
-}
-
-function getContextString(context: Record<string, unknown> | null | undefined, key: string): string {
-    const value = context?.[key];
-    if (value === null || value === undefined || value === '') return '—';
-    return String(value);
-}
-
 export default function TaskCard({ task, index, href, onNavigate }: Props) {
     const t = useTranslations();
+    const { registers } = useRegister();
     const context = task.context ?? {};
-    const isIntake = task.artifact_type === REGISTRY_INTAKE_FORM_ARTIFACT;
-    const isChangeRequest = task.artifact_type === REGISTRY_CHANGE_REQUEST_ARTIFACT;
 
-    const recordName = getContextString(context, 'record_name');
-    const registerMnemonic = getContextString(context, 'register_mnemonic');
-    const mnemonicKey = isIntake ? 'intake_form_mnemonic' : 'section_mnemonic';
-    const mnemonicLabel = isIntake ? t('intake_form_mnemonic') : t('section_mnemonic');
-    const mnemonicRaw = getContextString(context, mnemonicKey);
-    const mnemonicDisplay =
-        mnemonicRaw === '—' ? mnemonicRaw : t(mnemonicRaw, { default: mnemonicRaw });
-
-    const displayName =
-        recordName !== '—'
-            ? recordName
-            : isIntake
-              ? t('intake_submission')
-              : t('change_request_fallback', { index: index + 1 });
-
-    const artifactId = isIntake
-        ? getContextString(context, 'submission_id') || task.artifact_id || '—'
-        : getContextString(context, 'change_request_id') || task.artifact_id || '—';
-
-    const statusClass = taskStatusClassMap[task.status.toLowerCase()] ?? 'text-neutral-first/50';
-
-    const handleViewDetails = () => {
-        if (href) onNavigate(href);
+    const translateKey = (value?: string | null) => {
+        const trimmed = value?.trim();
+        if (!trimmed) return '—';
+        if (t.has(trimmed)) return t(trimmed);
+        const lower = trimmed.toLowerCase();
+        if (lower !== trimmed && t.has(lower)) return t(lower);
+        return trimmed;
     };
+
+    const displayValue = (value?: string | null) => {
+        const trimmed = value?.trim();
+        if (!trimmed) return '—';
+        return trimmed;
+    };
+
+    const formatEnum = (value?: string | null) => {
+        const trimmed = value?.trim();
+        if (!trimmed) return '—';
+        if (t.has(trimmed)) return t(trimmed);
+        const lower = trimmed.toLowerCase();
+        if (lower !== trimmed && t.has(lower)) return t(lower);
+        return trimmed
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    const contextString = (key: string) => {
+        const value = context[key];
+        if (value === null || value === undefined || value === '') return '';
+        return String(value);
+    };
+
+    const registerMnemonic = contextString('register_mnemonic');
+    const matchedRegister = registers.find(
+        (register) => register.register_mnemonic.toLowerCase() === registerMnemonic.toLowerCase(),
+    );
+    const registerLabel = matchedRegister?.register_subject
+        ? translateKey(matchedRegister.register_subject)
+        : translateKey(registerMnemonic);
+
+    const sectionMnemonic =
+        contextString('section_mnemonic') || contextString('intake_form_mnemonic');
+    const recordName = displayValue(contextString('record_name'));
+    const statusClass = taskStatusClassMap[task.status.toLowerCase()] ?? 'text-neutral-first/50';
 
     return (
         <div
-            className={`rounded-[10px] bg-neutral-second px-10 ${isIntake ? 'py-8' : 'py-5'}`}
+            key={index}
+            className="rounded-[10px] bg-neutral-second px-10 py-5"
         >
             <h3
-                className="text-[24px] font-medium text-neutral-first truncate mb-6"
-                title={displayName}
+                className="mb-4 min-h-[32px] truncate text-[24px] font-medium text-neutral-first"
+                title={recordName !== '—' ? recordName : undefined}
             >
-                {displayName}
+                {recordName}
             </h3>
 
-            <div className="grid grid-cols-3 gap-6 divide-x divide-secondary-second">
-                <div className="space-y-2 pr-6 text-[16px] text-neutral-first/50">
-                    {isIntake && (
-                        <KeyValue label={t('submission_id')} value={artifactId} />
-                    )}
-
-                    {isChangeRequest && (
-                        <KeyValue label={t('change_id')} value={artifactId} />
-                    )}
-
-                    <KeyValue label={t('register_mnemonic')} value={registerMnemonic} />
-
-                    <div className="flex w-full overflow-hidden">
-                        <span className="w-1/2 truncate" title={t('status')}>
-                            {t('status')}:
-                        </span>
-                        <span
-                            className={`w-1/2 pl-4 font-medium truncate capitalize ${statusClass}`}
-                            title={task.status}
-                        >
-                            {task.status}
-                        </span>
+            <div className="grid grid-cols-4 items-stretch gap-6 text-[16px] text-neutral-first/50">
+                <div className="flex h-full min-h-0 flex-col">
+                    <div className="flex flex-1 flex-col space-y-2">
+                        <KeyValue
+                            label={t('register')}
+                            value={registerLabel}
+                        />
+                        <KeyValue
+                            label={t('section')}
+                            value={translateKey(sectionMnemonic)}
+                        />
                     </div>
                 </div>
 
-                <div className="space-y-2 px-6 text-[16px] text-neutral-first/50">
-                    <KeyValue label={mnemonicLabel} value={mnemonicDisplay} />
-                    <KeyValue label={t('stage')} value={String(task.stage_order)} />
-                    {task.kind && (
-                        <KeyValue label={t('kind', { default: 'Kind' })} value={task.kind} />
-                    )}
+                <div className="flex h-full min-h-0 flex-col">
+                    <div className="flex flex-1 flex-col space-y-2 border-l-2 border-secondary-second pl-6">
+                        <KeyValue
+                            label={t('assignee_email')}
+                            value={displayValue(task.assignee)}
+                        />
+                        <KeyValue
+                            label={t('assignee_name')}
+                            value={displayValue(task.assignee_name)}
+                        />
+                        <KeyValue
+                            label={t('kind')}
+                            value={formatEnum(task.kind)}
+                        />
+                    </div>
                 </div>
 
-                <div className="space-y-2 pl-6 text-[16px] text-neutral-first/50">
-                    <div className="flex w-full overflow-hidden">
-                        <span className="w-1/2 truncate" title={t('created_at')}>
-                            {t('created_at')}:
-                        </span>
-                        <span
-                            className="w-1/2 pl-4 text-neutral-first font-medium truncate"
-                            title={formatDateTime(task.created_at)}
-                        >
-                            {formatDateTime(task.created_at)}
-                        </span>
+                <div className="flex h-full min-h-0 flex-col">
+                    <div className="flex flex-1 flex-col space-y-2 border-l-2 border-secondary-second pl-6">
+                        <KeyValue
+                            label={t('decision_action')}
+                            value={formatEnum(task.decision_action)}
+                        />
+                        <KeyValue
+                            label={t('status')}
+                            value={formatEnum(task.status)}
+                            valueClassName={statusClass}
+                        />
                     </div>
+                </div>
 
-                    {task.due_at && (
-                        <div className="flex w-full overflow-hidden">
-                            <span className="w-1/2 truncate" title={t('due_at', { default: 'Due At' })}>
-                                {t('due_at', { default: 'Due At' })}:
-                            </span>
-                            <span
-                                className="w-1/2 pl-4 text-neutral-first font-medium truncate"
-                                title={formatDateTime(task.due_at)}
-                            >
-                                {formatDateTime(task.due_at)}
-                            </span>
-                        </div>
-                    )}
-
-                    {task.completed_at && (
-                        <div className="flex w-full overflow-hidden">
-                            <span className="w-1/2 truncate" title={t('completed_at')}>
-                                {t('completed_at')}:
-                            </span>
-                            <span
-                                className="w-1/2 pl-4 text-neutral-first font-medium truncate"
-                                title={formatDateTime(task.completed_at)}
-                            >
-                                {formatDateTime(task.completed_at)}
-                            </span>
-                        </div>
-                    )}
+                <div className="flex h-full min-h-0 flex-col">
+                    <div className="flex flex-1 flex-col space-y-2 border-l-2 border-secondary-second pl-6">
+                        <KeyValue
+                            label={t('created_at')}
+                            value={
+                                task.created_at
+                                    ? new Date(task.created_at).toLocaleDateString()
+                                    : '—'
+                            }
+                        />
+                        <KeyValue
+                            label={t('completed_at')}
+                            value={
+                                task.completed_at
+                                    ? new Date(task.completed_at).toLocaleString()
+                                    : '—'
+                            }
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -169,13 +155,13 @@ export default function TaskCard({ task, index, href, onNavigate }: Props) {
                 <button
                     type="button"
                     disabled={!href}
-                    onClick={handleViewDetails}
-                    className="text-[14px] text-neutral-first font-normal flex items-center gap-2 opacity-60 hover:opacity-100 transition disabled:cursor-default disabled:opacity-40"
+                    onClick={() => href && onNavigate(href)}
+                    className="flex items-center gap-2 text-[14px] font-normal text-neutral-first opacity-60 transition hover:opacity-100 disabled:cursor-default disabled:opacity-40 disabled:hover:opacity-40"
                 >
                     {t('view_details')}
                     <Image
                         src="/images/common/arrow_next_01.png"
-                        alt="arrow"
+                        alt=""
                         width={14}
                         height={14}
                     />

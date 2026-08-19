@@ -91,7 +91,7 @@ export default function TasksListView({
                 onNext={() => setCurrentPage((p) => Math.min(pages, p + 1))}
             />
 
-            <div className="px-7.5 pb-10">
+            <div className="px-7.5">
                 {loading ? (
                     <div className="space-y-4">
                         {[...Array(3)].map((_, i) => (
