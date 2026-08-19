@@ -6,8 +6,6 @@ import uploadIcon from './upload_icon.png';
 import closeSign from './close_sign.png';
 import dummyDoc from './dummy_doc.png';
 import downArrowIcon from './down_arrow.png';
-import personIcon from './person.png';
-import calendarIcon from './calendar.png';
 import rightArrowIcon from './right_arrow.png';
 import arrowUpIcon from './arrow_up.png';
 import arrowDownIcon from './arrow_down.png';
@@ -27,8 +25,6 @@ export {
     closeSign,
     dummyDoc,
     downArrowIcon,
-    personIcon,
-    calendarIcon,
     rightArrowIcon,
     arrowUpIcon,
     arrowDownIcon,

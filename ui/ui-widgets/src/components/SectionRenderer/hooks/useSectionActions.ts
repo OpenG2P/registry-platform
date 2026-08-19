@@ -106,7 +106,7 @@ export const useSectionActions = ({
       hasSupportingDocuments,
       dbSectionId,
       sectionRegisterId,
-      changedFieldsOnly: mode === 'RegistryView' || mode === 'CRView',
+      sectionFieldsOnly: mode === 'RegistryView' || mode === 'CRView',
       onSectionSave,
     });
 

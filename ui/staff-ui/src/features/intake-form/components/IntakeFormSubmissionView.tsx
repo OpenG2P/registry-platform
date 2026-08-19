@@ -113,7 +113,7 @@ export default function IntakeFormSubmissionView({
                         <span className="text-neutral-first/50">{t('loading')}</span>
                     </div>
                 ) : (
-                    <div className="flex flex-col lg:flex-row gap-6">
+                    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                         <div className={`w-full ${isDraft ? '' : 'lg:w-[75%]'} space-y-6`}>
                             {!isDraft && (
                                 <SubmissionHeader
@@ -135,7 +135,7 @@ export default function IntakeFormSubmissionView({
                         </div>
 
                         {!isDraft && (
-                            <div className="w-full lg:w-[25%] space-y-6">
+                            <div className="w-full lg:w-[320px] space-y-6">
                                 <IntakeApprovalCard
                                     awe_request_id={submission?.awe_request_id}
                                     artifactContext={intakeApprovalArtifactContext}

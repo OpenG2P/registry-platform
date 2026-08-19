@@ -16,9 +16,9 @@ export default function ApprovalList({ tasks, isPending, approvalDecisionBlocked
 
     return (
         <Can action={VERIFICATION_CHANGE_REQUEST_ACTIONS.view}>
-            <div className="rounded-lg space-y-4">
-                <div className="flex justify-between bg-primary-first px-6 py-4 rounded-[10px] items-center">
-                    <h4 className="text-[24px] font-semibold">{t('approvals')}</h4>
+            <div className="flex flex-col gap-2 rounded-lg">
+                <div className="flex items-center justify-center rounded-[10px] bg-primary-first px-6 py-2">
+                    <h4 className="m-0 text-[16px] font-medium sm:text-[18px]">{t('approvals')}</h4>
                 </div>
 
                 {approvalDecisionBlocked && (
@@ -27,13 +27,13 @@ export default function ApprovalList({ tasks, isPending, approvalDecisionBlocked
                     </div>
                 )}
 
-                <div className="space-y-3">
-                    {tasks.length === 0 ? (
-                        <div className="py-4 text-center text-neutral-first/50 text-sm">
-                            {t('no_approval_tasks')}
-                        </div>
-                    ) : (
-                        tasks.map((task) => (
+                {tasks.length === 0 ? (
+                    <div className="py-4 text-center text-sm text-neutral-first/50">
+                        {t('no_approval_tasks')}
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                        {tasks.map((task) => (
                             <ApprovalCard
                                 key={task.id}
                                 task={task}
@@ -41,9 +41,9 @@ export default function ApprovalList({ tasks, isPending, approvalDecisionBlocked
                                 approvalDecisionBlocked={approvalDecisionBlocked}
                                 onSubmit={onSubmitDecision}
                             />
-                        ))
-                    )}
-                </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </Can>
     );

@@ -17,7 +17,7 @@ export default function DeduplicationCard({ results, loading, type, t }: Props) 
 
     if (loading) {
         return (
-            <div className="rounded-[10px] bg-neutral-second border border-gray-200 px-10 py-8">
+            <div className="rounded-[10px] border border-gray-200 bg-neutral-second px-4 py-6 sm:px-10 sm:py-8">
                 <p className="text-neutral-first/50 text-sm">{t("loading")}</p>
             </div>
         );
@@ -25,7 +25,7 @@ export default function DeduplicationCard({ results, loading, type, t }: Props) 
 
     if (!results.length) {
         return (
-            <div className="rounded-[10px] bg-neutral-second border border-gray-200 px-10 py-8">
+            <div className="rounded-[10px] border border-gray-200 bg-neutral-second px-4 py-6 sm:px-10 sm:py-8">
                 <p className="text-neutral-first/50 text-sm">{t("no_duplicates_found")}</p>
             </div>
         );
@@ -62,10 +62,11 @@ export default function DeduplicationCard({ results, loading, type, t }: Props) 
                 return (
                     <div
                         key={result.dedup_result_id}
-                        className={`relative px-10 pt-8 pb-6 transition-all ease-in-out duration-200 ${expanded
-                            ? "bg-secondary-first border border-dashed border-primary-second z-10 rounded-t-[10px]"
-                            : "bg-neutral-second border border-gray-200 z-0 rounded-[10px]"
-                            }`}
+                        className={`relative px-4 pt-6 pb-5 transition-all duration-200 ease-in-out sm:px-10 sm:pt-8 sm:pb-6 ${
+                            expanded
+                                ? "z-10 rounded-t-[10px] border border-dashed border-primary-second bg-secondary-first"
+                                : "z-0 rounded-[10px] border border-gray-200 bg-neutral-second"
+                        }`}
                     >
                         <h3 className="text-[20px] font-medium text-neutral-first mb-4 leading-none truncate" title={t("match") + "  #" + String(index + 1).padStart(2, "0")}>
                             {t("match") + "  #" + String(index + 1).padStart(2, "0")}
@@ -98,19 +99,19 @@ export default function DeduplicationCard({ results, loading, type, t }: Props) 
                         )}
 
                         {expanded && fields.length > 0 && (
-                            <div className="absolute top-full left-[-1px] right-[-1px] z-20 bg-secondary-first border border-t-0 border-dashed border-primary-second rounded-b-[10px] px-10 pb-8">
+                            <div className="absolute top-full left-[-1px] right-[-1px] z-20 rounded-b-[10px] border border-t-0 border-dashed border-primary-second bg-secondary-first px-4 pb-6 sm:px-10 sm:pb-8">
                                 <div className="grid grid-cols-1 md:grid-cols-3">
                                     {fields.map(([fieldKey, match], i) => (
                                         <div
                                             key={fieldKey}
-                                            className={`space-y-0 py-2 ${i === 2 ? "" : "pr-10"} ${i > 0 ? "pl-10" : ""}`}
+                                            className={`space-y-0 py-2 ${i === 2 ? "" : "md:pr-10"} ${i > 0 ? "md:pl-10" : ""}`}
                                         >
-                                            <div className={i > 0 ? "pl-6" : ""}>
-                                                <h4 className="text-[20px] font-medium text-neutral-first leading-none mb-1 truncate" title={t(fieldKey)}>
+                                            <div className={i > 0 ? "md:pl-6" : ""}>
+                                                <h4 className="mb-1 truncate text-[18px] font-medium leading-none text-neutral-first sm:text-[20px]" title={t(fieldKey)}>
                                                     {t(fieldKey)}
                                                 </h4>
                                             </div>
-                                            <div className={`space-y-0 ${i > 0 ? " border-l border-primary-first pl-6" : ""}`}>
+                                            <div className={`space-y-0 ${i > 0 ? "md:border-l md:border-primary-first md:pl-6" : ""}`}>
                                                 <KeyValue variant="deduplication" label={t("incoming")} value={match.incoming} />
                                                 <KeyValue variant="deduplication" label={t("candidate")} value={match.candidate} />
                                                 <KeyValue

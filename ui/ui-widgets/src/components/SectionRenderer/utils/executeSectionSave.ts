@@ -20,8 +20,12 @@ export interface ExecuteSectionSaveParams {
   hasSupportingDocuments: boolean;
   dbSectionId?: string;
   sectionRegisterId?: string;
-  /** Registry / CR: emit only changed fields (or touched table rows). Intake keeps full records. */
-  changedFieldsOnly?: boolean;
+  /**
+   * Registry / CR: skip no-op saves. Form sections emit every section field
+   * (once anything changed). Table sections emit only touched rows.
+   * Intake keeps full records.
+   */
+  sectionFieldsOnly?: boolean;
   onSectionSave?: (changes: SectionChanges) => Promise<void> | void;
 }
 
@@ -143,7 +147,7 @@ export const executeSectionSave = async ({
   hasSupportingDocuments,
   dbSectionId,
   sectionRegisterId,
-  changedFieldsOnly = false,
+  sectionFieldsOnly = false,
   onSectionSave,
 }: ExecuteSectionSaveParams): Promise<ExecuteSectionSaveResult> => {
   const sectionWidgets = collectWidgets(section.panels);
@@ -192,7 +196,7 @@ export const executeSectionSave = async ({
   // Strip the docs blob objects from records — they travel in `files` instead.
   let records = stripDocsWidgetFields(recordsWithImage, section.panels);
 
-  if (changedFieldsOnly) {
+  if (sectionFieldsOnly) {
     const baselineStripped = stripDocsWidgetFields(
       [...baselineRecords],
       section.panels,

@@ -308,7 +308,7 @@ export default function VersionHistoryPage() {
             {showSkeleton ? (
                 <VersionHistoryPageSkeleton tabs={tabs} />
             ) : (
-                <div className={`flex gap-6 transition-opacity duration-200 ${isContentLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
+                <div className={`flex items-start gap-6 transition-opacity duration-200 ${isContentLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
                     <div className="w-[75%] flex flex-col gap-6">
                         {hasVersionHistory && (
                             <div className="bg-neutral-second rounded-[10px] px-6 py-5 flex items-center justify-between">
