@@ -39,6 +39,7 @@ from .controller_services import (
     G2PAweProxyControllerService,
 )
 from .helpers import AweHelper, ApplicationReferenceGenerator, PatternMatcher, TemplateHelper, get_document_handler
+from .interfaces import G2PIdGeneratorFactory, G2PRegisterDomainFactory
 
 from .models import (
     DataModel,
@@ -154,6 +155,10 @@ class Initializer(BaseInitializer):
         ApplicationReferenceGenerator(_config.application_reference_format)
         KeymanagerCryptoHelper()
         AweHelper()
+
+        # Factories
+        G2PRegisterDomainFactory()
+        G2PIdGeneratorFactory()
 
         # Services
         G2PDocumentService()
