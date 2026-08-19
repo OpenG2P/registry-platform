@@ -37,6 +37,7 @@ export const useIntakeFormSectionAction = ({
     const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(submissionId);
     const [sectionInternalIds, setSectionInternalIds] = useState<Record<string, string>>({});
     const [recordName, setRecordName] = useState<string | null>(initialRecordName);
+    const [applicationReference, setApplicationReference] = useState<string | null>(null);
 
     useEffect(() => {
         setActiveSubmissionId(submissionId);
@@ -147,6 +148,10 @@ export const useIntakeFormSectionAction = ({
             setActiveSubmissionId(saveResult.submission_id);
         }
 
+        if (saveResult.application_reference) {
+            setApplicationReference(saveResult.application_reference);
+        }
+
         if (saveResult.record_name) {
             setRecordName(saveResult.record_name);
         }
@@ -226,5 +231,5 @@ export const useIntakeFormSectionAction = ({
         return React.createElement(ActionModal, modalConfig);
     };
 
-    return { handleAction, FormActionModals, recordName, activeSubmissionId };
+    return { handleAction, FormActionModals, recordName, applicationReference, activeSubmissionId };
 };

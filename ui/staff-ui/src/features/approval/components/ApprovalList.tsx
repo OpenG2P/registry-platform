@@ -2,6 +2,7 @@ import { ApprovalTask } from '@/features/approval/types/approval';
 import ApprovalCard from '@/features/approval/components/ApprovalCard';
 import { useTranslations } from 'next-intl';
 import { VERIFICATION_CHANGE_REQUEST_ACTIONS } from '@/features/shared/permissions';
+import { VERIFICATION_INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 
 interface Props {
@@ -9,13 +10,23 @@ interface Props {
     isPending: boolean;
     approvalDecisionBlocked?: boolean;
     onSubmitDecision: (taskId: string, action: 'approve' | 'reject', comment: string) => Promise<boolean>;
+    intakeForm?: boolean;
 }
 
-export default function ApprovalList({ tasks, isPending, approvalDecisionBlocked = false, onSubmitDecision }: Props) {
+export default function ApprovalList({
+    tasks,
+    isPending,
+    approvalDecisionBlocked = false,
+    onSubmitDecision,
+    intakeForm = false,
+}: Props) {
     const t = useTranslations();
+    const viewAction = intakeForm
+        ? VERIFICATION_INTAKE_FORM_ACTIONS.view
+        : VERIFICATION_CHANGE_REQUEST_ACTIONS.view;
 
     return (
-        <Can action={VERIFICATION_CHANGE_REQUEST_ACTIONS.view}>
+        <Can action={viewAction}>
             <div className="flex flex-col gap-2 rounded-lg">
                 <div className="flex items-center justify-center rounded-[10px] bg-primary-first px-6 py-2">
                     <h4 className="m-0 text-[16px] font-medium sm:text-[18px]">{t('approvals')}</h4>
@@ -40,6 +51,7 @@ export default function ApprovalList({ tasks, isPending, approvalDecisionBlocked
                                 isPending={isPending}
                                 approvalDecisionBlocked={approvalDecisionBlocked}
                                 onSubmit={onSubmitDecision}
+                                intakeForm={intakeForm}
                             />
                         ))}
                     </div>

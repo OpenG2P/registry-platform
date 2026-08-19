@@ -1,20 +1,27 @@
 'use client';
 
-import { TopBar } from '@/components/shared';
-import { useIntakeFormSubmission } from '@/features/intake-form/hooks/useIntakeFormSubmission';
-import { useIntakeFormDetails } from '@/features/intake-form/hooks/useIntakeFormDetails';
-import MultiSectionAccordionForms from '@/features/intake-form/components/MultiSectionAccordionForms';
-import SubmissionHeader from '@/features/intake-form/components/SubmissionHeader';
-import { IntakeApprovalCard } from '@/features/approval/components';
-import { parseAweCurrentStage } from '@/features/approval/utils/aweStatusSummary';
-import { REGISTRY_INTAKE_FORM_ARTIFACT } from '@/features/approval/constants';
+import { TopBar, TabsLayout } from '@/components/shared';
+import { useCallback, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { useMemo } from 'react';
-import { useIntakeFormSectionAction } from '@/features/intake-form/hooks/useIntakeFormSectionAction';
-import { buildIntakeSectionsDataMap } from '@/features/shared/utils/intakeFormSectionDataMap';
 import { useRegister } from '@/context/RegisterContext';
 import { useRbac } from '@/context/RbacContext';
 import { INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
+import { useIntakeFormSubmission } from '@/features/intake-form/hooks/useIntakeFormSubmission';
+import { useIntakeFormDetails } from '@/features/intake-form/hooks/useIntakeFormDetails';
+import { useIntakeFormDocuments } from '@/features/intake-form/hooks/useIntakeFormDocuments';
+import { useIntakeFormSectionAction } from '@/features/intake-form/hooks/useIntakeFormSectionAction';
+import MultiSectionAccordionForms from '@/features/intake-form/components/MultiSectionAccordionForms';
+import SubmissionHeader from '@/features/intake-form/components/SubmissionHeader';
+import { ApprovalList, ApprovalListSkeleton } from '@/features/approval/components';
+import {
+    useApprovalTasks,
+    useSubmitApprovalDecision,
+} from '@/features/approval/hooks';
+import { parseAweCurrentStage } from '@/features/approval/utils/aweStatusSummary';
+import { REGISTRY_INTAKE_FORM_ARTIFACT } from '@/features/approval/constants';
+import { buildIntakeSectionsDataMap } from '@/features/shared/utils/intakeFormSectionDataMap';
+import CRHeaderSkeleton from '@/features/change-request/components/CRHeaderSkeleton';
+import SectionSchemaSkeleton from '@/features/change-request/components/SectionSchemaSkeleton';
 
 interface BreadcrumbItem {
     label: string;
@@ -44,6 +51,8 @@ export default function IntakeFormSubmissionView({
         refetchSubmission,
     } = useIntakeFormSubmission(submissionId);
 
+    const { documents, loading: loadingDocuments } = useIntakeFormDocuments(submissionId);
+
     const intakeApprovalArtifactContext = useMemo(() => {
         if (!submission?.submission_id) return null;
         const currentStage =
@@ -55,14 +64,26 @@ export default function IntakeFormSubmissionView({
         };
     }, [submission?.submission_id, submission?.awe_request_status_summary]);
 
+    const { tasks, loadingTasks, refetchTasks } = useApprovalTasks(submission?.awe_request_id);
+
+    const refreshAfterDecision = useCallback(async () => {
+        await refetchTasks();
+        await refetchSubmission();
+    }, [refetchTasks, refetchSubmission]);
+
+    const { submitDecision } = useSubmitApprovalDecision(
+        intakeApprovalArtifactContext,
+        refreshAfterDecision,
+    );
+
     const intakeFormId = submission?.form_id;
-    const { sections, form_name, form_description, loading: loadingSections } =
+    const { sections, form_description, loading: loadingSections } =
         useIntakeFormDetails(intakeFormId);
 
     const loading = loadingSubmission || (!sections && loadingSections);
     const isDraft = submission?.draft_status === 'DRAFT';
 
-    const { handleAction, FormActionModals, recordName } = useIntakeFormSectionAction({
+    const { handleAction, FormActionModals } = useIntakeFormSectionAction({
         registerId: submission?.register_id || '',
         formId: intakeFormId || '',
         registerType,
@@ -72,24 +93,29 @@ export default function IntakeFormSubmissionView({
     });
 
     const breadcrumb = useMemo(() => {
-        if (breadcrumbOverride) {
-            return breadcrumbOverride;
+        const applicationReference = submission?.application_reference?.trim() || '';
+
+        if (breadcrumbOverride?.length) {
+            return [
+                ...breadcrumbOverride.slice(0, -1),
+                { ...breadcrumbOverride[breadcrumbOverride.length - 1], label: applicationReference },
+            ];
         }
 
         return [
             {
-                label: t('register_intake_form', {
+                label: t('register_form_submissions', {
                     subject: currentRegister?.register_subject || t('register'),
                 }),
                 href: `/intake-form/${registerType}`,
             },
-            { label: recordName || '—' },
+            { label: applicationReference },
         ];
     }, [
         breadcrumbOverride,
         currentRegister?.register_subject,
         registerType,
-        recordName,
+        submission?.application_reference,
         t,
     ]);
 
@@ -98,59 +124,84 @@ export default function IntakeFormSubmissionView({
         [section_payloads]
     );
 
-    return (
-        <div className="min-h-screen mx-auto bg-secondary-first">
-            <TopBar
-                breadcrumb={breadcrumb}
-                showFilters={false}
-                showPagination={false}
-                showCapsule={false}
-            />
+    const formContent = (
+        <MultiSectionAccordionForms
+            formDetailsCard={isDraft}
+            form_description={form_description}
+            sections={sections || []}
+            schemaData={sectionDataMap}
+            showActions={isDraft && canCreate}
+            onAction={handleAction}
+            submissionId={submissionId}
+            formRegisterId={submission?.register_id || currentRegister?.register_id}
+            registerType={registerType}
+        />
+    );
 
-            <div className={`mx-7.5 ${isDraft ? '' : 'py-6 space-y-6'}`}>
-                {loading ? (
-                    <div className="flex items-center justify-center py-20">
-                        <span className="text-neutral-first/50">{t('loading')}</span>
-                    </div>
-                ) : (
-                    <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-                        <div className={`w-full ${isDraft ? '' : 'lg:w-[75%]'} space-y-6`}>
-                            {!isDraft && (
-                                <SubmissionHeader
-                                    submission={submission}
-                                />
-                            )}
+    if (isDraft) {
+        return (
+            <div className="min-h-screen mx-auto bg-secondary-first">
+                <TopBar
+                    breadcrumb={breadcrumb}
+                    showFilters={false}
+                    showPagination={false}
+                    showCapsule={false}
+                />
 
-                            <MultiSectionAccordionForms
-                                form_name={form_name}
-                                form_description={form_description}
-                                sections={sections || []}
-                                schemaData={sectionDataMap}
-                                showActions={isDraft && canCreate}
-                                onAction={handleAction}
-                                submissionId={submissionId}
-                                formRegisterId={submission?.register_id || currentRegister?.register_id}
-                                registerType={registerType}
-                            />
+                <div className="mx-7.5">
+                    {loading ? (
+                        <div className="flex items-center justify-center py-20">
+                            <span className="text-neutral-first/50">{t('loading')}</span>
                         </div>
+                    ) : (
+                        <div className="w-full">
+                            {formContent}
+                        </div>
+                    )}
+                </div>
 
-                        {!isDraft && (
-                            <div className="w-full lg:w-[320px] space-y-6">
-                                <IntakeApprovalCard
-                                    awe_request_id={submission?.awe_request_id}
-                                    artifactContext={intakeApprovalArtifactContext}
-                                    isPending={
-                                        !isDraft && submission?.approval_status === 'PENDING'
-                                    }
-                                    onRefresh={refetchSubmission}
-                                />
-                            </div>
-                        )}
-                    </div>
-                )}
+                <FormActionModals />
+            </div>
+        );
+    }
+
+    return (
+        <TabsLayout breadcrumb={breadcrumb}>
+            {!submission && (loadingSubmission || loadingDocuments) ? (
+                <CRHeaderSkeleton />
+            ) : (
+                submission && (
+                    <SubmissionHeader
+                        submission={submission}
+                        documents={documents}
+                    />
+                )
+            )}
+
+            <div className="mt-7.5 flex flex-col gap-6 lg:flex-row lg:items-start">
+                <div className="min-w-0 flex-1">
+                    {loadingSections ? (
+                        <SectionSchemaSkeleton />
+                    ) : (
+                        submission && formContent
+                    )}
+                </div>
+
+                <div className="w-full min-w-0 shrink-0 lg:w-[320px]">
+                    {loadingSubmission || (!!submission?.awe_request_id && loadingTasks) ? (
+                        <ApprovalListSkeleton />
+                    ) : (
+                        <ApprovalList
+                            tasks={tasks}
+                            isPending={submission?.approval_status === 'PENDING'}
+                            onSubmitDecision={submitDecision}
+                            intakeForm
+                        />
+                    )}
+                </div>
             </div>
 
             <FormActionModals />
-        </div>
+        </TabsLayout>
     );
 }

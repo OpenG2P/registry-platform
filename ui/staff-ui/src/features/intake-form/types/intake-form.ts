@@ -60,6 +60,7 @@ export interface DisplayField {
 export interface IntakeFormSubmission {
     record_name: string | null;
     submission_id: string;
+    application_reference?: string | null;
     form_id: string;
     register_id: string;
     partner_id: string | null;

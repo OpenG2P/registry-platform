@@ -22,7 +22,6 @@ export type SectionStatus = 'Saved' | null;
 export interface AccordionFormsProps {
   formDetailsCard?: boolean;
   sections: IntakeFormSection[];
-  form_name?: string;
   form_description?: string;
   schemaData?: any;
   onAction?: (sectionChanges?: SectionChanges, type?: 'submit' | 'save', section?: IntakeFormSection) => Promise<boolean>;
@@ -37,7 +36,6 @@ export default function MultiSectionAccordionForms({
 
   formDetailsCard = false,
   sections,
-  form_name,
   form_description,
   schemaData = {},
   onAction,
@@ -83,15 +81,10 @@ export default function MultiSectionAccordionForms({
     [sections]
   );
 
-  const intakeFormHeading = useMemo(
-    () => (form_name ? (t.has(form_name) ? t(form_name) : form_name) : undefined),
-    [form_name, t]
-  );
   const intakeFormDescription = useMemo(
     () => (form_description ? (t.has(form_description) ? t(form_description) : form_description) : undefined),
     [form_description, t]
   );
-
 
   const handleSectionSave = useCallback(
     
@@ -146,21 +139,6 @@ export default function MultiSectionAccordionForms({
 
       {activeTab === "intake_forms" && (
         <div>
-          {(intakeFormHeading || intakeFormDescription) && (
-            <div className="pt-6 border-t-2 border-neutral-second mb-4">
-              {intakeFormHeading && (
-                <h3 className="text-[24px] font-medium leading-[100%] text-neutral-first mb-4">
-                  {intakeFormHeading}
-                </h3>
-              )}
-              {intakeFormDescription && (
-                <div className="text-secondary-third text-[16px] font-normal leading-[100%] flex flex-col gap-4 whitespace-pre-wrap pr-10">
-                  {intakeFormDescription}
-                </div>
-              )}
-            </div>
-          )}
-
           <div className={`flex items-start ${formDetailsCard ? '-mr-7.5' : 'gap-4'}`}>
             <div className={`flex-1 min-w-0 ${formDetailsCard ? 'pr-4' : ''}`}>
               <IntakeFormSections
