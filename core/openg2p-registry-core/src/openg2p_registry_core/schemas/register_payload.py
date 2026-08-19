@@ -541,8 +541,13 @@ class VersionDatesData(BaseModel):
 
 
 class VersionForDateData(BaseModel):
-    """Individual change record for a specific date"""
-    change_request_id: str
+    """Individual change record for a specific date.
+
+    Staff edits expose ``change_request_id``. Intake ingest exposes
+    ``submission_id``. Version history loads the snapshot from whichever is set.
+    """
+    change_request_id: Optional[str] = None
+    submission_id: Optional[str] = None
     created_at: str
     request_id: Optional[str] = None
 
@@ -555,6 +560,7 @@ class VersionsForDateData(BaseModel):
     truncated_created_date: str
     section_id: str
     section_mnemonic: str
+    section_register_id: Optional[str] = None
     changes: List[VersionForDateData] = []
 
 

@@ -32,9 +32,27 @@ function withDocumentsMap(
 }
 
 /**
- * Intake submissions can return multiple sectionpayloads for the same section_register_id.
+ * Intake submissions can return multiple section payloads for the same section_register_id.
  * List sections append records; non-list sections merge field objects.
  */
+/** Prefer the register section_id; crops still use the intake section_id or child register. */
+export function pickSubmissionSectionPayload(
+    payloads: SectionPayload[] | undefined | null,
+    registerSectionId: string,
+    sectionRegisterId?: string | null,
+): SectionPayload | undefined {
+    if (!payloads?.length || !registerSectionId) return undefined;
+    return (
+        payloads.find((payload) => payload.section_id === registerSectionId) ||
+        payloads.find((payload) => payload.section_id === sectionRegisterId) ||
+        payloads.find(
+            (payload) =>
+                !!sectionRegisterId && payload.section_register_id === sectionRegisterId,
+        ) ||
+        undefined
+    );
+}
+
 export function buildIntakeSectionsDataMap(
     sections: SectionPayload[] | undefined | null,
 ): SectionDataMap {
