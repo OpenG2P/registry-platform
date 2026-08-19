@@ -35,16 +35,30 @@ const getRowId = (row: RowRecord): string | null => {
   return typeof id === 'string' && id.length > 0 ? id : null;
 };
 
-const pickChangedFields = (baseline: RowRecord, current: RowRecord): RowRecord => {
+const sectionFieldKeys = (baseline: RowRecord, current: RowRecord): string[] => {
   const keys = new Set([...Object.keys(baseline), ...Object.keys(current)]);
+  return [...keys].filter((key) => !IDENTITY_AND_META_KEYS.has(key));
+};
+
+const pickChangedFields = (baseline: RowRecord, current: RowRecord): RowRecord => {
   const changed: RowRecord = {};
-  for (const key of keys) {
-    if (IDENTITY_AND_META_KEYS.has(key)) continue;
+  for (const key of sectionFieldKeys(baseline, current)) {
     if (!valuesEqual(baseline[key], current[key])) {
       changed[key] = current[key];
     }
   }
   return changed;
+};
+
+/** All section fields (changed or not). Identity / meta keys stay out of the CR payload. */
+const pickAllSectionFields = (baseline: RowRecord, current: RowRecord): RowRecord => {
+  const fields: RowRecord = {};
+  for (const key of sectionFieldKeys(baseline, current)) {
+    fields[key] = Object.prototype.hasOwnProperty.call(current, key)
+      ? current[key]
+      : baseline[key];
+  }
+  return fields;
 };
 
 const toRowList = (records: unknown[]): RowRecord[] =>
@@ -55,7 +69,7 @@ const diffFormRecord = (baselineRecords: unknown[], currentRecords: unknown[]): 
   const current = toRowList(currentRecords)[0] ?? {};
   const changedFields = pickChangedFields(baseline, current);
   if (Object.keys(changedFields).length === 0) return [];
-  return [{ ...changedFields, edit_action: 'UPDATE' }];
+  return [{ ...pickAllSectionFields(baseline, current), edit_action: 'UPDATE' }];
 };
 
 const diffTableRows = (baselineRecords: unknown[], currentRecords: unknown[]): unknown[] => {

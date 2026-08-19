@@ -76,7 +76,7 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
 
             if (changeId && internalRecordId) {
                 items.push({
-                    label: changeId,
+                    label: recordName?.trim() || "",
                     href: `/register/${registerType}/${internalRecordId}/change-request/${changeId}${activeTabId ? `?tab=${activeTabId}` : ''}`,
                 });
             }

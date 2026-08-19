@@ -30,56 +30,56 @@ export default function ChangeRequestCard({
     const { documents } =
         useChangeRequestDocuments(changeRequest.change_request_id);
 
+    const displayValue = (value?: string | null) => {
+        const trimmed = value?.trim();
+        if (!trimmed) return '—';
+        return t.has(trimmed) ? t(trimmed) : trimmed;
+    };
+
     return (
         <div
             key={index}
             className="rounded-[10px] bg-neutral-second px-10 py-5"
         >
-            <div className="mb-4 flex items-start justify-between gap-6">
-                <h3
-                    className="min-w-0 flex-1 text-[20px] font-semibold leading-snug tracking-tight text-neutral-first line-clamp-2 md:text-[22px]"
-                    title={changeRequest.record_name?.trim() || undefined}
-                >
-                    {changeRequest.record_name?.trim() || '—'}
-                </h3>
-                <h3
-                    className="min-w-0 flex-1 text-right text-[20px] font-semibold leading-snug tracking-tight text-neutral-first line-clamp-2 md:text-[22px]"
-                    title={t(changeRequest.section_mnemonic?.trim() || '—')}
-                >
-                    {t(changeRequest.section_mnemonic?.trim() || '—')}
-                </h3>
-            </div>
+            <h3
+                className="mb-4 min-w-0 text-[20px] font-semibold leading-snug tracking-tight text-neutral-first line-clamp-2 md:text-[22px]"
+                title={changeRequest.record_name?.trim() || undefined}
+            >
+                {changeRequest.record_name?.trim() || '—'}
+            </h3>
 
             <div className="grid grid-cols-4 items-stretch gap-6 text-[16px] text-neutral-first/50">
                 <div className="flex h-full min-h-0 flex-col">
                     <div className="flex flex-1 flex-col space-y-2">
-                        <KeyValue label={t('change_request_id')} value={changeRequest.change_request_id} />
                         <KeyValue
-                            label={t('change_date')}
-                            value={new Date(changeRequest.created_at).toLocaleDateString()}
+                            label={t('register')}
+                            value={displayValue(changeRequest.register_mnemonic)}
                         />
-                        <KeyValue label={t('register')} value={changeRequest.register_mnemonic?.trim() || '—'} />
+                        <KeyValue
+                            label={t.has('tab') ? t('tab') : 'Tab'}
+                            value={displayValue(changeRequest.tab_label)}
+                        />
+                        <KeyValue
+                            label={t('section')}
+                            value={displayValue(changeRequest.section_mnemonic)}
+                        />
                     </div>
                 </div>
 
                 <div className="flex h-full min-h-0 flex-col">
                     <div className="flex flex-1 flex-col space-y-2 border-l-2 border-secondary-second pl-6">
                         <KeyValue
-                            label={t('documents_attached')}
-                            value={documents.length.toString()}
+                            label={t('created_by')}
+                            value={changeRequest.created_by?.trim() || '—'}
                         />
-                        <div className="invisible" aria-hidden>
-                            <KeyValue
-                                label={t('verifications_required')}
-                                value="—"
-                            />
-                        </div>
-                        <div className="invisible" aria-hidden>
-                            <KeyValue
-                                label={t('verifications_done')}
-                                value="—"
-                            />
-                        </div>
+                        <KeyValue
+                            label={t('created_at')}
+                            value={new Date(changeRequest.created_at).toLocaleDateString()}
+                        />
+                        <KeyValue
+                            label={t('source')}
+                            value={changeRequest.source_partner_id?.trim() || '—'}
+                        />
                     </div>
                 </div>
 

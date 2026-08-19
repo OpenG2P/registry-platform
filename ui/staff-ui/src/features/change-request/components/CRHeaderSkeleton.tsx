@@ -1,17 +1,13 @@
 const ChangeRequestHeaderSkeleton = () => {
     return (
-        <div className="rounded-[10px] bg-primary-first/20 px-10 py-5 flex flex-col border border-dashed border-primary-second animate-pulse">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="flex flex-col rounded-[10px] border border-dashed border-primary-second bg-primary-first/20 px-4 py-4 animate-pulse sm:px-6 md:px-10 md:py-5">
+            <div className="mb-2 h-8 w-40 rounded bg-neutral-first/30 sm:w-60" />
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
                 <InfoSectionSkeleton />
-                <VerificationStatsSkeleton />
+                <ColumnSkeleton />
+                <ColumnSkeleton />
                 <AttachedDocumentsSkeleton />
-            </div>
-
-            <div className="my-4 border-t-2 border-primary-first" />
-
-            <div className="flex items-center gap-4">
-                <div className="h-9 w-35 bg-secondary-first rounded-[10px]" />
-                <div className="h-9 w-35 bg-neutral-first/20 rounded-[10px]" />
             </div>
         </div>
     );
@@ -23,8 +19,6 @@ export default ChangeRequestHeaderSkeleton
 const InfoSectionSkeleton = () => {
     return (
         <div className="space-y-2 text-[16px]">
-            <div className="h-6 w-45 bg-neutral-first/30 rounded" />
-
             {Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex gap-2">
                     <div className="h-4.5 w-30 bg-neutral-first/20 rounded" />
@@ -36,11 +30,9 @@ const InfoSectionSkeleton = () => {
 };
 
 
-const VerificationStatsSkeleton = () => {
+const ColumnSkeleton = () => {
     return (
         <div className="space-y-2 text-[16px]">
-            <div className="h-6 w-30 bg-transparent" />
-
             <div className="border-l-2 border-primary-first pl-6 space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
                     <div key={i} className="flex gap-2">
