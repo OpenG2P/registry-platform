@@ -121,6 +121,61 @@ def staff_client(cfg, staff_user):
         client.close()
 
 
+@pytest.fixture(scope="session")
+def agent_client(cfg):
+    """Unauthenticated client against the Agent Portal API.
+
+    Used by the smoke tests: liveness, the API description, and — importantly —
+    that the issuance routes REJECT an unauthenticated caller.
+    """
+    if not cfg.can_reach_agent:
+        pytest.skip("SANITY_AGENT_BASE_URL not set — Agent Portal API not deployed")
+    with httpx.Client(base_url=cfg.agent_base_url, verify=cfg.verify_tls, timeout=30) as c:
+        yield c
+
+
+@pytest.fixture(scope="session")
+def agent_token(cfg):
+    """An agent's access token, from the `agent` realm.
+
+    Deliberately NOT the staff token: agents are a separate realm and a separate
+    client, and an e2e that authenticated as staff would prove nothing about the
+    agent path.
+    """
+    if not cfg.run_e2e:
+        pytest.skip("SANITY_RUN_E2E not enabled")
+    if not cfg.can_login_agent:
+        pytest.skip(
+            "agent login not configured (SANITY_AGENT_BASE_URL / _TOKEN_URL / _PASSWORD)"
+        )
+    data = {
+        "grant_type": "password",
+        "client_id": cfg.agent_client_id,
+        "username": cfg.agent_username,
+        "password": cfg.agent_password,
+    }
+    if cfg.agent_client_secret:
+        data["client_secret"] = cfg.agent_client_secret
+    try:
+        r = httpx.post(cfg.agent_token_url, data=data, verify=cfg.verify_tls, timeout=30)
+        r.raise_for_status()
+        return r.json()["access_token"]
+    except Exception as exc:  # noqa: BLE001
+        pytest.fail(f"could not obtain an agent token: {exc}", pytrace=False)
+
+
+@pytest.fixture(scope="session")
+def agent_authed_client(cfg, agent_token):
+    """Agent Portal API as a logged-in agent."""
+    with httpx.Client(
+        base_url=cfg.agent_base_url,
+        verify=cfg.verify_tls,
+        timeout=60,
+        headers={"Authorization": f"Bearer {agent_token}"},
+    ) as c:
+        yield c
+
+
 import logging as _logging
 
 from sanity.steplog import note as _note

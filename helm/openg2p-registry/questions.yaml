@@ -94,6 +94,15 @@ questions:
   label: Beneficiary Portal API
   group: General
 
+- variable: agentPortalApi.enabled
+  description: >-
+    Install the Agent Portal API — verifiable credential issuance at an agent
+    counter. Agents are a distinct audience from staff (their own Keycloak
+    realm), so this is separate from the Staff Portal. Off by default.
+  type: boolean
+  label: Agent Portal API
+  group: General
+
 - variable: idgenerator.enabled
   description: Install ID Generator service
   type: boolean
@@ -148,6 +157,13 @@ questions:
   type: string
   label: Beneficiary Portal API Image Tag
   group: Images
+
+- variable: agentPortalApi.image.tag
+  description: Docker image tag for Agent Portal API
+  type: string
+  label: Agent Portal API Image Tag
+  group: Images
+  show_if: "agentPortalApi.enabled=true"
 
 - variable: celeryBeat.image.repository
   description: Docker image repository for Celery Beat Producer
@@ -387,3 +403,84 @@ questions:
   type: boolean
   label: CSRF Enabled
   group: Security
+
+# ---------------------------------------------------------------------------
+# VC Issuance — the capability inside the Agent Portal API.
+#
+# Beyond these, turning issuance on needs things this form cannot supply:
+# the manifestation's VC view + vcDefinitions, the Keycloak `agent` realm, and
+# an eSignet provider row for registrant authentication. Edit YAML for those.
+# ---------------------------------------------------------------------------
+- variable: agentPortalUi.enabled
+  description: >-
+    Install the Agent Portal UI — the reference web client agents use to issue
+    credentials. Needs the Agent Portal API.
+  type: boolean
+  label: Agent Portal UI
+  group: VC Issuance
+  show_if: "agentPortalApi.enabled=true"
+
+- variable: agentPortalApi.vcIssuance.enabled
+  description: >-
+    Issue verifiable credentials from the Agent Portal. A credential is only
+    issued after the beneficiary authenticates themselves via eSignet.
+  type: boolean
+  label: Enable VC Issuance
+  group: VC Issuance
+  show_if: "agentPortalApi.enabled=true"
+
+- variable: agentPortalApi.vcIssuance.registerId
+  description: >-
+    The register whose records may be issued credentials (Phase 1 issues to an
+    individual). Required when VC issuance is enabled.
+  type: string
+  label: Register ID
+  group: VC Issuance
+  show_if: "agentPortalApi.vcIssuance.enabled=true"
+
+- variable: agentPortalApi.vcIssuance.authWindowSeconds
+  description: >-
+    How long the beneficiary's completed eSignet authentication may authorise an
+    issuance, in seconds. Kept short — the beneficiary is at the counter.
+  type: int
+  default: 300
+  label: Authentication Window (seconds)
+  group: VC Issuance
+  show_if: "agentPortalApi.vcIssuance.enabled=true"
+
+- variable: agentPortalApi.vcIssuance.authProviderId
+  description: >-
+    Registrant-authentication provider to use (an eSignet provider). Leave empty
+    to use the first active provider configured on the register.
+  type: string
+  label: eSignet Provider ID
+  group: VC Issuance
+  show_if: "agentPortalApi.vcIssuance.enabled=true"
+
+- variable: global.certifyBaseUrl
+  description: >-
+    In-cluster base URL of Inji Certify, the credential issuer. One shared
+    Certify per environment, installed with the commons layer.
+  type: string
+  default: http://commons-services-inji-certify/v1/certify
+  label: Inji Certify Base URL
+  group: VC Issuance
+  show_if: "agentPortalApi.vcIssuance.enabled=true"
+
+- variable: global.agentKeycloakRealm
+  description: >-
+    Keycloak realm agents authenticate against. Distinct from the staff realm —
+    a staff token grants nothing on the Agent Portal API.
+  type: string
+  default: agent
+  label: Agent Keycloak Realm
+  group: VC Issuance
+  show_if: "agentPortalApi.enabled=true"
+
+- variable: agentPortalApi.pdf.issuerName
+  description: Issuing authority name printed on the credential.
+  type: string
+  default: OpenG2P
+  label: PDF Issuer Name
+  group: VC Issuance
+  show_if: "agentPortalApi.vcIssuance.enabled=true"

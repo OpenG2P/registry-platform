@@ -1,0 +1,5 @@
+# Dependencies and build output. The image builds both from source
+# (npm ci + vite build), so neither belongs in the repo.
+/node_modules
+/dist
+*.tsbuildinfo

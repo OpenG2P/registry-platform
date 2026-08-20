@@ -282,6 +282,25 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.authReadyTimeout | quote }}
 - name: SANITY_AUDIT_TIMEOUT
   value: {{ .Values.sanity.auditTimeout | quote }}
+{{- if .Values.agentPortalApi.enabled }}
+# Agent Portal API (VC issuance). Emitted only when the component is deployed, so
+# an install without it is byte-for-byte what it was before the capability
+# existed. Absent env => the VC tests skip with a reason rather than failing.
+- name: SANITY_AGENT_BASE_URL
+  value: {{ if .Values.agentPortalApi.enabled }}"http://{{ .Release.Name }}-agent-portal-api"{{ else }}""{{ end }}
+- name: SANITY_AGENT_TOKEN_URL
+  value: {{ if .Values.agentPortalApi.enabled }}"{{ tpl .Values.global.keycloakBaseUrl $ }}/realms/{{ tpl .Values.global.agentKeycloakRealm $ }}/protocol/openid-connect/token"{{ else }}""{{ end }}
+- name: SANITY_AGENT_CLIENT_ID
+  value: {{ include "common.tplvalues.render" (dict "value" .Values.global.agentKeycloakClientId "context" $) | quote }}
+- name: SANITY_AGENT_REALM
+  value: {{ include "common.tplvalues.render" (dict "value" .Values.global.agentKeycloakRealm "context" $) | quote }}
+- name: SANITY_AGENT_USERNAME
+  value: {{ .Values.sanity.agentUsername | quote }}
+- name: SANITY_AGENT_PASSWORD
+  value: {{ .Values.sanity.agentPassword | quote }}
+- name: SANITY_VC_NATIONAL_ID
+  value: {{ .Values.sanity.vcNationalId | quote }}
+{{- end }}
 # Registry staff-portal-api — the change-request e2e logs in as REAL demo users
 # via the password grant. The registry's Keycloak client is a browser OIDC
 # client with no service account, and the users keycloak-init provisions
@@ -414,4 +433,68 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
       name: {{ tpl .Values.global.consentManagerAuthClientId $ | quote }}
       key: client_secret
       optional: true
+{{- end -}}
+
+{{/*
+Agent Portal API helpers (VC issuance). Mirrors the other audiences; agents are
+a distinct audience with their own realm, so they get their own component.
+*/}}
+{{- define "agentPortalApi.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+{{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
+{{- end -}}
+
+{{- define "agentPortalApi.imagePullSecrets" -}}
+{{- include "common.images.pullSecrets" (dict "images" (list .Values.image .Values.postgresCheckerInit.image) "global" .Values.global) -}}
+{{- end -}}
+
+{{- define "agentPortalApi.baseEnvVars" -}}
+{{- $context := .context -}}
+{{- range $k, $v := .envVars }}
+- name: {{ $k }}
+{{- if or (kindIs "int64" $v) (kindIs "float64" $v) (kindIs "bool" $v) }}
+  value: {{ $v | quote }}
+{{- else if kindIs "string" $v }}
+  value: {{ include "common.tplvalues.render" ( dict "value" $v "context" $context ) | squote }}
+{{- else }}
+  valueFrom: {{- include "common.tplvalues.render" ( dict "value" $v "context" $context ) | nindent 4}}
+{{- end }}
+{{- end }}
+{{- end -}}
+
+{{- define "agentPortalApi.envVars" -}}
+{{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "agentPortalApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
+{{- end -}}
+
+{{/*
+Agent Portal UI helpers. The SPA is static; its only "config" is /config.json,
+overwritten at deploy time by a ConfigMap so one image serves every environment.
+*/}}
+{{- define "agentPortalUi.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create -}}
+{{ default (include "common.names.fullname" .) .Values.serviceAccount.name }}
+{{- else -}}
+{{ default "default" .Values.serviceAccount.name }}
+{{- end -}}
+{{- end -}}
+
+{{- define "agentPortalUi.imagePullSecrets" -}}
+{{- include "common.images.pullSecrets" (dict "images" (list .Values.image) "global" .Values.global) -}}
+{{- end -}}
+
+{{- define "agentPortalUi.envVars" -}}
+{{- range $k, $v := .Values.envVars }}
+- name: {{ $k }}
+{{- if or (kindIs "int64" $v) (kindIs "float64" $v) (kindIs "bool" $v) }}
+  value: {{ $v | quote }}
+{{- else if kindIs "string" $v }}
+  value: {{ include "common.tplvalues.render" ( dict "value" $v "context" $ ) | squote }}
+{{- else }}
+  valueFrom: {{- include "common.tplvalues.render" ( dict "value" $v "context" $ ) | nindent 4}}
+{{- end }}
+{{- end }}
 {{- end -}}

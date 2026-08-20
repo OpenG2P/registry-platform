@@ -102,6 +102,7 @@ from .models import (
     DeduplicationIntakeFormIntakeFormResult,
     G2PRegistrantAuthenticationProvider,
     G2PRegistrantAuthentication,
+    G2PVcIssuance,
     G2PRegistryDataPolicy,
 )
 from .services import (
@@ -311,5 +312,10 @@ class Initializer(BaseInitializer):
             # Registrant Authentication Models
             await G2PRegistrantAuthenticationProvider.create_migrate()
             await G2PRegistrantAuthentication.create_migrate()
+            # VC issuance event log. Additive and unconditional: the table is
+            # created whether or not VC issuance is switched on, and stays empty
+            # and unreferenced when it is off. Conditional schema would be far
+            # worse to maintain than an unused table.
+            await G2PVcIssuance.create_migrate()
 
         asyncio.run(migrate())

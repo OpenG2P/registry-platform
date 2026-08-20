@@ -108,3 +108,5 @@ from .g2p_register_score_history import G2PRegisterScoreHistory
 from .g2p_registrant_authentication_provider import G2PRegistrantAuthenticationProvider
 from .g2p_registrant_authentication import G2PRegistrantAuthentication, AuthenticationStatusEnum
 from .g2p_register_authentication import G2PRegisterAuthentication
+
+from .g2p_vc_issuance import G2PVcIssuance, VcIssuanceStatusEnum

@@ -118,6 +118,23 @@ class Config:
     # request) while the registry's permission path warms up after install.
     auth_ready_timeout: int = 120
 
+    # ── Agent Portal API (VC issuance) ───────────────────────────────────────
+    # Agents are their OWN Keycloak realm, so none of the staff_* settings above
+    # apply here. Everything is optional: when unset, the VC tests skip rather
+    # than fail, so this suite still runs green on an install that has not
+    # enabled the capability.
+    agent_base_url: str = ""
+    agent_token_url: str = ""
+    agent_client_id: str = "registry-agent-portal"
+    agent_client_secret: str = ""
+    agent_username: str = "sanity-agent"
+    agent_password: str = ""
+    agent_realm: str = "agent"
+    # The national (foundational) ID the VC e2e issues against. Seeded by the
+    # suite so the test does not depend on demo data being loaded.
+    vc_national_id: str = "TEST_SANITY_VC_0001"
+    vc_type: str = ""
+
     # ── Databases (see sanity/db.py for why each is needed) ──────────────────
     registry_dsn: Optional[dict] = None
     awe_dsn: Optional[dict] = None
@@ -178,6 +195,15 @@ class Config:
             awe_settle_timeout=int(os.environ.get("SANITY_AWE_SETTLE_TIMEOUT", "90")),
             max_approval_rounds=int(os.environ.get("SANITY_MAX_APPROVAL_ROUNDS", "5")),
             auth_ready_timeout=int(os.environ.get("SANITY_AUTH_READY_TIMEOUT", "120")),
+            agent_base_url=(os.environ.get("SANITY_AGENT_BASE_URL") or "").rstrip("/"),
+            agent_token_url=os.environ.get("SANITY_AGENT_TOKEN_URL", ""),
+            agent_client_id=os.environ.get("SANITY_AGENT_CLIENT_ID") or "registry-agent-portal",
+            agent_client_secret=os.environ.get("SANITY_AGENT_CLIENT_SECRET", ""),
+            agent_username=os.environ.get("SANITY_AGENT_USERNAME") or "sanity-agent",
+            agent_password=os.environ.get("SANITY_AGENT_PASSWORD", ""),
+            agent_realm=os.environ.get("SANITY_AGENT_REALM") or "agent",
+            vc_national_id=os.environ.get("SANITY_VC_NATIONAL_ID") or "TEST_SANITY_VC_0001",
+            vc_type=os.environ.get("SANITY_VC_TYPE", ""),
             registry_dsn=_dsn(
                 os.environ.get("SANITY_REGISTRY_PGHOST"), os.environ.get("SANITY_REGISTRY_PGPORT"),
                 os.environ.get("SANITY_REGISTRY_PGDATABASE"), os.environ.get("SANITY_REGISTRY_PGUSER"),
@@ -217,6 +243,16 @@ class Config:
     @property
     def can_reach_cm(self) -> bool:
         return bool(self.cm_staff_url)
+
+    @property
+    def can_reach_agent(self) -> bool:
+        """Smoke-testable: the Agent Portal API is deployed and addressable."""
+        return bool(self.agent_base_url)
+
+    @property
+    def can_login_agent(self) -> bool:
+        """e2e-testable: we can obtain an agent token as well."""
+        return bool(self.agent_base_url and self.agent_token_url and self.agent_password)
 
     @property
     def can_reach_staff(self) -> bool:

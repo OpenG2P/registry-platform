@@ -1,0 +1,27 @@
+{{- if .Values.agentPortalUi.enabled }}
+{{- /*
+  /config.json for the agent SPA. The image ships a dev placeholder; this
+  ConfigMap replaces it at deploy time (subPath mount), which is what lets ONE
+  image serve every environment — no rebuild to change realm or client id.
+
+  Note the realm: agents authenticate in their OWN realm, never the staff one.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-agent-ui-config
+  labels:
+    app.kubernetes.io/name: agent-portal-ui
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+data:
+  config.json: |
+    {
+      "keycloak": {
+        "url": {{ tpl .Values.global.keycloakBaseUrl $ | quote }},
+        "realm": {{ tpl .Values.global.agentKeycloakRealm $ | quote }},
+        "clientId": {{ tpl .Values.global.agentKeycloakUiClientId $ | quote }}
+      },
+      "apiBaseUrl": ""
+    }
+{{- end }}

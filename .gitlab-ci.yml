@@ -72,6 +72,22 @@ variables:
         ]
       },
       {
+        "name": "agent-portal-api",
+        "dockerfile": "docker/agent-portal-api/Dockerfile",
+        "pins": [
+          {
+            "arg": "FASTAPI_COMMON_REF",
+            "repo": "https://github.com/openg2p/openg2p-fastapi-common",
+            "ref": "develop"
+          },
+          {
+            "arg": "IAM_CORE_REF",
+            "repo": "https://github.com/openg2p/iam-service",
+            "ref": "develop"
+          }
+        ]
+      },
+      {
         "name": "celery",
         "dockerfile": "docker/celery/Dockerfile",
         "pins": [
@@ -106,9 +122,14 @@ variables:
         "name": "staff-ui",
         "dockerfile": "ui/staff-ui/Dockerfile",
         "context": "ui/staff-ui"
+      },
+      {
+        "name": "agent-ui",
+        "dockerfile": "ui/agent-ui/Dockerfile",
+        "context": "ui/agent-ui"
       }
     ]
 
   CHART_PATH: helm/openg2p-registry
-  CHART_IMAGE_PATHS: '[".staffApi.image.tag",".partnerApi.image.tag",".beneApi.image.tag",".celeryWorker.image.tag",".celeryBeat.image.tag",".dbSeed.image.tag",".staffUi.image.tag",".sanity.image.tag"]'
+  CHART_IMAGE_PATHS: '[".staffApi.image.tag",".partnerApi.image.tag",".beneApi.image.tag",".agentPortalApi.image.tag",".celeryWorker.image.tag",".celeryBeat.image.tag",".dbSeed.image.tag",".staffUi.image.tag",".agentPortalUi.image.tag",".sanity.image.tag"]'
   CHART_GITLAB_PROJECT: openg2p/charts

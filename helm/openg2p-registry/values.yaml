@@ -59,6 +59,26 @@ global:
   keycloakRealm: 'staff'
   keycloakIssuerUrl: '{{ tpl .Values.global.keycloakBaseUrl $ }}/realms/{{ tpl .Values.global.keycloakRealm $ }}'
 
+  # ── Agents (VC issuance) ────────────────────────────────────────────────
+  # Agents are NOT staff. They live in their own realm with their own client,
+  # so a staff token carries no rights on the Agent Portal API and vice versa.
+  # Only read when agentPortalApi.enabled is true.
+  agentKeycloakRealm: 'agent'
+  agentKeycloakClientId: 'registry-agent-portal'
+  # Public browser client for the agent SPA (standard flow), distinct from the
+  # confidential service client above.
+  agentKeycloakUiClientId: 'registry-agent-portal-ui'
+  agentKeycloakIssuerUrl: '{{ tpl .Values.global.keycloakBaseUrl $ }}/realms/{{ tpl .Values.global.agentKeycloakRealm $ }}'
+  # The IAM agent-portal API (from the iam-service chart) that agents log in
+  # against; used to resolve permissions.
+  agentAuthProviderApiUrl: ''
+
+  # ── Inji Certify (the credential issuer) ────────────────────────────────
+  # One shared Certify per environment, installed with the commons layer. It is
+  # reached in-cluster only. Empty audience falls back to the base URL.
+  certifyBaseUrl: 'http://commons-services-inji-certify/v1/certify'
+  certifyAudience: 'http://commons-services-inji-certify/v1/certify'
+
   registryKeymanagerAuthEnabled: false
   # Per-release keymanager app id (uppercased Release.Name) so signature
   # scopes don't collide across registry instances in the same environment.
@@ -717,6 +737,213 @@ beneApi:
     limits:
       memory: 1280Mi
 
+# ==========================================================================
+# Agent Portal API — verifiable credential issuance at an agent counter.
+#
+# OFF BY DEFAULT, twice over:
+#   agentPortalApi.enabled            — deploy the service at all
+#   agentPortalApi.vcIssuance.enabled — mount the issuance routes inside it
+# With both false the chart renders exactly what it did before this component
+# existed, so an existing registry can take this chart version with no change
+# in behaviour.
+#
+# Agents are a DISTINCT audience from staff: their own Keycloak realm
+# (`agent`), their own portal, their own permission. A staff token grants
+# nothing here.
+#
+# Turning it on additionally needs, from the MANIFESTATION (NSR, Farmer
+# Registry, …) because the claim fields differ per registry:
+#   * a read-only VC view keyed on internal_record_id (see vcDefinitions[].view)
+#   * its vcDefinitions entries
+#   * the SVG card design (svgConfigMap)
+# and, from the environment: the `agent` realm, and an eSignet provider row for
+# registrant authentication.
+# ==========================================================================
+agentPortalApi:
+  enabled: false
+  nameOverride: agent-portal-api
+  hostname: 'agent-{{ tpl .Values.global.registryHostname $ }}'
+  replicaCount: 1
+
+  # The capability switch inside the service. Kept separate from `enabled` so a
+  # deployment can run the agent portal without credential issuance.
+  vcIssuance:
+    enabled: false
+    # How long a completed beneficiary authentication may authorise an issuance,
+    # measured from its completion. Deliberately short: the beneficiary is
+    # standing at the counter. This is VC policy and is independent of the
+    # (much longer) validity the authentication record carries for other users
+    # of the same subsystem.
+    authWindowSeconds: 300
+    # Register whose records may be issued credentials. Phase 1 issues to an
+    # individual; set this to that register's id.
+    registerId: ""
+    # Registrant-authentication provider to use (adapter_name = esignet). Empty
+    # means "the first active provider on the register".
+    authProviderId: ""
+
+  # One entry per issuable credential type. The base platform ships NONE: the
+  # fields differ per registry, so the concrete list belongs to the
+  # manifestation's chart. Shape:
+  #
+  #   - config_id: OpenG2PBeneficiaryCredential      # Certify credential_config id
+  #     credential_types: ["VerifiableCredential", "OpenG2PBeneficiaryCredential"]
+  #     view: beneficiary_vc_view                    # keyed on internal_record_id
+  #     claim_columns: ["functionalRecordId", "fullName", "dateOfBirth"]
+  #     svg_template: beneficiary-card.svg
+  #     display_name: "Beneficiary Credential"
+  vcDefinitions: []
+
+  # ConfigMap holding the SVG card designs, mounted at /app/pdf-templates. The
+  # manifestation builds it from real .svg files kept in its own repo, so a
+  # designer can change the card without touching code or this chart.
+  svgConfigMap: ""
+
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  updateStrategy:
+    type: RollingUpdate
+  serviceAccount:
+    create: false
+    name: ""
+  image:
+    repository: registry.gitlab.com/openg2p/registry/registry-platform/agent-portal-api
+    tag: "1.0"
+    pullPolicy: Always
+  podSecurityContext:
+    enabled: false
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: false
+    runAsUser: 1001
+    runAsNonRoot: true
+
+  openapiRootPath: /
+
+  service:
+    type: ClusterIP
+    port: 80
+    externalTrafficPolicy: Cluster
+
+  istio:
+    enabled: true
+    virtualservice:
+      enabled: true
+      host: ""
+      gateway: "internal"
+      destination: '{{ .Release.Name }}-agent-portal-api'
+      destinationPort: '{{ .Values.agentPortalApi.service.port }}'
+      prefix: '{{ .Values.openapiRootPath }}/'
+      rewriteUri: "/"
+    gateway:
+      enabled: false
+      host: ""
+      ingressController:
+        istio: ingressgateway
+      httpTlsRedirect: false
+      httpEnabled: true
+      httpsEnabled: false
+      tls:
+        mode: SIMPLE
+        credentialName: ""
+
+  envVars:
+    REGISTRY_AGENT_PORTAL_API_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
+    REGISTRY_AGENT_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
+    REGISTRY_AGENT_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
+    REGISTRY_AGENT_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+
+    REGISTRY_AGENT_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
+
+    # Feature switch, read by the service at startup.
+    REGISTRY_AGENT_PORTAL_API_VC_ISSUANCE_ENABLED: '{{ .Values.vcIssuance.enabled }}'
+    REGISTRY_AGENT_PORTAL_API_VC_AUTH_WINDOW_SECONDS: '{{ .Values.vcIssuance.authWindowSeconds }}'
+    REGISTRY_AGENT_PORTAL_API_VC_REGISTER_ID: '{{ .Values.vcIssuance.registerId }}'
+    REGISTRY_AGENT_PORTAL_API_VC_AUTH_PROVIDER_ID: '{{ .Values.vcIssuance.authProviderId }}'
+    REGISTRY_AGENT_PORTAL_API_VC_DEFINITIONS: '{{ .Values.vcDefinitions | toJson }}'
+
+    # Inji Certify, reached in-cluster. Certify is never exposed publicly for
+    # issuance; this service is its only client.
+    REGISTRY_AGENT_PORTAL_API_CERTIFY_BASE_URL: '{{ .Values.global.certifyBaseUrl }}'
+    REGISTRY_AGENT_PORTAL_API_CERTIFY_AUDIENCE: '{{ .Values.global.certifyAudience }}'
+
+    REGISTRY_AGENT_PORTAL_API_SVG_TEMPLATE_DIR: /app/pdf-templates
+    REGISTRY_AGENT_PORTAL_API_PDF_TITLE: '{{ .Values.pdf.title }}'
+    REGISTRY_AGENT_PORTAL_API_PDF_ISSUER_NAME: '{{ .Values.pdf.issuerName }}'
+
+    # IAM — the `agent` realm client this API validates tokens against.
+    REGISTRY_AGENT_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ .Values.global.agentKeycloakClientId }}'
+    REGISTRY_AGENT_PORTAL_API_AUTH_PROVIDER_API_URL: '{{ .Values.global.agentAuthProviderApiUrl }}'
+  envVarsFrom:
+    REGISTRY_AGENT_PORTAL_API_DB_PASSWORD:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.registryDBSecret $ }}'
+        key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
+
+  pdf:
+    title: "Beneficiary Credential"
+    issuerName: "OpenG2P"
+
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /ping
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /ping
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /ping
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+
+  postgresCheckerInit:
+    enabled: true
+    image:
+      repository: jbergknoff/postgresql-client
+      tag: latest
+      pullPolicy: IfNotPresent
+    command:
+    - 'sh'
+    args:
+    - '-c'
+    - 'until pg_isready -U ${REGISTRY_AGENT_PORTAL_API_DB_USERNAME} -h ${REGISTRY_AGENT_PORTAL_API_DB_HOSTNAME} -p ${REGISTRY_AGENT_PORTAL_API_DB_PORT:-5432} -d ${REGISTRY_AGENT_PORTAL_API_DB_DBNAME:-registrydb}; do sleep 3; done'
+    containerSecurityContext:
+      enabled: false
+
+  containerPort: 8000
+
+  # Same FastAPI profile as the Beneficiary Portal API (3 workers). Rendering a
+  # PDF is short-lived and CPU-bound; no cpu limit (see staffApi).
+  resources:
+    requests:
+      cpu: 50m
+      memory: 640Mi
+    limits:
+      memory: 1280Mi
+
 staffApi:
   enabled: true
   nameOverride: staff-portal-api
@@ -975,6 +1202,156 @@ staffUi:
       host: '{{ tpl .Values.global.registryHostname $ }}'
       gateway: "internal"
       destination: '{{ .Release.Name }}-staff-portal-ui'
+      destinationPort: '{{ .Values.service.port }}'
+      prefix: '/'
+      rewriteUri: "/"
+    gateway:
+      enabled: false
+      host: '{{ tpl .Values.global.registryHostname $ }}'
+      ingressController:
+        istio: ingressgateway
+      httpTlsRedirect: false
+      httpEnabled: true
+      httpsEnabled: false
+      tls:
+        mode: SIMPLE
+        credentialName: ""
+
+  # Configuration parameters
+  partnerIngestUrl: 'https://partner-{{ tpl .Values.global.registryHostname $ }}/partner/ingest_data?data_model=dcivc'
+  vpPresentationId: "7f3c2a91-bb84-4d1f-9a6e-41c8e5a0d9f2"
+  vpPurpose: "Digital identity verification for registry onboarding"
+  # Browser-facing IAM URL (Staff Portal UI login providers)
+  iamPublicUrl: 'https://staff-iam.{{ .Release.Namespace }}.openg2p.org'
+
+  envVars:
+    # Per-release identifiers so two registry installs in the same namespace
+    # don't share UI/audit identity. APPLICATION_MNEMONIC must equal the
+    # Keycloak clientId verbatim (global.authClientId).
+    APP_MNEMONIC: '{{ .Release.Name }}-ui'
+    APP_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
+    APPLICATION_MNEMONIC: '{{ tpl .Values.global.authClientId $ }}'
+    # Allow profile/document images from MinIO pre-signed URLs in the browser CSP.
+    CSP_SRC_IMG: 'self blob: data: https://{{ tpl .Values.global.minioHost $ }}'
+    # Server-side calls from the Next.js Staff Portal UI pod to the Staff
+    # Portal API stay inside the cluster — sibling K8s Service is named
+    # "<release>-staff-portal-api" on port 80. Browser-side calls from the
+    # client should use a separate NEXT_PUBLIC_* var pointing to the public
+    # https://staff-<host> hostname (add when needed).
+    BACKEND_API_URL: 'http://{{ .Release.Name }}-staff-portal-api'
+    COOKIE_DOMAIN: '.{{ .Release.Namespace }}.openg2p.org'
+    IAM_URL: '{{ tpl .Values.iamPublicUrl $ }}'
+    KEYCLOAK_LOGOUT_URL: '{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/logout'
+    LOGIN_PROVIDER_ID: '1'
+    MASTERDATA_BACKEND_API_URL: '{{ .Values.global.masterDataApiUrl }}'
+    NODE_ENV: production
+    PAGE_SIZE: '10'
+    PARTNER_IMPORT_EXPORT_ENABLE: 'true'
+    PARTNER_INGEST_URL: '{{ tpl .Values.partnerIngestUrl $ }}'
+    REDIRECT_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
+    VERIFY_SERVICE_URL: 'https://{{ tpl .Values.global.registryHostname $ }}/v1/verify'
+    VP_CLIENT_ID: 'did:web:{{ tpl .Values.global.registryHostname $ }}:v1:verify'
+    VP_PRESENTATION_ID: '{{ .Values.vpPresentationId }}'
+    VP_PURPOSE: '{{ .Values.vpPurpose }}'
+
+  envVarsFrom: {}
+
+  startupProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30
+    successThreshold: 1
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+    successThreshold: 1
+
+# ==========================================================================
+# Agent Portal UI — the reference web client for VC issuance.
+#
+# A thin SPA over the Agent Portal API: find the beneficiary, have them
+# authenticate at eSignet, download the printable credential. Off by default,
+# like the API it talks to.
+#
+# One image serves every environment: /config.json is replaced at deploy time
+# by the ConfigMap in templates/agent-ui/config-configmap.yaml.
+# ==========================================================================
+
+agentPortalUi:
+  enabled: false
+  nameOverride: agent-portal-ui
+  hostname: 'agent-{{ tpl .Values.global.registryHostname $ }}'
+  replicaCount: 1
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  updateStrategy:
+    type: RollingUpdate
+  serviceAccount:
+    create: false
+    name: ""
+  image:
+    repository: registry.gitlab.com/openg2p/registry/registry-platform/agent-ui
+    tag: "1.0.0"
+    pullPolicy: Always
+  podSecurityContext:
+    enabled: false
+    fsGroup: 1001
+  containerSecurityContext:
+    enabled: false
+    runAsUser: 1001
+    runAsNonRoot: true
+
+  service:
+    type: ClusterIP
+    port: 80
+    externalTrafficPolicy: Cluster
+
+  containerPort: 3000
+
+  # Staff Portal UI is a Next.js SSR app. Node's V8 heap can balloon on cold
+  # start (JIT warmup), large page pre-render, or concurrent SSR. Sizing
+  # mirrored from NSR (~67Mi idle measured there): request 192Mi covers the
+  # baseline with headroom; 768Mi limit is a generous cap matching typical
+  # Next.js production sizing (no cpu limit — see staffApi rationale).
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 768Mi
+
+  istio:
+    enabled: true
+    virtualservice:
+      enabled: true
+      host: '{{ tpl .Values.global.registryHostname $ }}'
+      gateway: "internal"
+      destination: '{{ .Release.Name }}-agent-portal-ui'
       destinationPort: '{{ .Values.service.port }}'
       prefix: '/'
       rewriteUri: "/"
@@ -1527,6 +1904,15 @@ sanity:
   # Variant-neutral: this is the PLATFORM's fixture, and every variant inherits
   # it. They were named for the farmer registry, which is where they were first
   # written, not because anything farmer-specific reads them.
+  # ── Agent Portal / VC issuance ──────────────────────────────────────────
+  # The VC tests skip unless the Agent Portal is enabled AND an agent password
+  # is supplied: the agent realm is provisioned outside this chart, so the suite
+  # cannot create its own identity there the way it does for staff.
+  agentUsername: sanity-agent
+  agentPassword: ""
+  # National (foundational) ID the VC e2e issues against.
+  vcNationalId: TEST_SANITY_VC_0001
+
   cmAudience: OPENG2P_SANITY_PARTNER
   controllerId: openg2p-sanity-controller
   # DCI envelope sender id — PARTNER_<UPPER> must equal the PM partner reference
