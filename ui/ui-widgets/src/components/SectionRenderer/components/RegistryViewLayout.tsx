@@ -6,7 +6,6 @@ import { rightArrowIcon } from '../../../assets';
 import { useWidgetContext } from '../../WidgetProvider';
 import { tSchema } from '../../../utils/tSchema';
 import { PanelGrid } from './PanelGrid';
-import { CRViewFooter } from './CRViewFooter';
 
 export interface RegistryViewLayoutProps {
   mode: SectionMode;
@@ -18,12 +17,6 @@ export interface RegistryViewLayoutProps {
   onValueChange?: UseBaseWidgetOptions['onValueChange'];
   changeRequestType?: 'new' | 'old';
   showChangeRequestLabel?: boolean;
-  crViewData: {
-    createdBy?: unknown;
-    createdDate?: unknown;
-    approvedBy?: unknown;
-    approvedDate?: unknown;
-  } | null;
   effectiveHideEditButton: boolean;
   isEditMode: boolean;
   onEdit: () => void;
@@ -39,7 +32,6 @@ export const RegistryViewLayout = ({
   onValueChange,
   changeRequestType,
   showChangeRequestLabel = true,
-  crViewData,
   effectiveHideEditButton,
   isEditMode,
   onEdit,
@@ -95,7 +87,11 @@ export const RegistryViewLayout = ({
       <div
         id={gridId}
         className="section-panels"
-        style={mode === 'RegistryView' && effectiveHideEditButton ? { paddingBottom: '30px' } : {}}
+        style={
+          mode === 'CRView' || (mode === 'RegistryView' && effectiveHideEditButton)
+            ? { paddingBottom: '30px' }
+            : {}
+        }
       >
         <PanelGrid
           panels={editableSection.panels}
@@ -104,14 +100,6 @@ export const RegistryViewLayout = ({
           onValueChange={onValueChange}
           wrapInContainer={false}
         />
-        {mode === 'CRView' && crViewData && (
-          <CRViewFooter
-            createdBy={crViewData.createdBy}
-            createdDate={crViewData.createdDate}
-            approvedBy={crViewData.approvedBy}
-            approvedDate={crViewData.approvedDate}
-          />
-        )}
         {mode === 'RegistryView' && !effectiveHideEditButton && (
           <hr
             className="w-full"
@@ -125,7 +113,10 @@ export const RegistryViewLayout = ({
           />
         )}
         {mode === 'RegistryView' && !isEditMode && !effectiveHideEditButton && (
-          <div className="flex justify-center items-center" style={{ marginBottom: '20px' }}>
+          <div
+            className="registry-edit-details flex justify-start items-center"
+            style={{ marginBottom: '20px' }}
+          >
             <button
               onClick={onEdit}
               className="font-normal inline-flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:opacity-80"

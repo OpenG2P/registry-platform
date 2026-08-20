@@ -32,14 +32,13 @@ export default function MyTasksList({ tasks }: Props) {
 
     return (
         <div className="space-y-4">
-            {tasks.map((task, index) => {
+            {tasks.map((task) => {
                 const href = getTaskDetailHref(task, registerMnemonicById);
 
                 return (
                     <TaskCard
                         key={task.id}
                         task={task}
-                        index={index}
                         href={href}
                         onNavigate={(path) => router.push(path)}
                     />

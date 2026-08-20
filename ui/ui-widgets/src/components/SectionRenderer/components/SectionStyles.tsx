@@ -94,6 +94,12 @@ export const SectionStyles = ({
       min-width: 0;
       position: relative;
     }
+    #${gridId} > hr,
+    #${gridId} > .registry-edit-details {
+      flex: 0 0 100%;
+      width: 100%;
+      max-width: 100%;
+    }
     @media (min-width: 640px) {
       #${gridId} > .panel-wrapper {
         flex: 1 1 calc(50% - 0.75rem);

@@ -7,7 +7,7 @@ import {
 } from '../types';
 import { shouldShowWidget, shouldEnableWidget, shouldRequireWidget } from './conditions';
 import { getValueByPath, getWidgetValue } from './pathUtils';
-import { validateWidget } from './validation';
+import { validateDocsWidget, validateWidget } from './validation';
 import { isTableLikeWidget } from './extractTableRecordsFromSnapshot';
 
 const isColumnRequired = (
@@ -168,12 +168,14 @@ export const sectionValidate = (
       widget['widget-required'] ?? false,
     );
 
-    const errors = validateWidget(
-      value,
-      widget['widget-data-validation'],
-      isRequired,
-      skipRequired,
-    );
+    const errors = widget.widget === 'docs'
+      ? validateDocsWidget(value, widget['documents'], skipRequired)
+      : validateWidget(
+          value,
+          widget['widget-data-validation'],
+          isRequired,
+          skipRequired,
+        );
 
     if (errors.length > 0) {
       isValid = false;

@@ -26,30 +26,28 @@ export function ChangeRequestValuesTabs({
     const { results: crResults, loading: crLoading } = useDeduplication(changeId, "change-request");
     const { results: regResults, loading: regLoading } = useDeduplication(changeId, "register");
 
+    const tabClass = (isActive: boolean) =>
+        `relative shrink-0 px-3 py-2 text-[14px] font-medium whitespace-nowrap rounded-t-[10px] text-neutral-first transition-all sm:px-6 sm:text-[16px] lg:px-8 lg:text-[18px] ${
+            isActive ? "bg-primary-first" : "bg-secondary-second"
+        }`;
+
     return (
-        <div className="mt-7.5">
-            <div className="ml-7.5">
+        <div className="min-w-0">
+            <div className="mb-0 flex flex-wrap items-end gap-2 sm:ml-7.5">
                 <button
                     onClick={() => setActiveTab("change_request_values")}
-                    className={`px-8 py-2 text-neutral-first text-[18px] font-medium rounded-t-[10px] transition-all ${activeTab === "change_request_values"
-                        ? 'bg-primary-first'
-                        : 'bg-secondary-second'
-                        }`}
+                    className={tabClass(activeTab === "change_request_values")}
                 >
                     {t("new_and_old_values")}
                 </button>
 
                 <button
                     onClick={() => setActiveTab("cr_possible_duplicates")}
-                    className={`relative ml-2 px-8 py-2 text-neutral-first text-[18px] font-medium rounded-t-[10px]
-                        ${activeTab === "cr_possible_duplicates"
-                            ? "bg-primary-first"
-                            : "bg-secondary-second"
-                        }`}
+                    className={tabClass(activeTab === "cr_possible_duplicates")}
                 >
                     {t("cr_possible_duplicates")}
                     {crResults.length > 0 && (
-                        <span className="absolute -top-3 right-3 bg-toast-failed text-neutral-second text-[12px] font-bold rounded-[10px] w-6 h-6 flex items-center justify-center shadow-sm">
+                        <span className="absolute -top-2 right-1 flex h-5 w-5 items-center justify-center rounded-[10px] bg-toast-failed text-[10px] font-bold text-neutral-second shadow-sm sm:-top-3 sm:right-3 sm:h-6 sm:w-6 sm:text-[12px]">
                             {String(crResults.length).padStart(2, "0")}
                         </span>
                     )}
@@ -57,15 +55,11 @@ export function ChangeRequestValuesTabs({
 
                 <button
                     onClick={() => setActiveTab("register_possible_duplicates")}
-                    className={`relative ml-2 px-8 py-2 text-neutral-first text-[18px] font-medium rounded-t-[10px]
-                        ${activeTab === "register_possible_duplicates"
-                            ? "bg-primary-first"
-                            : "bg-secondary-second"
-                        }`}
+                    className={tabClass(activeTab === "register_possible_duplicates")}
                 >
                     {t("register_possible_duplicates")}
                     {regResults.length > 0 && (
-                        <span className="absolute -top-3 right-3 bg-toast-failed text-neutral-second text-[12px] font-bold rounded-[10px] w-6 h-6 flex items-center justify-center shadow-sm">
+                        <span className="absolute -top-2 right-1 flex h-5 w-5 items-center justify-center rounded-[10px] bg-toast-failed text-[10px] font-bold text-neutral-second shadow-sm sm:-top-3 sm:right-3 sm:h-6 sm:w-6 sm:text-[12px]">
                             {String(regResults.length).padStart(2, "0")}
                         </span>
                     )}

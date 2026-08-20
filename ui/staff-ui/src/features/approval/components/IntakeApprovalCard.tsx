@@ -49,7 +49,7 @@ export default function IntakeApprovalCard({
                     <h4 className="text-[24px] font-semibold text-neutral-first">{t('approvals')}</h4>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4">
                     {tasks.length === 0 ? (
                         <div className="py-4 text-center text-neutral-first/50 text-sm">
                             {t('no_approval_tasks')}

@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { WidgetValidation } from '../types';
+import { DocsWidgetDocumentConfig, WidgetValidation } from '../types';
+import { isSerializedFile } from './fileSerialization';
 import { getValidationPattern } from './validationPatterns';
 
 export const isWidgetValueEmpty = (value: unknown): boolean => {
@@ -94,6 +95,43 @@ export const validateWidget = (
     }
   }
 
+  return errors;
+};
+
+const isDocsSlotFilled = (stored: unknown): boolean => {
+  if (stored == null || stored === '') {
+    return false;
+  }
+  if (typeof stored === 'string') {
+    return stored.trim().length > 0;
+  }
+  if (typeof File !== 'undefined' && stored instanceof File) {
+    return true;
+  }
+  return isSerializedFile(stored);
+};
+
+export const validateDocsWidget = (
+  value: unknown,
+  documents: DocsWidgetDocumentConfig[] | undefined,
+  skipRequired: boolean = false,
+): string[] => {
+  if (skipRequired || !documents?.length) {
+    return [];
+  }
+
+  const docsValue =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+
+  const errors: string[] = [];
+  for (const doc of documents) {
+    if (!doc['document-required']) continue;
+    if (!isDocsSlotFilled(docsValue[doc['document-key']])) {
+      errors.push('This document is required');
+    }
+  }
   return errors;
 };
 

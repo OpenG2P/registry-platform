@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { notFound } from 'next/navigation';
@@ -34,6 +34,7 @@ export const useRegisterRecords = () => {
 
     const registerType = routeParams.type;
     const searchQuery = searchParams.get('search') || "";
+    const sortBy = searchParams.get('sort') || null;
 
     const { currentRegister, loading: loadingRegister } = useRegister();
 
@@ -53,7 +54,7 @@ export const useRegisterRecords = () => {
             body: JSON.stringify({
                 current_page: currentPage,
                 page_size: pageSize,
-                sort_by: "",
+                ...(sortBy ? { sort_by: sortBy } : {}),
                 filter_by: filterBy,
                 search_text: searchQuery,
                 register_id: currentRegister?.register_id,
@@ -114,17 +115,30 @@ export const useRegisterRecords = () => {
         router.push(`${pathname}?${params.toString()}`);
     }, [searchParams, router, pathname]);
 
+    const handleSort = useCallback((nextSortBy: string | null) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (nextSortBy) {
+            params.set('sort', nextSortBy);
+        } else {
+            params.delete('sort');
+        }
+        params.set('page', '1');
+        router.push(`${pathname}?${params.toString()}`);
+    }, [searchParams, router, pathname]);
+
     return {
         registerType,
         registerTypeLabel,
         records,
         isLoadingRecords,
         searchQuery,
+        sortBy,
         pagination,
         handlers: {
             handlePreviousPage,
             handleNextPage,
             handleSearch,
+            handleSort,
         },
         filters: {
             appliedFilters,

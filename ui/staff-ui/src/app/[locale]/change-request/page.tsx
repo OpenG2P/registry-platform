@@ -1,24 +1,32 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 
-import { TopBar } from '@/components/shared';
-import { ChangeRequestList, ChangeRequestSkeleton } from '@/features/change-request/components';
+import { EntityListPage, StackedCardSkeleton } from '@/components/shared';
+import { ColumnDef } from '@/components/shared/entity-list/types';
+import { ChangeRequestCard } from '@/features/change-request/components';
 import { useChangeRequestSearch } from '@/features/change-request/hooks/useChangeRequestSearch';
 import { usePagination } from '@/shared/hooks';
 import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { ChangeRequest } from '@/features/change-request/types';
+
+const statusClassMap: Record<string, string> = {
+    REJECTED: 'text-toast-failed',
+    PENDING: 'text-amber-500',
+    APPROVED: 'text-toast-success',
+};
 
 export default function ChangeRequestPage() {
-    const locale = useLocale();
     const router = useRouter();
     const t = useTranslations();
     const { config } = useRuntimeConfig();
 
     const searchParams = useSearchParams();
-    const searchQuery = searchParams.get('search') || undefined;
+    const searchQuery = searchParams.get('search') || '';
+    const sortBy = searchParams.get('sort') || null;
     const pageSize = config.pageSize || 10;
 
     const {
@@ -30,7 +38,8 @@ export default function ChangeRequestPage() {
         onNext,
     } = useChangeRequestSearch({
         pageSize,
-        searchText: searchQuery,
+        searchText: searchQuery || undefined,
+        sortBy,
     });
 
     const { pageStart, pageEnd, total } = usePagination({
@@ -40,6 +49,23 @@ export default function ChangeRequestPage() {
         currentCount: changeRequests.length,
     });
 
+    const translateKey = (value?: string | null) => {
+        const trimmed = value?.trim();
+        if (!trimmed) return '—';
+        if (t.has(trimmed)) return t(trimmed);
+        const lower = trimmed.toLowerCase();
+        if (lower !== trimmed && t.has(lower)) return t(lower);
+        return trimmed;
+    };
+
+    const formatEnum = (value?: string | null) => {
+        const trimmed = value?.trim();
+        if (!trimmed) return '—';
+        if (t.has(trimmed)) return t(trimmed);
+        const lower = trimmed.toLowerCase();
+        if (lower !== trimmed && t.has(lower)) return t(lower);
+        return trimmed.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    };
 
     const handleSearch = useCallback((searchValue: string) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -49,46 +75,113 @@ export default function ChangeRequestPage() {
             params.delete('search');
         }
         router.push(`/change-request?${params.toString()}`);
-    }, [searchParams]);
+    }, [searchParams, router]);
+
+    const handleSort = useCallback((nextSortBy: string | null) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (nextSortBy) {
+            params.set('sort', nextSortBy);
+        } else {
+            params.delete('sort');
+        }
+        router.push(`/change-request?${params.toString()}`);
+    }, [searchParams, router]);
+
+    const columns: ColumnDef<ChangeRequest>[] = [
+        {
+            key: 'record_name',
+            header: t.has('record_name') ? t('record_name') : 'Record Name',
+            getValue: (cr) => cr.record_name ?? '',
+            render: (cr) => (
+                <span className="font-medium text-[15px]">{cr.record_name?.trim() || '—'}</span>
+            ),
+        },
+        {
+            key: 'register_mnemonic',
+            header: t.has('register') ? t('register') : 'Register',
+            getValue: (cr) => translateKey(cr.register_mnemonic),
+        },
+        {
+            key: 'tab_label',
+            header: t.has('tab') ? t('tab') : 'Tab',
+            getValue: (cr) => translateKey(cr.tab_label),
+        },
+        {
+            key: 'section_mnemonic',
+            header: t.has('section') ? t('section') : 'Section',
+            getValue: (cr) => translateKey(cr.section_mnemonic),
+        },
+        {
+            key: 'created_by',
+            header: t.has('created_by') ? t('created_by') : 'Created by',
+            getValue: (cr) => cr.created_by,
+        },
+        {
+            key: 'created_at',
+            header: t.has('created_at') ? t('created_at') : 'Created at',
+            getValue: (cr) => cr.created_at,
+            render: (cr) => new Date(cr.created_at).toLocaleDateString(),
+        },
+        {
+            key: 'approval_status',
+            header: t.has('approval_status') ? t('approval_status') : 'Status',
+            getValue: (cr) => cr.approval_status,
+            render: (cr) => (
+                <span className={`font-medium ${statusClassMap[cr.approval_status] ?? ''}`}>
+                    {formatEnum(cr.approval_status)}
+                </span>
+            ),
+        },
+    ];
+
+    const skeleton = (
+        <>
+            {[...Array(3)].map((_, i) => (
+                <StackedCardSkeleton key={i} />
+            ))}
+        </>
+    );
 
     return (
-        <div className="min-h-screen mx-auto bg-secondary-first">
-            <TopBar
-                breadcrumb={[{ label: t("change_request") }]}
-                showSearch
-                searchValue={searchQuery || ''}
-                searchPlaceholder={t('search')}
-                onSearch={handleSearch}
-                pxClass='px-0.5'
-                showFilters={false}
-                showPagination
-                pageStart={pageStart}
-                pageEnd={pageEnd}
-                total={total}
-                onPrev={onPrev}
-                onNext={onNext}
-            />
-
-            <div className="px-7.5">
-                {loading ? (
-                    <div className="space-y-4">
-                        {[...Array(3)].map((_, i) => (
-                            <ChangeRequestSkeleton key={i} />
-                        ))}
-                    </div>
-                ) : changeRequests.length === 0 ? (
-                    <div className="text-sm text-secondary-third text-center py-6">
-                        {t('no_change_requests_found')}
-                    </div>
-                ) : (
-                    <ChangeRequestList
-                        changeRequests={changeRequests}
-                        getDetailsUrl={changeRequest =>
-                            `/${locale}/change-request/${changeRequest.change_request_id}`
-                        }
-                    />
-                )}
-            </div>
-        </div>
+        <EntityListPage<ChangeRequest>
+            breadcrumb={[{ label: t('change_request') }]}
+            showPagination
+            pageStart={pageStart}
+            pageEnd={pageEnd}
+            total={total}
+            onPrev={onPrev}
+            onNext={onNext}
+            defaultView="card"
+            viewStorageKey="changeRequestView"
+            showSearch
+            searchValue={searchQuery}
+            searchPlaceholder={t('search')}
+            onSearch={handleSearch}
+            showFilters={false}
+            items={changeRequests}
+            loading={loading}
+            skeleton={skeleton}
+            emptyMessage={
+                <div className="text-sm text-neutral-first/50 text-center py-6">
+                    {t('no_change_requests_found')}
+                </div>
+            }
+            renderCard={(cr) => (
+                <ChangeRequestCard
+                    key={cr.change_request_id}
+                    changeRequest={cr}
+                    onViewDetails={() =>
+                        router.push(`/change-request/${cr.change_request_id}`)
+                    }
+                />
+            )}
+            cardLayout="stacked"
+            columns={columns}
+            sortBy={sortBy}
+            onSortChange={handleSort}
+            onRowClick={(cr) =>
+                router.push(`/change-request/${cr.change_request_id}`)
+            }
+        />
     );
 }

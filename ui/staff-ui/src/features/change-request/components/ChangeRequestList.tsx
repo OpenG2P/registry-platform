@@ -14,11 +14,10 @@ export default function ChangeLogList({ changeRequests, getDetailsUrl }: Props) 
 
     return (
         <div className="space-y-4">
-            {changeRequests.map((changeRequest, index) => (
+            {changeRequests.map((changeRequest) => (
                 <ChangeRequestCard
                     key={changeRequest.change_request_id}
                     changeRequest={changeRequest}
-                    index={index}
                     onViewDetails={() => router.push(getDetailsUrl(changeRequest))}
                 />
             ))}

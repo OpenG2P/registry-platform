@@ -18,6 +18,7 @@ import {
 import { setValue, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 import { validateWidget } from '../utils/validation';
+import { isAllowedKey } from '../utils/numberInput';
 
 type ResolveSchemaLabelFn = (value: string | undefined | null) => string;
 
@@ -238,20 +239,64 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
   const placeholder = config['widget-data-placeholder'] || '';
   const formatConfig = config['widget-data-format'];
   const validationConfig = config['widget-data-validation'];
+  const min = validationConfig?.min;
+  const max = validationConfig?.max;
+  const allowSigned = min !== undefined ? min < 0 : formatConfig?.allowSigned !== false;
+  const formatForKeys = { ...formatConfig, allowSigned };
 
-  const displayValue = value !== null && value !== undefined ? String(value) : '';
+  const committedDisplay = value !== null && value !== undefined ? String(value) : '';
+  const [draft, setDraft] = useState<string | null>(null);
+  const displayValue = draft !== null ? draft : committedDisplay;
+
+  const isWithinBounds = (numValue: number) => {
+    if (min !== undefined && numValue < min) {
+      return false;
+    }
+    if (max !== undefined && numValue > max) {
+      return false;
+    }
+    return true;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     if (inputValue === '') {
+      setDraft(null);
       onValueChange('');
       return;
     }
+    if (inputValue === '-' && allowSigned) {
+      setDraft('-');
+      return;
+    }
     const numValue = parseFloat(inputValue);
-    if (!isNaN(numValue)) {
+    if (isNaN(numValue)) {
+      return;
+    }
+    if (!isWithinBounds(numValue)) {
+      if (min !== undefined && numValue < min && numValue >= 0) {
+        setDraft(inputValue);
+      }
+      return;
+    }
+    setDraft(null);
+    onValueChange(numValue);
+  };
+
+  const handleBlur = () => {
+    if (draft === null) {
+      return;
+    }
+    const numValue = parseFloat(draft);
+    setDraft(null);
+    if (!isNaN(numValue) && isWithinBounds(numValue)) {
       onValueChange(numValue);
-    } else {
-      onValueChange(inputValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isAllowedKey(e.key, formatForKeys, e.currentTarget.value, e)) {
+      e.preventDefault();
     }
   };
 
@@ -261,10 +306,12 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
         type="number"
         value={displayValue}
         onChange={handleChange}
+        onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         disabled={isReadonly}
         placeholder={placeholder}
-        min={validationConfig?.min}
-        max={validationConfig?.max}
+        min={min}
+        max={max}
         step={formatConfig?.decimalPlaces ? Math.pow(0.1, formatConfig.decimalPlaces) : undefined}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none text-right ${
           isReadonly ? 'cursor-not-allowed' : ''

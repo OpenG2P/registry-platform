@@ -1,7 +1,7 @@
 'use client';
 
-import { Link } from '@/i18n/navigation';
-import { KeyValue } from '@/components/ui/KeyValue';
+import { useRouter } from '@/i18n/navigation';
+import { StackedCard } from '@/components/shared';
 import { IntakeFormSubmission } from '../types/intake-form';
 import { useTranslations } from 'next-intl';
 
@@ -10,78 +10,85 @@ interface IntakeFormSubmissionCardProps {
     registerType: string;
 }
 
+const statusClassMap: Record<string, string> = {
+    REJECTED: 'text-toast-failed',
+    PENDING: 'text-amber-500',
+    APPROVED: 'text-toast-success',
+};
+
 export function IntakeFormSubmissionCard({ submission, registerType }: IntakeFormSubmissionCardProps) {
     const t = useTranslations();
+    const router = useRouter();
+
+    const translateKey = (value?: string | null) => {
+        const trimmed = value?.trim();
+        if (!trimmed) return '—';
+        if (t.has(trimmed)) return t(trimmed);
+        const lower = trimmed.toLowerCase();
+        if (lower !== trimmed && t.has(lower)) return t(lower);
+        return trimmed;
+    };
+
+    const formatDate = (value?: string | null) => {
+        if (!value) return '—';
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+    };
+
+    const formatDateTime = (value?: string | null) => {
+        if (!value) return '—';
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+    };
+
+    const displayFields = [...(submission.display_fields ?? [])]
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .slice(0, 4);
 
     return (
-        <Link
-            href={`/intake-form/${registerType}/submission/${submission.submission_id}`}
-            className="group block w-full"
-        >
-            <div className="rounded-[10px] bg-neutral-second px-10 py-8 shadow-sm transition-shadow duration-200 group-hover:shadow-md">
-                <h3
-                    className="text-[20px] font-semibold leading-snug tracking-tight text-primary-second line-clamp-2 md:text-[22px] mb-4"
-                    title={submission.record_name ?? undefined}
-                >
-                    {submission.record_name ?? '—'}
-                </h3>
-                <div className="grid grid-cols-4 items-stretch gap-6 text-[14px] text-neutral-first/50">
-                    <div className="flex h-full min-h-0 flex-col">
-                        <div className="flex flex-1 flex-col space-y-1">
-                            <KeyValue label={t('submission_id')} value={submission.submission_id} />
-                            <KeyValue label={t('form_id')} value={submission.form_id} />
-                            <KeyValue label={t('draft_status')} value={submission.draft_status} />
-                            <KeyValue label={t('approval_status')} value={submission.approval_status} />
-                        </div>
-                    </div>
-
-
-                    <div className="space-y-4">
-                        <div className="space-y-1 border-l-2 border-secondary-second pl-6">
-                            {/* <KeyValue
-                                label={t('no_of_verifications_required') || "No of Verifications Required"}
-                                value={String(submission.number_of_verifications_required)}
-                            />
-                            <KeyValue
-                                label={t('no_of_verifications_done') || "No of Verifications Done"}
-                                value={String(submission.number_of_verifications_done)}
-                            /> */}
-                            <KeyValue
-                                label={t('created_by') || "Created By"}
-                                value={submission.created_by}
-                            />
-                            <KeyValue
-                                label={t('register_ingest_process_status')}
-                                value={submission.register_ingest_process_status || '--'}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex h-full min-h-0 flex-col">
-                        <div className="flex flex-1 flex-col space-y-1 border-l-2 border-secondary-second pl-6">
-                            {submission.display_fields?.slice(0, Math.ceil((submission.display_fields?.length || 0) / 2)).map((field) => (
-                                <KeyValue
-                                    key={field.field_name}
-                                    label={t.has(field.field_name) ? t(field.field_name) : field.field_name}
-                                    value={field.value ? (t.has(field.value) ? t(field.value) : field.value) : ''}
-                                />
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="flex h-full min-h-0 flex-col">
-                        <div className="flex flex-1 flex-col space-y-1 border-l-2 border-secondary-second pl-6">
-                            {submission.display_fields?.slice(Math.ceil((submission.display_fields?.length || 0) / 2)).map((field) => (
-                                <KeyValue
-                                    key={field.field_name}
-                                    label={t.has(field.field_name) ? t(field.field_name) : field.field_name}
-                                    value={field.value ? (t.has(field.value) ? t(field.value) : field.value) : ''}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </Link>
+        <StackedCard
+            title={submission.application_reference ?? ''}
+            onViewDetails={() =>
+                router.push(`/intake-form/${registerType}/submission/${submission.submission_id}`)
+            }
+            columns={[
+                {
+                    fields: [
+                        { label: t('record_name'), value: translateKey(submission.record_name) },
+                        { label: t('source'), value: translateKey(submission.submission_source) },
+                        { label: t('form_status'), value: translateKey(submission.draft_status) },
+                    ],
+                },
+                {
+                    fields: [
+                        { label: t('created_by'), value: translateKey(submission.created_by) },
+                        { label: t('created_at'), value: formatDate(submission.first_created_at) },
+                        { label: t('updated_at'), value: formatDateTime(submission.last_updated_at) },
+                        { label: t('finalised_at'), value: formatDateTime(submission.finalized_at) },
+                    ],
+                },
+                {
+                    fields: [
+                        {
+                            label: t('approval_status'),
+                            value: translateKey(submission.approval_status),
+                            valueClassName:
+                                statusClassMap[submission.approval_status] ?? 'text-neutral-first/50',
+                        },
+                        { label: t('approved_by'), value: translateKey(submission.approved_by) },
+                        { label: t('approved_at'), value: formatDateTime(submission.approved_at) },
+                    ],
+                },
+                {
+                    fields: displayFields.map((field) => {
+                        const rawValue = field.value == null ? '' : String(field.value);
+                        return {
+                            label: t.has(field.field_name) ? t(field.field_name) : field.field_name,
+                            value: translateKey(rawValue),
+                        };
+                    }),
+                },
+            ]}
+        />
     );
 }

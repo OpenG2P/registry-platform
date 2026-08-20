@@ -4,7 +4,7 @@ import { BaseWidgetConfig, DataSourceRequestHandler } from '../types';
 import { WidgetRootState } from '../store';
 import { setValue, setValues, setError, setTouched, setLoading, setDataSource } from '../store/widgetSlice';
 import { getWidgetValue, setWidgetValue } from '../utils/pathUtils';
-import { validateWidget } from '../utils/validation';
+import { validateDocsWidget, validateWidget } from '../utils/validation';
 import { shouldShowWidget, shouldEnableWidget, evaluateWidgetConditions, hasVisibilityRules } from '../utils/conditions';
 import { formatValue } from '../utils/formatting';
 import {
@@ -45,6 +45,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   );
 
   const isLayoutWidget = config['widget-type'] === 'layout';
+  const isDocsWidget = config.widget === 'docs';
 
   const userHasSetValueRef = useRef(false);
 
@@ -85,6 +86,20 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       return undefined; // Layout widgets don't have values
     }
 
+    if (isDocsWidget) {
+      let docsValue = values[widgetId];
+      if (docsValue === undefined && config['widget-data-path']) {
+        docsValue = getWidgetValue(values, config['widget-data-path'], widgetId);
+      }
+      if (userHasSetValueRef.current) {
+        return docsValue;
+      }
+      if (docsValue === null) {
+        return null;
+      }
+      return docsValue !== undefined ? docsValue : config['widget-data-default'];
+    }
+
     let value = values[widgetId];
 
     if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
@@ -119,7 +134,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     }
 
     return value !== undefined ? value : config['widget-data-default'];
-  }, [values, config, widgetId, isLayoutWidget, extractValueFromObject]);
+  }, [values, config, widgetId, isLayoutWidget, isDocsWidget, extractValueFromObject]);
 
   const lastMirroredValueRef = useRef<any>(null);
 
@@ -127,7 +142,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   // This is essential for widgets that depend on this widget via 'dependsOn' using its widgetId,
   // CRITICAL: This ensures that dependencies are resolved correctly when entering Edit mode.
   useEffect(() => {
-    if (isLayoutWidget || !config['widget-data-path']) {
+    if (isLayoutWidget || isDocsWidget || !config['widget-data-path']) {
       return;
     }
 
@@ -231,11 +246,13 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       }
 
       if (validate) {
-        const validationErrors = validateWidget(
-          newValue,
-          config['widget-data-validation'],
-          resolveIsRequired(currentValues)
-        );
+        const validationErrors = isDocsWidget
+          ? validateDocsWidget(newValue, config['documents'])
+          : validateWidget(
+              newValue,
+              config['widget-data-validation'],
+              resolveIsRequired(currentValues)
+            );
         dispatch(setError({ widgetId, errors: validationErrors }));
       }
 
@@ -252,16 +269,22 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         });
       }
     },
-    [config, widgetId, dispatch, onValueChange, eventBus, resolveIsRequired] // Removed 'values' to prevent stale closures
+    [config, widgetId, dispatch, onValueChange, eventBus, resolveIsRequired, isDocsWidget]
   );
 
   const handleBlur = useCallback(() => {
     dispatch(setTouched({ widgetId, touched: true }));
-    const validationErrors = validateWidget(
-      currentValue,
-      config['widget-data-validation'],
-      resolveIsRequired(valuesRef.current)
-    );
+    const latestValues = valuesRef.current;
+    const valueToValidate = isDocsWidget
+      ? latestValues[widgetId] ?? getWidgetValue(latestValues, config['widget-data-path'], widgetId)
+      : currentValue;
+    const validationErrors = isDocsWidget
+      ? validateDocsWidget(valueToValidate, config['documents'])
+      : validateWidget(
+          valueToValidate,
+          config['widget-data-validation'],
+          resolveIsRequired(latestValues)
+        );
     dispatch(setError({ widgetId, errors: validationErrors }));
 
     if (eventBus) {
@@ -272,7 +295,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         timestamp: Date.now(),
       });
     }
-  }, [currentValue, config, widgetId, dispatch, eventBus, resolveIsRequired]);
+  }, [currentValue, config, widgetId, dispatch, eventBus, resolveIsRequired, isDocsWidget]);
 
   const getFieldValue = useCallback(
     (path: string) => {

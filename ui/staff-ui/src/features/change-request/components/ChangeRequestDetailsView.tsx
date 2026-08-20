@@ -117,21 +117,30 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
         [details?.current_register_data, isListSection, sectionRegisterId]
     );
 
-    return (
-        <TabsLayout breadcrumb={breadcrumb}>
-            <div className="flex gap-7.5">
-                <div className="w-full lg:w-[75%]">
-                    {!details && (loadingDetails || loadingDocuments) ? (
-                        <CRHeaderSkeleton />
-                    ) : (
-                        details && (
-                            <ChangeRequestHeader
-                                details={details}
-                                documents={documents}
-                            />
-                        )
-                    )}
+    const resolvedBreadcrumb = useMemo(() => {
+        if (!breadcrumb.length) return breadcrumb;
+        const recordName = details?.record_name?.trim() || "";
+        return [
+            ...breadcrumb.slice(0, -1),
+            { ...breadcrumb[breadcrumb.length - 1], label: recordName },
+        ];
+    }, [breadcrumb, details?.record_name]);
 
+    return (
+        <TabsLayout breadcrumb={resolvedBreadcrumb}>
+            {!details && (loadingDetails || loadingDocuments) ? (
+                <CRHeaderSkeleton />
+            ) : (
+                details && (
+                    <ChangeRequestHeader
+                        details={details}
+                        documents={documents}
+                    />
+                )
+            )}
+
+            <div className="mt-7.5 flex flex-col gap-6 lg:flex-row lg:items-start">
+                <div className="min-w-0 flex-1">
                     {loadingSchema ? (
                         <SectionSchemaSkeleton />
                     ) : (
@@ -153,7 +162,7 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
                     )}
                 </div>
 
-                <div className="w-full lg:w-[25%]">
+                <div className="w-full min-w-0 shrink-0 lg:w-[320px]">
                     {loadingDetails ||
                     loadingSequenceCheck ||
                     (!!details?.awe_request_id && loadingTasks) ? (

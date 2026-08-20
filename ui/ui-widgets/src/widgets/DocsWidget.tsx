@@ -1,10 +1,7 @@
 import React, { useRef } from 'react';
-import { useSelector } from 'react-redux';
 import { tSchema } from '../utils/tSchema';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
-import { WidgetRootState } from '../store';
-import { getValueByPath } from '../utils/pathUtils';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { openFileInNewTab } from '../utils/filePreview';
@@ -58,6 +55,9 @@ const docControlClass =
 
 export const DocsWidget = ({ config }: DocsWidgetProps) => {
   const {
+    value,
+    error,
+    touched,
     isEnabled,
     onChange,
     onBlur,
@@ -70,15 +70,9 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
   const totalDocs: number = widgetConfig['widget-total-docs'] || documents.length;
   const docColumns = distributeDocsToColumns(documents, totalDocs);
   const isReadonly = Boolean(widgetConfig['widget-readonly']);
-  const widgetId = widgetConfig['widget-id'];
-  const dataPath = widgetConfig['widget-data-path'];
-  
-  const allValues = useSelector((state: WidgetRootState) => state.widget.values);
-  const rawValue =
-    typeof dataPath === 'string' ? getValueByPath(allValues, dataPath) : allValues[widgetId];
   const currentValue: DocsValue =
-    rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)
-      ? (rawValue as DocsValue)
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as DocsValue)
       : {};
 
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -104,7 +98,6 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
         [`${docKey}_source_filename`]: file.name,
       };
       onChange(updated);
-      onBlur();
     } catch (err) {
       console.error('Error serializing file:', err);
     }
@@ -159,6 +152,8 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
     const file = getDocValue(docKey);
     const hasFile = !!file;
     const displayFileName = getSourceFilename(docKey, file);
+    const isEmptyRequired = isRequired && !hasFile;
+    const showValidationError = touched && error.length > 0 && isEmptyRequired;
 
     if (isReadonly) {
       return (
@@ -201,20 +196,22 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
 
     return (
       <div key={docKey} className="mb-[10px]">
-        <div className="flex flex-row items-center w-full">
+        <div className="flex flex-row items-start w-full">
           <WidgetFieldLabel
             className="w-1/2 min-w-0 pr-2 text-base font-medium text-gray-700"
             label={tSchema(t, label)}
             required={isRequired}
           />
-          <div className="w-1/2 min-w-0 flex items-center min-h-[1.5rem]">
+          <div className="w-1/2 min-w-0 flex flex-col justify-center min-h-[1.5rem]">
             {!hasFile && (
               <label
                 className={`${docControlClass} cursor-pointer justify-center gap-2 border border-dashed ${
                   !isEnabled ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
                 style={{
-                  borderColor: 'var(--owt-color-primary-dark, #F07B1A)',
+                  borderColor: isEmptyRequired
+                    ? 'var(--owt-widget-error-color, #B91C1C)'
+                    : 'var(--owt-color-primary-dark, #F07B1A)',
                   backgroundColor: 'var(--owt-color-background, #FFFFFF)',
                 }}
               >
@@ -271,6 +268,9 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
                   />
                 </button>
               </div>
+            )}
+            {showValidationError && (
+              <p className="text-red-500 text-sm mt-1">{error[0]}</p>
             )}
           </div>
         </div>

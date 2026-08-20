@@ -5,15 +5,15 @@ import { useFetch } from "@/shared/hooks/useFetch";
 import { useTranslations } from 'next-intl';
 import Image from "next/image";
 
-interface StatsCardSmallProps {
+interface StatsCardProps {
     stats_endpoint: string;
     active?: boolean;
 }
 
-const StatsCardSmall = ({
+const StatsCard = ({
     stats_endpoint,
     active = false,
-}: StatsCardSmallProps) => {
+}: StatsCardProps) => {
     const t = useTranslations();
     const { data, loading, error } = useFetch<any>({
         url: stats_endpoint,
@@ -56,7 +56,7 @@ const StatsCardSmall = ({
 
         if (stats_endpoint.includes("intake")) {
             return {
-                title: t('intake_forms'),
+                title: t('form_submissions'),
                 rows: [
                     {
                         id: "pendingSubmissions",
@@ -106,7 +106,7 @@ const StatsCardSmall = ({
                     },
                     {
                         id: "intake_form",
-                        label: t('intake_submissions'),
+                        label: t('form_submissions'),
                         value: data.intake_form_count,
                         imageUrl: "/images/register/statsIcon/topics.png",
                     },
@@ -199,4 +199,4 @@ const StatsCardSmall = ({
     );
 };
 
-export default StatsCardSmall;
+export default StatsCard;

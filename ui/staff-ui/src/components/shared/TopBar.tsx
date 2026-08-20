@@ -46,6 +46,9 @@ interface TopBarProps {
     appliedFilters?: FilterRule[];
     filterConfig?: FilterConfig[];
     filterLoading?: boolean;
+
+    /** Rendered after the PaginationBar — use for the MoreMenu kebab */
+    endActions?: React.ReactNode;
 }
 
 export default function TopBar({
@@ -78,6 +81,7 @@ export default function TopBar({
     appliedFilters = [],
     filterConfig = [],
     filterLoading = false,
+    endActions,
 }: TopBarProps) {
     return (
         <div className="w-full h-17.5 flex justify-center items-center">
@@ -159,6 +163,8 @@ export default function TopBar({
                             onNext={onNext}
                         />
                     )}
+
+                    {endActions}
                 </div>
             </div>
         </div>
