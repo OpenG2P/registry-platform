@@ -477,6 +477,21 @@ questions:
   group: VC Issuance
   show_if: "agentPortalApi.vcIssuance.enabled=true"
 
+
+- variable: global.certifyAudience
+  description: >-
+    Audience claim the Agent Portal puts in its proof JWT. It must be one of the
+    values in Certify's `mosip.certify.authn.allowed-audiences`, which by default
+    Certify derives from its PUBLIC domain — e.g.
+    https://certify.<env>.openg2p.org/v1/certify/issuance/credential. This is NOT
+    the in-cluster service URL used for certifyBaseUrl: the base URL is where we
+    call Certify, the audience is what Certify expects to see inside the token.
+    Getting it wrong fails issuance at the credential request with an invalid
+    audience.
+  type: string
+  label: Certify Proof Audience
+  group: VC Issuance
+  show_if: "agentPortalApi.vcIssuance.enabled=true"
 - variable: global.agentKeycloakRealm
   description: >-
     Keycloak realm agents authenticate against. Distinct from the staff realm —

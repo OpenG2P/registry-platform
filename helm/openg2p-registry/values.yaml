@@ -79,8 +79,15 @@ global:
   # ── Inji Certify (the credential issuer) ────────────────────────────────
   # One shared Certify per environment, installed with the commons layer. It is
   # reached in-cluster only. Empty audience falls back to the base URL.
-  certifyBaseUrl: 'http://commons-services-inji-certify/v1/certify'
-  certifyAudience: 'http://commons-services-inji-certify/v1/certify'
+  # Default assumes Certify is installed from the verifiable-credentials chart
+  # under release name `inji-certify`, in THIS namespace — its Service is then
+  # simply `inji-certify` (the chart's nameOverride matches the release name, so
+  # Helm does not double it). Certify is a standalone install, not part of
+  # commons-services. Override if you used another release name, and use the FQDN
+  # (`inji-certify.<namespace>.svc.cluster.local`) if it lives in another
+  # namespace.
+  certifyBaseUrl: 'http://inji-certify/v1/certify'
+  certifyAudience: 'http://inji-certify/v1/certify'
 
   # The issuer every credential is signed under. ENVIRONMENT-level: one issuing
   # authority per environment, whose keypair Certify's keymanager generates on
