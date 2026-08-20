@@ -33,11 +33,9 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
     const searchParams = useSearchParams();
     const {
         registerType,
-        functionalRecordId,
         recordName,
         internalRecordId,
         changeId,
-        includeActiveTab = false,
         includeChangeRequest = false,
         customItems = [],
         rootItem,
@@ -58,11 +56,8 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
             });
 
             if (internalRecordId && activeTab) {
-                const recordLabel = includeActiveTab
-                    ? `${recordName} - ${functionalRecordId} - ${t(activeTab.tab_label) ?? activeTab.tab_label}`
-                    : `${recordName} - ${functionalRecordId}`;
                 items.push({
-                    label: recordLabel,
+                    label: recordName ?? '',
                     href: `/register/${registerType}/${internalRecordId}${search ? `?${search}` : ''}`,
                 });
             }
@@ -88,10 +83,8 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
     }, [
         currentRegister,
         registerType,
-        functionalRecordId,
         internalRecordId,
         changeId,
-        includeActiveTab,
         includeChangeRequest,
         activeTab,
         activeTabId,
