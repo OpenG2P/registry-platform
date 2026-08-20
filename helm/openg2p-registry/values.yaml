@@ -82,6 +82,18 @@ global:
   certifyBaseUrl: 'http://commons-services-inji-certify/v1/certify'
   certifyAudience: 'http://commons-services-inji-certify/v1/certify'
 
+  # The issuer every credential is signed under. ENVIRONMENT-level: one issuing
+  # authority per environment, whose keypair Certify's keymanager generates on
+  # first boot. `did` MUST equal the DID set at Certify install
+  # (commons-services global.vcIssuerDid) — modules reference this issuer, they
+  # do not define one. Key alias/algo match Certify's key-alias mapper.
+  vcIssuer:
+    did: ''
+    keyManagerAppId: CERTIFY_VC_SIGN_ED25519
+    keyManagerRefId: ED25519_SIGN
+    signatureAlgo: EdDSA
+    signatureCryptoSuite: Ed25519Signature2020
+
   registryKeymanagerAuthEnabled: false
   # Per-release keymanager app id (uppercased Release.Name) so signature
   # scopes don't collide across registry instances in the same environment.
@@ -784,6 +796,12 @@ agentPortalApi:
     # Registrant-authentication provider to use (adapter_name = esignet). Empty
     # means "the first active provider on the register".
     authProviderId: ""
+    # Register this registry's credential_configs with Certify on install and
+    # upgrade. Certify can only issue a type it already knows, so leaving this
+    # off means every issuance fails on an unknown credential_configuration_id
+    # — turn it off only when the configs are managed by hand.
+    registerEnabled: true
+    registerImage: curlimages/curl:8.11.0
 
   # One entry per issuable credential type. The base platform ships NONE: the
   # fields differ per registry, so the concrete list belongs to the
@@ -795,6 +813,20 @@ agentPortalApi:
   #     claim_columns: ["functionalRecordId", "fullName", "dateOfBirth"]
   #     svg_template: beneficiary-card.svg
   #     display_name: "Beneficiary Credential"
+  #     # Registered into Certify by the credential-config-register Job. The
+  #     # issuer (DID + key) is added from global.vcIssuer — do not repeat it.
+  #     certifyConfig:
+  #       credentialConfigKeyId: OpenG2PBeneficiaryCredential
+  #       credentialFormat: ldp_vc
+  #       credentialTypes: ["VerifiableCredential", "OpenG2PBeneficiaryCredential"]
+  #       contextURLs: ["https://www.w3.org/2018/credentials/v1"]
+  #       scope: openg2p_beneficiary_vc_ldp
+  #       displayOrder: ["functionalRecordId", "fullName", "dateOfBirth"]
+  #       metaDataDisplay: [{ name: "OpenG2P Beneficiary Credential", locale: en }]
+  #       credentialSubjectDefinition: { ... }
+  #       # Authored as READABLE JSON; the Job base64-encodes it for Certify.
+  #       vcTemplateJson: |
+  #         { "@context": [...], "issuer": "${_issuer}", ... }
   vcDefinitions: []
 
   # ConfigMap holding the SVG card designs, mounted at /app/pdf-templates. The

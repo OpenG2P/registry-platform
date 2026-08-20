@@ -457,6 +457,16 @@ questions:
   group: VC Issuance
   show_if: "agentPortalApi.vcIssuance.enabled=true"
 
+- variable: global.vcIssuer.did
+  description: >-
+    Issuer DID stamped on every credential. MUST equal the DID configured at
+    Inji Certify install (commons-services global.vcIssuerDid) — one issuing
+    authority per environment. Required when VC issuance is enabled.
+  type: string
+  label: Issuer DID
+  group: VC Issuance
+  show_if: "agentPortalApi.vcIssuance.enabled=true"
+
 - variable: global.certifyBaseUrl
   description: >-
     In-cluster base URL of Inji Certify, the credential issuer. One shared
