@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFetch } from '@/shared/hooks';
 import type { ChangeRequest } from '@/features/change-request/types/change-request';
 
@@ -6,6 +6,7 @@ interface UseChangeRequestSearchOptions {
     pageSize?: number;
     initialPage?: number;
     searchText?: string;
+    sortBy?: string | null;
     enabled?: boolean;
 }
 
@@ -13,13 +14,14 @@ export function useChangeRequestSearch({
     pageSize,
     initialPage = 1,
     searchText = '',
+    sortBy = null,
     enabled = true,
 }: UseChangeRequestSearchOptions) {
     const [currentPage, setCurrentPage] = useState(initialPage);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchText]);
+    }, [searchText, sortBy]);
 
     const { data, loading } = useFetch<any>({
         url: '/api/change-request/search',
@@ -30,6 +32,7 @@ export function useChangeRequestSearch({
                 current_page: currentPage,
                 page_size: pageSize,
                 search_text: searchText,
+                ...(sortBy ? { sort_by: sortBy } : {}),
             }),
         },
     });
