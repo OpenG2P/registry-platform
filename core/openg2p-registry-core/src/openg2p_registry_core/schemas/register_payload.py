@@ -605,7 +605,9 @@ class ChangeRequestData(BaseModel):
     change_request_id: str
     record_name: Optional[str] = None
     register_id: str
+    register_mnemonic: Optional[str] = None
     tab_id: str
+    tab_label: Optional[str] = None
     internal_record_id: str
     section_id: str
     section_mnemonic: str
@@ -633,7 +635,9 @@ class ChangeRequestFlattenedData(BaseModel):
     change_request_id: str
     record_name: Optional[str] = None
     register_id: str
+    register_mnemonic: Optional[str] = None
     tab_id: str
+    tab_label: Optional[str] = None
     internal_record_id: str
     section_id: str
     section_mnemonic: str

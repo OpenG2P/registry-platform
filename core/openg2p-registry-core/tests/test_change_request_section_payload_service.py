@@ -757,3 +757,17 @@ def test_all_create_paths_inherit_shared_section_validation():
         "validate_change_request_creation",
         "validate",
     )
+
+
+def test_change_request_reads_include_register_mnemonic_and_tab_label():
+    for method_name in (
+        "_fetch_change_request",
+        "_fetch_change_requests",
+        "_fetch_change_requests_flattened",
+    ):
+        calls = _method_calls(
+            _REGISTER_CR_SERVICE_PATH,
+            "G2PRegisterChangeRequestService",
+            method_name,
+        )
+        assert "_resolve_register_mnemonic_and_tab_label" in calls, method_name
