@@ -273,8 +273,10 @@ dbSeed:
 # Runs as a one-shot post-install/post-upgrade hook Job that pushes this
 # registry's tile + roles/permissions catalog (files/iam-registration/payload.json)
 # to the IAM staff-portal API. The application_mnemonic is the per-release
-# Keycloak client (global.authClientId) and application_url is the Staff Portal
-# UI host (https://<registryHostname>), so multiple registry instances coexist.
+# Keycloak client (global.authClientId), application_url is the Staff Portal
+# UI host (https://<registryHostname>), and api_url is the staff API host
+# (https://<staffApi.hostname>) used by IAM data policies. Multiple registry
+# instances coexist.
 #
 # Auth: obtains an access token via client_credentials using the per-release
 # staff-portal client + secret created by keycloak-init (global.authClientId /
@@ -294,6 +296,10 @@ iamRegister:
   # and it is a value (not a file) precisely so a wrapper chart can set it: a
   # subchart's .Files cannot be overridden by its parent.
   applicationDescription: "OpenG2P Registry"
+  # Optional staff API base URL stored as api_url on the IAM application.
+  # IAM uses this (not a global REGISTRY_API_URL) to load register fields for
+  # data policies. Defaults to https://<staffApi.hostname>.
+  # apiUrl: ""
   image:
     repository: curlimages/curl
     tag: "8.11.1"
@@ -1301,6 +1307,9 @@ keycloak-init:
               - "IAM_ADMIN"
             realm-management:
               - "manage-clients"
+            '{{ .Release.Name }}-staff-portal':
+              - "Operations Administrator"
+              - "Technical Administrator"
         - username: alex.carter
           firstName: Alex
           lastName: Carter
