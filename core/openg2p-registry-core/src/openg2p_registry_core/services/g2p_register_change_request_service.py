@@ -1536,6 +1536,40 @@ class G2PRegisterChangeRequestService(BaseService):
             )
             return search_results, total_items
 
+    @staticmethod
+    def _parse_change_request_search_sort(sort_by: str | None) -> tuple[str | None, bool]:
+        """Parse search sort_by into (column, descending).
+
+        Dash-prefix is the platform convention: "created_at" is asc, "-created_at" is desc.
+        "field:dir" is still accepted for older callers. Empty sort_by is (None, True)
+        so the caller can default to created_at desc.
+        """
+        if not sort_by or not str(sort_by).strip():
+            return None, True
+
+        raw = str(sort_by).strip()
+        if ":" in raw:
+            field, direction = raw.split(":", 1)
+            field = field.strip().lstrip("-")
+            descending = direction.strip().lower() == "desc"
+        else:
+            descending = raw.startswith("-")
+            field = raw.lstrip("-").strip()
+
+        return field or None, descending
+
+    def _apply_change_request_search_sort(self, query, sort_by: str | None):
+        field, descending = self._parse_change_request_search_sort(sort_by)
+        if field and hasattr(G2PRegisterChangeRequest, field):
+            sort_column = getattr(G2PRegisterChangeRequest, field)
+        elif field and hasattr(G2PRegisterChangeRequestPayload, field):
+            sort_column = getattr(G2PRegisterChangeRequestPayload, field)
+        else:
+            sort_column = G2PRegisterChangeRequest.created_at
+            if field is None:
+                descending = True
+        return query.order_by(sort_column.desc() if descending else sort_column.asc())
+
     async def _search_in_change_request(
         self,
         search_text: str,
@@ -1562,26 +1596,7 @@ class G2PRegisterChangeRequestService(BaseService):
             G2PRegisterChangeRequest.change_request_id == G2PRegisterChangeRequestPayload.change_request_id
         ).where(*search_conditions)
 
-        # Apply sorting
-        if sort_by:
-            if ":" in sort_by:
-                sort_field, sort_dir = sort_by.split(":")
-            else:
-                sort_field, sort_dir = sort_by, "desc"
-
-            if hasattr(G2PRegisterChangeRequest, sort_field):
-                sort_column = getattr(G2PRegisterChangeRequest, sort_field)
-            elif hasattr(G2PRegisterChangeRequestPayload, sort_field):
-                sort_column = getattr(G2PRegisterChangeRequestPayload, sort_field)
-            else:
-                sort_column = G2PRegisterChangeRequest.created_at
-
-            if sort_dir.lower() == "desc":
-                base_query = base_query.order_by(sort_column.desc())
-            else:
-                base_query = base_query.order_by(sort_column.asc())
-        else:
-            base_query = base_query.order_by(G2PRegisterChangeRequest.created_at.desc())
+        base_query = self._apply_change_request_search_sort(base_query, sort_by)
 
         # Get total count
         count_result = await session.execute(select(func.count()).select_from(G2PRegisterChangeRequest).join(
