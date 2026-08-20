@@ -94,14 +94,6 @@ questions:
   label: Beneficiary Portal API
   group: General
 
-- variable: agentPortalApi.enabled
-  description: >-
-    Install the Agent Portal API — verifiable credential issuance at an agent
-    counter. Agents are a distinct audience from staff (their own Keycloak
-    realm), so this is separate from the Staff Portal. Off by default.
-  type: boolean
-  label: Agent Portal API
-  group: General
 
 - variable: idgenerator.enabled
   description: Install ID Generator service
@@ -163,7 +155,7 @@ questions:
   type: string
   label: Agent Portal API Image Tag
   group: Images
-  show_if: "agentPortalApi.enabled=true"
+  show_if: agentPortalApi.enabled=true
 
 - variable: celeryBeat.image.repository
   description: Docker image repository for Celery Beat Producer
@@ -411,6 +403,16 @@ questions:
 # the manifestation's VC view + vcDefinitions, the Keycloak `agent` realm, and
 # an eSignet provider row for registrant authentication. Edit YAML for those.
 # ---------------------------------------------------------------------------
+- variable: agentPortalApi.enabled
+  description: >-
+    MASTER SWITCH for verifiable credentials. Deploys the Agent Portal API —
+    credential issuance at an agent counter. Agents are a distinct audience from
+    staff (their own Keycloak realm), so this is separate from the Staff Portal.
+    Off by default; off means nothing at all is deployed.
+  type: boolean
+  label: Verifiable Credentials (Agent Portal)
+  group: VC Issuance
+
 - variable: agentPortalUi.enabled
   description: >-
     Install the Agent Portal UI — the reference web client agents use to issue
@@ -418,7 +420,7 @@ questions:
   type: boolean
   label: Agent Portal UI
   group: VC Issuance
-  show_if: "agentPortalApi.enabled=true"
+  show_if: agentPortalApi.enabled=true
 
 - variable: agentPortalApi.vcIssuance.enabled
   description: >-
@@ -427,7 +429,7 @@ questions:
   type: boolean
   label: Enable VC Issuance
   group: VC Issuance
-  show_if: "agentPortalApi.enabled=true"
+  show_if: agentPortalApi.enabled=true
 
 - variable: agentPortalApi.vcIssuance.registerId
   description: >-
@@ -436,7 +438,7 @@ questions:
   type: string
   label: Register ID
   group: VC Issuance
-  show_if: "agentPortalApi.vcIssuance.enabled=true"
+  show_if: agentPortalApi.vcIssuance.enabled=true
 
 - variable: agentPortalApi.vcIssuance.authWindowSeconds
   description: >-
@@ -446,7 +448,7 @@ questions:
   default: 300
   label: Authentication Window (seconds)
   group: VC Issuance
-  show_if: "agentPortalApi.vcIssuance.enabled=true"
+  show_if: agentPortalApi.vcIssuance.enabled=true
 
 - variable: agentPortalApi.vcIssuance.authProviderId
   description: >-
@@ -455,7 +457,7 @@ questions:
   type: string
   label: eSignet Provider ID
   group: VC Issuance
-  show_if: "agentPortalApi.vcIssuance.enabled=true"
+  show_if: agentPortalApi.vcIssuance.enabled=true
 
 - variable: global.vcIssuer.did
   description: >-
@@ -465,7 +467,7 @@ questions:
   type: string
   label: Issuer DID
   group: VC Issuance
-  show_if: "agentPortalApi.vcIssuance.enabled=true"
+  show_if: agentPortalApi.vcIssuance.enabled=true
 
 - variable: global.certifyBaseUrl
   description: >-
@@ -475,7 +477,7 @@ questions:
   default: http://commons-services-inji-certify/v1/certify
   label: Inji Certify Base URL
   group: VC Issuance
-  show_if: "agentPortalApi.vcIssuance.enabled=true"
+  show_if: agentPortalApi.vcIssuance.enabled=true
 
 
 - variable: global.certifyAudience
@@ -491,7 +493,7 @@ questions:
   type: string
   label: Certify Proof Audience
   group: VC Issuance
-  show_if: "agentPortalApi.vcIssuance.enabled=true"
+  show_if: agentPortalApi.vcIssuance.enabled=true
 - variable: global.agentKeycloakRealm
   description: >-
     Keycloak realm agents authenticate against. Distinct from the staff realm —
@@ -500,7 +502,7 @@ questions:
   default: agent
   label: Agent Keycloak Realm
   group: VC Issuance
-  show_if: "agentPortalApi.enabled=true"
+  show_if: agentPortalApi.enabled=true
 
 - variable: agentPortalApi.pdf.issuerName
   description: Issuing authority name printed on the credential.
@@ -508,4 +510,4 @@ questions:
   default: OpenG2P
   label: PDF Issuer Name
   group: VC Issuance
-  show_if: "agentPortalApi.vcIssuance.enabled=true"
+  show_if: agentPortalApi.vcIssuance.enabled=true
