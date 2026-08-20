@@ -64,10 +64,13 @@ global:
   # so a staff token carries no rights on the Agent Portal API and vice versa.
   # Only read when agentPortalApi.enabled is true.
   agentKeycloakRealm: 'agent'
-  agentKeycloakClientId: 'registry-agent-portal'
-  # Public browser client for the agent SPA (standard flow), distinct from the
-  # confidential service client above.
-  agentKeycloakUiClientId: 'registry-agent-portal-ui'
+  # Confidential client agents log in through, and whose ROLES carry the
+  # issuance permission. Must match the IAM chart's IAM_AGENT_KEYCLOAK_CLIENT_ID
+  # and its agent login provider, or an agent authorised at login would be
+  # unauthorised here.
+  agentKeycloakClientId: 'agent-portal'
+  # Public browser client for the agent SPA (standard flow).
+  agentKeycloakUiClientId: 'agent-portal-ui'
   agentKeycloakIssuerUrl: '{{ tpl .Values.global.keycloakBaseUrl $ }}/realms/{{ tpl .Values.global.agentKeycloakRealm $ }}'
   # The IAM agent-portal API (from the iam-service chart) that agents log in
   # against; used to resolve permissions.
@@ -1635,6 +1638,40 @@ redis:
     enabled: false
 
 keycloak-init:
+  # ── Enabling the `agent` realm ────────────────────────────────────────────
+  # VC issuance needs an `agent` realm alongside `staff`. It is NOT defined here
+  # by default on purpose: `realms` is static YAML, so a block added here would
+  # create the realm on EVERY registry install — including the ones that will
+  # never issue a credential. Uncomment it (or supply it in your own values)
+  # when you set agentPortalApi.enabled=true. keycloak-init is idempotent, so it
+  # is safe if the realm already exists.
+  #
+  #  realms:
+  #    agent:
+  #      clients:
+  #        # Confidential client the agent logs in through. Its client roles are
+  #        # what the Agent Portal API resolves permissions from, so the name
+  #        # must match global.agentKeycloakClientId AND the IAM chart's
+  #        # IAM_AGENT_KEYCLOAK_CLIENT_ID.
+  #        - clientId: 'agent-portal'
+  #          name: OpenG2P Agent Portal
+  #          redirectUris:
+  #            - 'https://agent-{{ tpl .Values.global.registryHostname $ }}/*'
+  #          clientRoles:
+  #            # The one capability an agent has.
+  #            - "register:issue_credential"
+  #        # Public browser client for the agent SPA (must match
+  #        # global.agentKeycloakUiClientId).
+  #        - clientId: 'agent-portal-ui'
+  #          name: OpenG2P Agent Portal UI
+  #          publicClient: true
+  #          redirectUris:
+  #            - 'https://agent-{{ tpl .Values.global.registryHostname $ }}/*'
+  #      users:
+  #        - username: agent
+  #          clientRoleMappings:
+  #            agent-portal:
+  #              - "register:issue_credential"
   enabled: true
   keycloak:
     # Internal URL to reach Keycloak within the namespace
