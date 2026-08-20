@@ -83,6 +83,25 @@ class G2PRegisterChangeRequestService(BaseService):
     async def _get_tab(self, tab_id: str, session):
         return await session.get(G2PRegisterUITab, tab_id)
 
+    @staticmethod
+    def _metadata_field(metadata, field_name: str):
+        """Read a field from cached metadata that may be an ORM object or a dict."""
+        if metadata is None:
+            return None
+        if isinstance(metadata, dict):
+            return metadata.get(field_name)
+        return getattr(metadata, field_name, None)
+
+    async def _resolve_register_mnemonic_and_tab_label(
+        self, register_id: str, tab_id: str, session
+    ) -> tuple[str | None, str | None]:
+        register_metadata = await self._get_register_definition(register_id, session)
+        tab_metadata = await self._get_tab(tab_id, session)
+        return (
+            self._metadata_field(register_metadata, "register_mnemonic"),
+            self._metadata_field(tab_metadata, "tab_label"),
+        )
+
     async def create_change_request(
         self,
         change_request_request_payload: ChangeRequestRequestPayload,
@@ -1766,6 +1785,9 @@ class G2PRegisterChangeRequestService(BaseService):
             session,
             [change_request.change_request_id for change_request, _ in change_requests],
         )
+        register_mnemonic, tab_label = await self._resolve_register_mnemonic_and_tab_label(
+            subject_register_id, tab_id, session
+        )
 
         # Convert ORM objects to ChangeRequestData while still in session context
         for change_request, payload in change_requests:
@@ -1782,7 +1804,9 @@ class G2PRegisterChangeRequestService(BaseService):
                 change_request_id=change_request.change_request_id,
                 record_name=change_request.record_name,
                 register_id=change_request.register_id,
+                register_mnemonic=register_mnemonic,
                 tab_id=change_request.tab_id,
+                tab_label=tab_label,
                 internal_record_id=change_request.internal_record_id,
                 section_id=change_request.section_id,
                 section_mnemonic=change_request.section_mnemonic,
@@ -1958,6 +1982,10 @@ class G2PRegisterChangeRequestService(BaseService):
             )
         ).scalar()
 
+        register_mnemonic, tab_label = await self._resolve_register_mnemonic_and_tab_label(
+            change_request.register_id, change_request.tab_id, session
+        )
+
         from .g2p_document_service import G2PDocumentService
 
         document_service = G2PDocumentService.get_component()
@@ -1976,7 +2004,9 @@ class G2PRegisterChangeRequestService(BaseService):
             change_request_id=change_request.change_request_id,
             record_name=change_request.record_name,
             register_id=change_request.register_id,
+            register_mnemonic=register_mnemonic,
             tab_id=change_request.tab_id,
+            tab_label=tab_label,
             internal_record_id=change_request.internal_record_id,
             section_id=change_request.section_id,
             section_mnemonic=register_section.section_mnemonic,
@@ -2031,6 +2061,9 @@ class G2PRegisterChangeRequestService(BaseService):
         change_requests = result.all()
 
         change_requests_list: list[ChangeRequestFlattenedData] = []
+        register_mnemonic, tab_label = await self._resolve_register_mnemonic_and_tab_label(
+            subject_register_id, tab_id, session
+        )
 
         # Convert ORM objects to ChangeRequestFlattenedData with flattened fields
         for change_request, payload in change_requests:
@@ -2075,6 +2108,10 @@ class G2PRegisterChangeRequestService(BaseService):
                 for key, value in change_payload.items():
                     if key != "internal_record_id":
                         change_request_data_dict[key] = value
+
+            # Set after flatten so payload keys cannot overwrite lookup values
+            change_request_data_dict["register_mnemonic"] = register_mnemonic
+            change_request_data_dict["tab_label"] = tab_label
 
             # Create ChangeRequestFlattenedData object with flattened fields
             change_request_data: ChangeRequestFlattenedData = ChangeRequestFlattenedData(**change_request_data_dict)
