@@ -242,7 +242,7 @@ export default function AddNewDropdown({
 
     return (
         <>
-            <div ref={ref} className="relative z-10">
+            <div ref={ref} className="relative z-100">
                 <button
                     onClick={() => setOpen((prev) => !prev)}
                     disabled={loading}

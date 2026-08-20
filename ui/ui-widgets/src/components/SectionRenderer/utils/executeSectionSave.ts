@@ -26,6 +26,11 @@ export interface ExecuteSectionSaveParams {
    * Intake keeps full records.
    */
   sectionFieldsOnly?: boolean;
+  /**
+   * Intake Save/Next can skip required checks so drafts can be stored.
+   * RegistryView change-request save must validate required fields.
+   */
+  skipRequired?: boolean;
   onSectionSave?: (changes: SectionChanges) => Promise<void> | void;
 }
 
@@ -148,6 +153,7 @@ export const executeSectionSave = async ({
   dbSectionId,
   sectionRegisterId,
   sectionFieldsOnly = false,
+  skipRequired = false,
   onSectionSave,
 }: ExecuteSectionSaveParams): Promise<ExecuteSectionSaveResult> => {
   const sectionWidgets = collectWidgets(section.panels);
@@ -159,7 +165,7 @@ export const executeSectionSave = async ({
   }).widget;
   let currentSchemaData = currentState.values || {};
 
-  const isSectionValid = sectionValidate(section, currentSchemaData, dispatch, true);
+  const isSectionValid = sectionValidate(section, currentSchemaData, dispatch, skipRequired);
   if (!isSectionValid) {
     return { validated: false, saved: false, currentSchemaData };
   }

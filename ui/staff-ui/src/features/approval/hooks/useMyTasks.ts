@@ -5,6 +5,7 @@ import { ApprovalTask } from '@/features/approval/types/approval';
 interface UseMyTasksOptions {
     artifactType?: string;
     searchText?: string;
+    sortBy?: string | null;
     pageSize?: number;
     initialPage?: number;
 }
@@ -12,6 +13,7 @@ interface UseMyTasksOptions {
 export const useMyTasks = ({
     artifactType,
     searchText = '',
+    sortBy = null,
     pageSize = 25,
     initialPage = 1,
 }: UseMyTasksOptions) => {
@@ -19,7 +21,7 @@ export const useMyTasks = ({
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchText, artifactType]);
+    }, [searchText, artifactType, sortBy]);
 
     const options = useMemo(
         () => ({
@@ -29,9 +31,10 @@ export const useMyTasks = ({
                 search_text: searchText || undefined,
                 page: currentPage,
                 page_size: pageSize,
+                ...(sortBy ? { sort_by: sortBy } : {}),
             }),
         }),
-        [artifactType, searchText, currentPage, pageSize],
+        [artifactType, searchText, sortBy, currentPage, pageSize],
     );
 
     const { data, loading } = useFetch<{

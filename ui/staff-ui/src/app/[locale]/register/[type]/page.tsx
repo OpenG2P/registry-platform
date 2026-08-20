@@ -1,14 +1,16 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { TopBar } from '@/components/shared';
-import { SelectedFilters } from '@/features/filter/components';
+import { useRouter } from '@/i18n/navigation';
+import { EntityListPage, CompactCard, CompactCardSkeleton } from '@/components/shared';
+import { ColumnDef } from '@/components/shared/entity-list/types';
 import { useRegisterRecords } from '@/features/register/hooks/useRegisterRecords';
-import { RegisterRecordCard } from '@/features/register/components';
 import { RegisterRecord } from '@/features/register/types';
+import { sortedDisplayFields } from '@/features/register/utils';
 
 export default function RegisterTypePage() {
     const t = useTranslations();
+    const router = useRouter();
 
     const {
         registerType,
@@ -16,95 +18,114 @@ export default function RegisterTypePage() {
         records,
         isLoadingRecords,
         searchQuery,
+        sortBy,
         pagination,
         handlers: {
             handlePreviousPage,
             handleNextPage,
-            handleSearch
+            handleSearch,
+            handleSort,
         },
         filters: {
             appliedFilters,
             filterConfig,
             applyFilters,
             removeFilter,
-            clearAllFilters
-        }
+            clearAllFilters,
+        },
     } = useRegisterRecords();
 
+    const displayFieldKeys: string[] = [];
+    records.forEach((r) => {
+        sortedDisplayFields(r.display_fields).forEach((f) => {
+            if (!displayFieldKeys.includes(f.field_name)) displayFieldKeys.push(f.field_name);
+        });
+    });
+
+    const columns: ColumnDef<RegisterRecord>[] = [
+        {
+            key: 'record_name',
+            header: t.has('record_name') ? t('record_name') : 'Record Name',
+            getValue: (r) => r.record_name,
+            render: (r) => (
+                <span className="font-medium  text-[15px]">{r.record_name || '—'}</span>
+            ),
+        },
+        {
+            key: 'functional_record_id',
+            header: t.has('id') ? t('id') : 'ID',
+            getValue: (r) => r.functional_record_id,
+        },
+        ...displayFieldKeys.slice(0, 6).map((key) => ({
+            key,
+            header: t.has(key) ? t(key) : key,
+            getValue: (r: RegisterRecord) =>
+                r.display_fields.find((f) => f.field_name === key)?.value ?? '',
+        })),
+    ];
+
+    const skeleton = (
+        <>
+            {[...Array(5)].map((_, i) => (
+                <CompactCardSkeleton key={i} />
+            ))}
+        </>
+    );
+
     return (
-        <div className="min-h-screen mx-auto bg-secondary-first">
-            <TopBar
-                breadcrumb={[{ label: registerTypeLabel }]}
-                showFilters
-                showPagination
-                showCapsule={false}
-                capsule={<></>}
-                pageStart={pagination.pageStart}
-                pageEnd={pagination.pageEnd}
-                total={pagination.total}
-                onPrev={handlePreviousPage}
-                onNext={handleNextPage}
-                onApplyFilters={applyFilters}
-                appliedFilters={appliedFilters}
-                filterConfig={filterConfig}
-            />
-
-            <div className="mx-7.5 bg-neutral-second rounded-[10px]">
-                <div className="px-2 pt-1">
-                    <SelectedFilters
-                        appliedFilters={appliedFilters}
-                        filterConfig={filterConfig}
-                        removeFilter={removeFilter}
-                        clearAllFilters={clearAllFilters}
-                        searchValue={searchQuery}
-                        searchPlaceholder={t('search')}
-                        onSearch={handleSearch}
-                        pxClass='px-0.5'
-                    />
-                </div>
-
-                <div className="rounded-b-[10px]">
-                    {isLoadingRecords ? (
-                        <div className="space-y-2">
-                            {[...Array(5)].map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center gap-4 sm:gap-6 px-4 sm:px-6 lg:px-8 p-4 w-full overflow-hidden bg-secondary-second animate-pulse"
-                                >
-                                    <div className="w-16 h-16 rounded-md bg-secondary-third shrink-0" />
-                                    <div className="flex-1 space-y-2 min-w-0">
-                                        <div className="h-4 bg-secondary-third rounded w-1/3" />
-                                        <div className="h-3 bg-secondary-third rounded w-1/2" />
-                                    </div>
-                                    <div className="flex-1 space-y-2 min-w-0">
-                                        <div className="h-3 bg-secondary-third rounded w-2/3" />
-                                        <div className="h-3 bg-secondary-third rounded w-1/2" />
-                                    </div>
-                                    <div className="flex-1 space-y-2 min-w-0">
-                                        <div className="h-3 bg-secondary-third rounded w-1/3" />
-                                        <div className="h-3 bg-secondary-third rounded w-2/3" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : records.length === 0 ? (
-                        <div className="text-center py-10 text-neutral-first/50">{t('no_items_found')}</div>
-                    ) : (
-                        records.map((record: RegisterRecord, index: number) => (
-                            <RegisterRecordCard
-                                key={record.internal_record_id}
-                                record={record}
-                                registerType={registerType}
-                                isEven={index % 2 === 0}
-                            />
-                        ))
-                    )}
-                    <div className={`h-6.25 rounded-b-[10px] ${records.length % 2 !== 0 ? 'bg-neutral-second' : 'bg-secondary-second/25'}`}>
-                        &nbsp;
-                    </div>
-                </div>
-            </div>
-            <div className='h-15'>&nbsp;</div>
-        </div>
+        <EntityListPage<RegisterRecord>
+            breadcrumb={[{ label: registerTypeLabel }]}
+            showPagination
+            pageStart={pagination.pageStart}
+            pageEnd={pagination.pageEnd}
+            total={pagination.total}
+            onPrev={handlePreviousPage}
+            onNext={handleNextPage}
+            defaultView="card"
+            viewStorageKey="registerView"
+            showSearch
+            searchValue={searchQuery}
+            searchPlaceholder={t('search')}
+            onSearch={handleSearch}
+            showFilters
+            appliedFilters={appliedFilters}
+            filterConfig={filterConfig}
+            onApplyFilters={applyFilters}
+            removeFilter={removeFilter}
+            clearAllFilters={clearAllFilters}
+            items={records}
+            loading={isLoadingRecords}
+            skeleton={skeleton}
+            emptyMessage={
+                <div className="text-center py-10 text-neutral-first/50">{t('no_items_found')}</div>
+            }
+            renderCard={(record, index) => (
+                <CompactCard
+                    key={record.internal_record_id}
+                    href={`/register/${registerType}/${record.internal_record_id}`}
+                    imageUrl={record.record_image_url}
+                    imageAlt={record.record_name}
+                    title={record.record_name}
+                    subtitleLabel={t('id')}
+                    subtitleValue={record.functional_record_id}
+                    isEven={index % 2 === 0}
+                    fields={sortedDisplayFields(record.display_fields).map((field) => ({
+                        label: t.has(field.field_name) ? t(field.field_name) : field.field_name,
+                        value: field.value
+                            ? t.has(field.value)
+                                ? t(field.value)
+                                : field.value
+                            : '',
+                    }))}
+                />
+            )}
+            cardLayout="compact"
+            columns={columns}
+            sortBy={sortBy}
+            onSortChange={handleSort}
+            onRowClick={(record) =>
+                router.push(`/register/${registerType}/${record.internal_record_id}`)
+            }
+        />
     );
 }

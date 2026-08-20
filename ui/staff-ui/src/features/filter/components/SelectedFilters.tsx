@@ -1,9 +1,13 @@
 "use client";
 
+import { useRef, useState } from "react";
 import Image from "next/image";
+import { SlidersHorizontal } from "lucide-react";
 import { FilterConfig, FilterRule } from "@/features/filter/types";
 import { SearchBar } from "@/components/ui";
 import { useTranslations } from "next-intl";
+import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import FilterDropdown from "./FilterDropdown";
 
 const OPERATOR_KEYS: Record<string, string> = {
     eq: "filter_operator_eq",
@@ -31,6 +35,9 @@ interface SelectedFiltersProps {
     searchPlaceholder?: string;
     onSearch?: (value: string) => void;
     pxClass?: string;
+    showFilters?: boolean;
+    filterLoading?: boolean;
+    onApplyFilters?: (filters: FilterRule[]) => void;
 }
 
 export default function SelectedFilters({
@@ -41,10 +48,22 @@ export default function SelectedFilters({
     searchValue = '',
     searchPlaceholder,
     onSearch,
-    pxClass
+    pxClass,
+    showFilters = false,
+    filterLoading = false,
+    onApplyFilters,
 }: SelectedFiltersProps) {
     const t = useTranslations();
     const resolvedSearchPlaceholder = searchPlaceholder || t('search');
+    const [filterOpen, setFilterOpen] = useState(false);
+    const filterRef = useRef<HTMLDivElement>(null);
+
+    useClickOutside(filterRef, () => setFilterOpen(false), filterOpen);
+
+    const handleApplyFilters = (filters: FilterRule[]) => {
+        onApplyFilters?.(filters);
+        setFilterOpen(false);
+    };
 
     const getFilterLabel = (rule: FilterRule) => {
         const config = filterConfig.find((f) => f.field_name === rule.field_name);
@@ -100,16 +119,46 @@ export default function SelectedFilters({
             </div>
 
             {onSearch && (
-                <div className="ml-auto shrink-0 border border-primary-second rounded-[10px] h-8.5 flex items-center bg-neutral-second">
-                    <SearchBar
-                        placeholder={resolvedSearchPlaceholder}
-                        category=""
-                        searchValue={searchValue}
-                        iconSize={16}
-                        onSearch={onSearch}
-                        pxClass={pxClass}
-                        textClass="text-[16px]"
-                    />
+                <div className="relative ml-auto shrink-0" ref={filterRef}>
+                    <div className="w-[360px] border border-primary-second rounded-[10px] h-8.5 flex items-center bg-neutral-second">
+                        {showFilters && (
+                            <button
+                                type="button"
+                                aria-label={t.has('filters') ? t('filters') : 'Filter'}
+                                aria-expanded={filterOpen}
+                                disabled={filterLoading}
+                                onClick={() => setFilterOpen((open) => !open)}
+                                className="h-full flex items-center pl-2.5 pr-2 border-r border-primary-second/40 text-neutral-first disabled:opacity-50"
+                            >
+                                <SlidersHorizontal size={16} strokeWidth={2.5} />
+                            </button>
+                        )}
+                        <SearchBar
+                            placeholder={resolvedSearchPlaceholder}
+                            category=""
+                            searchValue={searchValue}
+                            iconSize={16}
+                            onSearch={onSearch}
+                            pxClass={pxClass}
+                            textClass="text-[16px]"
+                        />
+                    </div>
+
+                    {filterOpen && !filterLoading && (
+                        <>
+                            <div className="absolute left-[12px] top-[calc(100%+8px-9px)] z-[60] bg-neutral-second border-t border-r border-primary-first w-[20px] h-[20px] -rotate-45 rounded-[2px] shadow-[0_0_4px_0_rgba(0,0,0,0.25)] [clip-path:polygon(-20px_-20px,_40px_-20px,_40px_40px)]" />
+                            <div className="absolute right-0 top-[calc(100%+8px)] z-50">
+                                <div className="relative z-10">
+                                    <FilterDropdown
+                                        onApply={handleApplyFilters}
+                                        onClose={() => setFilterOpen(false)}
+                                        appliedFilters={appliedFilters}
+                                        filterConfig={filterConfig}
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>
