@@ -79,15 +79,24 @@ global:
   # ── Inji Certify (the credential issuer) ────────────────────────────────
   # One shared Certify per environment, installed with the commons layer. It is
   # reached in-cluster only. Empty audience falls back to the base URL.
-  # Default assumes Certify is installed from the verifiable-credentials chart
-  # under release name `inji-certify`, in THIS namespace — its Service is then
-  # simply `inji-certify` (the chart's nameOverride matches the release name, so
-  # Helm does not double it). Certify is a standalone install, not part of
-  # commons-services. Override if you used another release name, and use the FQDN
-  # (`inji-certify.<namespace>.svc.cluster.local`) if it lives in another
-  # namespace.
-  certifyBaseUrl: 'http://inji-certify/v1/certify'
-  certifyAudience: 'http://inji-certify/v1/certify'
+  # Where we CALL Certify: its in-cluster Service. Certify ships as part of
+  # commons-services (subchart alias openg2p-inji-certify), whose release name is
+  # pinned to 'commons-services', so the Service is
+  # commons-services-inji-certify. Override if Certify is installed standalone,
+  # and use the FQDN (<service>.<namespace>.svc.cluster.local) across namespaces.
+  certifyBaseUrl: 'http://commons-services-inji-certify/v1/certify'
+  # What Certify expects INSIDE the proof JWT — a different thing from the base
+  # URL above. It must appear in Certify's mosip.certify.authn.allowed-audiences,
+  # which Certify derives from its PUBLIC domain, not its Service name. Keep this
+  # in step with global.certifyHostname on the commons side.
+  # Public hostname of Certify. Keep it equal to the commons side's
+  # global.certifyHostname — it is what Certify derives its accepted audience
+  # from, and (as did:web:<hostname>) its issuer DID.
+  certifyHostname: 'certify.{{ .Release.Namespace }}.openg2p.org'
+  # Derived from the hostname rather than spelled out, so a deployment on another
+  # domain changes ONE value instead of editing a URL with the domain buried in
+  # it. Override directly only if Certify's allowed-audiences was customised.
+  certifyAudience: 'https://{{ tpl .Values.global.certifyHostname $ }}/v1/certify/issuance/credential'
 
   # The issuer every credential is signed under. ENVIRONMENT-level: one issuing
   # authority per environment, whose keypair Certify's keymanager generates on
@@ -910,8 +919,12 @@ agentPortalApi:
 
     # Inji Certify, reached in-cluster. Certify is never exposed publicly for
     # issuance; this service is its only client.
-    REGISTRY_AGENT_PORTAL_API_CERTIFY_BASE_URL: '{{ .Values.global.certifyBaseUrl }}'
-    REGISTRY_AGENT_PORTAL_API_CERTIFY_AUDIENCE: '{{ .Values.global.certifyAudience }}'
+    # tpl'd explicitly: each env value gets exactly ONE tpl pass, and plain
+    # indirection returns the global's raw text without re-evaluating it — so a
+    # templated global (the audience carries .Release.Namespace) would reach the
+    # pod as literal template source.
+    REGISTRY_AGENT_PORTAL_API_CERTIFY_BASE_URL: '{{ tpl .Values.global.certifyBaseUrl $ }}'
+    REGISTRY_AGENT_PORTAL_API_CERTIFY_AUDIENCE: '{{ tpl .Values.global.certifyAudience $ }}'
 
     REGISTRY_AGENT_PORTAL_API_SVG_TEMPLATE_DIR: /app/pdf-templates
     REGISTRY_AGENT_PORTAL_API_PDF_TITLE: '{{ .Values.pdf.title }}'
