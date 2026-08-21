@@ -10,8 +10,9 @@
 #   docker run -p 8080:8080 openg2p-registry-agent-ui:latest
 #
 # Deploy pattern:
-#   Static SPA served by nginx. API calls (`/agent_portal/*`) are routed to the
-#   backend Service by Istio at the cluster level — nginx does NOT proxy.
+#   Static SPA served by nginx, which DOES proxy `/agent_portal/*` to the API
+#   (the SPA calls its own origin). Set AGENT_API_UPSTREAM to the API's
+#   host:port — in Kubernetes "<release>-agent-portal-api:80".
 #   React-router deep links fall back to /index.html (see nginx.conf).
 # =============================================================================
 
@@ -43,7 +44,13 @@ LABEL org.opencontainers.image.title="OpenG2P Registry Agent Portal UI"
 LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
 LABEL org.opencontainers.image.created="${BUILD_TIME}"
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Installed as a TEMPLATE: the nginx entrypoint runs envsubst over
+# /etc/nginx/templates/*.template into /etc/nginx/conf.d/ at start, which is
+# what lets one image point at a release-prefixed Service name.
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# docker-compose default; Kubernetes overrides it from the chart.
+ENV AGENT_API_UPSTREAM="agent-portal-api:8000"
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 8080

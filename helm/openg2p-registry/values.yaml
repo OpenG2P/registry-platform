@@ -1473,7 +1473,13 @@ agentPortalUi:
   # templates/agent-ui/config-configmap.yaml, which is what lets one image
   # serve every environment. Calls to /agent_portal/ are proxied in-cluster by
   # nginx.conf, so the SPA uses same-origin URLs and needs no API hostname.
-  envVars: {}
+  envVars:
+    # Consumed by envsubst in the image's nginx template at container start.
+    # The SPA is served an empty apiBaseUrl and so calls its own origin, and
+    # nginx here is what forwards /agent_portal/ to the API -- the API lives on
+    # a different host, so nothing else rewrites those paths. Must be the real
+    # Service: release-prefixed, port 80.
+    AGENT_API_UPSTREAM: '{{ .Release.Name }}-agent-portal-api:80'
 
   envVarsFrom: {}
 
