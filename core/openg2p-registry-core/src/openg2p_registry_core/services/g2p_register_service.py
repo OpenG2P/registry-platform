@@ -1213,7 +1213,7 @@ class G2PRegisterService(BaseService):
 
 
     async def get_number_of_versions(self, register_id: str, internal_record_id: str, tab_id: str) -> NumberOfVersionsData:
-        """Get the number of versions (unique change requests) for a given register, internal_record_id and tab_id across all sections"""
+        """Count unique staff change requests and intake submissions for a tab."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             # Validate register exists
@@ -1254,8 +1254,8 @@ class G2PRegisterService(BaseService):
             history_class_prefix = "G2PRegisterHistory"
             register_class_prefix = "G2PRegister"
 
-            # Collect unique change_request_ids and track latest history record across all sections
-            unique_change_request_ids: set[str] = set()
+            # Collect unique staff CRs and intake submissions; track latest history across sections
+            unique_version_ids: set[str] = set()
             latest_approved_at: datetime = None
             latest_history_record = None
 
@@ -1288,18 +1288,16 @@ class G2PRegisterService(BaseService):
                     session=session,
                 )
 
-                # Collect unique change_request_ids and track latest record
                 for history_record in history_records:
-                    if history_record.change_request_id:
-                        unique_change_request_ids.add(history_record.change_request_id)
-                    # Track the most recent history record by approved_at
+                    version_key = self._history_version_key(history_record)
+                    if version_key:
+                        unique_version_ids.add(version_key)
                     if history_record.approved_at:
                         if latest_approved_at is None or history_record.approved_at > latest_approved_at:
                             latest_approved_at = history_record.approved_at
                             latest_history_record = history_record
 
-            # Count unique change requests (not raw history records)
-            number_of_versions = len(unique_change_request_ids)
+            number_of_versions = len(unique_version_ids)
 
             # Get last_updated_by and last_updated_at from the subject register record
             register_class_name = f"{register_class_prefix}{register_definition.register_mnemonic}"
@@ -1603,27 +1601,41 @@ class G2PRegisterService(BaseService):
                     order_by=history_class.created_at.desc(),
                 )
 
-                # Build changes list, deduplicating by change_request_id
-                # (Multiple records may share the same change_request_id in hierarchical queries)
-                seen_change_requests: dict[str, VersionForDateData] = {}
+                # Deduplicate by staff CR id or intake submission id, not by null CR.
+                seen_versions: dict[str, VersionForDateData] = {}
                 for history_record in history_records:
-                    if history_record.change_request_id not in seen_change_requests:
-                        seen_change_requests[history_record.change_request_id] = VersionForDateData(
-                            change_request_id=history_record.change_request_id,
-                            created_at=history_record.created_at.isoformat()
-                        )
-                if seen_change_requests:
+                    version_key = self._history_version_key(history_record)
+                    if not version_key or version_key in seen_versions:
+                        continue
+                    change_request_id = getattr(history_record, "change_request_id", None)
+                    submission_id = getattr(history_record, "submission_id", None)
+                    seen_versions[version_key] = VersionForDateData(
+                        change_request_id=change_request_id,
+                        submission_id=None if change_request_id else submission_id,
+                        created_at=history_record.created_at.isoformat(),
+                    )
+                cr_ids = [
+                    version.change_request_id
+                    for version in seen_versions.values()
+                    if version.change_request_id
+                ]
+                if cr_ids:
                     cr_result = await session.execute(
                         select(
                             G2PRegisterChangeRequest.change_request_id,
                             G2PRegisterChangeRequest.awe_request_id,
                         ).where(
-                            G2PRegisterChangeRequest.change_request_id.in_(seen_change_requests.keys())
+                            G2PRegisterChangeRequest.change_request_id.in_(cr_ids)
                         )
                     )
-                    for row in cr_result.all():
-                        seen_change_requests[row.change_request_id].request_id = row.awe_request_id
-                section_changes = list(seen_change_requests.values())
+                    request_ids = {
+                        row.change_request_id: row.awe_request_id
+                        for row in cr_result.all()
+                    }
+                    for version in seen_versions.values():
+                        if version.change_request_id in request_ids:
+                            version.request_id = request_ids[version.change_request_id]
+                section_changes = list(seen_versions.values())
                 
                 # Only add section if it has changes
                 if section_changes:
@@ -1634,6 +1646,7 @@ class G2PRegisterService(BaseService):
                         truncated_created_date=truncated_created_date,
                         section_id=section.section_id,
                         section_mnemonic=section.section_mnemonic,
+                        section_register_id=section.section_register_id,
                         changes=section_changes
                     ))
 
@@ -3473,6 +3486,17 @@ class G2PRegisterService(BaseService):
                 code=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[1],
                 message=f"Register implementation not found for {register_mnemonic}"
             )
+
+    @staticmethod
+    def _history_version_key(history_record) -> str | None:
+        """Stable key so intake rows with null change_request_id are not collapsed together."""
+        change_request_id = getattr(history_record, "change_request_id", None)
+        if change_request_id:
+            return f"cr:{change_request_id}"
+        submission_id = getattr(history_record, "submission_id", None)
+        if submission_id:
+            return f"sub:{submission_id}"
+        return None
 
     async def _query_history_records_for_subject(
         self,

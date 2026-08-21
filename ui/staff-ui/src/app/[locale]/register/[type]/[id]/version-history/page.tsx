@@ -16,25 +16,32 @@ import { useTranslations } from 'next-intl';
 import { useRegisterTabs } from '@/context/RegisterTabsContext';
 import { useBreadcrumb, useFetch } from '@/shared/hooks';
 import { useChangeRequest } from '@/features/change-request/hooks';
+import { useIntakeFormSubmission } from '@/features/intake-form/hooks/useIntakeFormSubmission';
 import { useRecordHistoryDates, useRecordHistoryChanges } from '@/features/register/hooks/useRecordHistory';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRegisterSectionsFromCR';
 import { useRegisterRecord } from '@/context/RegisterRecordContext';
-import { buildSectionDataMap } from '@/features/shared/utils';
+import { buildSectionDataMap, pickSubmissionSectionPayload } from '@/features/shared/utils';
 import VersionHistoryPageSkeleton from '@/features/register/components/VersionHistoryPageSkeleton';
 import { dataSourceRequestHandler } from '@/shared/services';
 
 type Change = {
-    change_request_id: string;
+    change_request_id?: string | null;
+    submission_id?: string | null;
     created_at: string;
     request_id?: string;
 };
 
 type SectionWithChanges = {
     section_mnemonic: string;
+    section_register_id?: string | null;
     changes: Change[];
 };
+
+function versionKey(change: Change): string {
+    return change.change_request_id || change.submission_id || '';
+}
 
 type FilterState = {
     dateOptions: string[];
@@ -72,7 +79,9 @@ function filterReducer(state: FilterState, action:
             };
         case 'SET_CHANGES':
             const firstId = Object.keys(action.changes)[0] ?? null;
-            const firstVersion = firstId ? action.changes[firstId]?.changes?.[0]?.change_request_id ?? null : null;
+            const firstVersion = firstId
+                ? versionKey(action.changes[firstId]?.changes?.[0] ?? { created_at: '' }) || null
+                : null;
             return {
                 ...state,
                 sectionsWithChanges: action.changes,
@@ -162,21 +171,37 @@ export default function VersionHistoryPage() {
         },
     });
 
-    // Here selectedVersionId is the change request id
-    const changeRequestId = selectedVersionId ?? '';
-    const { details: changeRequestData, loading: loadingChangeRequestData } =
-        useChangeRequest(changeRequestId);
-
-    const selectedChangeRequestId = useMemo(() => {
+    const selectedChange = useMemo(() => {
         if (!selectedSectionId || !selectedVersionId) return null;
         return (
             sectionsWithChanges[selectedSectionId]?.changes?.find(
-                (change) => change.change_request_id === selectedVersionId,
+                (change) => versionKey(change) === selectedVersionId,
             ) ?? null
         );
     }, [selectedSectionId, selectedVersionId, sectionsWithChanges]);
 
-    const aweRequestId = selectedChangeRequestId?.request_id ?? null;
+    const changeRequestId = selectedChange?.change_request_id ?? '';
+    const intakeSubmissionId = !changeRequestId
+        ? (selectedChange?.submission_id ?? undefined)
+        : undefined;
+
+    const { details: changeRequestData, loading: loadingChangeRequestData } =
+        useChangeRequest(changeRequestId);
+    const { submission: intakeSubmission, loading: loadingIntakeSubmission } =
+        useIntakeFormSubmission(intakeSubmissionId);
+
+    const intakeSectionPayload = useMemo(
+        () =>
+            pickSubmissionSectionPayload(
+                intakeSubmission?.section_payloads,
+                selectedSectionId || '',
+                sectionsWithChanges[selectedSectionId || '']?.section_register_id,
+            ),
+        [intakeSubmission, selectedSectionId, sectionsWithChanges],
+    );
+
+    const aweRequestId =
+        selectedChange?.request_id ?? intakeSubmission?.awe_request_id ?? null;
 
     const { tasks, loadingTasks, refetchTasks } = useApprovalTasks(aweRequestId);
     const { submitDecision } = useSubmitApprovalDecision(null, refetchTasks);
@@ -200,6 +225,7 @@ export default function VersionHistoryPage() {
         changesArray.forEach((item: any) => {
             dict[item.section_id] = {
                 section_mnemonic: item.section_mnemonic,
+                section_register_id: item.section_register_id,
                 changes: [...(item.changes ?? [])].reverse(),
             };
         });
@@ -222,9 +248,9 @@ export default function VersionHistoryPage() {
     }, [selectedSectionId, sectionsWithChanges]);
 
     const versionOptions = useMemo(() => {
-        return currentSectionChanges.map((cr, index) => ({
+        return currentSectionChanges.map((change, index) => ({
             label: `V${index}`,
-            value: cr.change_request_id,
+            value: versionKey(change),
         }));
     }, [currentSectionChanges]);
 
@@ -240,7 +266,7 @@ export default function VersionHistoryPage() {
         dispatch({
             type: 'SELECT_SECTION',
             id: selected.id,
-            versionId: sectionsWithChanges[selected.id]?.changes?.[0]?.change_request_id ?? null
+            versionId: versionKey(sectionsWithChanges[selected.id]?.changes?.[0] ?? { created_at: '' }) || null
         });
     };
 
@@ -257,16 +283,25 @@ export default function VersionHistoryPage() {
         prevSectionUISchema.current = undefined;
     };
 
-    const newSectionData = useMemo(
-        () =>
-            buildSectionDataMap(
-                changeRequestData?.section_register_id ?? '',
-                changeRequestData?.change_payload,
-                changeRequestData?.documents || null,
-                !!changeRequestData?.is_list
-            ),
-        [changeRequestData]
-    );
+    const newSectionData = useMemo(() => {
+        if (changeRequestId && changeRequestData) {
+            return buildSectionDataMap(
+                changeRequestData.section_register_id ?? '',
+                changeRequestData.change_payload,
+                changeRequestData.documents || null,
+                !!changeRequestData.is_list,
+            );
+        }
+        if (intakeSectionPayload) {
+            return buildSectionDataMap(
+                intakeSectionPayload.section_register_id ?? '',
+                intakeSectionPayload.records,
+                intakeSectionPayload.documents || null,
+                !!intakeSectionPayload.is_list,
+            );
+        }
+        return undefined;
+    }, [changeRequestId, changeRequestData, intakeSectionPayload]);
 
     if (newSectionData) prevSectionData.current = newSectionData;
     if (sectionUISchema) prevSectionUISchema.current = sectionUISchema;
@@ -278,6 +313,7 @@ export default function VersionHistoryPage() {
         loadingDates ||
         loadingChanges ||
         loadingChangeRequestData ||
+        loadingIntakeSubmission ||
         loadingSchema ||
         (!!aweRequestId && loadingTasks);
     const hasAnythingToShow = !!stableSectionData && !!stableSectionUISchema;

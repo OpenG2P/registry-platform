@@ -69,11 +69,12 @@ run_sql_files() {
   fi
 
   echo "[db-seed] Running ${label} on ${db_name}@${db_host}:${db_port} ..."
-  PGHOST="$db_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user" PGPASSWORD="$db_password"
-  export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+  # Prefix PG* for this psql only. Exporting would leak AWE DSN into later
+  # Python loaders that read PGDATABASE as the registry.
   for f in $sql_files; do
     echo "[db-seed]   -> $(basename "$f")"
-    psql -v ON_ERROR_STOP=0 -f "$f"
+    PGHOST="$db_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user" PGPASSWORD="$db_password" \
+      psql -v ON_ERROR_STOP=0 -f "$f"
   done
   echo "[db-seed] ${label} completed."
 }

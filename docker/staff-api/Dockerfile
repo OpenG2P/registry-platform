@@ -27,7 +27,7 @@ FROM python:3.12.11-alpine3.22
 # the central pipeline (openg2p-packaging @v1) resolves these refs to commit
 # SHAs before the build and records them as `org.openg2p.pin.<arg>` OCI labels.
 ARG FASTAPI_COMMON_REF=develop
-ARG IAM_CORE_REF=develop
+ARG IAM_CORE_REF=1.4
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
  && apk add --no-cache bash git gettext libpq-dev libmagic

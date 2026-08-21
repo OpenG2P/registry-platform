@@ -4,6 +4,7 @@ from fastapi import Depends, Request
 from openg2p_fastapi_common.controller import BaseController
 
 from openg2p_registry_core.controller_services import G2PRegisterDataControllerService
+from openg2p_registry_core.helpers.data_policy_request_helper import get_data_policies
 from openg2p_registry_core.schemas import (
     GetNumberOfVersionsRequest,
     GetRecordHistoryRequest,
@@ -31,7 +32,6 @@ from openg2p_registry_core.schemas import (
 from iam_core.user_auth.decorators import require_permissions, data_policy
 
 from ..helpers import RequestResponseHelper
-from ..helpers.data_policy_request_helper import get_data_policies
 from ..config import Settings
 
 _config = Settings.get_config()

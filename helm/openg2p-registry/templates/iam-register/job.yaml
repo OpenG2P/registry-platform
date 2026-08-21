@@ -65,6 +65,12 @@ spec:
               value: {{ tpl .Values.global.authClientId $ | quote }}
             - name: APP_URL
               value: {{ printf "https://%s" (tpl .Values.global.registryHostname $) | quote }}
+            - name: APP_API_URL
+              {{- if .Values.iamRegister.apiUrl }}
+              value: {{ tpl .Values.iamRegister.apiUrl $ | quote }}
+              {{- else }}
+              value: {{ printf "https://%s" (tpl .Values.staffApi.hostname $) | quote }}
+              {{- end }}
             # Human-readable name of THIS registry in the IAM tile. Values-driven
             # so a variant chart (farmer, NSR, ...) names itself correctly — the
             # payload file lives in this chart and a wrapper cannot override it.
@@ -78,9 +84,10 @@ spec:
           args:
             - |
               set -eu
-              echo "Building registration payload for ${APP_MNEMONIC} -> ${APP_URL}"
+              echo "Building registration payload for ${APP_MNEMONIC} -> ${APP_URL} (api ${APP_API_URL})"
               sed -e "s|__APPLICATION_MNEMONIC__|${APP_MNEMONIC}|g" \
                   -e "s|__APPLICATION_URL__|${APP_URL}|g" \
+                  -e "s|__API_URL__|${APP_API_URL}|g" \
                   -e "s|__APPLICATION_DESCRIPTION__|${APP_DESCRIPTION}|g" \
                   /payload/payload.json > /tmp/body.json
 
