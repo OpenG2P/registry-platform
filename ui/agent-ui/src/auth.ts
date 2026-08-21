@@ -172,7 +172,22 @@ export function getCurrentUser(): CurrentUser {
 
 export function getToken(): string {
   if (keycloak?.token) return keycloak.token;
-  return DEV_TOKEN;
+  // Dev fallback ONLY when Keycloak was never configured. Returning the
+  // unsigned DEV_TOKEN unconditionally meant that any moment `keycloak.token`
+  // was unavailable in a REAL deployment -- mid-refresh, or a call racing
+  // init() -- the app quietly sent an unsigned token instead of failing. The
+  // backend then rejected it for a reason that had nothing to do with the
+  // actual problem, which is that we are not authenticated.
+  if (devMode()) return DEV_TOKEN;
+  throw new Error(
+    "Not authenticated: no Keycloak token available. The session likely " +
+      "expired or was never established — sign in again."
+  );
+}
+
+/** True only when no Keycloak URL is configured, i.e. local development. */
+function devMode(): boolean {
+  return !config?.keycloak?.url;
 }
 
 export function hasRole(role: string): boolean {
