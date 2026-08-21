@@ -30,7 +30,7 @@ COPY reference-extension /app/reference-extension
 RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-auth" \
-      "git+https://github.com/openg2p/iam-service@${IAM_CORE_REF}#subdirectory=iam-core" \
+      "git+https://gitlab.com/openg2p/iam@${IAM_CORE_REF}#subdirectory=iam-core" \
       /app/core/openg2p-registry-core \
       /app/celery/openg2p-registry-celery-beat \
       /app/celery/openg2p-registry-celery-worker \
