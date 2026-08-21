@@ -63,6 +63,11 @@ global:
   # Agents are NOT staff. They live in their own realm with their own client,
   # so a staff token carries no rights on the Agent Portal API and vice versa.
   # Only read when agentPortalApi.enabled is true.
+  # Public host of the agent portal. Deliberately '<release>-agent.<ns>' rather
+  # than the 'agent-<registryHostname>' prefix the internal APIs use: this is the
+  # host a field agent types, and it must also be a registered redirect URI on
+  # the Keycloak agent clients below.
+  agentPortalHostname: '{{ .Release.Name }}-agent.{{ .Release.Namespace }}.openg2p.org'
   agentKeycloakRealm: 'agent'
   # Confidential client agents log in through, and whose ROLES carry the
   # issuance permission. Must match the IAM chart's IAM_AGENT_KEYCLOAK_CLIENT_ID
@@ -260,6 +265,8 @@ global:
   # NOTE: despite the name, this is the initial Keycloak password for the seeded
   # demo staff users below (keycloak-init), not an AWE resource. Kept here.
   aweApproverUserPassword: 'pass'
+  # Password for the demo `agent` user in the Keycloak `agent` realm.
+  agentUserPassword: 'pass'
   # Helm release that hosts the shared AWE — its Service is <aweReleaseName>-awe.
   # Used by db-seed to wait for the AWE API before seeding the callback secret.
   aweReleaseName: commons-services
@@ -1356,7 +1363,7 @@ staffUi:
 agentPortalUi:
   enabled: false
   nameOverride: agent-portal-ui
-  hostname: 'agent-{{ tpl .Values.global.registryHostname $ }}'
+  hostname: '{{ tpl .Values.global.agentPortalHostname $ }}'
   replicaCount: 1
   autoscaling:
     enabled: false
@@ -1407,7 +1414,7 @@ agentPortalUi:
     enabled: true
     virtualservice:
       enabled: true
-      host: '{{ tpl .Values.global.registryHostname $ }}'
+      host: '{{ tpl .Values.global.agentPortalHostname $ }}'
       gateway: "internal"
       destination: '{{ .Release.Name }}-agent-portal-ui'
       destinationPort: '{{ .Values.service.port }}'
@@ -1415,7 +1422,7 @@ agentPortalUi:
       rewriteUri: "/"
     gateway:
       enabled: false
-      host: '{{ tpl .Values.global.registryHostname $ }}'
+      host: '{{ tpl .Values.global.agentPortalHostname $ }}'
       ingressController:
         istio: ingressgateway
       httpTlsRedirect: false
@@ -1425,42 +1432,13 @@ agentPortalUi:
         mode: SIMPLE
         credentialName: ""
 
-  # Configuration parameters
-  partnerIngestUrl: 'https://partner-{{ tpl .Values.global.registryHostname $ }}/partner/ingest_data?data_model=dcivc'
-  vpPresentationId: "7f3c2a91-bb84-4d1f-9a6e-41c8e5a0d9f2"
-  vpPurpose: "Digital identity verification for registry onboarding"
-  # Browser-facing IAM URL (Staff Portal UI login providers)
-  iamPublicUrl: 'https://staff-iam.{{ .Release.Namespace }}.openg2p.org'
-
-  envVars:
-    # Per-release identifiers so two registry installs in the same namespace
-    # don't share UI/audit identity. APPLICATION_MNEMONIC must equal the
-    # Keycloak clientId verbatim (global.authClientId).
-    APP_MNEMONIC: '{{ .Release.Name }}-ui'
-    APP_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
-    APPLICATION_MNEMONIC: '{{ tpl .Values.global.authClientId $ }}'
-    # Allow profile/document images from MinIO pre-signed URLs in the browser CSP.
-    CSP_SRC_IMG: 'self blob: data: https://{{ tpl .Values.global.minioHost $ }}'
-    # Server-side calls from the Next.js Staff Portal UI pod to the Staff
-    # Portal API stay inside the cluster — sibling K8s Service is named
-    # "<release>-staff-portal-api" on port 80. Browser-side calls from the
-    # client should use a separate NEXT_PUBLIC_* var pointing to the public
-    # https://staff-<host> hostname (add when needed).
-    BACKEND_API_URL: 'http://{{ .Release.Name }}-staff-portal-api'
-    COOKIE_DOMAIN: '.{{ .Release.Namespace }}.openg2p.org'
-    IAM_URL: '{{ tpl .Values.iamPublicUrl $ }}'
-    KEYCLOAK_LOGOUT_URL: '{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/logout'
-    LOGIN_PROVIDER_ID: '1'
-    MASTERDATA_BACKEND_API_URL: '{{ .Values.global.masterDataApiUrl }}'
-    NODE_ENV: production
-    PAGE_SIZE: '10'
-    PARTNER_IMPORT_EXPORT_ENABLE: 'true'
-    PARTNER_INGEST_URL: '{{ tpl .Values.partnerIngestUrl $ }}'
-    REDIRECT_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
-    VERIFY_SERVICE_URL: 'https://{{ tpl .Values.global.registryHostname $ }}/v1/verify'
-    VP_CLIENT_ID: 'did:web:{{ tpl .Values.global.registryHostname $ }}:v1:verify'
-    VP_PRESENTATION_ID: '{{ .Values.vpPresentationId }}'
-    VP_PURPOSE: '{{ .Values.vpPurpose }}'
+  # The agent UI is a static SPA served by nginx: it takes NO build-time or
+  # pod env configuration. Everything it needs (Keycloak url/realm/clientId)
+  # is served at runtime from /config.json, rendered by
+  # templates/agent-ui/config-configmap.yaml, which is what lets one image
+  # serve every environment. Calls to /agent_portal/ are proxied in-cluster by
+  # nginx.conf, so the SPA uses same-origin URLs and needs no API hostname.
+  envVars: {}
 
   envVarsFrom: {}
 
@@ -1693,40 +1671,6 @@ redis:
     enabled: false
 
 keycloak-init:
-  # ── Enabling the `agent` realm ────────────────────────────────────────────
-  # VC issuance needs an `agent` realm alongside `staff`. It is NOT defined here
-  # by default on purpose: `realms` is static YAML, so a block added here would
-  # create the realm on EVERY registry install — including the ones that will
-  # never issue a credential. Uncomment it (or supply it in your own values)
-  # when you set agentPortalApi.enabled=true. keycloak-init is idempotent, so it
-  # is safe if the realm already exists.
-  #
-  #  realms:
-  #    agent:
-  #      clients:
-  #        # Confidential client the agent logs in through. Its client roles are
-  #        # what the Agent Portal API resolves permissions from, so the name
-  #        # must match global.agentKeycloakClientId AND the IAM chart's
-  #        # IAM_AGENT_KEYCLOAK_CLIENT_ID.
-  #        - clientId: 'agent-portal'
-  #          name: OpenG2P Agent Portal
-  #          redirectUris:
-  #            - 'https://agent-{{ tpl .Values.global.registryHostname $ }}/*'
-  #          clientRoles:
-  #            # The one capability an agent has.
-  #            - "register:issue_credential"
-  #        # Public browser client for the agent SPA (must match
-  #        # global.agentKeycloakUiClientId).
-  #        - clientId: 'agent-portal-ui'
-  #          name: OpenG2P Agent Portal UI
-  #          publicClient: true
-  #          redirectUris:
-  #            - 'https://agent-{{ tpl .Values.global.registryHostname $ }}/*'
-  #      users:
-  #        - username: agent
-  #          clientRoleMappings:
-  #            agent-portal:
-  #              - "register:issue_credential"
   enabled: true
   keycloak:
     # Internal URL to reach Keycloak within the namespace
@@ -1738,6 +1682,51 @@ keycloak-init:
     existingSecretKey: 'admin-password'
   suffix: '{{ .Release.Namespace }}'
   realms:
+    # ── The `agent` realm ──────────────────────────────────────────────────
+    # Created alongside `staff` and for the same reason: without it the agent
+    # portal has nothing to authenticate against, and neither the agent UI nor
+    # the agent API can be used at all. keycloak-init is idempotent, so this is
+    # safe to re-run and safe if the realm already exists.
+    #
+    # It is created even when the agent portal is switched off — `realms` is
+    # static YAML and cannot be made conditional on agentPortalApi.enabled. An
+    # unused realm holding two clients costs far less than a feature that
+    # deploys cleanly and then silently cannot log anyone in.
+    agent:
+      clients:
+        # Confidential client the agent logs in through, and whose client roles
+        # carry the issuance permission. Unlike the per-release staff client,
+        # this clientId is FIXED: it must equal global.agentKeycloakClientId
+        # here AND IAM_AGENT_KEYCLOAK_CLIENT_ID in the IAM chart, which is a
+        # namespace-level singleton. An agent authorised at login would
+        # otherwise be unauthorised at issuance.
+        - clientId: 'agent-portal'
+          name: OpenG2P Agent Portal
+          # Host-scoped, never a bare "*" — same rule as the staff client.
+          redirectUris:
+            - 'https://{{ tpl .Values.global.agentPortalHostname $ }}/*'
+          clientRoles:
+            # The single capability an agent has: issue a credential.
+            - "register:issue_credential"
+        # Public browser client for the agent SPA. Must equal
+        # global.agentKeycloakUiClientId, which the UI reads from config.json.
+        - clientId: 'agent-portal-ui'
+          name: OpenG2P Agent Portal UI
+          publicClient: true
+          redirectUris:
+            - 'https://{{ tpl .Values.global.agentPortalHostname $ }}/*'
+      users:
+        # Demo agent, mirroring the demo staff users above. Real deployments
+        # create their own agents and should change this password.
+        - username: agent
+          firstName: Field
+          lastName: Agent
+          email: agent@email.com
+          password: '{{ .Values.global.agentUserPassword }}'
+          enabled: true
+          clientRoleMappings:
+            'agent-portal':
+              - "register:issue_credential"
     staff:
       clients:
         # Per-release client inside the shared `staff` realm. clientId is

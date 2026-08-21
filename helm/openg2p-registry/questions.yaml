@@ -422,6 +422,18 @@ questions:
   group: VC Issuance
   show_if: agentPortalApi.enabled=true
 
+- variable: global.agentPortalHostname
+  description: >-
+    Public hostname of the Agent Portal UI. Defaults to
+    <release>-agent.<namespace>.openg2p.org (e.g. fr-agent.trial.openg2p.org).
+    This host is also registered as the redirect URI on the Keycloak
+    agent-portal clients, so changing it here changes both.
+  type: string
+  default: '{{ .Release.Name }}-agent.{{ .Release.Namespace }}.openg2p.org'
+  label: Agent Portal Hostname
+  group: VC Issuance
+  show_if: agentPortalApi.enabled=true
+
 - variable: agentPortalApi.vcIssuance.enabled
   description: >-
     Issue verifiable credentials from the Agent Portal. A credential is only
