@@ -28,7 +28,7 @@ variables:
           },
           {
             "arg": "IAM_CORE_REF",
-            "repo": "https://github.com/openg2p/iam-service",
+            "repo": "https://gitlab.com/openg2p/iam",
             "ref": "1.4"
           }
         ]
@@ -44,7 +44,7 @@ variables:
           },
           {
             "arg": "IAM_CORE_REF",
-            "repo": "https://github.com/openg2p/iam-service",
+            "repo": "https://gitlab.com/openg2p/iam",
             "ref": "1.4"
           }
         ]
@@ -60,7 +60,7 @@ variables:
           },
           {
             "arg": "IAM_CORE_REF",
-            "repo": "https://github.com/openg2p/iam-service",
+            "repo": "https://gitlab.com/openg2p/iam",
             "ref": "1.4"
           }
         ]
@@ -76,7 +76,7 @@ variables:
           },
           {
             "arg": "IAM_CORE_REF",
-            "repo": "https://github.com/openg2p/iam-service",
+            "repo": "https://gitlab.com/openg2p/iam",
             "ref": "1.4"
           }
         ]

@@ -78,7 +78,7 @@ a small values overlay pointing at its own images. See that chart and
 
 - These images install the platform packages from **this repo's working tree**
   (COPY), not a git ref — this repo *is* the platform. Only the external
-  `openg2p-fastapi-common` / `iam-service` libs are pulled by git ref.
+  `openg2p-fastapi-common` / `iam-core` (from https://gitlab.com/openg2p/iam) libs are pulled by git ref.
 - The images are runnable as-is (the reference extension is bundled). A variant
   image swaps the model purely by installing its package and setting
   `REGISTRY_EXTENSION_MODULE`.
