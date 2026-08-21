@@ -1386,7 +1386,10 @@ agentPortalUi:
     port: 80
     externalTrafficPolicy: Cluster
 
-  containerPort: 3000
+  # nginx-unprivileged, which listens on 8080 — NOT 3000. This block was modelled
+  # on staffUi, a Next.js app; leaving its port here pointed every probe at a
+  # port nothing listens on, so the pod served fine and was restarted anyway.
+  containerPort: 8080
 
   # Staff Portal UI is a Next.js SSR app. Node's V8 heap can balloon on cold
   # start (JIT warmup), large page pre-render, or concurrent SSR. Sizing
