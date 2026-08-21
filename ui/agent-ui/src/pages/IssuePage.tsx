@@ -12,6 +12,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiError, api, type AuthStatus, type Beneficiary, type VcType } from "../api/client";
 
+/** Stop polling eventually — the beneficiary may simply walk away. */
+const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
 type Stage = "lookup" | "authenticate" | "issue" | "done";
 
 export default function IssuePage() {
@@ -26,6 +29,7 @@ export default function IssuePage() {
   const [error, setError] = useState<string>("");
   const [issued, setIssued] = useState<{ filename: string; issuanceId: string } | null>(null);
   const pollRef = useRef<number | null>(null);
+  const popupRef = useRef<Window | null>(null);
 
   useEffect(() => {
     api.vcTypes()
@@ -79,12 +83,38 @@ export default function IssuePage() {
     try {
       const started = await api.startAuthentication(beneficiary.internal_record_id);
       setAuthId(started.authentication_id);
-      // The beneficiary authenticates at the identity provider, not here. Opening
-      // a separate window keeps this screen — and the agent's place in the flow —
-      // intact while that happens.
-      window.open(started.authorization_url, "beneficiary-auth", "width=520,height=680");
+
+      // The beneficiary authenticates at the identity provider, not here. A
+      // centred popup mirrors the registry's own ID-authentication widget — the
+      // same size, because eSignet's screens (biometric capture especially) do
+      // not fit a narrow window.
+      const w = 1024;
+      const h = 800;
+      const left = window.screenX + Math.max(0, (window.outerWidth - w) / 2);
+      const top = window.screenY + Math.max(0, (window.outerHeight - h) / 2);
+      const popup = window.open(
+        started.authorization_url,
+        "beneficiary-auth",
+        `popup=yes,width=${w},height=${h},left=${left},top=${top}`,
+      );
+      if (!popup) {
+        setError("The authentication window was blocked. Allow popups for this site and try again.");
+        setBusy(false);
+        return;
+      }
+      popupRef.current = popup;
+      popup.focus?.();
+
       stopPolling();
+      const startedAt = Date.now();
       pollRef.current = window.setInterval(async () => {
+        // Give up rather than poll forever: the beneficiary may walk away, or
+        // close the window without finishing.
+        if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+          stopPolling();
+          setError("Authentication timed out. Ask the beneficiary to try again.");
+          return;
+        }
         try {
           const s = await api.authenticationStatus(
             beneficiary.internal_record_id,
@@ -93,10 +123,18 @@ export default function IssuePage() {
           setStatus(s);
           if (s.authorised) {
             stopPolling();
+            popupRef.current?.close?.();
             setStage("issue");
+            return;
           }
         } catch {
           /* transient; the next tick retries */
+        }
+        // Closed without success — say so instead of spinning silently. Checked
+        // after the status call so a popup that closes on completion still wins.
+        if (popupRef.current?.closed) {
+          stopPolling();
+          setError("The authentication window was closed before it completed.");
         }
       }, 2000);
     } catch (e) {
