@@ -38,7 +38,12 @@ class RequestResponseHelper(BaseService):
     ) -> Any:
         return response_cls(
             response_header=self._header(
-                request, G2PResponseStatus.FAILURE, code, message
+                # G2PResponseStatus has exactly two members, SUCCESS and ERROR.
+                # FAILURE does not exist, and referencing it raised AttributeError
+                # from inside the error path itself — so every handled error
+                # (record not found, not eligible, authentication expired) was
+                # returned to the agent as a bare HTTP 500 "Unknown Error."
+                request, G2PResponseStatus.ERROR, code, message
             ),
             response_body=body_cls(response_payload=None),
         )

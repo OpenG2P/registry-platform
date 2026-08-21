@@ -38,7 +38,7 @@ from ..services import (
     RegistryLookupError,
     RegistryLookupService,
 )
-from ..services.registry_lookup_service import RECORD_NAME_COLUMN, REGISTER_ID_COLUMN
+from ..services.registry_lookup_service import RECORD_NAME_COLUMN, REGISTER_ID_COLUMN, FOUNDATIONAL_ID_COLUMN
 from openg2p_registry_core.models import VcIssuanceStatusEnum
 
 _config = Settings.get_config()
@@ -185,11 +185,23 @@ class VcIssuanceController(BaseController):
                 auth_request,
             )
         try:
+            # Read the record's foundational_id from the manifestation's VC view
+            # and hand it to core. Core can also resolve it from the concrete
+            # register model, but that model ships in the manifestation's own
+            # package, which this service deliberately does not install -- it
+            # works off the view so the Registry Platform can own it for every
+            # registry. Without this the authentication completes and is then
+            # rejected at the binding check as having no foundational_id.
+            vc = _config.get_vc_definition()
+            row = await self.registry_lookup_service.get_record(
+                payload.internal_record_id, vc
+            )
             authentication_id, url, provider_name = await self.beneficiary_auth_service.start(
                 register_id=register_id,
                 internal_record_id=payload.internal_record_id,
                 agent_id=self._agent_id(request),
                 provider_id=payload.provider_id,
+                foundational_id=row.get(FOUNDATIONAL_ID_COLUMN),
             )
         except BeneficiaryAuthError as error:
             return self.helper.error(

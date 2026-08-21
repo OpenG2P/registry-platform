@@ -77,8 +77,17 @@ global:
   # Public browser client for the agent SPA (standard flow).
   agentKeycloakUiClientId: 'agent-portal-ui'
   agentKeycloakIssuerUrl: '{{ tpl .Values.global.keycloakBaseUrl $ }}/realms/{{ tpl .Values.global.agentKeycloakRealm $ }}'
-  # The IAM agent-portal API (from the iam-service chart) that agents log in
-  # against; used to resolve permissions.
+  # Where the agent portal resolves ROLES -> PERMISSIONS, via
+  # /user-access/get_permissions_for_roles.
+  #
+  # This is the IAM *staff* portal API, not iam-agent-portal-api, which is
+  # easy to get wrong: agents LOG IN against the agent API, but only the staff
+  # API exposes the user-access endpoints — roles and permissions are held
+  # once, for all audiences. Pointing this at the agent API 404s, and the
+  # middleware turns that into a blanket 403 on every issuance call.
+  #
+  # Empty means "use global.iamServiceUrl"; set it only if user-access is
+  # served from somewhere else.
   agentAuthProviderApiUrl: ''
 
   # ── Inji Certify (the credential issuer) ────────────────────────────────
@@ -939,7 +948,20 @@ agentPortalApi:
 
     # IAM — the `agent` realm client this API validates tokens against.
     REGISTRY_AGENT_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ .Values.global.agentKeycloakClientId }}'
-    REGISTRY_AGENT_PORTAL_API_AUTH_PROVIDER_API_URL: '{{ .Values.global.agentAuthProviderApiUrl }}'
+    # ── Registrant-authentication session store ───────────────────────────
+    # The eSignet transaction (state/nonce/PKCE verifier + the record context)
+    # is created when authentication STARTS and read back when eSignet
+    # redirects to the callback. Those two halves do not run in the same pod:
+    # the agent portal starts it, but oauth_callback_url points at the STAFF
+    # API, which is where eSignet lands. With the default in-process store the
+    # callback pod has never seen the state and the authentication always
+    # fails. It must therefore be a store both pods share.
+    #
+    # The code's own default is redis://localhost:6379/0, which resolves to
+    # nothing inside either pod, so this cannot be left unset.
+    REGISTRY_CORE_REGISTRANT_AUTH_SESSION_STORE_BACKEND: 'redis'
+    REGISTRY_CORE_REGISTRANT_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0'
+    REGISTRY_AGENT_PORTAL_API_AUTH_PROVIDER_API_URL: '{{ tpl (default .Values.global.iamServiceUrl .Values.global.agentAuthProviderApiUrl) $ }}'
   envVarsFrom:
     REGISTRY_AGENT_PORTAL_API_DB_PASSWORD:
       secretKeyRef:
@@ -1090,6 +1112,19 @@ staffApi:
 
     REGISTRY_STAFF_PORTAL_API_AUTH_PROVIDER_API_URL: '{{ .Values.global.iamServiceUrl }}'
     REGISTRY_STAFF_PORTAL_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.authRedisInstallationName $ }}-master:6379/0'
+    # ── Registrant-authentication session store ───────────────────────────
+    # The eSignet transaction (state/nonce/PKCE verifier + the record context)
+    # is created when authentication STARTS and read back when eSignet
+    # redirects to the callback. Those two halves do not run in the same pod:
+    # the agent portal starts it, but oauth_callback_url points at the STAFF
+    # API, which is where eSignet lands. With the default in-process store the
+    # callback pod has never seen the state and the authentication always
+    # fails. It must therefore be a store both pods share.
+    #
+    # The code's own default is redis://localhost:6379/0, which resolves to
+    # nothing inside either pod, so this cannot be left unset.
+    REGISTRY_CORE_REGISTRANT_AUTH_SESSION_STORE_BACKEND: 'redis'
+    REGISTRY_CORE_REGISTRANT_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0'
     REGISTRY_STAFF_PORTAL_API_AUTH_REFRESH_TOKEN_TTL_SECONDS: '{{ .Values.global.authRefreshTokenTtlSeconds }}'
     REGISTRY_STAFF_PORTAL_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
     REGISTRY_STAFF_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
@@ -1715,6 +1750,23 @@ keycloak-init:
           publicClient: true
           redirectUris:
             - 'https://{{ tpl .Values.global.agentPortalHostname $ }}/*'
+          # The SAME role is defined here as on agent-portal, because the two
+          # sides read it from different places: the API checks
+          # resource_access['agent-portal'], while the SPA reads
+          # resource_access['agent-portal-ui'] to decide whether to offer the
+          # issue action. With it on only one client the agent logs in fine and
+          # then finds issuance greyed out (or is refused at the API).
+          clientRoles:
+            - "register:issue_credential"
+          # Puts 'agent-portal' in the aud of tokens minted for the SPA, so the
+          # API's audience check passes on a token the browser obtained.
+          protocolMappers:
+            - name: agent-portal-audience
+              protocol: openid-connect
+              protocolMapper: oidc-audience-mapper
+              config:
+                included.client.audience: 'agent-portal'
+                access.token.claim: 'true'
       users:
         # Demo agent, mirroring the demo staff users above. Real deployments
         # create their own agents and should change this password.
@@ -1726,6 +1778,8 @@ keycloak-init:
           enabled: true
           clientRoleMappings:
             'agent-portal':
+              - "register:issue_credential"
+            'agent-portal-ui':
               - "register:issue_credential"
     staff:
       clients:

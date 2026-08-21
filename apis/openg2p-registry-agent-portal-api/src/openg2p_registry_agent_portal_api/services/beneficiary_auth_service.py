@@ -64,7 +64,7 @@ class BeneficiaryAuthService(BaseService):
 
     async def start(
         self, *, register_id: str, internal_record_id: str, agent_id: str,
-        provider_id: Optional[str] = None,
+        provider_id: Optional[str] = None, foundational_id: Optional[str] = None,
     ) -> Tuple[str, str, str]:
         """Begin the beneficiary's authentication; returns (id, url, provider)."""
         resolved = provider_id or await self._resolve_provider_id(register_id)
@@ -73,6 +73,10 @@ class BeneficiaryAuthService(BaseService):
             internal_record_id=internal_record_id,
             provider_id=resolved,
             initiated_by_staff_id=agent_id,
+            # Supplied from the VC view row the lookup already read. Core would
+            # otherwise resolve it from the concrete register model, which is
+            # not installed in this service by design.
+            foundational_id=foundational_id,
         )
         auth = await self.auth_service.get_authentication_status(
             internal_record_id=internal_record_id

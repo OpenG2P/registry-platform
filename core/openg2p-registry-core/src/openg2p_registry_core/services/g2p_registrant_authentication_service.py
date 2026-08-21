@@ -8,6 +8,7 @@ from cryptography.fernet import Fernet
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from openg2p_fastapi_common.models import BaseORMModel
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
@@ -31,6 +32,33 @@ from ..models import (
 
 _logger = logging.getLogger("g2p-registrant-auth-service")
 _config = Settings.get_config()
+
+
+def _resolve_register_model(register_mnemonic: str):
+    """Return the concrete G2PRegister<Mnemonic> model class.
+
+    Resolved through SQLAlchemy's mapper registry rather than by importing a
+    fixed module path. `G2PRegister` is abstract and each manifestation defines
+    its own concrete table in its OWN package -- the Farmer Registry ships
+    `openg2p_registry_farmer_extension`, not the `openg2p_registry_extensions`
+    that the rest of this codebase imports by name and that is installed
+    nowhere. That import raised ModuleNotFoundError on every call; the caller
+    caught it, degraded foundational_id to "", and every authentication then
+    failed at the binding check reporting "record does not have a
+    foundational_id" for records that plainly had one.
+
+    Anything mapped is in the registry whichever package declared it, so this
+    works for every manifestation. Failure to resolve raises, because silently
+    continuing without a foundational_id is what hid the fault before.
+    """
+    name = f"G2PRegister{register_mnemonic}"
+    for mapper in BaseORMModel.registry.mappers:
+        if mapper.class_.__name__ == name:
+            return mapper.class_
+    raise G2PRegistryException(
+        code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+        message=f"No register model {name} is mapped for this deployment.",
+    )
 
 
 class _ClaimsCrypto:
@@ -117,6 +145,7 @@ class G2PRegistrantAuthenticationService(BaseService):
         internal_record_id: str,
         provider_id: str,
         initiated_by_staff_id: str,
+        foundational_id: str | None = None,
     ) -> tuple[str, str, str]:
         session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
         async with session_maker() as session:
@@ -155,31 +184,30 @@ class G2PRegistrantAuthenticationService(BaseService):
             await session.commit()
             await session.refresh(auth)
 
-            # Get foundational_id from register record
-            try:
-                # Get the implementation class for this register (similar to G2PRegisterService)
-                if register_definition:
-                    import importlib
-                    module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
-                    register_class_prefix = "G2PRegister"
-                    implementation_class_name = f"{register_class_prefix}{register_definition.register_mnemonic}"
-                    implementation_class = getattr(module, implementation_class_name)
-                    
-                    # Fetch the record by internal_record_id
-                    register_record = (
-                        await session.execute(
-                            select(implementation_class).where(
-                                implementation_class.internal_record_id == internal_record_id
-                            )
+            # Get foundational_id from the register record. It is carried in the
+            # transaction context and checked against the subject eSignet
+            # returns, so resolving it is what makes the authentication bound to
+            # a person rather than merely successful.
+            # A caller that already holds the record's foundational_id passes it
+            # in. The agent portal does: it read the manifestation's VC view to
+            # find the record in the first place. That matters because the
+            # concrete model lives in the manifestation's own package, which is
+            # installed in the staff API but deliberately NOT in the agent
+            # portal API -- the Registry Platform owns that service and stays
+            # manifestation-agnostic, taking claims from a view instead.
+            if foundational_id is None:
+                implementation_class = _resolve_register_model(
+                    register_definition.register_mnemonic
+                )
+                register_record = (
+                    await session.execute(
+                        select(implementation_class).where(
+                            implementation_class.internal_record_id == internal_record_id
                         )
-                    ).scalar()
-                    
-                    foundational_id = register_record.foundational_id if register_record and hasattr(register_record, 'foundational_id') and register_record.foundational_id else ""
-                else:
-                    foundational_id = ""
-            except (AttributeError, ModuleNotFoundError):
-                # Fallback if we can't determine the implementation class
-                foundational_id = ""
+                    )
+                ).scalar()
+                foundational_id = getattr(register_record, "foundational_id", "")
+            foundational_id = str(foundational_id or "")
 
         login_provider = self._provider_to_login_provider(provider)
         adapter = self._adapters.resolve_for_provider(login_provider)

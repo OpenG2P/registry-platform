@@ -64,7 +64,20 @@ class Settings(ExtSettings):
     # client, so a staff token carries no rights here.
     auth_provider_api_url: Optional[str] = None
     keycloak_client_id: Optional[str] = None
-    csrf_enabled: bool = True
+    # OFF by default, unlike the staff portal API.
+    #
+    # CsrfMiddleware is a double-submit check: it needs a csrf_token COOKIE that
+    # matches an X-CSRF-Token header. That cookie is set by IAM's cookie-based
+    # login, which the staff portal uses. The agent portal does NOT: its SPA
+    # authenticates with keycloak-js and sends a Bearer token, so the cookie is
+    # never issued and every POST — lookup, start_authentication, issue —
+    # fails with "CSRF token missing or invalid".
+    #
+    # It is also unnecessary here. CSRF exploits credentials the browser
+    # attaches automatically; an Authorization header is set by the app on each
+    # call and is never sent cross-site on its own. Left as a switch so a
+    # cookie-session deployment of this API can turn it back on.
+    csrf_enabled: bool = False
 
     # ── Which register credentials are issued from ────────────────────────────
     # Phase 1 issues to an individual.
