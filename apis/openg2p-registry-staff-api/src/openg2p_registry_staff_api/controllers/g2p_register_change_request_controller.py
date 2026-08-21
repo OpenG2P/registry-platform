@@ -6,6 +6,7 @@ from openg2p_fastapi_common.schemas import G2PResponse
 
 from openg2p_registry_core.controller_services import G2PRegisterChangerequestControllerService
 from openg2p_registry_core.helpers.auth_token import bearer_from_request, requester_sub_from_request
+from openg2p_registry_core.helpers.data_policy_request_helper import get_data_policies
 from openg2p_registry_core.schemas.change_request import (
     ChangeRequestRequest, ChangeRequestResponse, ChangeRequestResponseBody, ChangeRequestResponsePayload,
     GetNumberOfPendingChangeRequestsRequest,
@@ -32,7 +33,6 @@ from openg2p_registry_core.schemas.change_request import (
 from iam_core.user_auth.decorators import require_permissions, data_policy
 
 from ..helpers import RequestResponseHelper
-from ..helpers.data_policy_request_helper import get_data_policies
 from ..config import Settings
 
 _config = Settings.get_config()

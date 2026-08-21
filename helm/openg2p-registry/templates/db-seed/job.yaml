@@ -99,6 +99,20 @@ spec:
                 secretKeyRef:
                   name: {{ include "common.tplvalues.render" (dict "value" .Values.global.registryDBSecret "context" $) | quote }}
                   key: {{ include "common.tplvalues.render" (dict "value" .Values.global.registryDBUserPasswordKey "context" $) | quote }}
+            # Stable aliases so AWE seed cannot overwrite the registry DSN via PG*.
+            - name: REGISTRY_PGHOST
+              value: {{ .Values.global.postgresqlHost | quote }}
+            - name: REGISTRY_PGPORT
+              value: {{ .Values.global.registryDBPort | default 5432 | quote }}
+            - name: REGISTRY_PGDATABASE
+              value: {{ include "common.tplvalues.render" (dict "value" .Values.global.registryDB "context" $) | quote }}
+            - name: REGISTRY_PGUSER
+              value: {{ include "common.tplvalues.render" (dict "value" .Values.global.registryDBUser "context" $) | quote }}
+            - name: REGISTRY_PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "common.tplvalues.render" (dict "value" .Values.global.registryDBSecret "context" $) | quote }}
+                  key: {{ include "common.tplvalues.render" (dict "value" .Values.global.registryDBUserPasswordKey "context" $) | quote }}
             # Master-data DB — geo reference data is seeded here (see dbSeed.loadGeoData).
             # master-data is a separate commons release; the registry only holds its creds.
             - name: MD_PGHOST
@@ -168,6 +182,48 @@ spec:
                 secretKeyRef:
                   name: {{ include "common.tplvalues.render" (dict "value" .Values.global.minioSecret "context" $) | quote }}
                   key: {{ include "common.tplvalues.render" (dict "value" .Values.global.minioSecretKey "context" $) | quote }}
+            {{- if .Values.dbSeed.loadSampleData }}
+            {{- $intake := .Values.dbSeed.intakeSeed | default dict }}
+            # Intake-form sample seed (farmer): staff API + Keycloak password grant.
+            - name: STAFF_API_URL
+              value: {{ printf "http://%s-staff-portal-api:%v" .Release.Name (.Values.staffApi.service.port | default 80) | quote }}
+            - name: STAFF_TOKEN_URL
+              value: {{ printf "%s/protocol/openid-connect/token" (tpl .Values.global.keycloakIssuerUrl $) | quote }}
+            - name: STAFF_CLIENT_ID
+              value: {{ tpl .Values.global.authClientId $ | quote }}
+            - name: STAFF_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl .Values.global.authClientSecret $ | quote }}
+                  key: {{ .Values.global.authClientSecretKey | quote }}
+                  optional: true
+            - name: INTAKE_SEED_SUBMIT_USER
+              value: {{ $intake.submitUser | default "alex.carter" | quote }}
+            - name: INTAKE_SEED_APPROVER_1
+              value: {{ $intake.approver1 | default "alex.carter" | quote }}
+            - name: INTAKE_SEED_APPROVER_2
+              value: {{ $intake.approver2 | default "nina.patel" | quote }}
+            - name: INTAKE_SEED_PASSWORD
+              value: {{ .Values.global.aweApproverUserPassword | quote }}
+            - name: INTAKE_SEED_MAX_HOUSEHOLDS
+              value: {{ $intake.maxHouseholds | default 50 | quote }}
+            - name: INTAKE_SEED_VERIFY_TLS
+              value: "false"
+            - name: KEYCLOAK_REALM
+              value: {{ tpl .Values.global.keycloakRealm $ | quote }}
+            {{- if index .Values "keycloak-init" }}
+            - name: KEYCLOAK_BASE_URL
+              value: {{ tpl (index .Values "keycloak-init" "keycloak" "url") $ | quote }}
+            - name: KEYCLOAK_ADMIN_USER
+              value: {{ (index .Values "keycloak-init" "keycloak" "user") | quote }}
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl (index .Values "keycloak-init" "keycloak" "existingSecret") $ | quote }}
+                  key: {{ (index .Values "keycloak-init" "keycloak" "existingSecretKey") | quote }}
+                  optional: true
+            {{- end }}
+            {{- end }}
           {{- if .Values.dbSeed.resources }}
           resources: {{- include "common.tplvalues.render" (dict "value" .Values.dbSeed.resources "context" $) | nindent 12 }}
           {{- end }}

@@ -6,6 +6,7 @@ from openg2p_fastapi_common.controller import BaseController
 from openg2p_fastapi_common.schemas import G2PPaginationResponse, G2PResponse
 from openg2p_registry_core.controller_services import G2PIntakeFormDataControllerService
 from openg2p_registry_core.helpers.auth_token import bearer_from_request, requester_sub_from_request
+from openg2p_registry_core.helpers.data_policy_request_helper import get_data_policies
 from openg2p_registry_core.services.intake_form_data_service import G2PIntakeFormDataService
 from openg2p_registry_core.schemas import (
     ApproveRejectSubmissionRequest,
@@ -39,7 +40,6 @@ from openg2p_registry_core.schemas import (
 
 from ..config import Settings
 from ..helpers import RequestResponseHelper
-from ..helpers.data_policy_request_helper import get_data_policies
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
