@@ -107,10 +107,18 @@ global:
   # global.certifyHostname — it is what Certify derives its accepted audience
   # from, and (as did:web:<hostname>) its issuer DID.
   certifyHostname: 'certify.{{ .Release.Namespace }}.openg2p.org'
+  # Audience of the OpenID4VCI proof JWT. This is Certify's ISSUER IDENTIFIER --
+  # the bare origin, NOT the credential endpoint. Certify validates it with
+  # nimbus and rejects anything else:
+  #   JWT aud claim has value [https://<host>/v1/certify/issuance/credential],
+  #   must be [https://<host>]
+  # which surfaces to the agent only as "invalid_proof ... proof jwt parsing",
+  # after the beneficiary has already authenticated.
+  #
   # Derived from the hostname rather than spelled out, so a deployment on another
   # domain changes ONE value instead of editing a URL with the domain buried in
   # it. Override directly only if Certify's allowed-audiences was customised.
-  certifyAudience: 'https://{{ tpl .Values.global.certifyHostname $ }}/v1/certify/issuance/credential'
+  certifyAudience: 'https://{{ tpl .Values.global.certifyHostname $ }}'
 
   # The issuer every credential is signed under. ENVIRONMENT-level: one issuing
   # authority per environment, whose keypair Certify's keymanager generates on

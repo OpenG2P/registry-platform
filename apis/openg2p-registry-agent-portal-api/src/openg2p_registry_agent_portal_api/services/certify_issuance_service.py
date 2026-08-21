@@ -114,7 +114,18 @@ class CertifyIssuanceService(BaseService):
             },
         )
         self._raise_for_status(resp, "CREDENTIAL_ISSUANCE_FAILED")
-        return resp.json()
+        body = resp.json()
+        # Return the CREDENTIAL, not the OpenID4VCI envelope that wraps it.
+        # Certify answers {"credential": {...}, "format": ...}; handing that
+        # envelope on makes every consumer one level too deep. The visible
+        # symptom was the QR: the compact claim-169 payload sits at
+        # credential.claim169.qrCode, the configured qr_claim_path could not
+        # find it, and the renderer silently fell back to embedding the whole
+        # response -- so the QR carried the envelope instead of the signed
+        # compact credential, and was far larger for it.
+        if isinstance(body, dict) and isinstance(body.get("credential"), dict):
+            return body["credential"]
+        return body
 
     def _make_proof_jwt(self, nonce: str) -> str:
         priv = rsa.generate_private_key(public_exponent=65537, key_size=2048)
