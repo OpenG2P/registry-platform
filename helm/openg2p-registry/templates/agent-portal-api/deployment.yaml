@@ -133,6 +133,12 @@ spec:
         - name: pdf-templates
           configMap:
             name: {{ tpl .Values.svgConfigMap $ }}
+            # Optional so a missing or not-yet-created ConfigMap cannot wedge the
+            # pod in ContainerCreating. The card design only matters at render
+            # time, and the service falls back to a plain layout when the SVG is
+            # absent — an agent should never be blocked from issuing because a
+            # design file is missing.
+            optional: true
         {{- end }}
         {{- if .Values.extraVolumes }}
         {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumes "context" $) | nindent 8 }}
