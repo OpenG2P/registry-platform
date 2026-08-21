@@ -72,41 +72,58 @@ const diffFormRecord = (baselineRecords: unknown[], currentRecords: unknown[]): 
   return [{ ...pickAllSectionFields(baseline, current), edit_action: 'UPDATE' }];
 };
 
-const diffTableRows = (baselineRecords: unknown[], currentRecords: unknown[]): unknown[] => {
+const diffTableRows = (
+  baselineRecords: unknown[],
+  currentRecords: unknown[],
+): unknown[] => {
   const baselineRows = toRowList(baselineRecords);
   const currentRows = toRowList(currentRecords);
+
   const baselineById = new Map<string, RowRecord>();
+
   for (const row of baselineRows) {
     const id = getRowId(row);
-    if (id) baselineById.set(id, row);
+    if (id) {
+      baselineById.set(id, row);
+    }
   }
 
   const result: RowRecord[] = [];
 
-  currentRows.forEach((row, index) => {
-    const editAction = typeof row.edit_action === 'string' ? row.edit_action : undefined;
+  currentRows.forEach((row) => {
+    const editAction =
+      typeof row.edit_action === 'string' ? row.edit_action : undefined;
+
     const rowId = getRowId(row);
 
+    // Deleted row
     if (editAction === 'DELETE') {
       if (!rowId) return;
-      result.push({ internal_record_id: rowId, edit_action: 'DELETE' });
+
+      result.push({
+        ...row,
+        internal_record_id: rowId,
+        edit_action: 'DELETE',
+      });
+
       return;
     }
 
-    if (editAction === 'ADD') {
-      result.push({ ...row, edit_action: 'ADD' });
+    // New row
+    if (editAction === 'ADD' || !rowId) {
+      result.push({
+        ...row,
+        edit_action: 'ADD',
+      });
+
       return;
     }
 
-    const baseline = (rowId && baselineById.get(rowId)) || (!rowId ? baselineRows[index] : undefined);
-    if (!baseline) return;
-
-    const changedFields = pickChangedFields(baseline, row);
-    if (Object.keys(changedFields).length === 0) return;
-
+    // Existing row:
+    // Always include the complete row with UPDATE action,
+    // whether it was actually modified or not.
     result.push({
-      ...changedFields,
-      ...(rowId ? { internal_record_id: rowId } : {}),
+      ...row,
       edit_action: 'UPDATE',
     });
   });
