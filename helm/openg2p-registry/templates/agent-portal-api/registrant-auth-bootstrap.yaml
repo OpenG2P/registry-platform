@@ -1,0 +1,187 @@
+{{- if and .Values.agentPortalApi.enabled .Values.agentPortalApi.vcIssuance.enabled .Values.agentPortalApi.vcIssuance.bootstrap.enabled }}
+{{- $b := .Values.agentPortalApi.vcIssuance.bootstrap -}}
+{{- /*
+  Bootstraps the state the beneficiary-authentication chain needs but that no
+  chart owned until now. Every one of these was previously a hand-run SQL
+  statement, and missing any of them fails the flow at a different, unhelpful
+  point:
+
+    * eSignet OIDC client        -> "invalid_client_id" when authentication starts
+    * registry provider row      -> "No active registrant-authentication provider"
+    * requires_registrant_authentication on the register
+                                 -> "Registrant authentication is not enabled"
+
+  The IAM permission and role that authorise issuance are NOT here: the
+  iam-register Job already publishes this registry's catalogue to IAM over its
+  authenticated API, so `register:issue_credential` is declared in
+  files/iam-registration/payload.json alongside the staff permissions.
+
+  It writes into one schema this chart does not own (eSignet's). That is
+  deliberate and is why it is a switch: eSignet's client-mgmt API is
+  gated behind an OAuth scope (add_oidc_client) that a bootstrap job has no way
+  to obtain, so seeding the row is the only route available to an unattended
+  install. Turn it off and do these four by hand in a deployment where another
+  system owns that state.
+
+  Idempotent: the client keypair is generated ONLY when the provider row does
+  not already carry one. Re-running never rotates a live key -- doing so would
+  silently break authentication, because eSignet holds the matching public half.
+*/ -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-registrant-auth-bootstrap
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    # AFTER db-seed (weight 10), which creates g2p_register_definitions. Run
+    # earlier and the register row does not exist yet, so the flag update
+    # matches nothing and issuance fails later with "Registrant authentication
+    # is not enabled for this register".
+    "helm.sh/hook-weight": "15"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ $b.backoffLimit }}
+  template:
+    metadata:
+      name: {{ .Release.Name }}-registrant-auth-bootstrap
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: keys
+          emptyDir: {}
+      initContainers:
+        # Generates a fresh RSA keypair. Split out because the postgres client
+        # image carries no openssl, and the seed step needs psql.
+        - name: keygen
+          image: {{ $b.keygenImage | quote }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              openssl genrsa -out /keys/client.pem 2048 2>/dev/null
+              # JWK 'n' is the modulus; psql turns this hex into base64url.
+              openssl rsa -in /keys/client.pem -noout -modulus \
+                | sed 's/^Modulus=//' > /keys/modulus.hex
+              echo "keygen: generated a 2048-bit RSA keypair"
+          volumeMounts:
+            - name: keys
+              mountPath: /keys
+      containers:
+        - name: seed
+          image: {{ $b.psqlImage | quote }}
+          env:
+            - name: PGHOST
+              value: {{ tpl .Values.global.postgresqlHost $ | quote }}
+            - name: REG_DB
+              value: {{ tpl .Values.global.registryDB $ | quote }}
+            - name: REG_USER
+              value: {{ tpl .Values.global.registryDBUser $ | quote }}
+            - name: REG_PW
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl .Values.global.registryDBSecret $ | quote }}
+                  key: {{ tpl .Values.global.registryDBUserPasswordKey $ | quote }}
+            - name: ESIGNET_DB
+              value: {{ tpl $b.esignet.dbName $ | quote }}
+            - name: ESIGNET_USER
+              value: {{ tpl $b.esignet.dbUser $ | quote }}
+            - name: ESIGNET_PW
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl $b.esignet.dbSecret $ | quote }}
+                  key: {{ tpl $b.esignet.dbSecretKey $ | quote }}
+            - name: CLIENT_ID
+              value: {{ tpl $b.esignet.clientId $ | quote }}
+            - name: PROVIDER_ID
+              value: {{ tpl .Values.agentPortalApi.vcIssuance.authProviderId $ | quote }}
+            - name: REGISTER_ID
+              value: {{ .Values.agentPortalApi.vcIssuance.registerId | quote }}
+            - name: CALLBACK_URL
+              value: 'https://{{ tpl .Values.staffApi.hostname $ }}/registrant-auth/callback'
+            - name: ESIGNET_BASE
+              value: 'https://{{ tpl $b.esignet.hostname $ }}'
+            - name: ACR_VALUES
+              value: {{ $b.esignet.acrValues | quote }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              if [ -z "$REGISTER_ID" ]; then
+                echo "ERROR: agentPortalApi.vcIssuance.registerId is empty." >&2
+                echo "It names the register credentials are issued from; without it" >&2
+                echo "there is nothing to attach the provider row to." >&2
+                exit 1
+              fi
+              rq() { PGPASSWORD="$REG_PW"     psql -v ON_ERROR_STOP=1 -U "$REG_USER"     -d "$REG_DB"     -h "$PGHOST" "$@"; }
+              eq() { PGPASSWORD="$ESIGNET_PW" psql -v ON_ERROR_STOP=1 -U "$ESIGNET_USER" -d "$ESIGNET_DB" -h "$PGHOST" "$@"; }
+
+              echo "== 1/2 register: require registrant authentication =="
+              rq -qc "UPDATE g2p_register_definitions
+                         SET requires_registrant_authentication = TRUE
+                       WHERE register_id = '$REGISTER_ID'
+                         AND requires_registrant_authentication IS DISTINCT FROM TRUE;"
+
+              echo "== 2/2 eSignet client + provider row =="
+              HAVE=$(rq -tAc "SELECT coalesce(octet_length(client_private_key),0)
+                                FROM g2p_registrant_authentication_providers
+                               WHERE provider_id='$PROVIDER_ID';" || echo 0)
+              HAVE=${HAVE:-0}
+              if [ "$HAVE" -gt 0 ]; then
+                echo "provider '$PROVIDER_ID' already holds a key — not rotating it."
+              else
+                MOD=$(cat /keys/modulus.hex)
+                # base64url of the modulus, computed in SQL: hex -> bytea -> base64,
+                # then +/ -> -_ and padding stripped.
+                N=$(eq -tAc "SELECT rtrim(translate(encode(decode('$MOD','hex'),'base64'),E'+/\n','-_'),'=');")
+                JWK="{\"kty\":\"RSA\",\"e\":\"AQAB\",\"use\":\"sig\",\"alg\":\"RS256\",\"kid\":\"$CLIENT_ID\",\"n\":\"$N\"}"
+                # eSignet stores these list columns as JSON arrays, not CSV.
+                eq -qc "INSERT INTO esignet.client_detail
+                          (id,name,rp_id,logo_uri,redirect_uris,claims,acr_values,public_key,grant_types,auth_methods,status,cr_dtimes)
+                        VALUES ('$CLIENT_ID','$CLIENT_ID','openg2p','$ESIGNET_BASE/logo.png',
+                                '[\"$CALLBACK_URL\"]',
+                                '[\"name\",\"gender\",\"birthdate\",\"phone_number\",\"individual_id\"]',
+                                '[\"$ACR_VALUES\"]',
+                                '$JWK',
+                                '[\"authorization_code\"]','[\"private_key_jwt\"]','ACTIVE',now())
+                        ON CONFLICT (id) DO UPDATE
+                          SET redirect_uris=EXCLUDED.redirect_uris, claims=EXCLUDED.claims,
+                              acr_values=EXCLUDED.acr_values, public_key=EXCLUDED.public_key,
+                              status='ACTIVE', upd_dtimes=now();"
+                # individual_id is requested explicitly: eSignet's sub is PAIRWISE,
+                # so without this claim the subject can never equal foundational_id
+                # and the binding check fails every time.
+                rq -v pem="$(cat /keys/client.pem)" -qc "
+                  INSERT INTO g2p_registrant_authentication_providers
+                    (provider_id, register_id, provider_name, provider_description, adapter_name,
+                     authorization_endpoint, token_endpoint, userinfo_endpoint, jwks_endpoint, server_metadata_url,
+                     client_id, client_private_key, token_endpoint_auth_method, oauth_callback_url,
+                     provider_config, display_order, is_active, created_at, updated_at)
+                  VALUES ('$PROVIDER_ID','$REGISTER_ID','eSignet','MOSIP eSignet (OTP / biometric)','esignet',
+                          '$ESIGNET_BASE/authorize',
+                          '$ESIGNET_BASE/v1/esignet/oauth/v2/token',
+                          '$ESIGNET_BASE/v1/esignet/oidc/userinfo',
+                          '$ESIGNET_BASE/.well-known/jwks.json',
+                          '$ESIGNET_BASE/v1/esignet/oidc/.well-known/openid-configuration',
+                          '$CLIENT_ID', convert_to(:'pem','UTF8'), 'private_key_jwt', '$CALLBACK_URL',
+                          ('{\"scope\":\"openid profile\",\"issuer\":\"$ESIGNET_BASE\",
+                             \"audiences\":[\"$CLIENT_ID\"],
+                             \"extra_authorize_params\":{\"acr_values\":\"$ACR_VALUES\",
+                               \"claims\":{\"userinfo\":{\"individual_id\":{\"essential\":true},
+                                                        \"name\":{\"essential\":true},
+                                                        \"gender\":{\"essential\":false},
+                                                        \"birthdate\":{\"essential\":false},
+                                                        \"phone_number\":{\"essential\":false}},
+                                           \"id_token\":{}}}}')::jsonb,
+                          1, true, now(), now())
+                  ON CONFLICT (provider_id) DO UPDATE
+                    SET provider_config=EXCLUDED.provider_config, is_active=true, updated_at=now();"
+                echo "registered eSignet client '$CLIENT_ID' and provider '$PROVIDER_ID'."
+              fi
+              echo "registrant-auth bootstrap done."
+          volumeMounts:
+            - name: keys
+              mountPath: /keys
+              readOnly: true
+          resources: {{- toYaml $b.resources | nindent 12 }}
+{{- end }}

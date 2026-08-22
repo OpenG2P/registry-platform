@@ -843,13 +843,60 @@ agentPortalApi:
     registerId: ""
     # Registrant-authentication provider to use (adapter_name = esignet). Empty
     # means "the first active provider on the register".
-    authProviderId: ""
+    # Created by the bootstrap Job below, and read by the API at issuance —
+    # both derive it from here, so they cannot drift.
+    authProviderId: 'esignet-{{ .Release.Name }}'
     # Register this registry's credential_configs with Certify on install and
     # upgrade. Certify can only issue a type it already knows, so leaving this
     # off means every issuance fails on an unknown credential_configuration_id
     # — turn it off only when the configs are managed by hand.
     registerEnabled: true
     registerImage: curlimages/curl:8.11.0
+
+    # ── One-time bootstrap of the beneficiary-authentication chain ───────────
+    # Creates the four pieces of state that VC issuance needs and that nothing
+    # else creates: the eSignet OIDC client (with a freshly generated keypair),
+    # this register's eSignet provider row, the IAM application/permission/role
+    # that authorises issuance, and the register's
+    # requires_registrant_authentication flag.
+    #
+    # It writes into eSignet's and IAM's schemas as well as the registry's.
+    # That is why it is a switch. eSignet's client-mgmt API is gated behind an
+    # OAuth scope (add_oidc_client) an unattended job cannot obtain, so seeding
+    # the row is the only route; turn this off where another system owns that
+    # state and do the four steps yourself.
+    #
+    # Idempotent, and it never rotates a live key: if the provider row already
+    # carries a private key the client and provider are left untouched, because
+    # eSignet holds the matching public half and replacing one side silently
+    # breaks every authentication.
+    bootstrap:
+      enabled: true
+      backoffLimit: 3
+      # Needs openssl; the postgres client image does not carry it, so key
+      # generation runs as an init container in a separate image.
+      keygenImage: alpine/openssl:3.3
+      psqlImage: postgres:16-alpine
+      esignet:
+        # Public host, used to derive the authorize/token/userinfo endpoints and
+        # the issuer the provider row trusts.
+        hostname: 'esignet.{{ .Release.Namespace }}.openg2p.org'
+        # Per-release so two registries in one namespace get their own eSignet
+        # client and their own keypair.
+        clientId: '{{ .Release.Name }}-registry-vc'
+        # Authentication factor eSignet should ask the beneficiary for.
+        # mosip:idp:acr:generated-code = OTP, :biometrics = fingerprint/iris.
+        acrValues: 'mosip:idp:acr:generated-code'
+        dbName: mosip_esignet
+        dbUser: esignetuser
+        dbSecret: esignet-db-user
+        dbSecretKey: esignet-db-user-password
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          memory: 256Mi
 
   # One entry per issuable credential type. The base platform ships NONE: the
   # fields differ per registry, so the concrete list belongs to the
@@ -946,7 +993,7 @@ agentPortalApi:
     REGISTRY_AGENT_PORTAL_API_VC_ISSUANCE_ENABLED: '{{ .Values.vcIssuance.enabled }}'
     REGISTRY_AGENT_PORTAL_API_VC_AUTH_WINDOW_SECONDS: '{{ .Values.vcIssuance.authWindowSeconds }}'
     REGISTRY_AGENT_PORTAL_API_VC_REGISTER_ID: '{{ .Values.vcIssuance.registerId }}'
-    REGISTRY_AGENT_PORTAL_API_VC_AUTH_PROVIDER_ID: '{{ .Values.vcIssuance.authProviderId }}'
+    REGISTRY_AGENT_PORTAL_API_VC_AUTH_PROVIDER_ID: '{{ tpl .Values.vcIssuance.authProviderId $ }}'
     REGISTRY_AGENT_PORTAL_API_VC_DEFINITIONS: '{{ .Values.vcDefinitions | toJson }}'
 
     # Inji Certify, reached in-cluster. Certify is never exposed publicly for

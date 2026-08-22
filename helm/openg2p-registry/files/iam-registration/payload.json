@@ -366,6 +366,11 @@
       "permission_mnemonic": "register:authenticate",
       "permission_description": "register:authenticate",
       "active": true
+    },
+    {
+      "permission_mnemonic": "register:issue_credential",
+      "permission_description": "Issue a verifiable credential to an authenticated beneficiary",
+      "active": true
     }
   ],
   "roles": [
@@ -625,6 +630,14 @@
         "verificationChangeRequest:view",
         "verificationIntakeForm:create",
         "verificationIntakeForm:view"
+      ]
+    },
+    {
+      "role_mnemonic": "register:issue_credential",
+      "role_description": "Field agent who may issue verifiable credentials. Granted in the Keycloak `agent` realm, not to staff.",
+      "active": true,
+      "permissions": [
+        "register:issue_credential"
       ]
     }
   ]

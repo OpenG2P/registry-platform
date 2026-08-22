@@ -443,6 +443,46 @@ questions:
   group: VC Issuance
   show_if: agentPortalApi.enabled=true
 
+- variable: agentPortalApi.vcIssuance.bootstrap.enabled
+  description: >-
+    Create the beneficiary-authentication setup automatically: the eSignet OIDC
+    client (with a generated keypair), this register's eSignet provider row, the
+    IAM application/role/permission that authorises issuance, and the register's
+    "requires authentication" flag. Writes into eSignet's and IAM's databases as
+    well as the registry's. Turn OFF only if another system owns that state — the
+    four steps then have to be done by hand. Safe to re-run; it never replaces a
+    key that is already in use.
+  type: boolean
+  default: true
+  label: Bootstrap Beneficiary Authentication
+  group: VC Issuance
+  show_if: agentPortalApi.vcIssuance.enabled=true
+
+- variable: agentPortalApi.vcIssuance.bootstrap.esignet.hostname
+  description: >-
+    Public hostname of eSignet, used to derive the authorize/token/userinfo
+    endpoints and the issuer this register trusts. Must be the eSignet the
+    beneficiary is actually sent to.
+  type: string
+  default: 'esignet.{{ .Release.Namespace }}.openg2p.org'
+  label: eSignet Hostname
+  group: VC Issuance
+  show_if: agentPortalApi.vcIssuance.bootstrap.enabled=true
+
+- variable: agentPortalApi.vcIssuance.bootstrap.esignet.acrValues
+  description: >-
+    How the beneficiary proves who they are at the counter.
+    mosip:idp:acr:generated-code sends an OTP to their phone;
+    mosip:idp:acr:biometrics captures a fingerprint or iris and needs no phone.
+  type: enum
+  options:
+    - 'mosip:idp:acr:generated-code'
+    - 'mosip:idp:acr:biometrics'
+  default: 'mosip:idp:acr:generated-code'
+  label: Beneficiary Authentication Factor
+  group: VC Issuance
+  show_if: agentPortalApi.vcIssuance.bootstrap.enabled=true
+
 - variable: agentPortalApi.vcIssuance.registerId
   description: >-
     The register whose records may be issued credentials (Phase 1 issues to an
@@ -464,19 +504,23 @@ questions:
 
 - variable: agentPortalApi.vcIssuance.authProviderId
   description: >-
-    Registrant-authentication provider to use (an eSignet provider). Leave empty
-    to use the first active provider configured on the register.
+    Identifier of this register's eSignet provider row. The bootstrap creates the
+    row under this id and the Agent Portal API reads it, so the two cannot drift.
+    Change it only if you created the provider row yourself under another id.
   type: string
+  default: 'esignet-{{ .Release.Name }}'
   label: eSignet Provider ID
   group: VC Issuance
   show_if: agentPortalApi.vcIssuance.enabled=true
 
 - variable: global.vcIssuer.did
   description: >-
-    Issuer DID stamped on every credential. MUST equal the DID configured at
-    Inji Certify install (commons-services global.vcIssuerDid) — one issuing
-    authority per environment. Required when VC issuance is enabled.
+    DID of the authority that signs these credentials. Must be the DID Inji
+    Certify was installed with, because Certify signs with the matching key and
+    a verifier resolves this DID to fetch it. Defaults to the same derivation the
+    Certify chart uses, so a standard install already agrees.
   type: string
+  default: 'did:web:{{ tpl .Values.global.certifyHostname $ }}'
   label: Issuer DID
   group: VC Issuance
   show_if: agentPortalApi.vcIssuance.enabled=true
