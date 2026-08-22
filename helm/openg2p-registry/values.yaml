@@ -126,7 +126,15 @@ global:
   # (commons-services global.vcIssuerDid) — modules reference this issuer, they
   # do not define one. Key alias/algo match Certify's key-alias mapper.
   vcIssuer:
-    did: ''
+    # Defaults to the SAME derivation the Certify chart uses for its own issuer
+    # (commons global.vcIssuerDid = did:web:<certifyHostname>), so a default
+    # install agrees with the issuer that will actually sign. Set explicitly only
+    # if Certify was installed with a different DID.
+    #
+    # Deliberately not left empty: issuance is on by default in a manifestation
+    # that ships a vcDefinition, and the register Job below refuses to run
+    # without a DID -- an empty default failed the whole install.
+    did: 'did:web:{{ tpl .Values.global.certifyHostname $ }}'
     keyManagerAppId: CERTIFY_VC_SIGN_ED25519
     keyManagerRefId: ED25519_SIGN
     signatureAlgo: EdDSA
