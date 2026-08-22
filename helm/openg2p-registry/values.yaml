@@ -873,9 +873,11 @@ agentPortalApi:
     bootstrap:
       enabled: true
       backoffLimit: 3
-      # Needs openssl; the postgres client image does not carry it, so key
-      # generation runs as an init container in a separate image.
-      keygenImage: alpine/openssl:3.3
+      # Key generation needs openssl, which the postgres client image does not
+      # carry — hence a separate init container. python:3.12-slim is used
+      # because it ships the openssl CLI; alpine/openssl does not resolve on
+      # Docker Hub, and Bitnami's images are no longer freely published.
+      keygenImage: python:3.12-slim
       psqlImage: postgres:16-alpine
       esignet:
         # Public host, used to derive the authorize/token/userinfo endpoints and
