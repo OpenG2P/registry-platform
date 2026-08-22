@@ -73,9 +73,9 @@ global:
   # issuance permission. Must match the IAM chart's IAM_AGENT_KEYCLOAK_CLIENT_ID
   # and its agent login provider, or an agent authorised at login would be
   # unauthorised here.
-  agentKeycloakClientId: 'agent-portal'
+  agentKeycloakClientId: '{{ .Release.Name }}-agent-portal'
   # Public browser client for the agent SPA (standard flow).
-  agentKeycloakUiClientId: 'agent-portal-ui'
+  agentKeycloakUiClientId: '{{ .Release.Name }}-agent-portal-ui'
   agentKeycloakIssuerUrl: '{{ tpl .Values.global.keycloakBaseUrl $ }}/realms/{{ tpl .Values.global.agentKeycloakRealm $ }}'
   # Where the agent portal resolves ROLES -> PERMISSIONS, via
   # /user-access/get_permissions_for_roles.
@@ -955,7 +955,7 @@ agentPortalApi:
     REGISTRY_AGENT_PORTAL_API_PDF_ISSUER_NAME: '{{ .Values.pdf.issuerName }}'
 
     # IAM — the `agent` realm client this API validates tokens against.
-    REGISTRY_AGENT_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ .Values.global.agentKeycloakClientId }}'
+    REGISTRY_AGENT_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.agentKeycloakClientId $ }}'
     # Audit Manager. Issuance is the most consequential action here, so this is
     # on by default; it still no-ops if the URL is empty.
     REGISTRY_AGENT_PORTAL_API_AUDIT_ENABLED: '{{ .Values.global.auditEnabled }}'
@@ -1749,12 +1749,16 @@ keycloak-init:
     agent:
       clients:
         # Confidential client the agent logs in through, and whose client roles
-        # carry the issuance permission. Unlike the per-release staff client,
-        # this clientId is FIXED: it must equal global.agentKeycloakClientId
-        # here AND IAM_AGENT_KEYCLOAK_CLIENT_ID in the IAM chart, which is a
-        # namespace-level singleton. An agent authorised at login would
-        # otherwise be unauthorised at issuance.
-        - clientId: 'agent-portal'
+        # carry the issuance permission. Per-release, exactly like the staff
+        # client, so two registries in one namespace get their own agent client
+        # and their own client_secret Secret.
+        #
+        # This does NOT have to equal the IAM chart's
+        # IAM_AGENT_KEYCLOAK_CLIENT_ID: that governs calls made TO
+        # iam-agent-portal-api, which this flow never makes -- permissions
+        # resolve against the IAM *staff* API, and token validation finds the
+        # provider by ISSUER (the realm), not by client id.
+        - clientId: '{{ .Release.Name }}-agent-portal'
           name: OpenG2P Agent Portal
           # Host-scoped, never a bare "*" — same rule as the staff client.
           redirectUris:
@@ -1764,7 +1768,7 @@ keycloak-init:
             - "register:issue_credential"
         # Public browser client for the agent SPA. Must equal
         # global.agentKeycloakUiClientId, which the UI reads from config.json.
-        - clientId: 'agent-portal-ui'
+        - clientId: '{{ .Release.Name }}-agent-portal-ui'
           name: OpenG2P Agent Portal UI
           publicClient: true
           redirectUris:
@@ -1784,7 +1788,7 @@ keycloak-init:
               protocol: openid-connect
               protocolMapper: oidc-audience-mapper
               config:
-                included.client.audience: 'agent-portal'
+                included.client.audience: '{{ .Release.Name }}-agent-portal'
                 access.token.claim: 'true'
       users:
         # Demo agent, mirroring the demo staff users above. Real deployments
@@ -1796,9 +1800,9 @@ keycloak-init:
           password: '{{ .Values.global.agentUserPassword }}'
           enabled: true
           clientRoleMappings:
-            'agent-portal':
+            '{{ .Release.Name }}-agent-portal':
               - "register:issue_credential"
-            'agent-portal-ui':
+            '{{ .Release.Name }}-agent-portal-ui':
               - "register:issue_credential"
     staff:
       clients:
