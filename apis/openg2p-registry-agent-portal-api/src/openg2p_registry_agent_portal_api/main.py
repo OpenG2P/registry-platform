@@ -14,6 +14,7 @@ if _ext != "openg2p_registry_extensions":
     _sys.modules["openg2p_registry_extensions"] = _il.import_module(_ext)
 
 from openg2p_registry_agent_portal_api.config import Settings
+from openg2p_registry_agent_portal_api.audit_middleware import AuditMiddleware
 Settings.get_config()
 
 from openg2p_fastapi_common.ping import PingInitializer
@@ -61,6 +62,19 @@ app.add_middleware(
     allow_by_default=True,
 )
 app.add_middleware(ValidateAndRefreshTokenMiddleware)
+# Added LAST so it is the OUTERMOST wrapper: by the time it runs after
+# call_next, token validation and the permission check have populated
+# request.state, so the audit records the real actor and the real outcome.
+app.add_middleware(
+    AuditMiddleware,
+    audit_manager_url=_config.audit_manager_url,
+    enabled=_config.audit_enabled,
+    timeout_seconds=_config.audit_timeout_seconds,
+    source=_config.audit_source,
+    module=_config.audit_module,
+    client_id=_config.keycloak_client_id,
+    audit_anonymous_failures=_config.audit_anonymous_failures,
+)
 app.add_middleware(
     CsrfMiddleware,
     enabled=_config.csrf_enabled,

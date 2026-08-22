@@ -956,6 +956,11 @@ agentPortalApi:
 
     # IAM — the `agent` realm client this API validates tokens against.
     REGISTRY_AGENT_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ .Values.global.agentKeycloakClientId }}'
+    # Audit Manager. Issuance is the most consequential action here, so this is
+    # on by default; it still no-ops if the URL is empty.
+    REGISTRY_AGENT_PORTAL_API_AUDIT_ENABLED: '{{ .Values.global.auditEnabled }}'
+    REGISTRY_AGENT_PORTAL_API_AUDIT_MANAGER_URL: '{{ tpl .Values.global.auditManagerUrl $ }}'
+    REGISTRY_AGENT_PORTAL_API_AUDIT_ANONYMOUS_FAILURES: '{{ .Values.global.auditAnonymousFailures }}'
     # ── Registrant-authentication session store ───────────────────────────
     # The eSignet transaction (state/nonce/PKCE verifier + the record context)
     # is created when authentication STARTS and read back when eSignet

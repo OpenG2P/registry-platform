@@ -79,6 +79,18 @@ class Settings(ExtSettings):
     # cookie-session deployment of this API can turn it back on.
     csrf_enabled: bool = False
 
+    # ── Audit (OpenG2P Audit Manager) ─────────────────────────────────────────
+    # ON by default here, unlike the staff API. Issuing a bearer credential to a
+    # person after authenticating them is the most consequential thing this
+    # platform does; it should not be possible to deploy it silently. Emission
+    # still no-ops unless audit_manager_url is set.
+    audit_enabled: bool = True
+    audit_manager_url: Optional[str] = None
+    audit_timeout_seconds: float = 2.0
+    audit_source: str = "/openg2p/registry-agent-portal-api"
+    audit_module: str = "registry-agent-portal-api"
+    audit_anonymous_failures: bool = True
+
     # ── Which register credentials are issued from ────────────────────────────
     # Phase 1 issues to an individual.
     vc_register_id: str = ""

@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 import logging
 import time
 import urllib.parse
@@ -14,6 +15,11 @@ from ..config import Settings
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
+
+
+# Velocity leaves an undefined reference in the output verbatim, so this is
+# what an unrendered template variable looks like in a signed credential.
+_PLACEHOLDER = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_.()\[\]]*\}")
 
 
 class CertifyIssuanceError(Exception):
@@ -124,8 +130,34 @@ class CertifyIssuanceService(BaseService):
         # response -- so the QR carried the envelope instead of the signed
         # compact credential, and was far larger for it.
         if isinstance(body, dict) and isinstance(body.get("credential"), dict):
-            return body["credential"]
+            body = body["credential"]
+        self._reject_unresolved_placeholders(body)
         return body
+
+    @staticmethod
+    def _reject_unresolved_placeholders(credential: Any) -> None:
+        """Refuse a credential still carrying Velocity placeholders.
+
+        Certify renders the VC from a Velocity template. A name the context does
+        not define is NOT an error there -- Velocity emits it verbatim -- so a
+        typo in vcTemplateJson produces a credential containing the literal text
+        "${fullName}", and Certify SIGNS it. It then passes every check we make,
+        prints onto the card, and is only noticed by whoever reads the paper.
+
+        This turns that into a failed issuance. The beneficiary is still inside
+        their authentication window and the agent can retry once the template is
+        fixed, which is a far better outcome than a signed, wrong credential.
+        """
+        leftovers = sorted(set(_PLACEHOLDER.findall(json.dumps(credential))))
+        if leftovers:
+            raise CertifyIssuanceError(
+                "CREDENTIAL_TEMPLATE_UNRESOLVED",
+                "Certify returned a credential with unresolved template "
+                f"placeholders: {', '.join(leftovers)}. Fix the vcTemplateJson "
+                "for this credential type -- these names are not supplied by the "
+                "claim set, so the credential would be signed with literal "
+                "placeholder text.",
+            )
 
     def _make_proof_jwt(self, nonce: str) -> str:
         priv = rsa.generate_private_key(public_exponent=65537, key_size=2048)
