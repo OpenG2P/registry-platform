@@ -65,9 +65,43 @@ def log(msg):
     print(f"[attributes] {msg}", flush=True)
 
 
+# Fail the seed Job when the catalogue cannot be loaded, instead of skipping it.
+# Off by default — see skip() for why.
+REQUIRED = os.environ.get("ATTRIBUTES_REQUIRED", "false").strip().lower() == "true"
+
+
 def die(msg):
     print(f"[attributes] ERROR: {msg}", file=sys.stderr, flush=True)
     sys.exit(1)
+
+
+def skip(msg):
+    """Give up on the code lists without failing the whole db-seed Job.
+
+    These lists are OPTIONAL: nothing reads them unless the registry sets
+    registry_core validate_attribute_values=true, which is false by default —
+    with it off, submissions validate against the compiled enums exactly as
+    before. Master Data being absent, unreachable or requiring credentials this
+    Job does not have is therefore not a reason to abandon an install: it would
+    take down sample data, metadata and views that DO matter, over a catalogue
+    nothing currently consumes.
+
+    Set ATTRIBUTES_REQUIRED=true to make it fatal — which is what you want once
+    validate_attribute_values is turned on, because from that point a missing
+    catalogue means every coded value fails validation later, and failing here
+    with a clear message beats that.
+    """
+    if REQUIRED:
+        die(f"{msg} (ATTRIBUTES_REQUIRED=true)")
+    print(
+        f"[attributes] WARNING: {msg}\n"
+        f"[attributes] Skipping code lists — they are optional while "
+        f"validate_attribute_values is off. Set ATTRIBUTES_REQUIRED=true to "
+        f"make this fatal.",
+        file=sys.stderr,
+        flush=True,
+    )
+    sys.exit(0)
 
 
 def mds_post(path, payload):
@@ -94,11 +128,11 @@ def mds_post(path, payload):
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             doc = json.load(resp)
     except urllib.error.URLError as e:
-        die(f"cannot reach Master Data at {MDS_BASE_URL}{path}: {e}")
+        skip(f"cannot reach Master Data at {MDS_BASE_URL}{path}: {e}")
 
     header = doc.get("response_header") or {}
     if header.get("response_status") != "SUCCESS":
-        die(
+        skip(
             f"{path} returned {header.get('response_status')}: "
             f"{header.get('response_error_message')}"
         )
@@ -240,7 +274,7 @@ def seed(conn, attributes, values):
 
 def main():
     if not MDS_BASE_URL:
-        die("MDS_BASE_URL is not set — nothing to read code lists from")
+        skip("MDS_BASE_URL is not set — nothing to read code lists from")
 
     scopes = [None] + DOMAINS  # None = the core lists every registry uses
     attributes, values, seen_attr = [], [], set()
