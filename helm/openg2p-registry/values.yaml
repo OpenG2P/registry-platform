@@ -991,6 +991,13 @@ agentPortalApi:
         credentialName: ""
 
   envVars:
+    # Must match IAM_AGENT_AUTH_COOKIE_PREFIX on iam-agent-portal-api: that
+    # service SETS the auth cookies and this one READS them. The agent and
+    # staff portals share a parent cookie domain, so unprefixed names collide
+    # and this API is handed the staff realm's ID token alongside a valid agent
+    # bearer token -- a token it cannot verify against the agent realm's JWKS.
+    REGISTRY_AGENT_PORTAL_API_AUTH_COOKIE_PREFIX: 'agent-'
+
     REGISTRY_AGENT_PORTAL_API_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     REGISTRY_AGENT_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_AGENT_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
