@@ -151,7 +151,12 @@ spec:
                 # individual_id is requested explicitly: eSignet's sub is PAIRWISE,
                 # so without this claim the subject can never equal foundational_id
                 # and the binding check fails every time.
-                rq -v pem="$(cat /keys/client.pem)" -qc "
+                # SQL on STDIN, not -c: psql only interpolates :'var'
+                # variables when reading a script, so with -c the literal
+                # :'pem' reaches the server and it fails with
+                # `syntax error at or near ":"`. Unquoted heredoc so the shell
+                # still expands $PROVIDER_ID and friends.
+                rq -v pem="$(cat /keys/client.pem)" -q <<SQL   # terminator MUST render at column 0 (see below)
                   INSERT INTO g2p_registrant_authentication_providers
                     (provider_id, register_id, provider_name, provider_description, adapter_name,
                      authorization_endpoint, token_endpoint, userinfo_endpoint, jwks_endpoint, server_metadata_url,
@@ -175,7 +180,8 @@ spec:
                                            \"id_token\":{}}}}')::jsonb,
                           1, true, now(), now())
                   ON CONFLICT (provider_id) DO UPDATE
-                    SET provider_config=EXCLUDED.provider_config, is_active=true, updated_at=now();"
+                    SET provider_config=EXCLUDED.provider_config, is_active=true, updated_at=now();
+              SQL
                 echo "registered eSignet client '$CLIENT_ID' and provider '$PROVIDER_ID'."
               fi
               echo "registrant-auth bootstrap done."
