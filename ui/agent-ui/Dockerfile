@@ -1,59 +1,40 @@
-# =============================================================================
-# OpenG2P Registry Agent Portal UI — Multi-stage Docker Build
-# =============================================================================
-# Build:
-#   docker build -t openg2p-registry-agent-ui:latest \
-#     --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
-#     --build-arg BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") ./ui/agent-ui
+# Agent Portal UI — Next.js standalone image.
 #
-# Run:
-#   docker run -p 8080:8080 openg2p-registry-agent-ui:latest
-#
-# Deploy pattern:
-#   Static SPA served by nginx, which DOES proxy `/agent_portal/*` to the API
-#   (the SPA calls its own origin). Set AGENT_API_UPSTREAM to the API's
-#   host:port — in Kubernetes "<release>-agent-portal-api:80".
-#   React-router deep links fall back to /index.html (see nginx.conf).
-# =============================================================================
-
-# ---------------------------------------------------------------------------
-# Stage 1: build
-# ---------------------------------------------------------------------------
-FROM node:20-alpine AS builder
-
+# Same shape as the Staff Portal UI image (ui/staff-ui/Dockerfile): the agent
+# portal is the staff portal pointed at a different realm and login provider,
+# so it runs the same way — a Next.js server, not a static bundle behind nginx.
+# The server side is not optional: it is the BFF that holds the httpOnly auth
+# cookies and adds the backend's auth headers, so the browser never sees a token.
+FROM node:20-alpine AS base
 WORKDIR /app
 
-# Install deps first for better layer caching.
-COPY package*.json ./
-RUN npm ci
-
-# Copy sources + build.
+FROM base AS builder
+# Install dependencies first so this layer is cached unless the lockfile changes.
+COPY package.json package-lock.json* ./
+RUN npm install
+# Then copy the rest of the source and produce the standalone build
+# (next.config.ts sets `output: "standalone"`).
 COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# ---------------------------------------------------------------------------
-# Stage 2: runtime (non-root nginx)
-# ---------------------------------------------------------------------------
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM base AS runner
 
-ARG GIT_COMMIT=dev
-ARG BUILD_TIME=dev
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+ENV NEXT_TELEMETRY_DISABLED=1
 
-LABEL org.opencontainers.image.source="https://gitlab.com/openg2p/registry/registry-platform"
-LABEL org.opencontainers.image.title="OpenG2P Registry Agent Portal UI"
-LABEL org.opencontainers.image.revision="${GIT_COMMIT}"
-LABEL org.opencontainers.image.created="${BUILD_TIME}"
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 nextjs
 
-# Installed as a TEMPLATE: the nginx entrypoint runs envsubst over
-# /etc/nginx/templates/*.template into /etc/nginx/conf.d/ at start, which is
-# what lets one image point at a release-prefixed Service name.
-COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# docker-compose default; Kubernetes overrides it from the chart.
-ENV AGENT_API_UPSTREAM="agent-portal-api:8000"
-COPY --from=builder /app/dist /usr/share/nginx/html
+RUN chown -R nextjs:nodejs /app
+USER nextjs
 
-EXPOSE 8080
+EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget --quiet --spider http://localhost:8080/ || exit 1
+CMD ["node", "server.js"]

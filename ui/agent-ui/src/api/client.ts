@@ -1,20 +1,21 @@
 /**
  * Agent Portal API client.
  *
- * Two things it hides from the pages:
- *  - the G2P request/response envelope, which is boilerplate at every call;
- *  - the bearer token, refreshed by auth.ts.
+ * Calls this app's own BFF routes under /api/agent/*, never the Agent Portal
+ * API directly. The access token lives in an httpOnly cookie the browser cannot
+ * read; the BFF reads it server-side and adds the backend's auth headers. This
+ * mirrors the staff portal exactly — the page code never handles a token.
  *
  * Issuance is the exception to the envelope: on success the server replies with
  * the PDF itself rather than JSON, so `issue()` returns a Blob.
  */
 
-import { getToken } from "../auth";
+import { csrfHeaders } from "../shared/utils/csrf";
 
-const BASE = "/agent_portal/vc";
+const BASE = "/api/agent";
 
 export interface G2PHeader {
-  response_status: "SUCCESS" | "FAILURE";
+  response_status: "SUCCESS" | "FAILURE" | "ERROR";
   response_error_code?: string;
   response_error_message?: string;
 }
@@ -25,29 +26,30 @@ export class ApiError extends Error {
   }
 }
 
-function envelope(payload: unknown) {
-  return {
-    request_header: {
-      sender_app_mnemonic: "agent-ui",
-      sender_app_url: window.location.origin,
-      request_id: crypto.randomUUID(),
-      request_timestamp: new Date().toISOString(),
-    },
-    request_body: { request_payload: payload },
-  };
+/** Send the browser to login, preserving where the agent was. */
+function toLogin(): never {
+  window.location.href = `/api/login?redirect_uri=${encodeURIComponent(window.location.href)}`;
+  throw new ApiError("G2P-AUT-401", "Redirecting to sign in…");
 }
 
 async function post<T>(path: string, payload: unknown): Promise<T> {
-  const resp = await fetch(`${BASE}${path}`, {
+  const resp = await fetch(`${BASE}/${path}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${await getToken()}`,
-    },
-    body: JSON.stringify(envelope(payload)),
+    headers: { "Content-Type": "application/json", ...csrfHeaders() },
+    body: JSON.stringify(payload),
   });
+  if (resp.status === 401) toLogin();
   if (!resp.ok) {
-    throw new ApiError(String(resp.status), `${resp.status} ${resp.statusText}`);
+    let code = String(resp.status);
+    let message = resp.statusText;
+    try {
+      const body = await resp.json();
+      code = body.response_header?.response_error_code ?? body.errors?.[0]?.code ?? code;
+      message = body.response_header?.response_error_message ?? body.errors?.[0]?.message ?? message;
+    } catch {
+      /* non-JSON error body; keep the status text */
+    }
+    throw new ApiError(code, message);
   }
   const body = await resp.json();
   const header: G2PHeader = body.response_header ?? {};
@@ -88,16 +90,16 @@ export interface AuthStatus {
 }
 
 export const api = {
-  vcTypes: () => post<{ vc_types: VcType[] }>("/get_vc_types", {}),
+  vcTypes: () => post<{ vc_types: VcType[] }>("get_vc_types", {}),
 
   lookup: (national_id: string) =>
-    post<Beneficiary>("/lookup_beneficiary", { national_id }),
+    post<Beneficiary>("lookup_beneficiary", { national_id }),
 
   startAuthentication: (internal_record_id: string) =>
-    post<StartedAuth>("/start_authentication", { internal_record_id }),
+    post<StartedAuth>("start_authentication", { internal_record_id }),
 
   authenticationStatus: (internal_record_id: string, authentication_id?: string) =>
-    post<AuthStatus>("/authentication_status", {
+    post<AuthStatus>("authentication_status", {
       internal_record_id,
       authentication_id,
     }),
@@ -110,22 +112,18 @@ export const api = {
   ): Promise<{ blob: Blob; filename: string; issuanceId: string }> {
     const resp = await fetch(`${BASE}/issue`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${await getToken()}`,
-      },
-      body: JSON.stringify(
-        envelope({ internal_record_id, authentication_id, vc_type }),
-      ),
+      headers: { "Content-Type": "application/json", ...csrfHeaders() },
+      body: JSON.stringify({ internal_record_id, authentication_id, vc_type }),
     });
+    if (resp.status === 401) toLogin();
     if (!resp.ok) {
       // Errors still come back as the JSON envelope.
       let code = String(resp.status);
       let message = resp.statusText;
       try {
         const body = await resp.json();
-        code = body.response_header?.response_error_code ?? code;
-        message = body.response_header?.response_error_message ?? message;
+        code = body.response_header?.response_error_code ?? body.errors?.[0]?.code ?? code;
+        message = body.response_header?.response_error_message ?? body.errors?.[0]?.message ?? message;
       } catch {
         /* non-JSON error body; keep the status text */
       }

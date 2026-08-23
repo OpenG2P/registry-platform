@@ -93,26 +93,14 @@ spec:
           {{- if and .Values.readinessProbe .Values.readinessProbe.enabled }}
           readinessProbe: {{- include "common.tplvalues.render" (dict "value" (omit .Values.readinessProbe "enabled") "context" $) | nindent 12 }}
           {{- end }}
-          volumeMounts:
-            # Replace the image's placeholder /config.json with this
-            # environment's values. subPath so only that one file is overlaid and
-            # the rest of the static bundle stays intact.
-            - name: runtime-config
-              mountPath: /usr/share/nginx/html/config.json
-              subPath: config.json
-              readOnly: true
-            {{- if .Values.extraVolumeMounts }}
-            {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumeMounts "context" $) | nindent 12 }}
-            {{- end }}
+          {{- if .Values.extraVolumeMounts }}
+          volumeMounts: {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumeMounts "context" $) | nindent 12 }}
+          {{- end }}
         {{- if .Values.sidecars }}
         {{- include "common.tplvalues.render" ( dict "value" .Values.sidecars "context" $) | nindent 8 }}
         {{- end }}
-      volumes:
-        - name: runtime-config
-          configMap:
-            name: {{ .Release.Name }}-agent-ui-config
-        {{- if .Values.extraVolumes }}
-        {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumes "context" $) | nindent 8 }}
-        {{- end }}
+      {{- if .Values.extraVolumes }}
+      volumes: {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumes "context" $) | nindent 8 }}
+      {{- end }}
 {{- end -}}
 {{- end }}

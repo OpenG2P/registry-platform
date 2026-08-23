@@ -1,9 +1,0 @@
-{
-  "_comment": "Runtime config for the agent portal SPA. nginx serves this file from the UI container; the Helm chart overwrites it with a ConfigMap mount, so ONE image serves every environment. Note the realm: agents are a distinct audience from staff.",
-  "keycloak": {
-    "url": "",
-    "realm": "agent",
-    "clientId": "registry-agent-portal-ui"
-  },
-  "apiBaseUrl": ""
-}

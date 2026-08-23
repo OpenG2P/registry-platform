@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * The whole agent workflow, on one screen.
  *
@@ -10,7 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ApiError, api, type AuthStatus, type Beneficiary, type VcType } from "../api/client";
+import { ApiError, api, type AuthStatus, type Beneficiary, type VcType } from "@/api/client";
 
 /** Stop polling eventually — the beneficiary may simply walk away. */
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;

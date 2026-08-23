@@ -471,8 +471,8 @@ a distinct audience with their own realm, so they get their own component.
 {{- end -}}
 
 {{/*
-Agent Portal UI helpers. The SPA is static; its only "config" is /config.json,
-overwritten at deploy time by a ConfigMap so one image serves every environment.
+Agent Portal UI helpers. A Next.js server like the staff UI, configured from
+pod env at request time so one image serves every environment.
 */}}
 {{- define "agentPortalUi.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create -}}
