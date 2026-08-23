@@ -169,15 +169,19 @@ spec:
                           '$ESIGNET_BASE/.well-known/jwks.json',
                           '$ESIGNET_BASE/v1/esignet/oidc/.well-known/openid-configuration',
                           '$CLIENT_ID', convert_to(:'pem','UTF8'), 'private_key_jwt', '$CALLBACK_URL',
-                          ('{\"scope\":\"openid profile\",\"issuer\":\"$ESIGNET_BASE\",
-                             \"audiences\":[\"$CLIENT_ID\"],
-                             \"extra_authorize_params\":{\"acr_values\":\"$ACR_VALUES\",
-                               \"claims\":{\"userinfo\":{\"individual_id\":{\"essential\":true},
-                                                        \"name\":{\"essential\":true},
-                                                        \"gender\":{\"essential\":false},
-                                                        \"birthdate\":{\"essential\":false},
-                                                        \"phone_number\":{\"essential\":false}},
-                                           \"id_token\":{}}}}')::jsonb,
+                          -- Plain double quotes: this is a heredoc, so the shell
+                          -- passes them through untouched. The escaped \" form the
+                          -- old `psql -c "..."` needed would reach Postgres literally
+                          -- and fail with `invalid input syntax for type json`.
+                          ('{"scope":"openid profile","issuer":"$ESIGNET_BASE",
+                             "audiences":["$CLIENT_ID"],
+                             "extra_authorize_params":{"acr_values":"$ACR_VALUES",
+                               "claims":{"userinfo":{"individual_id":{"essential":true},
+                                                        "name":{"essential":true},
+                                                        "gender":{"essential":false},
+                                                        "birthdate":{"essential":false},
+                                                        "phone_number":{"essential":false}},
+                                           "id_token":{}}}}')::jsonb,
                           1, true, now(), now())
                   ON CONFLICT (provider_id) DO UPDATE
                     SET provider_config=EXCLUDED.provider_config, is_active=true, updated_at=now();
