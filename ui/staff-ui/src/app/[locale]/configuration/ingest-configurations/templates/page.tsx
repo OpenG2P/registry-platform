@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar } from '@/components/shared';
-import { useFetch, usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import Can from '@/components/shared/Can';
@@ -28,6 +27,11 @@ type IngestTemplate = {
 const IngestTemplatesPage = () => {
     const t = useTranslations();
     const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = usePageSize();
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
 
     const [modalType, setModalType] = useState<'add' | 'edit' | 'view' | null>(null);
     const [selectedItem, setSelectedItem] = useState<IngestTemplate | null>(null);
@@ -73,18 +77,16 @@ const IngestTemplatesPage = () => {
         setSelectedItem(null);
     };
 
-    const { config } = useRuntimeConfig();
-
     const { can } = useRbac();
     const canCreate = can(CONFIGURATION_INGESTION_TEMPLATES_ACTIONS.create)
 
-    const { templates, pagination, loading, refresh } = useAllIngestTemplates(currentPage, config.pageSize);
+    const { templates, pagination, loading, refresh } = useAllIngestTemplates(currentPage, pageSize);
 
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: templates.length,
     });
 

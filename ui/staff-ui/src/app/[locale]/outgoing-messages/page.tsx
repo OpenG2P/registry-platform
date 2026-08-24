@@ -10,17 +10,15 @@ import { SelectedFilters } from '@/features/filter/components';
 import { useFilters } from '@/features/filter/hooks/useFilters';
 import { OutgoingMessageCardSkeleton, OutgoingMessageList } from '@/features/messages/components';
 import { useOutgoingMessagesList } from '@/features/messages/hooks';
-import { usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePagination, usePageSize } from '@/shared/hooks';
 
 export default function OutgoingMessagesPage() {
     const router = useRouter();
     const t = useTranslations();
-    const { config } = useRuntimeConfig();
+    const pageSize = usePageSize();
 
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get('search') || undefined;
-    const pageSize = config.pageSize || 10;
 
     const {
         appliedFilters,

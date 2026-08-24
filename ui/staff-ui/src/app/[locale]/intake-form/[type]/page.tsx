@@ -3,19 +3,18 @@
 import { useTranslations } from 'next-intl';
 import { useRegister } from '@/context/RegisterContext';
 import { useParams, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 
 import { EntityListPage, StackedCardSkeleton } from '@/components/shared';
 import { ColumnDef } from '@/components/shared/entity-list/types';
 import { IntakeFormSubmissionCard } from '@/features/intake-form/components/SubmissionCard';
 import { IntakeFormSubmission } from '@/features/intake-form/types/intake-form';
-import { usePagination } from '@/shared/hooks';
+import { usePagination, usePageSize } from '@/shared/hooks';
 import { STATIC_INPUT_MECHANISMS } from '@/features/intake-form/constants/inputMechanisms';
 import { useIntakeSubmissions } from '@/features/intake-form/hooks/useIntakeSubmissions';
 import { INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import AddNewDropdown from '@/components/ui/AddNewDropdown';
 
 const statusClassMap: Record<string, string> = {
@@ -26,7 +25,6 @@ const statusClassMap: Record<string, string> = {
 
 export default function IntakeFormPage() {
     const t = useTranslations();
-    const { config } = useRuntimeConfig();
     const router = useRouter();
 
     const routeParams = useParams<{ type: string }>();
@@ -36,7 +34,11 @@ export default function IntakeFormPage() {
     const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
     const [sortBy, setSortBy] = useState<string | null>(searchParams.get('sort') || null);
     const [currentPage, setCurrentPage] = useState(1);
-    const pageSize = config?.pageSize || 10;
+    const pageSize = usePageSize();
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
 
     const { currentRegister } = useRegister();
     const registerId = currentRegister?.register_id;

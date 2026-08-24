@@ -16,9 +16,12 @@ interface StatsCardsCarouselProps<T extends string> {
     cards: T[];
     activeCard: T;
     onSelectCard: (card: T) => void;
+    onNavigateCard: (card: T) => void;
     StatsCardComponent: ComponentType<{
         stats_endpoint: string;
         active?: boolean;
+        onSelect?: () => void;
+        onNavigate?: () => void;
     }>;
     statsEndpointFor: (type: T) => string;
 }
@@ -27,6 +30,7 @@ export default function StatsCardsCarousel<T extends string>({
     cards,
     activeCard,
     onSelectCard,
+    onNavigateCard,
     StatsCardComponent,
     statsEndpointFor,
 }: StatsCardsCarouselProps<T>) {
@@ -183,18 +187,18 @@ export default function StatsCardsCarousel<T extends string>({
                     }}
                 >
                     {cards.map((type) => (
-                        <button
+                        <div
                             key={type}
-                            type="button"
-                            onClick={() => onSelectCard(type)}
-                            className="bg-transparent p-0 text-left shrink-0 min-w-0"
+                            className="shrink-0 min-w-0"
                             style={cardWidth > 0 ? { width: cardWidth } : undefined}
                         >
                             <StatsCardComponent
                                 stats_endpoint={statsEndpointFor(type)}
                                 active={activeCard === type}
+                                onSelect={() => onSelectCard(type)}
+                                onNavigate={() => onNavigateCard(type)}
                             />
-                        </button>
+                        </div>
                     ))}
                 </div>
             </div>

@@ -5,6 +5,11 @@ import { useRouter } from '@/i18n/navigation';
 import { EntityListPage, CompactCard, CompactCardSkeleton } from '@/components/shared';
 import { ColumnDef } from '@/components/shared/entity-list/types';
 import { useRegisterRecords } from '@/features/register/hooks/useRegisterRecords';
+import { useRegisterIntakeMenuItems } from '@/features/register/hooks/useRegisterIntakeMenuItems';
+import {
+    RegisterIntakeMenuModals,
+    toRegisterIntakeMoreMenuItems,
+} from '@/features/register/components';
 import { RegisterRecord } from '@/features/register/types';
 import { sortedDisplayFields } from '@/features/register/utils';
 
@@ -34,6 +39,17 @@ export default function RegisterTypePage() {
             clearAllFilters,
         },
     } = useRegisterRecords();
+
+    const {
+        groups: intakeMenuGroups,
+        selectedImportFile,
+        showImportModal,
+        closeImportModal,
+        selectedVC,
+        openVC,
+        closeVC,
+    } = useRegisterIntakeMenuItems(registerType);
+    const intakeMenuItems = toRegisterIntakeMoreMenuItems(intakeMenuGroups);
 
     const displayFieldKeys: string[] = [];
     records.forEach((r) => {
@@ -73,6 +89,7 @@ export default function RegisterTypePage() {
     );
 
     return (
+        <>
         <EntityListPage<RegisterRecord>
             breadcrumb={[{ label: registerTypeLabel }]}
             showPagination
@@ -126,6 +143,16 @@ export default function RegisterTypePage() {
             onRowClick={(record) =>
                 router.push(`/register/${registerType}/${record.internal_record_id}`)
             }
+            moreMenuItems={intakeMenuItems}
         />
+        <RegisterIntakeMenuModals
+            selectedImportFile={selectedImportFile}
+            showImportModal={showImportModal}
+            onCloseImport={closeImportModal}
+            selectedVC={selectedVC}
+            openVC={openVC}
+            onCloseVC={closeVC}
+        />
+        </>
     );
 }

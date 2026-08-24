@@ -169,6 +169,7 @@
   "created_by": "Created By",
   "credential_id": "Credential ID",
   "credential_type": "Credential Type",
+  "dashboard_registers": "Registers",
   "data_model": "Data Model",
   "data_model_created_successfully": "Data Model created successfully",
   "data_model_id": "Data Model ID",

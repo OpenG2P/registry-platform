@@ -20,8 +20,7 @@ import {
     RegisterVcImportView,
     RegisterSchemaView,
 } from '@/features/configuration/registers';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
-import { usePagination } from '@/shared/hooks';
+import { usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { CONFIGURATION_TABS_ACTIONS } from '@/features/shared/permissions';
 import { CONFIGURATION_SCORES_ACTIONS } from '@/features/shared/permissions';
@@ -128,12 +127,18 @@ const RegisterConfigurationPage = () => {
         setIsVcImportModalOpen(false);
     }, [activeTab]);
 
-    const { config } = useRuntimeConfig();
-    const PAGE_SIZE = config.pageSize || 10;
+    const pageSize = usePageSize();
+
+    useEffect(() => {
+        (Object.keys(paginatedTabs) as PaginatedTab[]).forEach((key) => {
+            paginatedTabs[key]?.setPage(1);
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pageSize]);
 
     const pagination = usePagination({
         currentPage,
-        pageSize: PAGE_SIZE,
+        pageSize,
         totalItems: paginationInfo.totalItems,
         currentCount: paginationInfo.currentCount,
     });
@@ -145,7 +150,7 @@ const RegisterConfigurationPage = () => {
     const handleNext = () => {
         if (!activePaginatedTab) return;
         const { page, pagination, setPage } = activePaginatedTab;
-        if (page * PAGE_SIZE < pagination.totalItems) {
+        if (page * pageSize < pagination.totalItems) {
             setPage((prev) => prev + 1);
         }
     };
@@ -242,7 +247,7 @@ const RegisterConfigurationPage = () => {
                         isModalOpen={isTabModalOpen}
                         onCloseModal={() => setIsTabModalOpen(false)}
                         page={tabPage}
-                        pageSize={PAGE_SIZE}
+                        pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
                             setTabPagination({ totalItems, currentCount })
                         }
@@ -254,7 +259,7 @@ const RegisterConfigurationPage = () => {
                         isModalOpen={isSectionModalOpen}
                         onCloseModal={() => setIsSectionModalOpen(false)}
                         page={sectionPage}
-                        pageSize={PAGE_SIZE}
+                        pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
                             setSectionPagination({ totalItems, currentCount })
                         }
@@ -266,7 +271,7 @@ const RegisterConfigurationPage = () => {
                         isModalOpen={isScoreModalOpen}
                         onCloseModal={() => setIsScoreModalOpen(false)}
                         currentPage={scorePage}
-                        pageSize={PAGE_SIZE}
+                        pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
                             setScorePagination({ totalItems, currentCount })
                         }
@@ -278,7 +283,7 @@ const RegisterConfigurationPage = () => {
                         isModalOpen={isFileImportModalOpen}
                         onCloseModal={() => setIsFileImportModalOpen(false)}
                         currentPage={fileImportPage}
-                        pageSize={PAGE_SIZE}
+                        pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
                             setFileImportPagination({ totalItems, currentCount })
                         }
@@ -290,7 +295,7 @@ const RegisterConfigurationPage = () => {
                         isModalOpen={isVcImportModalOpen}
                         onCloseModal={() => setIsVcImportModalOpen(false)}
                         currentPage={vcImportPage}
-                        pageSize={PAGE_SIZE}
+                        pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
                             setVcImportPagination({ totalItems, currentCount })
                         }

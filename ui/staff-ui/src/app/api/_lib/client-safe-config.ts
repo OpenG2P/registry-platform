@@ -12,10 +12,8 @@ class ClientSafeConfig {
     constructor() {
         const env = getServerEnv();
         this.config = {
-            partnerImportExportEnable: env.partnerImportExportEnable,
             verifyServiceUrl: env.verifyServiceUrl,
             vpClientId: env.vpClientId,
-            pageSize: env.pageSize,
             registryName: "",
             registryLogo: "",
             registryFavicon: "",

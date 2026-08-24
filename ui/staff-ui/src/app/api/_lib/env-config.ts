@@ -10,11 +10,8 @@ export function getServerEnv() {
 
         defaultLocale: process.env.DEFAULT_LOCALE ?? "",
 
-        partnerImportExportEnable: process.env.PARTNER_IMPORT_EXPORT_ENABLE === "true",
         verifyServiceUrl: process.env.VERIFY_SERVICE_URL ?? "",
         vpClientId: process.env.VP_CLIENT_ID ?? "",
-        pageSize: parseInt(process.env.PAGE_SIZE ?? "10", 10),
-
         cspHeader: process.env.CSP_HEADER?.trim() ?? "",
         cspSrcDefault: process.env.CSP_SRC_DEFAULT?.trim(),
         cspSrcScript: process.env.CSP_SRC_SCRIPT?.trim(),

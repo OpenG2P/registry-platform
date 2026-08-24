@@ -9,7 +9,7 @@ import { EntityListPage, StackedCardSkeleton } from '@/components/shared';
 import { ColumnDef } from '@/components/shared/entity-list/types';
 import { useMyTasks } from '@/features/approval/hooks/useMyTasks';
 import { TASK_ARTIFACT_FILTER_OPTIONS } from '@/features/approval/constants';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePageSize } from '@/shared/hooks';
 import { useRegister } from '@/context/RegisterContext';
 import TaskCard from './TaskCard';
 import { getTaskDetailHref } from '@/features/approval/utils/taskNavigation';
@@ -43,7 +43,6 @@ export default function TasksListView({
     const t = useTranslations();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { config } = useRuntimeConfig();
     const { registers } = useRegister();
 
     const searchQuery = searchParams.get('search') || '';
@@ -56,7 +55,7 @@ export default function TasksListView({
         return TASK_ARTIFACT_FILTER_OPTIONS.find((o) => o.value === filter)?.artifactType;
     }, [fixedArtifactFilter, artifactFilterParam]);
 
-    const pageSize = config.pageSize || 25;
+    const pageSize = usePageSize();
 
     const { tasks, loading, total, currentPage, pages, setCurrentPage } = useMyTasks({
         artifactType,

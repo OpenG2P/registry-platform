@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useAllRegister } from '../shared';
 import { useAllDataModels } from '../shared/hooks/useAllDataModels';
 import CustomDropdown from '../shared/components/CustomDropdown';
@@ -22,11 +21,8 @@ export default function AddOutgestionTopicModal({
 }: AddOutgestionTopicModalProps) {
     const t = useTranslations();
     const { execute: createOutgestionTopic, loading } = useFetch();
-    const { config } = useRuntimeConfig();
-    const currentPage = 1;
-
-    const { registers, loading: registersLoading } = useAllRegister(currentPage, config.pageSize);
-    const { dataModels, loading: dataModelsLoading } = useAllDataModels(currentPage, config.pageSize);
+    const { registers, loading: registersLoading } = useAllRegister(1, 100);
+    const { dataModels, loading: dataModelsLoading } = useAllDataModels(1, 100);
 
     const registerOptions =
         registers?.map((item: any) => ({
