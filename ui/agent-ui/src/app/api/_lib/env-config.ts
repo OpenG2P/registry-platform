@@ -7,6 +7,9 @@ export function getServerEnv() {
         // iam-agent-portal-api. It is the OIDC confidential client: it holds the
         // client secret, exchanges the code and owns the session.
         iamUrl: process.env.IAM_URL ?? "",
+        // iam-staff-portal-api. Roles -> permissions resolution (/user-access/*)
+        // exists only there, so it is asked even though login uses the agent IAM.
+        authProviderApiUrl: process.env.AUTH_PROVIDER_API_URL ?? "",
         // Row id in IAM's login_providers for the agent realm.
         loginProviderId: process.env.LOGIN_PROVIDER_ID ?? "",
         applicationMnemonic: process.env.APPLICATION_MNEMONIC ?? "openg2p-registry-agent",

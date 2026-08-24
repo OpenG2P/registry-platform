@@ -9,6 +9,7 @@ export function getBackendConfig() {
     return {
         backendApiUrl: env.backendApiUrl,
         iamUrl: env.iamUrl,
+        authProviderApiUrl: env.authProviderApiUrl,
         loginProviderId: env.loginProviderId,
         applicationMnemonic: env.applicationMnemonic,
         cookieDomain: env.cookieDomain,

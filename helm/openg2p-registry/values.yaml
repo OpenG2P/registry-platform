@@ -1576,6 +1576,14 @@ agentPortalUi:
     # Row id of the agent realm in IAM's login_providers (staff is 1). Must
     # match iamAgentPortalApi.loginProviders[0].id in the IAM chart.
     LOGIN_PROVIDER_ID: '10'
+    # Roles -> permissions resolution lives ONLY on iam-staff-portal-api, so the
+    # UI asks the STAFF IAM for permissions even though login goes through the
+    # agent IAM. Same split the Agent Portal API uses (auth_provider_api_url).
+    AUTH_PROVIDER_API_URL: '{{ tpl (default .Values.global.iamServiceUrl .Values.global.agentAuthProviderApiUrl) $ }}'
+    # Must equal the Keycloak client id the agent's roles sit under: IAM reads
+    # resource_access[APPLICATION_MNEMONIC] and then looks for an IAM
+    # application registered under that same mnemonic. The iam-register job
+    # below is what registers it.
     APPLICATION_MNEMONIC: '{{ tpl .Values.global.agentKeycloakClientId $ }}'
 
   envVarsFrom: {}

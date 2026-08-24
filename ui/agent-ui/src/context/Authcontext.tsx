@@ -5,9 +5,17 @@ import { createContext, useCallback, useContext, useEffect, useState, ReactNode 
 /** Permission an agent must hold to issue. Mirrors ISSUE_PERMISSION on the API. */
 export const ISSUE_PERMISSION = 'register:issue_credential';
 
+/** Shape IAM's /auth/get_logged_in_user returns. Only the fields this UI
+ *  reads are named; IAM sends more and the extras are simply carried. */
+export interface LoggedInUser {
+    sub?: string;
+    name?: string;
+    email?: string;
+}
+
 interface AuthContextType {
     isLoggedIn: boolean;
-    user: any | null;
+    user: LoggedInUser | null;
     canIssue: boolean;
     logout: () => void;
     handleUnauthorized: () => void;
@@ -17,7 +25,8 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [user, setUser] = useState<any | null>(null);
+    const [user, setUser] = useState<LoggedInUser | null>(null);
+    const [permissions, setPermissions] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const logout = useCallback(() => {
@@ -52,6 +61,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const profile = await res.json();
                 setUser(profile);
                 setIsLoggedIn(true);
+
+                // Permissions are NOT on the profile: IAM's LoggedInUserResponse
+                // carries only identity fields. Staff's RbacContext fetches them
+                // separately and so does this.
+                const permRes = await fetch('/api/permissions', { cache: 'no-store' });
+                if (permRes.ok) {
+                    const data = await permRes.json();
+                    setPermissions(
+                        Array.isArray(data)
+                            ? data.flatMap((app: { permissions?: string[] }) => app.permissions || [])
+                            : []
+                    );
+                }
             } catch {
                 setIsLoggedIn(false);
             } finally {
@@ -61,17 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initAuth();
     }, [handleUnauthorized]);
 
-    const roles: string[] = (() => {
-        // The logged-in user carries its permissions/roles; accept either shape
-        // rather than assuming one, since IAM enriches this server-side.
-        const candidates = [user?.permissions, user?.roles, user?.client_roles];
-        for (const c of candidates) {
-            if (Array.isArray(c)) return c as string[];
-        }
-        return [];
-    })();
-
-    const canIssue = roles.includes(ISSUE_PERMISSION);
+    const canIssue = permissions.includes(ISSUE_PERMISSION);
 
     if (isLoading) {
         return <p className="muted" style={{ padding: '2rem' }}>Signing in…</p>;

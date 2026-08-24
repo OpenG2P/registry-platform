@@ -10,8 +10,8 @@ WORKDIR /app
 
 FROM base AS builder
 # Install dependencies first so this layer is cached unless the lockfile changes.
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 # Then copy the rest of the source and produce the standalone build
 # (next.config.ts sets `output: "standalone"`).
 COPY . .

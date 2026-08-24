@@ -70,6 +70,10 @@ spec:
             # payload file lives in this chart and a wrapper cannot override it.
             - name: APP_DESCRIPTION
               value: {{ tpl (.Values.iamRegister.applicationDescription | default "OpenG2P Registry") $ | quote }}
+            - name: AGENT_APP_MNEMONIC
+              value: {{ tpl .Values.global.agentKeycloakClientId $ | quote }}
+            - name: AGENT_APP_URL
+              value: {{ printf "https://%s" (tpl .Values.global.agentPortalHostname $) | quote }}
             - name: TOKEN_MAX_ATTEMPTS
               value: {{ .Values.iamRegister.tokenMaxAttempts | default 30 | quote }}
             - name: REGISTER_MAX_ATTEMPTS
@@ -112,11 +116,40 @@ spec:
                   --data @/tmp/body.json || true)
                 echo "  register HTTP ${CODE}: $(cat /tmp/out.json 2>/dev/null || true)"
                 case "${CODE}" in
-                  2*) echo "Registration succeeded."; exit 0 ;;
+                  2*) echo "Registration succeeded."; REGISTERED=1; break ;;
                 esac
                 i=$((i+1)); sleep 5
               done
-              echo "ERROR: registration failed after ${REGISTER_MAX_ATTEMPTS} attempts"; exit 1
+              if [ -z "${REGISTERED:-}" ]; then
+                echo "ERROR: registration failed after ${REGISTER_MAX_ATTEMPTS} attempts"; exit 1
+              fi
+
+              # The agent portal is a SECOND IAM application, registered under the
+              # agent Keycloak client's id. Without it the agent's roles resolve to
+              # no permissions and the portal refuses to issue.
+              if [ -f /payload/agent-payload.json ]; then
+                echo "Registering the agent portal application '${AGENT_APP_MNEMONIC}'"
+                sed -e "s|__APPLICATION_MNEMONIC__|${AGENT_APP_MNEMONIC}|g" \
+                    -e "s|__APPLICATION_URL__|${AGENT_APP_URL}|g" \
+                    -e "s|__APPLICATION_DESCRIPTION__|OpenG2P Agent Portal|g" \
+                    /payload/agent-payload.json > /tmp/agent-body.json
+                i=0
+                while [ "$i" -lt "${REGISTER_MAX_ATTEMPTS}" ]; do
+                  CODE=$(curl -s -o /tmp/out.json -w '%{http_code}' --max-time 30 \
+                    -X POST "${IAM_REGISTER_URL}" \
+                    -H "Authorization: Bearer ${TOKEN}" \
+                    -H "Content-Type: application/json" \
+                    --data @/tmp/agent-body.json || true)
+                  echo "  agent register HTTP ${CODE}: $(cat /tmp/out.json 2>/dev/null || true)"
+                  case "${CODE}" in
+                    2*) echo "Agent portal registration succeeded."; exit 0 ;;
+                  esac
+                  i=$((i+1)); sleep 5
+                done
+                echo "ERROR: agent portal registration failed after ${REGISTER_MAX_ATTEMPTS} attempts" >&2
+                exit 1
+              fi
+              exit 0
           volumeMounts:
             - name: payload
               mountPath: /payload

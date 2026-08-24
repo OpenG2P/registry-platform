@@ -18,4 +18,13 @@ metadata:
 data:
   payload.json: |-
 {{ .Files.Get "files/iam-registration/payload.json" | indent 4 }}
+{{- if .Values.agentPortalApi.enabled }}
+  # The agent portal is registered as its OWN IAM application. IAM resolves a
+  # user's permissions as resource_access[application_mnemonic] -> the IAM
+  # application of that mnemonic; the agent's roles sit under the `agent-portal`
+  # Keycloak client, so an application of that mnemonic must exist or the lookup
+  # returns [] with a 200 and the portal refuses to issue with no error anywhere.
+  agent-payload.json: |-
+{{ .Files.Get "files/iam-registration/agent-payload.json" | indent 4 }}
+{{- end }}
 {{- end }}
