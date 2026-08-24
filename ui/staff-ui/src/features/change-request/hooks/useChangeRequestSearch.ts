@@ -21,7 +21,7 @@ export function useChangeRequestSearch({
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchText, sortBy]);
+    }, [searchText, sortBy, pageSize]);
 
     const { data, loading } = useFetch<any>({
         url: '/api/change-request/search',

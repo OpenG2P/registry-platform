@@ -7,9 +7,8 @@ import { useChangeRequestList } from '@/features/change-request/hooks/useChangeR
 import { useLocale, useTranslations } from 'next-intl';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterTabs } from '@/context/RegisterTabsContext';
-import { useBreadcrumb, usePagination } from '@/shared/hooks';
+import { useBreadcrumb, usePagination, usePageSize } from '@/shared/hooks';
 import { useRegisterRecord } from '@/context/RegisterRecordContext';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useFetch } from '@/shared/hooks/useFetch';
 
 export default function ChangeRequestPage() {
@@ -17,7 +16,6 @@ export default function ChangeRequestPage() {
     const locale = useLocale();
     const { type: registerType, id: internalRecordId } = useParams<{ type: string; id: string }>();
     const { currentRegister } = useRegister();
-    const { config } = useRuntimeConfig();
 
     const { functionalRecordId, recordName } = useRegisterRecord();
 
@@ -29,7 +27,7 @@ export default function ChangeRequestPage() {
     } = useRegisterTabs();
 
     const subjectRegisterId = currentRegister?.register_id;
-    const pageSize = config.pageSize || 10;
+    const pageSize = usePageSize();
 
     const {
         changeRequests,

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFetch } from '@/shared/hooks';
 
 interface OutgoingMessage {
@@ -27,6 +27,10 @@ export function useOutgoingMessagesList({
     enabled = true,
 }: UseOutgoingMessagesListOptions) {
     const [currentPage, setCurrentPage] = useState(initialPage);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize, searchText]);
 
     const { data, loading } = useFetch<any>({
         url: '/api/outgoing-message/get/list',

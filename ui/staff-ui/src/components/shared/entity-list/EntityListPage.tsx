@@ -40,6 +40,7 @@ export default function EntityListPage<T>({
     sortBy,
     onSortChange,
     actions,
+    moreMenuItems,
 }: EntityListPageProps<T>) {
     const t = useTranslations();
     const { view, setView } = useListView(defaultView, viewStorageKey);
@@ -74,6 +75,7 @@ export default function EntityListPage<T>({
                     <MoreMenu
                         view={view}
                         onViewChange={setView}
+                        extraItems={moreMenuItems}
                     />
                 </div>
             </div>

@@ -21,7 +21,7 @@ export const useMyTasks = ({
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchText, artifactType, sortBy]);
+    }, [searchText, artifactType, sortBy, pageSize]);
 
     const options = useMemo(
         () => ({

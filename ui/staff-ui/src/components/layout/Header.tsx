@@ -4,11 +4,9 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-import { ProfileDropdown, NotificationDropdown, ConfigurationButton, LanguageSwitcher } from '@/components/layout';
+import { ProfileDropdown, NotificationDropdown, HeaderMoreMenu } from '@/components/layout';
 import { useRuntimeConfig } from "@/context/RuntimeConfigContext";
 import { useLogoDimensions } from '@/shared/hooks';
-import Can from "../shared/Can";
-import { CONFIG_NAV_ACTIONS } from "@/features/shared/permissions";
 
 export default function Header() {
     const t = useTranslations();
@@ -29,7 +27,7 @@ export default function Header() {
     }, []);
 
     return (
-        <header className={`w-full bg-neutral-second fixed top-0 left-0 right-0 z-20 flex justify-center overflow-visible ${isScrolled ? "shadow-[0px_4px_10px_0px_rgba(0,0,0,0.15)]" : ""}`}>
+        <header className={`w-full bg-neutral-second fixed top-0 left-0 right-0 z-50 flex justify-center overflow-visible ${isScrolled ? "shadow-[0px_4px_10px_0px_rgba(0,0,0,0.15)]" : ""}`}>
             <div className="w-full h-17.5 flex items-center justify-between px-3 overflow-visible">
                 <Link href={`/${locale}`} className={`flex items-center min-w-0 overflow-visible ${isHorizontalLogo ? "max-w-[min(92vw,72rem)]" : "h-full gap-2"}`}>
                     {isHorizontalLogo ? (
@@ -57,29 +55,16 @@ export default function Header() {
                             >
                                 {config?.registryName ? t(config?.registryName) : t('registryGen2')}
                             </span>
-
-                            {/* <span className="h-8 w-0.5 bg-secondary-second" />
-
-                        <div className="flex flex-col leading-tight">
-                            <span className="text-[14px] text-neutral-first/50">
-                                powered by
-                            </span>
-                            <span className="text-[16px] font-medium text-neutral-first">
-                                OpenG2P
-                            </span>
-                        </div> */}
                         </div>
                     )}
                 </Link>
 
                 {/* Desktop Navigation */}
-                <div className="flex items-center gap-8">
-                    <Can anyOf={CONFIG_NAV_ACTIONS}>
-                        <ConfigurationButton />
-                    </Can>
-                    <LanguageSwitcher />
+                <div className="flex items-center gap-4">
                     <NotificationDropdown />
                     <ProfileDropdown />
+                    <HeaderMoreMenu />
+
                 </div>
             </div>
         </header>

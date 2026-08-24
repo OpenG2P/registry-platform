@@ -5,9 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/i18n/navigation';
 import { TopBar } from '@/components/shared';
 import Can from '@/components/shared/Can';
-import { usePagination } from '@/shared/hooks';
+import { usePagination, usePageSize } from '@/shared/hooks';
 import { useFetch } from '@/shared/hooks/useFetch';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-toastify';
@@ -46,8 +45,12 @@ export default function DataPoliciesListPage({
     const [showPopup, setShowPopup] = useState(false);
     const [selectedPolicy, setSelectedPolicy] = useState<DataPolicy | null>(null);
 
-    const { config } = useRuntimeConfig();
+    const pageSize = usePageSize();
     const { can } = useRbac();
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
     const { execute: removePolicy } = useFetch();
     const canCreate = can(CONFIGURATION_REGISTERS_ACTIONS.create);
     const { registers, loading: registersLoading } = useAllRegister(1, 100);
@@ -62,7 +65,7 @@ export default function DataPoliciesListPage({
         selectedRegisterId,
         policyTarget,
         currentPage,
-        config.pageSize || 10,
+        pageSize,
     );
 
     useEffect(() => {
@@ -98,7 +101,7 @@ export default function DataPoliciesListPage({
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || policies.length,
         currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: policies.length,
     });
 

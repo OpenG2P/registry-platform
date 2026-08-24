@@ -9,8 +9,7 @@ import { EntityListPage, StackedCardSkeleton } from '@/components/shared';
 import { ColumnDef } from '@/components/shared/entity-list/types';
 import { ChangeRequestCard } from '@/features/change-request/components';
 import { useChangeRequestSearch } from '@/features/change-request/hooks/useChangeRequestSearch';
-import { usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePagination, usePageSize } from '@/shared/hooks';
 import { ChangeRequest } from '@/features/change-request/types';
 
 const statusClassMap: Record<string, string> = {
@@ -22,12 +21,11 @@ const statusClassMap: Record<string, string> = {
 export default function ChangeRequestPage() {
     const router = useRouter();
     const t = useTranslations();
-    const { config } = useRuntimeConfig();
+    const pageSize = usePageSize();
 
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get('search') || '';
     const sortBy = searchParams.get('sort') || null;
-    const pageSize = config.pageSize || 10;
 
     const {
         changeRequests,

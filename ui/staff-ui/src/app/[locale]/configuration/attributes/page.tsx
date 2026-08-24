@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar } from '@/components/shared';
-import { useFetch, usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
@@ -18,11 +17,13 @@ import { AddAttributeModal, EditAttributeModal } from '@/features/configuration/
 const AttributesListPage = () => {
     const t = useTranslations();
     const router = useRouter();
-    const { config } = useRuntimeConfig();
     const { can } = useRbac();
-    const pageSize = config.pageSize || 20;
-
+    const pageSize = usePageSize();
     const [currentPage, setCurrentPage] = useState(1);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
     const [searchText, setSearchText] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
     const [editAttribute, setEditAttribute] = useState<Attribute | null>(null);

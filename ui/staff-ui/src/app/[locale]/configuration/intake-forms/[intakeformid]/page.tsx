@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BreadcrumbBar, TopBar } from '@/components/shared';
 import { useParams } from 'next/navigation';
 import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
@@ -10,8 +10,7 @@ import {
     DeleteButton,
 } from '@/features/configuration/shared';
 
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
-import { useFetch, usePagination } from '@/shared/hooks';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import { useIntakeFormById } from '@/features/configuration/shared/hooks/useIntakeFormById';
@@ -54,14 +53,18 @@ const IntakeFormIdPage = () => {
     });
 
     const [currentPage, setCurrentPage] = useState(1);
-    const { config } = useRuntimeConfig();
+    const pageSize = usePageSize();
 
-    const { intake_form_tabs, refresh, pagination } = useAllIntakeFormTabs(currentPage, config.pageSize, intakeformid);
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
+
+    const { intake_form_tabs, refresh, pagination } = useAllIntakeFormTabs(currentPage, pageSize, intakeformid);
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: intake_form_tabs?.length || 0,
     });
 

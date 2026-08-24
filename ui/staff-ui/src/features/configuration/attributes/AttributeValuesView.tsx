@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { TopBar } from '@/components/shared';
-import { useFetch, usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-toastify';
@@ -29,11 +28,13 @@ interface AttributeValuesViewProps {
 
 export default function AttributeValuesView({ attribute }: AttributeValuesViewProps) {
     const t = useTranslations();
-    const { config } = useRuntimeConfig();
     const { can } = useRbac();
-    const pageSize = config.pageSize || 20;
-
+    const pageSize = usePageSize();
     const [valuePage, setValuePage] = useState(1);
+
+    useEffect(() => {
+        setValuePage(1);
+    }, [pageSize]);
     const [searchText, setSearchText] = useState('');
     const [parentValueId, setParentValueId] = useState<string | null>(null);
     const [valueBreadcrumb, setValueBreadcrumb] = useState<AttributeValue[]>([]);
