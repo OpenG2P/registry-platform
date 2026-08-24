@@ -1003,6 +1003,13 @@ agentPortalApi:
     # and this API is handed the staff realm's ID token alongside a valid agent
     # bearer token -- a token it cannot verify against the agent realm's JWKS.
     REGISTRY_AGENT_PORTAL_API_AUTH_COOKIE_PREFIX: 'agent-'
+    # iam_core's ValidateAndRefreshTokenMiddleware looks the browser session's
+    # refresh token up in Redis, so this MUST be the same instance the IAM
+    # services write to (authRedisInstallationName), not this registry's own
+    # Redis -- a different instance means the session is never found and every
+    # authenticated call fails. Defaults to localhost when unset, which is a
+    # connection-refused 500 on the first request, not a clear error.
+    REGISTRY_AGENT_PORTAL_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.authRedisInstallationName $ }}-master:6379/0'
 
     REGISTRY_AGENT_PORTAL_API_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     REGISTRY_AGENT_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
