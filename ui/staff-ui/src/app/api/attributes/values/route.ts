@@ -22,8 +22,6 @@ export async function POST(req: NextRequest) {
 			},
 			request_payload: {
 				attribute_id: body.attribute_id,
-				domain: body.domain,
-				include_domains: body.include_domains ?? true,
 			}
 		}),
 		transformResponse: (responseBody) =>
