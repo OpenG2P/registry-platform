@@ -298,3 +298,71 @@ button.link {
   border-radius: 6px;
   padding: 0.6rem 0.8rem;
 }
+
+/* ── Landing page: one card per task the agent can perform ──────────────── */
+.page-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 0 0 1.25rem;
+}
+
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+
+.task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+a.task-card:hover,
+a.task-card:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.task-card-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.task-card-title {
+  font-weight: 600;
+}
+
+.task-card-desc {
+  color: var(--color-grey);
+  font-size: 0.9rem;
+}
+
+/* A task the agent cannot perform: shown, but plainly inert. */
+.task-card-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.breadcrumb {
+  margin-bottom: 0.9rem;
+  font-size: 0.9rem;
+}
+
+.breadcrumb a {
+  color: var(--color-grey);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}

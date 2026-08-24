@@ -1,35 +1,50 @@
 'use client';
 
-import { useAuth } from '@/context/Authcontext';
+import Link from 'next/link';
 
-import IssuePage from './IssuePage';
+import AppShell from '@/components/AppShell';
+import { ISSUE_PERMISSION, useAuth } from '@/context/Authcontext';
 
+/**
+ * Landing page.
+ *
+ * The agent portal is a generic surface, not a single-purpose screen: issuance
+ * is the first task it carries, and others will follow. So the entry point is a
+ * list of tasks rather than the issuance form itself, and adding a capability
+ * means adding a card here rather than restructuring the app.
+ *
+ * A task the agent cannot perform is shown disabled with the reason, rather
+ * than hidden — an agent who was told they can issue needs to see WHY they
+ * cannot, not an empty page.
+ */
 export default function Home() {
-    const { user, canIssue, logout } = useAuth();
+    const { canIssue } = useAuth();
 
     return (
-        <div className="app">
-            <header className="app-header">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/openg2p-logo-horizontal.svg" alt="OpenG2P" height={28} />
-                <span className="app-title">Agent Portal</span>
-                <span className="spacer" />
-                <span className="muted">{user?.name ?? user?.email ?? user?.sub}</span>
-                <button className="link" onClick={logout}>
-                    Sign out
-                </button>
-            </header>
+        <AppShell>
+            <h1 className="page-title">What would you like to do?</h1>
 
-            <main>
+            <div className="task-grid">
                 {canIssue ? (
-                    <IssuePage />
+                    <Link href="/issue" className="task-card">
+                        <span className="task-card-icon" aria-hidden="true">🪪</span>
+                        <span className="task-card-title">Issue Verifiable Credentials</span>
+                        <span className="task-card-desc">
+                            Look up a beneficiary, have them authenticate, and print their
+                            credential.
+                        </span>
+                    </Link>
                 ) : (
-                    <p className="error" role="alert">
-                        This account is not permitted to issue credentials. It needs the
-                        <code> register:issue_credential </code> permission in the agent realm.
-                    </p>
+                    <div className="task-card task-card-disabled" aria-disabled="true">
+                        <span className="task-card-icon" aria-hidden="true">🪪</span>
+                        <span className="task-card-title">Issue Verifiable Credentials</span>
+                        <span className="task-card-desc">
+                            Not available for this account — it needs the
+                            <code> {ISSUE_PERMISSION} </code> permission in the agent realm.
+                        </span>
+                    </div>
                 )}
-            </main>
-        </div>
+            </div>
+        </AppShell>
     );
 }

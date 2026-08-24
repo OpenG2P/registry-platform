@@ -19,7 +19,7 @@ const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 type Stage = "lookup" | "authenticate" | "issue" | "done";
 
-export default function IssuePage() {
+export default function IssueFlow() {
   const [nationalId, setNationalId] = useState("");
   const [vcTypes, setVcTypes] = useState<VcType[]>([]);
   const [vcType, setVcType] = useState<string>("");
