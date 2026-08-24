@@ -62,7 +62,7 @@ dependencies:
     repository: https://gitlab.com/api/v4/projects/84460547/packages/helm/stable
     condition: idgenerator.enabled
   - name: keycloak-init
-    version: 0.0.0-develop.56
+    version: 0.0.0-develop.57
     repository: https://gitlab.com/api/v4/projects/84460547/packages/helm/stable
     condition: keycloak-init.enabled
   # AWE is no longer bundled here — it is installed once per environment by
