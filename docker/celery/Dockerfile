@@ -13,6 +13,10 @@
 FROM python:3.12.11-alpine3.22
 
 ARG FASTAPI_COMMON_REF=develop
+# iam-core comes from GitLab. github.com/openg2p/iam-service was frozen on
+# 2026-08-20 ("Moved to GitLab: openg2p/iam (read-only; build/publish
+# disabled)"), so a build pointed there silently pins iam-core to that day
+# and every later IAM change is missing from this image -- with no error.
 ARG IAM_CORE_REF=develop
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
@@ -30,7 +34,7 @@ COPY reference-extension /app/reference-extension
 RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-auth" \
-      "git+https://github.com/openg2p/iam-service@${IAM_CORE_REF}#subdirectory=iam-core" \
+      "git+https://gitlab.com/openg2p/iam.git@${IAM_CORE_REF}#subdirectory=iam-core" \
       /app/core/openg2p-registry-core \
       /app/celery/openg2p-registry-celery-beat \
       /app/celery/openg2p-registry-celery-worker \
