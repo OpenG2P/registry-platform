@@ -81,7 +81,6 @@ from .ingestion_configuration import (
     IncomingModelKeyPath,
     IncomingModelRegisterSemanticPattern,
     IncomingModelSemanticPattern,
-    IncomingPartner,
     IncomingTemplate,
     SubscriptionActivityLog,
 )

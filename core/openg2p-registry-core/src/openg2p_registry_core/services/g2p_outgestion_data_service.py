@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..models import (
     DataModel,
     G2PRegisterDefinition,
-    IncomingPartner,
     OutgoingRawData,
     OutgoingRawDataPayload,
     OutgoingTopic,
@@ -18,7 +17,6 @@ from ..schemas import (
     OutgestionSummaryData,
     OutgestionDataSearchResultData,
 )
-from ..engine import get_engines
 
 _logger = logging.getLogger("g2p-outgestion-data-service")
 
@@ -62,18 +60,15 @@ class G2POutgestionDataService(BaseService):
         filter_by: dict = None,
     ) -> tuple[list[OutgestionDataSearchResultData], int]:
         _logger.info("Searching in outgestion data through service")
-        master_data_engine = get_engines().get("db_engine_master_data")
-        master_data_session_maker = async_sessionmaker(master_data_engine, expire_on_commit=False)
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
 
-        async with session_maker() as session, master_data_session_maker() as master_data_session:
+        async with session_maker() as session:
             return await self._search_in_outgestion_data(
                 search_text,
                 current_page,
                 page_size,
                 filter_by,
                 session,
-                master_data_session,
                 sort_by,
             )
 
@@ -84,7 +79,6 @@ class G2POutgestionDataService(BaseService):
         page_size: int,
         filter_by: dict,
         session,
-        master_data_session,
         sort_by: str = None,
     ) -> tuple[list[OutgestionDataSearchResultData], int]:
         search_query = f"%{search_text}%"
@@ -189,15 +183,7 @@ class G2POutgestionDataService(BaseService):
             if not row:
                 continue
 
-            partner_mnemonic = None
-            if row.changed_by_partner_id:
-                partner_mnemonic = (
-                    await master_data_session.execute(
-                        select(IncomingPartner.partner_mnemonic).where(
-                            IncomingPartner.partner_id == row.changed_by_partner_id
-                        )
-                    )
-                ).scalar_one_or_none()
+            partner_mnemonic = row.changed_by_partner_id
 
             outgestion_data_search_result_data_list.append(
                 OutgestionDataSearchResultData(

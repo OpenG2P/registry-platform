@@ -8,7 +8,12 @@ _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
 from celery import Celery
-from openg2p_registry_core.helpers import TemplateHelper, WebsubHelper, get_document_handler
+from openg2p_registry_core.helpers import (
+    PartnerManagementClient,
+    TemplateHelper,
+    WebsubHelper,
+    get_document_handler,
+)
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
 from openg2p_fastapi_common.exception import BaseExceptionHandler        
 from openg2p_registry_core.services import (
@@ -48,6 +53,7 @@ class Initializer(BaseInitializer):
         get_document_handler()
         TemplateHelper()
         WebsubHelper()
+        PartnerManagementClient()
 
 
 celery_app = Celery(

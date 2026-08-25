@@ -22,7 +22,6 @@ from openg2p_registry_core.schemas import (
     VerificationData, VerificationDataResponse, VerificationDataResponseBody,
     DeduplicationRegisterResultsData, DeduplicationRegisterResultsDataResponse, DeduplicationRegisterResultsDataResponseBody,
     DeduplicationChangerequestResultsData, DeduplicationChangerequestResultsDataResponse, DeduplicationChangerequestResultsDataResponseBody,
-    IncomingPartnerData, IncomingPartnerResponseBody,
     IncomingModelKeyPathData, IncomingModelKeyPathResponseBody,
     IncomingModelSemanticPatternResponseBody, IncomingTemplateResponseBody,
     DataModelResponseBody, OutgoingTopicResponseBody, OutgoingTemplateResponseBody,

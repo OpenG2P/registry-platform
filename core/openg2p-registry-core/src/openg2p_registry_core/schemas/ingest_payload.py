@@ -65,40 +65,6 @@ class IngestDataPayload(BaseModel):
 
 
 # =============================================================================
-# IncomingPartner Schemas
-# =============================================================================
-
-class IncomingPartnerPayload(BaseModel):
-    partner_id: Optional[str] = None
-    partner_mnemonic: str
-    keymanager_reference_id: str
-    is_active: bool = True
-
-    class Config:
-        from_attributes: bool = True
-
-
-class IncomingPartnerUpdatePayload(BaseModel):
-    """Update payload for IncomingPartner - only allows updating specific fields"""
-    partner_mnemonic: Optional[str] = None
-    keymanager_reference_id: Optional[str] = None
-    is_active: Optional[bool] = None
-
-    class Config:
-        from_attributes: bool = True
-
-
-class IncomingPartnerData(BaseModel):
-    partner_id: str
-    partner_mnemonic: str
-    keymanager_reference_id: str
-    is_active: bool
-
-    class Config:
-        from_attributes: bool = True
-
-
-# =============================================================================
 # IncomingModelKeyPath Schemas
 # =============================================================================
 

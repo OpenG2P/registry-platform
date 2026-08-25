@@ -27,7 +27,7 @@ def construct_db_datasource(db_driver, db_username, db_password, db_hostname, db
 def get_engine():
     """
     Returns a dictionary containing database engines for different databases.
-    - db_engine_master_data: Engine for master-data-db (IncomingPartner, etc.)
+    - db_engine_master_data: Engine for master-data-db (attributes, geography).
     """
     db_datasource_master_data = construct_db_datasource(
         _config.master_data_db_driver,

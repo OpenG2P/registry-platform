@@ -38,7 +38,14 @@ from .controller_services import (
     G2PAwePolicyConfigurationControllerService,
     G2PAweProxyControllerService,
 )
-from .helpers import AweHelper, ApplicationReferenceGenerator, PatternMatcher, TemplateHelper, get_document_handler
+from .helpers import (
+    AweHelper,
+    ApplicationReferenceGenerator,
+    PartnerManagementClient,
+    PatternMatcher,
+    TemplateHelper,
+    get_document_handler,
+)
 from .interfaces import G2PIdGeneratorFactory, G2PRegisterDomainFactory
 
 from .models import (
@@ -152,6 +159,7 @@ class Initializer(BaseInitializer):
         get_document_handler()
         TemplateHelper()
         PatternMatcher()
+        PartnerManagementClient()
         ApplicationReferenceGenerator(_config.application_reference_format)
         KeymanagerCryptoHelper()
         AweHelper()
@@ -270,7 +278,7 @@ class Initializer(BaseInitializer):
             await DeduplicationIntakeFormRegisterResult.create_migrate()
             await DeduplicationIntakeFormIntakeFormResult.create_migrate()
 
-            # Incoming Models (IncomingPartner removed - now in master-data-db)
+            # Incoming Models (partners live in Partner Management, not here)
             await IncomingRawData.create_migrate()
             await IncomingTemplate.create_migrate()
             await IncomingModelKeyPath.create_migrate()
