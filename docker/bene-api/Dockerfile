@@ -15,7 +15,7 @@
 # Build context = repo root (so core/ and apis/ are reachable).
 FROM python:3.12.11-alpine3.22
 
-ARG FASTAPI_COMMON_REF=develop
+ARG FASTAPI_COMMON_REF=1.2
 ARG IAM_CORE_REF=1.4
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
@@ -28,8 +28,7 @@ COPY apis/openg2p-registry-bene-api /app/apis/openg2p-registry-bene-api
 COPY reference-extension /app/reference-extension
 
 RUN pip install --no-cache-dir \
-      "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
-      "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-auth" \
+      "git+https://gitlab.com/openg2p/shared-libraries/fastapi-common.git@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
       "git+https://gitlab.com/openg2p/iam@${IAM_CORE_REF}#subdirectory=iam-core" \
       /app/core/openg2p-registry-core \
       /app/apis/openg2p-registry-bene-api \
