@@ -9,17 +9,20 @@ import {
   GeoLevel,
   GeoLevelValue,
   GeoSelectOption,
+  buildGeoFormSteps,
   buildHierarchyJson,
   buildOrderedLevels,
   buildReadonlyPath,
   chainMatchesStoredValue,
   clearDescendants,
+  clearUnselectedSiblingBranches,
   formatHierarchyForPersist,
   resolveHierarchyJsonPath,
   formatLevelLabel,
+  getChildLevels,
   getDeepestSelectedValue,
+  getSelectedPath,
   isGeoHierarchyComplete,
-  isLevelEnabled,
   mapChainToSelections,
   mapHierarchyToChain,
   normalizeApiPayload,
@@ -228,7 +231,11 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
       }
 
       const deepest = getDeepestSelectedValue(orderedLevels, nextSelectedValues);
-      const complete = isGeoHierarchyComplete(orderedLevels, nextSelectedValues);
+      const complete = isGeoHierarchyComplete(
+        orderedLevels,
+        nextSelectedValues,
+        nextOptions,
+      );
       // When required, only persist the leaf once every level is filled so submit validation fails for partial chains.
       const nextValue =
         base.isRequired && !complete ? null : (deepest ?? null);
@@ -280,12 +287,21 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
   const loadOptionsAlongChain = useCallback(
     async (orderedLevels: GeoLevel[], chain: GeoLevelValue[]) => {
       const nextOptions: Record<string, GeoSelectOption[]> = {};
-      let parentValueId = '';
+      const root = orderedLevels.find((level) => !level.parent_level_id);
+      if (root) {
+        nextOptions[root.level_id] = await fetchValues(root.level_id, '');
+      }
 
-      for (let index = 0; index < orderedLevels.length; index += 1) {
-        const level = orderedLevels[index];
-        nextOptions[level.level_id] = await fetchValues(level.level_id, parentValueId);
-        parentValueId = chain[index]?.level_value_id || parentValueId;
+      for (const entry of chain) {
+        const children = getChildLevels(orderedLevels, entry.level_id);
+        await Promise.all(
+          children.map(async (child) => {
+            nextOptions[child.level_id] = await fetchValues(
+              child.level_id,
+              entry.level_value_id,
+            );
+          }),
+        );
       }
 
       return nextOptions;
@@ -457,9 +473,14 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     void initialize();
   }, [baseHierarchyJson, baseStoredValue, initialize, isReadonly]);
 
-  const handleLevelChange = useCallback(
-    async (levelIndex: number, nextValue: string | undefined) => {
+  const handleValueChange = useCallback(
+    async (levelId: string, nextValue: string | undefined) => {
       if (!levels.length || initializingRef.current || hydratingRef.current || isReadonly) {
+        return;
+      }
+
+      const levelIndex = levels.findIndex((item) => item.level_id === levelId);
+      if (levelIndex < 0) {
         return;
       }
 
@@ -474,24 +495,44 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
 
       const cleared = clearDescendants(levels, levelIndex, nextSelectedValues, options);
       nextSelectedValues = cleared.selectedValues;
+      const siblingsCleared = clearUnselectedSiblingBranches(
+        levels,
+        level.level_id,
+        nextSelectedValues,
+        cleared.options,
+      );
+      nextSelectedValues = siblingsCleared.selectedValues;
 
       setSelectedValues(nextSelectedValues);
-      setOptions(cleared.options);
+      setOptions(siblingsCleared.options);
 
       persistDeepestValue(
         nextSelectedValues,
         levels,
-        cleared.options,
+        siblingsCleared.options,
         resolvedLabels,
       );
 
-      if (!nextValue || levelIndex >= levels.length - 1) {
+      if (!nextValue) {
         return;
       }
 
       try {
         setGeoError(null);
-        await loadOptionsForLevel(levels, levelIndex + 1, nextValue);
+        const children = getChildLevels(levels, level.level_id);
+        let nextOptions = siblingsCleared.options;
+        for (const child of children) {
+          const childIndex = levels.findIndex((item) => item.level_id === child.level_id);
+          if (childIndex < 0) continue;
+          const childOptions = await loadOptionsForLevel(levels, childIndex, nextValue);
+          nextOptions = { ...nextOptions, [child.level_id]: childOptions };
+        }
+        persistDeepestValue(
+          nextSelectedValues,
+          levels,
+          nextOptions,
+          resolvedLabels,
+        );
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to load child geo level values';
@@ -514,22 +555,55 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     [levels, selectedValues, options, resolvedLabels],
   );
 
-  const { columnCounts, columns: levelColumns, columnSpan } = useMemo(
-    () => resolveGeoLevelColumns(levels, geoLayout),
-    [levels, geoLayout],
+  const selectedPath = useMemo(
+    () => getSelectedPath(levels, selectedValues),
+    [levels, selectedValues],
+  );
+
+  const formSteps = useMemo(
+    () => buildGeoFormSteps(levels, selectedValues, options),
+    [levels, options, selectedValues],
+  );
+
+  const isComplete = useMemo(
+    () => isGeoHierarchyComplete(levels, selectedValues, options),
+    [levels, options, selectedValues],
+  );
+
+  const { columnCounts, columns: stepColumns, columnSpan } = useMemo(
+    () =>
+      resolveGeoLevelColumns(
+        formSteps.map((step) =>
+          step.kind === 'single'
+            ? step.level
+            : {
+                level_id: step.key,
+                level_mnemonic: step.levels.map((level) => level.level_mnemonic).join(' / '),
+                parent_level_id: step.parentLevel.level_id,
+              },
+        ),
+        geoLayout,
+      ),
+    [formSteps, geoLayout],
   );
 
   const visibleColumns = useMemo(() => {
+    const stepsByKey = new Map(formSteps.map((step) => [step.key, step]));
     const columnIndex = geoLayout?.columnIndex;
+    const mapped = stepColumns.map((columnLevels, index) => ({
+      index,
+      steps: columnLevels
+        .map((level) => stepsByKey.get(level.level_id))
+        .filter((step): step is NonNullable<typeof step> => Boolean(step)),
+    }));
+
     if (columnIndex === undefined || columnIndex === null) {
-      return levelColumns
-        .map((columnLevels, index) => ({ index, levels: columnLevels }))
-        .filter((column) => column.levels.length > 0);
+      return mapped.filter((column) => column.steps.length > 0);
     }
 
-    const columnLevels = levelColumns[columnIndex] ?? [];
-    return columnLevels.length > 0 ? [{ index: columnIndex, levels: columnLevels }] : [];
-  }, [levelColumns, geoLayout?.columnIndex]);
+    const column = mapped[columnIndex];
+    return column?.steps.length ? [column] : [];
+  }, [formSteps, geoLayout?.columnIndex, stepColumns]);
 
   return {
     ...base,
@@ -544,8 +618,10 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     loadingLevelId,
     geoError,
     readonlyPath,
-    handleLevelChange,
-    isLevelEnabled: (levelIndex: number) => isLevelEnabled(levels, levelIndex, selectedValues),
+    handleValueChange,
+    isComplete,
+    selectedPath,
+    formSteps,
     formatLevelLabel,
   };
 };
