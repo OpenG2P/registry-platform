@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
-from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
+from openg2p_fastapi_common.crypto import CryptoFactory
 
 from iam_core.models import LoginProvider
 from iam_core.schemas import TokenEndpointAuthMethod
@@ -241,19 +241,18 @@ class G2PRegistrantAuthenticationService(BaseService):
                 login_provider = self._provider_to_login_provider(provider)
                 adapter = self._adapters.resolve_for_provider(login_provider)
 
-                keymanager_helper = None
+                crypto_helper = None
                 if (
                     login_provider.token_endpoint_auth_method
                     == TokenEndpointAuthMethod.private_key_jwt_keymanager
                 ):
-                    keymanager_helper = KeymanagerCryptoHelper().get_component()
+                    crypto_helper = CryptoFactory.get()
 
-                # Use the standard adapter method which already supports private_key_jwt
                 token_response = await adapter.exchange_code_for_token(
                     login_provider=login_provider,
                     code=authorization_code,
                     code_verifier=auth_tx.code_verifier,
-                    keymanager_helper=keymanager_helper,
+                    keymanager_helper=crypto_helper,
                     km_app_id=provider.keymanager_sign_app_id,
                 )
 

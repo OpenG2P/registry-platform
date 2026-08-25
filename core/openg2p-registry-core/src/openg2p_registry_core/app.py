@@ -3,7 +3,7 @@ import asyncio
 import logging
 
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
-from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
+from openg2p_fastapi_common.crypto import CryptoFactory
 
 from .cache import init_cache
 from .config import Settings
@@ -161,7 +161,7 @@ class Initializer(BaseInitializer):
         PatternMatcher()
         PartnerManagementClient()
         ApplicationReferenceGenerator(_config.application_reference_format)
-        KeymanagerCryptoHelper()
+        CryptoFactory.get()
         AweHelper()
 
         # Factories
