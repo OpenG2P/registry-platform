@@ -15,12 +15,12 @@ classifiers = [
   "Operating System :: OS Independent",
 ]
 # NOTE: partner signature verification + consent enforcement use
-# openg2p-fastapi-common's `build_crypto_helper` (partner-mgmt backend), which
+# openg2p-fastapi-common's `CryptoFactory` (partner-mgmt backend), which
 # currently lives on the `develop` branch and is NOT yet in a tagged release.
 # The container images install fastapi-common from the `develop` git ref
 # (see farmer-registry/docker/partner-api/develop.txt), so this floor pin is
 # satisfied there. When fastapi-common cuts a release containing
-# `build_crypto_helper`, bump this floor and the tagged requirement files.
+# `CryptoFactory`, bump this floor and the tagged requirement files.
 dependencies = [
   "openg2p-fastapi-common >=1.1.4",
   "httpx",

@@ -50,6 +50,18 @@ class Settings(IamSettings):
     template_upload_max_bytes: int = 1 * 1024 * 1024
     template_upload_max_bytes_by_mime: str = "{}"
 
+    # Partner Management — ingest validates PARTNER here (no local partner table).
+    # Staff-portal-api GET /partners/{id} is preferred (client_credentials).
+    partner_mgmt_admin_api_url: str = ""  # e.g. http://commons-services-pm-staff-portal-api
+    partner_mgmt_admin_token_url: str = ""  # Keycloak token endpoint
+    partner_mgmt_admin_client_id: str = ""
+    partner_mgmt_admin_client_secret: str = ""
+    # Fallback: unauthenticated key-fetch (same partner_id space as staff API).
+    partner_mgmt_api_url: str = ""  # e.g. http://commons-services-pm-partner-api
+    partner_mgmt_timeout_seconds: float = 5.0
+    # In-process TTL for partner lookups (0 disables). Avoids one PM call per ingest row.
+    partner_mgmt_cache_seconds: int = 300
+
     # Master Data Database Configuration
     master_data_db_driver: str = "postgresql+asyncpg"
     master_data_db_username: str = "postgres"

@@ -35,15 +35,21 @@ export function normalizeApiPayload(response: unknown): unknown[] {
   return [];
 }
 
-/** Order flat levels root → leaf using parent_level_id. */
+export function getRootLevels(levels: GeoLevel[]): GeoLevel[] {
+  return levels.filter((level) => !level.parent_level_id);
+}
+
+export function getChildLevels(levels: GeoLevel[], parentLevelId: string): GeoLevel[] {
+  return levels.filter((level) => level.parent_level_id === parentLevelId);
+}
+
+/** Depth-first from the single root so forked child levels are all included. */
 export function buildOrderedLevels(flat: GeoLevel[]): GeoLevel[] {
   if (flat.length === 0) {
     return [];
   }
 
-  const roots = flat.filter(
-    (level) => level.parent_level_id == null || level.parent_level_id === '',
-  );
+  const roots = getRootLevels(flat);
 
   if (roots.length !== 1) {
     throw new Error(
@@ -55,16 +61,19 @@ export function buildOrderedLevels(flat: GeoLevel[]): GeoLevel[] {
 
   const ordered: GeoLevel[] = [];
   const visited = new Set<string>();
-  let current: GeoLevel | undefined = roots[0];
 
-  while (current) {
-    if (visited.has(current.level_id)) {
+  const walk = (level: GeoLevel) => {
+    if (visited.has(level.level_id)) {
       throw new Error('Geo hierarchy contains a cycle');
     }
-    visited.add(current.level_id);
-    ordered.push(current);
-    current = flat.find((level) => level.parent_level_id === current?.level_id);
-  }
+    visited.add(level.level_id);
+    ordered.push(level);
+    for (const child of getChildLevels(flat, level.level_id)) {
+      walk(child);
+    }
+  };
+
+  walk(roots[0]);
 
   if (ordered.length !== flat.length) {
     throw new Error('Geo hierarchy contains disconnected levels');
@@ -284,22 +293,20 @@ export function geoIdsMatch(left: string | undefined, right: string | undefined)
   return normalizeGeoId(left) === normalizeGeoId(right);
 }
 
-function buildChainEntry(
-  orderedLevels: GeoLevel[],
+function buildChainEntryFromLevel(
+  level: GeoLevel,
   chain: GeoLevelValue[],
-  index: number,
   entry: GeoHierarchyJsonEntry,
 ): GeoLevelValue {
-  const level = orderedLevels[index];
   return {
     level_value_id: entry.level_value_id,
     level_id: level.level_id,
     level_value_mnemonic: entry.level_value_mnemonic || '',
-    parent_level_value_id: index > 0 ? chain[index - 1].level_value_id : null,
+    parent_level_value_id: chain.length > 0 ? chain[chain.length - 1].level_value_id : null,
   };
 }
 
-/** Map geo_code_hierarchy_json entries onto ordered API levels (root → leaf). */
+/** Map geo_code_hierarchy_json entries onto levels by id/mnemonic (path may stop before a fork's unused branch). */
 export function mapHierarchyToChain(
   orderedLevels: GeoLevel[],
   hierarchy: GeoHierarchyJsonEntry[],
@@ -308,39 +315,17 @@ export function mapHierarchyToChain(
     return [];
   }
 
-  if (hierarchy.length === orderedLevels.length) {
-    const indexChain: GeoLevelValue[] = [];
-    let isComplete = true;
-
-    for (let index = 0; index < orderedLevels.length; index += 1) {
-      const entry = hierarchy[index];
-      if (!entry?.level_value_id) {
-        isComplete = false;
-        break;
-      }
-      indexChain.push(buildChainEntry(orderedLevels, indexChain, index, entry));
-    }
-
-    if (isComplete && indexChain.length === orderedLevels.length) {
-      return indexChain;
-    }
-  }
-
   const chain: GeoLevelValue[] = [];
 
-  for (let index = 0; index < orderedLevels.length; index += 1) {
-    const level = orderedLevels[index];
-    const entry =
-      hierarchy[index]?.level_value_id &&
-      matchesGeoLevel(hierarchy[index], level)
-        ? hierarchy[index]
-        : hierarchy.find((item) => matchesGeoLevel(item, level));
-
+  for (const entry of hierarchy) {
     if (!entry?.level_value_id) {
       break;
     }
-
-    chain.push(buildChainEntry(orderedLevels, chain, index, entry));
+    const level = orderedLevels.find((item) => matchesGeoLevel(entry, item));
+    if (!level) {
+      break;
+    }
+    chain.push(buildChainEntryFromLevel(level, chain, entry));
   }
 
   return chain;
@@ -386,32 +371,229 @@ function matchesGeoLevel(entry: GeoHierarchyJsonEntry, level: GeoLevel): boolean
   );
 }
 
+export function getSelectedPath(
+  orderedLevels: GeoLevel[],
+  selectedValues: Record<string, string>,
+): GeoLevel[] {
+  const roots = getRootLevels(orderedLevels);
+  if (roots.length !== 1) {
+    return [];
+  }
+
+  const path: GeoLevel[] = [];
+  let current: GeoLevel | undefined = roots[0];
+
+  while (current && selectedValues[current.level_id]) {
+    path.push(current);
+    const children = getChildLevels(orderedLevels, current.level_id);
+    const next = children.find((child) => selectedValues[child.level_id]);
+    current = next;
+  }
+
+  return path;
+}
+
+export function collectDescendantLevelIds(
+  orderedLevels: GeoLevel[],
+  parentLevelId: string,
+): string[] {
+  const ids: string[] = [];
+  const walk = (levelId: string) => {
+    for (const child of getChildLevels(orderedLevels, levelId)) {
+      ids.push(child.level_id);
+      walk(child.level_id);
+    }
+  };
+  walk(parentLevelId);
+  return ids;
+}
+
 export function getDeepestSelectedValue(
   orderedLevels: GeoLevel[],
   selectedValues: Record<string, string>,
 ): string | null {
-  let deepest: string | null = null;
-  for (const level of orderedLevels) {
-    const value = selectedValues[level.level_id];
-    if (value) {
-      deepest = value;
-    }
+  const path = getSelectedPath(orderedLevels, selectedValues);
+  if (path.length === 0) {
+    return null;
   }
-  return deepest;
+  return selectedValues[path[path.length - 1].level_id] ?? null;
 }
 
-/** True when every hierarchy level has a selected value. */
+/**
+ * Complete when the selected path reaches a leaf:
+ * no child levels, or every child level has an empty option list for this parent
+ * (city with no subdistricts). Sibling forks require exactly one filled branch.
+ */
 export function isGeoHierarchyComplete(
   orderedLevels: GeoLevel[],
   selectedValues: Record<string, string>,
+  options: Record<string, GeoSelectOption[]> = {},
 ): boolean {
-  if (orderedLevels.length === 0) {
+  const roots = getRootLevels(orderedLevels);
+  if (roots.length !== 1) {
     return false;
   }
-  return orderedLevels.every((level) => Boolean(selectedValues[level.level_id]));
+
+  const isCompleteAt = (level: GeoLevel): boolean => {
+    if (!selectedValues[level.level_id]) {
+      return false;
+    }
+    const children = getChildLevels(orderedLevels, level.level_id);
+    if (children.length === 0) {
+      return true;
+    }
+    if (children.some((child) => options[child.level_id] === undefined)) {
+      return false;
+    }
+    const withOptions = children.filter(
+      (child) => (options[child.level_id]?.length ?? 0) > 0,
+    );
+    if (withOptions.length === 0) {
+      return true;
+    }
+    const chosen = children.filter((child) => selectedValues[child.level_id]);
+    if (chosen.length !== 1) {
+      return false;
+    }
+    return isCompleteAt(chosen[0]);
+  };
+
+  return isCompleteAt(roots[0]);
 }
 
-/** Build geo_code_hierarchy_json document from current selections (for save payload). */
+export type GeoFormStep =
+  | {
+      kind: 'single';
+      key: string;
+      level: GeoLevel;
+      parentValueId: string;
+    }
+  | {
+      kind: 'fork';
+      key: string;
+      levels: GeoLevel[];
+      parentLevel: GeoLevel;
+      parentValueId: string;
+    };
+
+function childLevelsToShow(
+  children: GeoLevel[],
+  selectedValues: Record<string, string>,
+  options: Record<string, GeoSelectOption[]>,
+): GeoLevel[] {
+  return children.filter(
+    (child) =>
+      selectedValues[child.level_id] ||
+      options[child.level_id] === undefined ||
+      (options[child.level_id]?.length ?? 0) > 0,
+  );
+}
+
+/**
+ * One form control per hop. A parent with several child levels (city vs
+ * subdistrict) is a single grouped dropdown, not parallel fields.
+ */
+export function buildGeoFormSteps(
+  orderedLevels: GeoLevel[],
+  selectedValues: Record<string, string>,
+  options: Record<string, GeoSelectOption[]> = {},
+): GeoFormStep[] {
+  const roots = getRootLevels(orderedLevels);
+  if (roots.length !== 1) {
+    return orderedLevels.map((level) => ({
+      kind: 'single' as const,
+      key: level.level_id,
+      level,
+      parentValueId: '',
+    }));
+  }
+
+  const steps: GeoFormStep[] = [
+    { kind: 'single', key: roots[0].level_id, level: roots[0], parentValueId: '' },
+  ];
+
+  let current = roots[0];
+  while (selectedValues[current.level_id]) {
+    const children = getChildLevels(orderedLevels, current.level_id);
+    if (children.length === 0) {
+      break;
+    }
+    const toShow = childLevelsToShow(children, selectedValues, options);
+    if (toShow.length === 0) {
+      break;
+    }
+    const parentValueId = selectedValues[current.level_id];
+    if (toShow.length === 1) {
+      const next = toShow[0];
+      steps.push({
+        kind: 'single',
+        key: next.level_id,
+        level: next,
+        parentValueId,
+      });
+      if (!selectedValues[next.level_id]) {
+        break;
+      }
+      current = next;
+      continue;
+    }
+
+    steps.push({
+      kind: 'fork',
+      key: `fork:${current.level_id}`,
+      levels: toShow,
+      parentLevel: current,
+      parentValueId,
+    });
+    const chosen = toShow.find((child) => selectedValues[child.level_id]);
+    if (!chosen) {
+      break;
+    }
+    current = chosen;
+  }
+
+  return steps;
+}
+
+export function visibleLevelsForSelection(
+  orderedLevels: GeoLevel[],
+  selectedValues: Record<string, string>,
+  options: Record<string, GeoSelectOption[]> = {},
+): GeoLevel[] {
+  const seen = new Set<string>();
+  const levels: GeoLevel[] = [];
+  for (const step of buildGeoFormSteps(orderedLevels, selectedValues, options)) {
+    const stepLevels = step.kind === 'single' ? [step.level] : step.levels;
+    for (const level of stepLevels) {
+      if (!seen.has(level.level_id)) {
+        seen.add(level.level_id);
+        levels.push(level);
+      }
+    }
+  }
+  return levels;
+}
+
+export function encodeGeoSelectValue(levelId: string, valueId: string): string {
+  return `${levelId}::${valueId}`;
+}
+
+export function parseGeoSelectValue(
+  raw: string,
+): { levelId: string; valueId: string } | null {
+  const separator = raw.indexOf('::');
+  if (separator <= 0) {
+    return null;
+  }
+  const levelId = raw.slice(0, separator);
+  const valueId = raw.slice(separator + 2);
+  if (!levelId || !valueId) {
+    return null;
+  }
+  return { levelId, valueId };
+}
+
+/** Build geo_code_hierarchy_json document from the selected path (not unused forks). */
 export function buildHierarchyJson(
   orderedLevels: GeoLevel[],
   selectedValues: Record<string, string>,
@@ -419,8 +601,9 @@ export function buildHierarchyJson(
   resolvedLabels: Record<string, string> = {},
 ): GeoHierarchyJson | null {
   const hierarchy: GeoHierarchyJsonEntry[] = [];
+  const path = getSelectedPath(orderedLevels, selectedValues);
 
-  for (const level of orderedLevels) {
+  for (const level of path) {
     const levelValueId = selectedValues[level.level_id];
     if (!levelValueId) {
       break;
@@ -471,13 +654,48 @@ export function clearDescendants(
   selectedValues: Record<string, string>;
   options: Record<string, GeoSelectOption[]>;
 } {
+  const fromLevel = orderedLevels[fromIndex];
   const nextSelected = { ...selectedValues };
   const nextOptions = { ...options };
 
-  for (let index = fromIndex + 1; index < orderedLevels.length; index += 1) {
-    const levelId = orderedLevels[index].level_id;
+  if (!fromLevel) {
+    return { selectedValues: nextSelected, options: nextOptions };
+  }
+
+  for (const levelId of collectDescendantLevelIds(orderedLevels, fromLevel.level_id)) {
     delete nextSelected[levelId];
     delete nextOptions[levelId];
+  }
+
+  return { selectedValues: nextSelected, options: nextOptions };
+}
+
+/** After choosing one sibling fork, drop the other siblings and their descendants. */
+export function clearUnselectedSiblingBranches(
+  orderedLevels: GeoLevel[],
+  chosenLevelId: string,
+  selectedValues: Record<string, string>,
+  options: Record<string, GeoSelectOption[]>,
+): {
+  selectedValues: Record<string, string>;
+  options: Record<string, GeoSelectOption[]>;
+} {
+  const chosen = orderedLevels.find((level) => level.level_id === chosenLevelId);
+  const nextSelected = { ...selectedValues };
+  const nextOptions = { ...options };
+  if (!chosen?.parent_level_id) {
+    return { selectedValues: nextSelected, options: nextOptions };
+  }
+
+  for (const sibling of getChildLevels(orderedLevels, chosen.parent_level_id)) {
+    if (sibling.level_id === chosenLevelId) {
+      continue;
+    }
+    delete nextSelected[sibling.level_id];
+    for (const levelId of collectDescendantLevelIds(orderedLevels, sibling.level_id)) {
+      delete nextSelected[levelId];
+      delete nextOptions[levelId];
+    }
   }
 
   return { selectedValues: nextSelected, options: nextOptions };
@@ -489,11 +707,14 @@ export function isLevelEnabled(
   levelIndex: number,
   selectedValues: Record<string, string>,
 ): boolean {
-  if (levelIndex === 0) {
+  const level = orderedLevels[levelIndex];
+  if (!level) {
+    return false;
+  }
+  if (!level.parent_level_id) {
     return true;
   }
-  const parent = orderedLevels[levelIndex - 1];
-  return Boolean(selectedValues[parent.level_id]);
+  return Boolean(selectedValues[level.parent_level_id]);
 }
 
 /** Map a root→leaf chain onto level_id → level_value_id selections. */
@@ -521,7 +742,7 @@ export function buildReadonlyPath(
 ): string {
   const parts: string[] = [];
 
-  for (const level of orderedLevels) {
+  for (const level of getSelectedPath(orderedLevels, selectedValues)) {
     const selected = selectedValues[level.level_id];
     if (!selected) {
       break;

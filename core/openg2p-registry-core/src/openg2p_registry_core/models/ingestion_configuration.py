@@ -4,15 +4,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 from openg2p_fastapi_common.models import BaseORMModel
 from datetime import datetime, timezone
 
-class IncomingPartner(BaseORMModel):
-
-    __tablename__ = "g2p_partners"
-
-    partner_id: Mapped[str] = mapped_column(String, primary_key=True)
-    partner_mnemonic: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
-    keymanager_reference_id: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
 class IncomingModelKeyPath(BaseORMModel):
 
     __tablename__ = "incoming_model_key_paths"

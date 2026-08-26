@@ -6,15 +6,14 @@ from copy import deepcopy
 
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
-from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..helpers import PatternMatcher
+from ..helpers import PartnerManagementClient, PatternMatcher
+from ..helpers.partner_management import RegisteredPartner
 from ..models import (
-    IncomingPartner,
     IncomingModelKeyPath,
     IncomingRawData,
     IncomingRawDataPayload,
@@ -23,7 +22,6 @@ from ..models import (
     ProcessStatusEnum,
     IncomingModelSemanticPattern,
 )
-from ..engine import get_engines
 
 _logger = logging.getLogger("g2p-partner-service")
 
@@ -46,9 +44,7 @@ class G2PIngestService(BaseService):
                 data_model.data_model_id, ingest_data, session
             )
             _logger.debug("Matched incoming model signature pattern")
-
-            # await self._validate_signature(incoming_partner.keymanager_reference_id, signature, signature_payload)
-            _logger.debug("Verified request signature")
+            _logger.debug("Verified request partner")
 
             message_id = self._match_message_id_pattern(ingest_data, incoming_model_key_path)
 
@@ -153,24 +149,12 @@ class G2PIngestService(BaseService):
 
     async def _get_partner_from_partner_mnemonic(
         self, partner_mnemonic: str
-    ) -> IncomingPartner:
-        """Get incoming partner from master-data-db by partner mnemonic"""
-        master_data_engine = get_engines().get("db_engine_master_data")
-        master_data_session_maker = async_sessionmaker(master_data_engine, expire_on_commit=False)
-        async with master_data_session_maker() as master_data_session:
-            partner: IncomingPartner | None = (
-                await master_data_session.execute(
-                    select(IncomingPartner).where(
-                        IncomingPartner.partner_mnemonic == partner_mnemonic
-                    )
-                )
-            ).scalar_one_or_none()
-            if not partner:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.PARTNER_NOT_REGISTERED.value[1],
-                    message=G2PRegistryErrorCodes.PARTNER_NOT_REGISTERED.value[0],
-                )
-            return partner
+    ) -> RegisteredPartner:
+        """Resolve the envelope sender to a Partner Management partner_id."""
+        client = PartnerManagementClient.get_component()
+        if client is None:
+            client = PartnerManagementClient()
+        return await client.require_active_partner(partner_mnemonic)
 
     def _match_message_id_pattern(self, ingest_data: Dict, incoming_model_key_path: IncomingModelKeyPath) -> str:
         pattern_matcher = PatternMatcher().get_component()
@@ -189,8 +173,11 @@ class G2PIngestService(BaseService):
         return data_model_mnmeonic
 
     async def _match_model_signature_pattern(
-        self, data_model_id: str, ingest_data: Dict, session: Session
-    ) -> Tuple[IncomingPartner, str, Dict, IncomingModelKeyPath]:
+        self,
+        data_model_id: str,
+        ingest_data: Dict,
+        session: Session,
+    ) -> Tuple[RegisteredPartner, str, Dict, IncomingModelKeyPath]:
         pattern_matcher = PatternMatcher().get_component()
         
         incoming_model_key_path: IncomingModelKeyPath | None = (
@@ -239,21 +226,6 @@ class G2PIngestService(BaseService):
             partner_mnemonic
         )
         return incoming_partner, signature, signature_payload, incoming_model_key_path
-
-    async def _validate_signature(self, keymanager_reference_id: str, signature: str, signature_payload: Dict):
-        keymanager_helper = KeymanagerCryptoHelper().get_component()
-        signature_valid = await keymanager_helper.verify_jwt(
-            self,
-            orig_jwt=signature,
-            payload=signature_payload,
-            km_app_id=None,
-            km_ref_id=keymanager_reference_id,
-        )
-        if not signature_valid:
-            raise G2PRegistryException(
-                code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
-                message=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[0],
-            )
 
     def _get_ingest_data_payloads(
         self,

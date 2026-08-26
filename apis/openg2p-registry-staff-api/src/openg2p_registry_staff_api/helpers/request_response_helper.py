@@ -33,7 +33,6 @@ from openg2p_registry_core.schemas import (
     VerificationData, VerificationDataResponse, VerificationDataResponseBody,
     DeduplicationRegisterResultsData, DeduplicationRegisterResultsDataResponse, DeduplicationRegisterResultsDataResponseBody,
     DeduplicationChangerequestResultsData, DeduplicationChangerequestResultsDataResponse, DeduplicationChangerequestResultsDataResponseBody,
-    IncomingPartnerData, IncomingPartnerResponseBody, IncomingPartnersResponseBody,
     IncomingModelKeyPathData, IncomingModelKeyPathResponseBody, IncomingModelKeyPathListResponseBody,
     IncomingModelSemanticPatternResponseBody, IncomingModelSemanticPatternsResponseBody,
     IncomingModelRegisterSemanticPatternResponseBody, IncomingModelRegisterSemanticPatternsResponseBody,
@@ -1032,17 +1031,7 @@ class RequestResponseHelper(BaseService):
 
         # Determine the response body class based on response_class
         response_class_name = response_class.__name__
-        if response_class_name == 'IncomingPartnerResponse':
-            response_body = IncomingPartnerResponseBody(
-                response_payload=payload_data,
-                pagination_response=pagination_response,
-            )
-        elif response_class_name == 'IncomingPartnersResponse':
-            response_body = IncomingPartnersResponseBody(
-                response_payload=payload_data,
-                pagination_response=pagination_response,
-            )
-        elif response_class_name == 'IncomingModelKeyPathResponse':
+        if response_class_name == 'IncomingModelKeyPathResponse':
             response_body = IncomingModelKeyPathResponseBody(
                 response_payload=payload_data,
                 pagination_response=pagination_response,

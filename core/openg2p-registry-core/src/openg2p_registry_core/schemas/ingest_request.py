@@ -6,8 +6,6 @@ from openg2p_fastapi_common.schemas import (
 from .ingest_payload import (
     EmptyIngestionRequestPayload,
     GetIngestionDataRequestPayload,
-    IncomingPartnerPayload,
-    IncomingPartnerUpdatePayload,
     GetIncomingKeyPathPayload,
     IncomingModelKeyPathPayload,
     IncomingModelKeyPathUpdatePayload,
@@ -73,26 +71,6 @@ class GetIngestionDataPayloadRequestBody(G2PRequestBody):
 
 class GetIngestionDataPayloadRequest(G2PRequest):
     request_body: GetIngestionDataPayloadRequestBody
-
-
-# =============================================================================
-# IncomingPartner Request Schemas
-# =============================================================================
-
-class IncomingPartnerRequestBody(G2PRequestBody):
-    request_payload: IncomingPartnerPayload
-
-
-class IncomingPartnerRequest(G2PRequest):
-    request_body: IncomingPartnerRequestBody
-
-
-class IncomingPartnerUpdateRequestBody(G2PRequestBody):
-    request_payload: IncomingPartnerUpdatePayload
-
-
-class IncomingPartnerUpdateRequest(G2PRequest):
-    request_body: IncomingPartnerUpdateRequestBody
 
 
 # =============================================================================

@@ -450,6 +450,9 @@ partnerApi:
     REGISTRY_PARTNER_API_CONSENT_ENFORCEMENT_ENABLED: '{{ .Values.global.consentEnforcementEnabled }}'
     REGISTRY_PARTNER_API_CRYPTO_BACKEND: '{{ .Values.global.registryCryptoBackend }}'
     REGISTRY_PARTNER_API_PARTNER_MGMT_API_URL: '{{ tpl .Values.global.partnerManagementApiUrl $ }}'
+    REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_API_URL: '{{ tpl .Values.global.partnerManagementAdminApiUrl $ }}'
+    REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
+    REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
     REGISTRY_PARTNER_API_CONSENT_MANAGER_URL: '{{ tpl .Values.global.consentManagerUrl $ }}'
     REGISTRY_PARTNER_API_CONSENT_MANAGER_TIMEOUT: '{{ .Values.global.consentManagerTimeoutSeconds }}'
 
@@ -503,6 +506,11 @@ partnerApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.authClientSecret $ }}'
         key: '{{ tpl .Values.global.authClientSecretKey $ }}'
+    REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.pmSeedClientId $ }}'
+        key: client_secret
+        optional: true
   startupProbe:
     enabled: true
     httpGet:
@@ -822,6 +830,11 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_AWE_CALLBACK_SECRET_ID: '{{ tpl .Values.global.aweCallbackSecretId $ }}'
     REGISTRY_STAFF_PORTAL_API_AWE_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS: '{{ .Values.global.aweWebhookTimestampToleranceSeconds }}'
 
+    REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_API_URL: '{{ tpl .Values.global.partnerManagementApiUrl $ }}'
+    REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_API_URL: '{{ tpl .Values.global.partnerManagementAdminApiUrl $ }}'
+    REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
+    REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
+
   envVarsFrom:
     REGISTRY_STAFF_PORTAL_API_DB_PASSWORD:
       secretKeyRef:
@@ -851,6 +864,11 @@ staffApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.aweCallbackHmacSecretName $ }}'
         key: '{{ .Values.global.aweCallbackHmacSecretKey }}'
+    REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.pmSeedClientId $ }}'
+        key: client_secret
+        optional: true
 
   startupProbe:
     enabled: true
@@ -1183,6 +1201,11 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_TEMPLATE_BUCKET_NAME: '{{ tpl .Values.global.templateBucketName $ }}'
     REGISTRY_CELERY_WORKERS_FUNCTIONAL_ID_GENERATION_URL: '{{ tpl .Values.global.idGeneratorInternalUrl $ }}'
     REGISTRY_CELERY_WORKERS_ID_GENERATION_ALLOCATION_PATH: '/idgenerator/{id_type}/id'
+
+    REGISTRY_CELERY_WORKERS_PARTNER_MGMT_API_URL: '{{ tpl .Values.global.partnerManagementApiUrl $ }}'
+    REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_API_URL: '{{ tpl .Values.global.partnerManagementAdminApiUrl $ }}'
+    REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
+    REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
     CELERY_APP: "openg2p_registry_celery_worker.main.celery_app"
     CELERY_OPTS: "worker -Q registry_worker_queue --loglevel=info"
 
@@ -1211,6 +1234,11 @@ celeryWorker:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.pmSeedClientId $ }}'
+        key: client_secret
+        optional: true
 
   postgresCheckerInit:
     enabled: true
