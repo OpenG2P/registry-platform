@@ -32,6 +32,12 @@ class Settings(ExtSettings):
     batch_size: int = 2000
     worker_max_attempts: int = 5
 
+    # Register export
+    export_batch_size: int = 500
+    export_worker_max_attempts: int = 3
+    export_presigned_url_expiry_hours: int = 48
+    export_files_prefix: str = "register-exports/"
+
     functional_id_generation_url: str = "http://functional-id-generation-service-url/v1"
     id_generation_allocation_path: str = "/idgenerator/{id_type}/id"
     id_generation_updation_path: str = ""
