@@ -106,7 +106,8 @@ export const useSectionActions = ({
       hasSupportingDocuments,
       dbSectionId,
       sectionRegisterId,
-      changedFieldsOnly: mode === 'RegistryView' || mode === 'CRView',
+      sectionFieldsOnly: mode === 'RegistryView' || mode === 'CRView',
+      skipRequired: false,
       onSectionSave,
     });
 
@@ -148,6 +149,7 @@ export const useSectionActions = ({
         hasSupportingDocuments,
         dbSectionId,
         sectionRegisterId,
+        skipRequired: true,
         onSectionSave,
       });
 

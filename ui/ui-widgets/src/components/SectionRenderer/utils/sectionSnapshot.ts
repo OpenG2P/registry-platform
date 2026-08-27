@@ -87,17 +87,12 @@ export const buildSectionRecords = (
       cleanedSnapshot[fieldPath] = value;
     });
 
-    const sectionData = sectionRegisterId
-      ? (sourceData[sectionRegisterId] as Record<string, unknown> | undefined) ?? {}
-      : {};
-
     const includeEditAction =
       editAction === 'always' ||
       (editAction === 'when-register-id' && sectionRegisterId);
 
     return [
       {
-        ...sectionData,
         ...cleanedSnapshot,
         ...(includeEditAction ? { edit_action: 'UPDATE' as const } : {}),
       },
