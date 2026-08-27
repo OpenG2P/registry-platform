@@ -33,3 +33,4 @@ from .g2p_registrant_authentication_service import G2PRegistrantAuthenticationSe
 from .g2p_awe_policy_configuration_service import G2PAwePolicyConfigurationService
 from .g2p_awe_integration_service import G2PAweIntegrationService
 from .g2p_awe_webhook_service import G2PAweWebhookService
+from .g2p_register_export_service import G2PRegisterExportService

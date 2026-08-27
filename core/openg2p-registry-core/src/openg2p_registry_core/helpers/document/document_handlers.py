@@ -28,8 +28,9 @@ class DocumentHandler(BaseService, ABC):
         length: int,
         bucket: DocumentBucket,
         content_type: str = "application/octet-stream",
+        object_name: str | None = None,
     ) -> str:
-        """Store the object and return the generated document_store_id (uuid4().hex)."""
+        """Store an object and return its generated or caller-supplied name."""
 
     @abstractmethod
     def download(self, document_store_id: str, bucket: DocumentBucket) -> bytes:

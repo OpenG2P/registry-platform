@@ -48,3 +48,6 @@ from .g2p_data_policy import *
 from .intake_form import *
 from .intake_form_metadata import *
 from .registrant_auth import *
+from .register_export_payload import *
+from .register_export_request import *
+from .register_export_response import *

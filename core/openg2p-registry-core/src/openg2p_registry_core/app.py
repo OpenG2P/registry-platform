@@ -100,6 +100,7 @@ from .models import (
     G2PRegistrantAuthenticationProvider,
     G2PRegistrantAuthentication,
     G2PRegistryDataPolicy,
+    G2PRegisterExportDataQueue,
 )
 from .services import (
     G2PDataModelService,
@@ -135,6 +136,7 @@ from .services import (
     InputMechanismMetadataService,
     InputMechanismDataService,
     ImportFileConfigurationService,
+    G2PRegisterExportService,
 )
 
 _config = Settings.get_config(strict=False)
@@ -166,6 +168,7 @@ class Initializer(BaseInitializer):
         G2PRegisterDomainService()
         G2PIngestService()
         G2PRegisterService()
+        G2PRegisterExportService()
         G2PChangeRequestSectionPayloadService()
         G2PRegisterChangeRequestService()
         G2PRegisterHistoryService()
@@ -297,6 +300,7 @@ class Initializer(BaseInitializer):
             await ImportFileProcessQueue.create_migrate()
             await ImportFileProcessLog.create_migrate()
             await G2PFunctionalIdGenerationQueue.create_migrate()
+            await G2PRegisterExportDataQueue.create_migrate()
 
             # Completion Score Models
             await G2PCompletionScoreComputationQueue.create_migrate()
