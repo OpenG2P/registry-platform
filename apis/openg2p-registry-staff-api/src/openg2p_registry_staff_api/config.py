@@ -29,6 +29,10 @@ class Settings(ExtSettings):
     auth_provider_api_url: str | None = None
     keycloak_client_id: str | None = None
 
+    # Register export queue
+    export_queue_visibility_days: int = 2
+    export_batch_size: int = 500
+
     # OpenG2P Audit Manager integration
     # Both `audit_enabled=true` AND a non-empty `audit_manager_url` are
     # required to actually emit audits. Default = disabled / no-op.

@@ -45,9 +45,10 @@ class MinioClient(DocumentHandler):
         length: int,
         bucket: DocumentBucket,
         content_type: str = "application/octet-stream",
+        object_name: str | None = None,
     ) -> str:
         bucket_name = self._ensure_bucket(bucket)
-        document_store_id = self.generate_store_id()
+        document_store_id = object_name or self.generate_store_id()
         self.client.put_object(
             bucket_name=bucket_name,
             object_name=document_store_id,

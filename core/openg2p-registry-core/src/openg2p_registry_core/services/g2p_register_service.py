@@ -1,5 +1,4 @@
 import logging
-import json
 import uuid
 import importlib
 from datetime import datetime, date
@@ -19,6 +18,11 @@ from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
 from .g2p_completion_score_service import G2PCompletionScoreService
 
 from ..helpers.register_field_metadata import iter_register_orm_field_metadata
+from ..helpers.register_export import (
+    apply_register_export_sort,
+    build_register_policy_condition,
+    has_explicit_record_status_filter,
+)
 from ..helpers.file_validation import validate_base64_file
 from ..helpers.file_validation_profiles import DASHBOARD_IMAGE_PROFILE, IMAGE_ICON_PROFILE
 
@@ -55,8 +59,6 @@ from .g2p_score_compute_service import G2PScoreComputeService
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from .filter_builder import FilterBuilder
-from iam_core.helpers.data_policy_helper import DataPolicyHelper
-from ..repositories import RegisterRecordRepository
 
 _logger = logging.getLogger('g2p-register-service')
 _engine = dbengine.get()
@@ -998,16 +1000,9 @@ class G2PRegisterService(BaseService):
 
     def _build_register_policy_condition(self, register_id: str, implementation_class, data_policies: list[dict] | None, session):
         """Resolve REGISTER_RECORD data policy for the caller into a SQLAlchemy condition."""
-        if not data_policies:
-            return None
-
-        merged_expression = DataPolicyHelper.resolve_register_record_policy(
-            data_policies, register_id
+        return build_register_policy_condition(
+            register_id, implementation_class, data_policies
         )
-        if not merged_expression:
-            return None
-            
-        return RegisterRecordRepository(implementation_class).build_policy_condition(merged_expression)
 
     async def _ensure_register_record_readable(
         self,
@@ -1188,27 +1183,11 @@ class G2PRegisterService(BaseService):
 
     def _apply_register_record_sort(self, query, implementation_class, sort_by: str | None):
         """Sort register records; newest first when no sort is specified."""
-        if sort_by:
-            column_name = sort_by.lstrip('-')
-            descending = sort_by.startswith('-')
-            sort_column = getattr(implementation_class, column_name, None)
-            if sort_column is not None:
-                return query.order_by(sort_column.desc() if descending else sort_column.asc())
-            _logger.warning(f"Sort column {sort_by} not found, using default order")
-        return query.order_by(implementation_class.last_approved_at.desc())
+        return apply_register_export_sort(query, implementation_class, sort_by)
 
     def _has_explicit_record_status_filter(self, filter_by: dict | str | None) -> bool:
         """Return True when filter_by explicitly includes record_status."""
-        if not filter_by:
-            return False
-
-        if isinstance(filter_by, str):
-            try:
-                filter_by = json.loads(filter_by)
-            except json.JSONDecodeError:
-                return False
-
-        return isinstance(filter_by, dict) and "record_status" in filter_by
+        return has_explicit_record_status_filter(filter_by)
 
 
 

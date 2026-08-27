@@ -24,6 +24,11 @@
       "active": true
     },
     {
+      "permission_mnemonic": "register:export",
+      "permission_description": "register:export",
+      "active": true
+    },
+    {
       "permission_mnemonic": "changeRequest:view",
       "permission_description": "changeRequest:view",
       "active": true
@@ -431,6 +436,7 @@
       "permissions": [
         "changeRequest:view",
         "referenceData:view",
+        "register:export",
         "register:view",
         "registerDefinition:view",
         "registerHistory:view",
@@ -463,6 +469,7 @@
         "intakeSubmission:view",
         "outgoingMessage:view",
         "referenceData:view",
+        "register:export",
         "register:view",
         "registerDefinition:view",
         "registerHistory:view",
@@ -603,6 +610,7 @@
         "referenceData:edit",
         "referenceData:view",
         "register:authenticate",
+        "register:export",
         "register:view",
         "registerDefinition:create",
         "registerDefinition:delete",

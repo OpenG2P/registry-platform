@@ -34,6 +34,7 @@ class Settings(ExtSettings):
 
     batch_size: int = 2000
     no_of_tasks_to_process: int = 4
+    export_no_of_tasks_to_process: int = 5
     default_beat_producer_frequency: int = 20
 
     data_transformation_beat_producer_frequency: Optional[int] = None           # ingest & outgest
@@ -52,3 +53,4 @@ class Settings(ExtSettings):
     score_compute_beat_producer_frequency: Optional[int] = None                 # score computation
     completion_score_beat_producer_frequency: Optional[int] = None               # completion score
     import_file_process_beat_producer_frequency: Optional[int] = None           # import file processing
+    register_export_beat_producer_frequency: Optional[int] = None              # register export

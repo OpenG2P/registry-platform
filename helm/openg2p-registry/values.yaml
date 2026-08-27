@@ -204,6 +204,15 @@ global:
   aweDefaultCallbackUrl: 'https://staff-{{ tpl .Values.global.registryHostname $ }}/awe/webhooks/decision'
   aweHttpTimeoutSeconds: 30
   aweWebhookTimestampToleranceSeconds: 300
+
+  # Register export
+  exportQueueVisibilityDays: 2
+  exportBatchSize: 500
+  exportNoOfTasksToProcess: 5
+  exportBeatProducerFrequency: 20
+  exportWorkerMaxAttempts: 3
+  exportPresignedUrlExpiryHours: 48
+  exportFilesPrefix: "register-exports/"
   aweCallbackHmacSecretName: '{{ .Release.Name }}-awe-callback-hmac'
   aweCallbackHmacSecretKey: 'hmac-secret'
   # NOTE: despite the name, this is the initial Keycloak password for the seeded
@@ -814,6 +823,8 @@ staffApi:
     # match so staff-portal presigned record-image URLs resolve.
     REGISTRY_STAFF_PORTAL_API_MINIO_BUCKET_NAME: '{{ tpl .Values.global.documentsBucketName $ }}'
     REGISTRY_STAFF_PORTAL_API_TEMPLATE_BUCKET_NAME: '{{ tpl .Values.global.templateBucketName $ }}'
+    REGISTRY_STAFF_PORTAL_API_EXPORT_QUEUE_VISIBILITY_DAYS: '{{ .Values.global.exportQueueVisibilityDays }}'
+    REGISTRY_STAFF_PORTAL_API_EXPORT_BATCH_SIZE: '{{ .Values.global.exportBatchSize }}'
 
     # OpenG2P Audit Manager integration. No-op unless both AUDIT_ENABLED=true
     # and AUDIT_MANAGER_URL are set (controlled via global.auditEnabled and
@@ -1108,6 +1119,7 @@ celeryBeat:
     REGISTRY_CELERY_BEAT_WORKER_QUEUE: registry_worker_queue
     REGISTRY_CELERY_BEAT_BATCH_SIZE: 2000
     REGISTRY_CELERY_BEAT_NO_OF_TASKS_TO_PROCESS: 4
+    REGISTRY_CELERY_BEAT_EXPORT_NO_OF_TASKS_TO_PROCESS: '{{ .Values.global.exportNoOfTasksToProcess }}'
 
     REGISTRY_CELERY_BEAT_DATA_TRANSFORMATION_BEAT_PRODUCER_FREQUENCY: 20
     REGISTRY_CELERY_BEAT_INGEST_DATA_BEAT_PRODUCER_FREQUENCY: 20
@@ -1115,6 +1127,7 @@ celeryBeat:
     REGISTRY_CELERY_BEAT_OUTGEST_DATA_PUBLISH_BEAT_PRODUCER_FREQUENCY: 20
     REGISTRY_CELERY_BEAT_OUTGEST_TOPIC_REGISTER_BEAT_PRODUCER_FREQUENCY: 20
     REGISTRY_CELERY_BEAT_DEDUPLICATION_BEAT_PRODUCER_FREQUENCY: 30
+    REGISTRY_CELERY_BEAT_REGISTER_EXPORT_BEAT_PRODUCER_FREQUENCY: '{{ .Values.global.exportBeatProducerFrequency }}'
     CELERY_APP: "openg2p_registry_celery_beat.main.celery_app"
     CELERY_OPTS: "worker --beat --loglevel=info --schedule=/tmp/celery-beat-schedule.db"
 
@@ -1192,6 +1205,10 @@ celeryWorker:
 
     REGISTRY_CELERY_WORKERS_BATCH_SIZE: 2000
     REGISTRY_CELERY_WORKERS_WORKER_MAX_ATTEMPTS: 5
+    REGISTRY_CELERY_WORKERS_EXPORT_BATCH_SIZE: '{{ .Values.global.exportBatchSize }}'
+    REGISTRY_CELERY_WORKERS_EXPORT_WORKER_MAX_ATTEMPTS: '{{ .Values.global.exportWorkerMaxAttempts }}'
+    REGISTRY_CELERY_WORKERS_EXPORT_PRESIGNED_URL_EXPIRY_HOURS: '{{ .Values.global.exportPresignedUrlExpiryHours }}'
+    REGISTRY_CELERY_WORKERS_EXPORT_FILES_PREFIX: '{{ .Values.global.exportFilesPrefix }}'
 
     REGISTRY_CELERY_WORKERS_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
     REGISTRY_CELERY_WORKERS_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
