@@ -6,9 +6,10 @@ export type SortDir = 'asc' | 'desc' | null;
 
 export interface MoreMenuItem {
     id: string;
-    label: string;
+    label?: string;
     icon?: ReactNode;
     disabled?: boolean;
+    divider?: boolean;
     onClick?: () => void;
     children?: MoreMenuItem[];
 }
@@ -64,4 +65,10 @@ export interface EntityListPageProps<T> {
 
     actions?: ReactNode;
     moreMenuItems?: MoreMenuItem[];
+
+    selectable?: boolean;
+    selectedIds?: Set<string>;
+    getItemId?: (item: T) => string;
+    onToggleSelect?: (id: string) => void;
+    onTogglePageSelect?: (ids: string[], selected: boolean) => void;
 }

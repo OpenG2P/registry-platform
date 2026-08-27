@@ -11,6 +11,11 @@ interface DataTableProps<T> {
     onRowClick?: (item: T) => void;
     sortBy?: string | null;
     onSortChange?: (sortBy: string | null) => void;
+    selectable?: boolean;
+    selectedIds?: Set<string>;
+    getItemId?: (item: T) => string;
+    onToggleSelect?: (id: string) => void;
+    onTogglePageSelect?: (ids: string[], selected: boolean) => void;
 }
 
 function parseSortBy(sortBy?: string | null): { key: string | null; dir: SortDir } {
@@ -48,6 +53,11 @@ export default function DataTable<T>({
     onRowClick,
     sortBy,
     onSortChange,
+    selectable = false,
+    selectedIds,
+    getItemId,
+    onToggleSelect,
+    onTogglePageSelect,
 }: DataTableProps<T>) {
     const t = useTranslations();
     const isServerSort = typeof onSortChange === 'function';
@@ -79,6 +89,12 @@ export default function DataTable<T>({
               return 0;
           });
 
+    const pageIds = selectable && getItemId ? rows.map((item) => getItemId(item)) : [];
+    const allPageSelected =
+        pageIds.length > 0 && pageIds.every((id) => selectedIds?.has(id));
+    const somePageSelected =
+        pageIds.some((id) => selectedIds?.has(id)) && !allPageSelected;
+
     if (items.length === 0) {
         return (
             <div className="text-center py-10 text-neutral-first/50 text-[14px]">
@@ -92,6 +108,22 @@ export default function DataTable<T>({
             <table className="w-full border-collapse text-[14px]">
                 <thead>
                     <tr>
+                        {selectable ? (
+                            <th className="w-10 py-2.5 px-4 border-b border-secondary-second bg-neutral-second sticky top-0">
+                                <input
+                                    type="checkbox"
+                                    checked={allPageSelected}
+                                    ref={(el) => {
+                                        if (el) el.indeterminate = somePageSelected;
+                                    }}
+                                    onChange={(event) =>
+                                        onTogglePageSelect?.(pageIds, event.target.checked)
+                                    }
+                                    className="size-4 accent-primary-second"
+                                    aria-label={t.has('select_all') ? t('select_all') : 'Select all'}
+                                />
+                            </th>
+                        ) : null}
                         {columns.map((col) => {
                             const isActive = sortKey === fieldForColumn(col);
                             const dir: SortDir = isActive ? sortDir : null;
@@ -135,6 +167,19 @@ export default function DataTable<T>({
                                 rowIndex % 2 === 1 ? 'bg-secondary-second/25' : 'bg-neutral-second'
                             }`}
                         >
+                            {selectable && getItemId ? (
+                                <td
+                                    className="py-2.5 px-4 align-middle"
+                                    onClick={(event) => event.stopPropagation()}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedIds?.has(getItemId(item)) ?? false}
+                                        onChange={() => onToggleSelect?.(getItemId(item))}
+                                        className="size-4 accent-primary-second"
+                                    />
+                                </td>
+                            ) : null}
                             {columns.map((col) => (
                                 <td key={col.key} className="py-2.5 px-4 whitespace-nowrap align-middle">
                                     {col.render

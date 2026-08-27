@@ -55,7 +55,7 @@ export default function MoreMenu({
     };
 
     const handleItemClick = (item: MoreMenuItem) => {
-        if (item.disabled) return;
+        if (item.divider || item.disabled) return;
 
         if (item.children?.length) {
             setOpenSubmenuId((prev) => (prev === item.id ? null : item.id));
@@ -156,6 +156,10 @@ function ExtraMenuItem({
     onClick: (item: MoreMenuItem) => void;
 }) {
     const hasChildren = !!item.children?.length;
+
+    if (item.divider) {
+        return <div className="my-1.5 mx-3 border-t border-primary-second/40" />;
+    }
 
     return (
         <div className="relative">

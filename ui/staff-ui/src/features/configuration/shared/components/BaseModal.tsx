@@ -9,6 +9,7 @@ interface BaseModalProps {
     children: React.ReactNode;
     primaryActionLabel?: string;
     onPrimaryAction?: () => void;
+    primaryActionDisabled?: boolean;
     maxWidth?: string;
     hideCancel?: boolean;
     secondaryActionLabel?: string;
@@ -20,6 +21,7 @@ export default function BaseModal({
     children,
     primaryActionLabel,
     onPrimaryAction,
+    primaryActionDisabled = false,
     maxWidth = 'max-w-150',
     hideCancel = false,
     secondaryActionLabel,
@@ -56,7 +58,8 @@ export default function BaseModal({
                         {primaryActionLabel && onPrimaryAction && (
                             <button
                                 onClick={onPrimaryAction}
-                                className="px-6 py-2 bg-neutral-first text-neutral-second text-[16px] font-bold rounded-[10px]"
+                                disabled={primaryActionDisabled}
+                                className="px-6 py-2 bg-neutral-first text-neutral-second text-[16px] font-bold rounded-[10px] disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {primaryActionLabel}
                             </button>

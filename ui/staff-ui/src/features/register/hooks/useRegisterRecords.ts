@@ -148,10 +148,14 @@ export const useRegisterRecords = () => {
         },
         filters: {
             appliedFilters,
+            filterBy,
             filterConfig,
             applyFilters,
             removeFilter,
             clearAllFilters,
-        }
+        },
+        registerId,
+        currentPage,
+        pageSize,
     };
 };
