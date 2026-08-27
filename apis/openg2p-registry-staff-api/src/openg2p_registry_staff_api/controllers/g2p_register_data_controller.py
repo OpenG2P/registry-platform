@@ -2,9 +2,18 @@ import logging
 
 from fastapi import Depends, Request
 from openg2p_fastapi_common.controller import BaseController
+from openg2p_fastapi_common.schemas import G2PPaginationResponse
 
 from openg2p_registry_core.controller_services import G2PRegisterDataControllerService
-from openg2p_registry_core.helpers.data_policy_request_helper import get_data_policies
+from openg2p_registry_core.errors import (
+    G2PRegistryErrorCodes,
+    G2PRegistryException,
+)
+from openg2p_registry_core.helpers.data_policy_request_helper import (
+    get_data_policies,
+    get_data_policy_mnemonics,
+)
+from openg2p_registry_core.services import G2PRegisterExportService
 from openg2p_registry_core.schemas import (
     GetNumberOfVersionsRequest,
     GetRecordHistoryRequest,
@@ -27,7 +36,11 @@ from openg2p_registry_core.schemas import (
     RegisterSummaryDataResponse, SearchResultsResponse,
     GetRegisterSummaryDataRequest, RegisterSummaryData,
     SearchRegisterRequest,
-    GetAllowedParentsForChildSectionRequest, AllowedParentsData, AllowedParentsDataResponse
+    GetAllowedParentsForChildSectionRequest, AllowedParentsData, AllowedParentsDataResponse,
+    ExportRegisterRecordsRequest, ExportRegisterRecordsResponse,
+    ExportRegisterRecordsResponseBody,
+    GetExportQueueRecordsRequest, GetExportQueueRecordsResponse,
+    GetExportQueueRecordsResponseBody,
 )
 from iam_core.user_auth.decorators import require_permissions, data_policy
 
@@ -44,6 +57,7 @@ class G2PRegisterDataController(BaseController):
 
         self.router.tags += ["/register-data"]
         self.g2p_register_data_controller_service = G2PRegisterDataControllerService.get_component()
+        self.g2p_register_export_service = G2PRegisterExportService.get_component()
         self.helper = RequestResponseHelper.get_component()
         self.router.prefix = "/register-data"
 
@@ -135,6 +149,20 @@ class G2PRegisterDataController(BaseController):
             "/get_allowed_parents_for_a_child_section",
             self.get_allowed_parents_for_a_child_section,
             responses={200: {"model": AllowedParentsDataResponse}},
+            methods=["POST"],
+        )
+
+        self.router.add_api_route(
+            "/export_register_records",
+            self.export_register_records,
+            responses={200: {"model": ExportRegisterRecordsResponse}},
+            methods=["POST"],
+        )
+
+        self.router.add_api_route(
+            "/get_export_queue_records",
+            self.get_export_queue_records,
+            responses={200: {"model": GetExportQueueRecordsResponse}},
             methods=["POST"],
         )
 
@@ -368,6 +396,101 @@ class G2PRegisterDataController(BaseController):
             _logger.error(f"Error in search_in_a_register: {str(error_exception)}")
             error_response: SearchResultsResponse = self.helper.construct_error_response(error_exception, search_register_request)
             return error_response
+
+    @require_permissions({"register:export"})
+    @data_policy
+    async def export_register_records(
+        self,
+        http_request: Request,
+        export_request: ExportRegisterRecordsRequest,
+    ) -> ExportRegisterRecordsResponse:
+        try:
+            principal = getattr(http_request.state, "auth", None)
+            requested_by = getattr(principal, "sub", None)
+            if not requested_by:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                    message="Authenticated user identifier is required",
+                )
+
+            pagination_request = export_request.request_body.pagination_request
+            export_data = await self.g2p_register_export_service.enqueue_export(
+                export_request.request_body.request_payload,
+                requested_by=requested_by,
+                policy_mnemonics=get_data_policy_mnemonics(http_request),
+                data_policies=get_data_policies(http_request),
+                batch_size=_config.export_batch_size,
+                search_text=getattr(pagination_request, "search_text", None),
+                filter_by=getattr(pagination_request, "filter_by", None),
+                sort_by=getattr(pagination_request, "sort_by", None),
+            )
+            return self.helper.construct_success_response(
+                ExportRegisterRecordsResponseBody(response_payload=export_data),
+                export_request,
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in export_register_records: %s", str(error_exception)
+            )
+            return self.helper.construct_error_response(
+                error_exception, export_request
+            )
+
+    @require_permissions({"register:export"})
+    async def get_export_queue_records(
+        self,
+        http_request: Request,
+        export_queue_request: GetExportQueueRecordsRequest,
+    ) -> GetExportQueueRecordsResponse:
+        try:
+            principal = getattr(http_request.state, "auth", None)
+            requested_by = getattr(principal, "sub", None)
+            if not requested_by:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                    message="Authenticated user identifier is required",
+                )
+
+            pagination_request = (
+                export_queue_request.request_body.pagination_request
+            )
+            current_page = max(
+                1, getattr(pagination_request, "current_page", 1) or 1
+            )
+            page_size = max(
+                1, getattr(pagination_request, "page_size", 20) or 20
+            )
+            export_rows, total_items = (
+                await self.g2p_register_export_service.get_exports_for_user(
+                    requested_by=requested_by,
+                    current_page=current_page,
+                    page_size=page_size,
+                    visibility_days=_config.export_queue_visibility_days,
+                )
+            )
+            number_of_pages = (
+                (total_items + page_size - 1) // page_size
+                if total_items
+                else 0
+            )
+            return self.helper.construct_success_response(
+                GetExportQueueRecordsResponseBody(
+                    response_payload=export_rows
+                ),
+                export_queue_request,
+                G2PPaginationResponse(
+                    number_of_items=total_items,
+                    number_of_pages=number_of_pages,
+                ),
+            )
+        except Exception as error_exception:
+            _logger.error(
+                "Error in get_export_queue_records: %s",
+                str(error_exception),
+            )
+            return self.helper.construct_error_response(
+                error_exception, export_queue_request
+            )
 
     @require_permissions({"register:view"})
     async def get_allowed_parents_for_a_child_section(
