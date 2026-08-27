@@ -35,7 +35,7 @@ type ActiveStatsCard =
     | 'messages'
     | 'tasks';
 
-const ALL_CARDS: ActiveStatsCard[] = [
+const STATS_CARDS: ActiveStatsCard[] = [
     'registers',
     'form-submissions',
     'change-request',
@@ -43,19 +43,10 @@ const ALL_CARDS: ActiveStatsCard[] = [
     'messages',
 ];
 
-const LIMITED_CARDS: ActiveStatsCard[] = [
-    'registers',
-    'change-request',
-    'tasks',
-];
-
 export default function Home() {
     const router = useRouter();
     const t = useTranslations();
     const { config } = useRuntimeConfig();
-
-    const statsCardVariant = config?.partnerImportExportEnable ? 'small' : 'large';
-    const visibleCards = statsCardVariant === 'small' ? ALL_CARDS : LIMITED_CARDS;
 
     const [activeStatsCard, setActiveStatsCard] =
         useState<ActiveStatsCard>('registers');
@@ -93,8 +84,42 @@ export default function Home() {
         'tasks': t('search_approval_tasks'),
     };
 
+    const getCardPath = (
+        card: ActiveStatsCard,
+        register?: string,
+    ): string | null => {
+        if (card === 'registers' || card === 'form-submissions') {
+            const selected =
+                (register && register !== 'select' && register)
+                || (selectedRegister !== 'select' && selectedRegister)
+                || registerList[0]?.value;
+
+            if (!selected) return null;
+
+            return card === 'registers'
+                ? `/register/${selected}`
+                : `/intake-form/${selected}`;
+        }
+
+        if (card === 'messages') {
+            return selectedMessageType === 'outgoing'
+                ? '/outgoing-messages'
+                : '/incoming-messages';
+        }
+
+        if (card === 'tasks') {
+            return getTasksListPath(
+                selectedTaskArtifact as 'change_request' | 'intake_form',
+            );
+        }
+
+        return '/change-request';
+    };
+
     const handleSearch = (value: string, register?: string) => {
         const searchValue = value.trim();
+        const basePath = getCardPath(activeStatsCard, register);
+        if (!basePath) return;
 
         const params = new URLSearchParams();
         if (searchValue) {
@@ -103,56 +128,12 @@ export default function Home() {
         params.set('page', '1');
 
         const query = params.toString();
+        router.push(query ? `${basePath}?${query}` : basePath);
+    };
 
-        if (activeStatsCard === 'registers' || activeStatsCard === 'form-submissions') {
-            const selected =
-                register && register !== 'select'
-                    ? register
-                    : registerList[0]?.value;
-
-            if (!selected) return;
-
-            const basePath =
-                activeStatsCard === 'registers'
-                    ? `/register/${selected}`
-                    : `/intake-form/${selected}`;
-
-            router.push(query ? `${basePath}?${query}` : basePath);
-            return;
-        }
-
-        if (activeStatsCard === 'messages') {
-            const type = selectedMessageType || 'incoming';
-
-            const basePath =
-                type === 'incoming'
-                    ? '/incoming-messages'
-                    : '/outgoing-messages';
-
-            router.push(query ? `${basePath}?${query}` : basePath);
-            return;
-        }
-
-        if (activeStatsCard === 'tasks') {
-            const taskBase = getTasksListPath(
-                selectedTaskArtifact as 'change_request' | 'intake_form',
-            );
-            const taskQuery = params.toString();
-            router.push(taskQuery ? `${taskBase}?${taskQuery}` : taskBase);
-            return;
-        }
-
-        const routeMap: Record<
-            Exclude<ActiveStatsCard, 'registers' | 'form-submissions' | 'messages' | 'tasks'>,
-            string
-        > = {
-            'change-request': '/change-request'
-        };
-        router.push(
-            query
-                ? `${routeMap[activeStatsCard]}?${query}`
-                : routeMap[activeStatsCard]
-        );
+    const handleCardNavigate = (card: ActiveStatsCard) => {
+        const path = getCardPath(card);
+        if (path) router.push(path);
     };
 
     const getViewAction = (
@@ -190,8 +171,7 @@ export default function Home() {
         return `/api/stats/${endpointByType[type]}`;
     };
 
-    const useStatsCarousel =
-        statsCardVariant === 'small' && visibleCards.length > 4;
+    const useStatsCarousel = STATS_CARDS.length > 4;
 
     return (
         <div className="min-h-screen bg-primary-first pt-8 sm:pt-10 md:pt-12 overflow-hidden text-secondary-second-900 bg-[url('/images/common/bg_pattern.png')]">
@@ -201,28 +181,27 @@ export default function Home() {
                     {/* stats cards */}
                     {useStatsCarousel ? (
                         <StatsCardsCarousel
-                            cards={visibleCards}
+                            cards={STATS_CARDS}
                             activeCard={activeStatsCard}
                             onSelectCard={setActiveStatsCard}
+                            onNavigateCard={handleCardNavigate}
                             StatsCardComponent={StatsCard}
                             statsEndpointFor={statsEndpointFor}
                         />
                     ) : (
-                        <div
-                            className={`flex flex-wrap items-stretch gap-4 sm:gap-5 lg:gap-6 ${statsCardVariant === 'small' ? 'w-full justify-center' : 'w-4/5 justify-between'}`}
-                        >
-                            {visibleCards.map((type) => (
-                                <button
+                        <div className="flex w-full flex-wrap items-stretch justify-center gap-4 sm:gap-5 lg:gap-6">
+                            {STATS_CARDS.map((type) => (
+                                <div
                                     key={type}
-                                    type="button"
-                                    onClick={() => setActiveStatsCard(type)}
-                                    className={`bg-transparent p-0 text-left ${statsCardVariant === 'small' ? 'flex-1 min-w-40 sm:min-w-45 lg:min-w-55' : 'w-[calc(50%-12px)] sm:w-[calc(50%-10px)] lg:w-[calc(50%-12px)]'}`}
+                                    className="flex-1 min-w-40 sm:min-w-45 lg:min-w-55"
                                 >
                                     <StatsCard
                                         stats_endpoint={statsEndpointFor(type)}
                                         active={activeStatsCard === type}
+                                        onSelect={() => setActiveStatsCard(type)}
+                                        onNavigate={() => handleCardNavigate(type)}
                                     />
-                                </button>
+                                </div>
                             ))}
                         </div>
                     )}

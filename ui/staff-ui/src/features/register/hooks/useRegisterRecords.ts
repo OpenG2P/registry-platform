@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { notFound } from 'next/navigation';
@@ -7,7 +7,7 @@ import { useFilters } from '@/features/filter/hooks/useFilters';
 import { useFetch } from '@/shared/hooks/useFetch';
 import { useRegister } from '@/context/RegisterContext';
 import { RegisterRecordsApiResponse } from '@/features/register/types';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePageSize } from '@/shared/hooks';
 
 export const useRegisterRecords = () => {
     const t = useTranslations();
@@ -16,12 +16,18 @@ export const useRegisterRecords = () => {
     const routeParams = useParams<{ type: string }>();
     const searchParams = useSearchParams();
 
-    const { config } = useRuntimeConfig();
-    const pageSize = config.pageSize || 10;
+    const pageSize = usePageSize();
 
     // Derive current page from URL
     const pageFromUrl = searchParams.get('page');
     const currentPage = pageFromUrl ? Math.max(1, parseInt(pageFromUrl)) : 1;
+
+    useEffect(() => {
+        if (currentPage === 1) return;
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('page', '1');
+        router.replace(`${pathname}?${params.toString()}`);
+    }, [pageSize]);
 
     const {
         appliedFilters,
@@ -142,10 +148,14 @@ export const useRegisterRecords = () => {
         },
         filters: {
             appliedFilters,
+            filterBy,
             filterConfig,
             applyFilters,
             removeFilter,
             clearAllFilters,
-        }
+        },
+        registerId,
+        currentPage,
+        pageSize,
     };
 };

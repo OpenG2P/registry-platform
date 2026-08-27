@@ -1032,8 +1032,6 @@ staffUi:
     LOGIN_PROVIDER_ID: '1'
     MASTERDATA_BACKEND_API_URL: '{{ .Values.global.masterDataApiUrl }}'
     NODE_ENV: production
-    PAGE_SIZE: '10'
-    PARTNER_IMPORT_EXPORT_ENABLE: 'true'
     PARTNER_INGEST_URL: '{{ tpl .Values.partnerIngestUrl $ }}'
     REDIRECT_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
     VERIFY_SERVICE_URL: 'https://{{ tpl .Values.global.registryHostname $ }}/v1/verify'

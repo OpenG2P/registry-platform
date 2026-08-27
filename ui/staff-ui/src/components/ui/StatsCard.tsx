@@ -3,33 +3,49 @@
 import { useMemo } from "react";
 import { useFetch } from "@/shared/hooks/useFetch";
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import Image from "next/image";
 
 interface StatsCardProps {
     stats_endpoint: string;
     active?: boolean;
+    onSelect?: () => void;
+    onNavigate?: () => void;
 }
+
+type StatsRow = {
+    id: string;
+    label: string;
+    value: string | number;
+    imageUrl?: string;
+    href?: string;
+};
 
 const StatsCard = ({
     stats_endpoint,
     active = false,
+    onSelect,
+    onNavigate,
 }: StatsCardProps) => {
     const t = useTranslations();
     const { data, loading, error } = useFetch<any>({
         url: stats_endpoint,
     });
 
-    const { title, rows } = useMemo(() => {
+    const { title, rows } = useMemo((): { title: string; rows: StatsRow[] } => {
         if (!data) return { title: t('items'), rows: [] };
 
         if (Array.isArray(data)) {
             return {
-                title: t('registers'),
+                title: t('dashboard_registers'),
                 rows: data.slice(0, 2).map((item) => ({
                     id: item.register_id,
                     label: t(item.register_subject),
                     value: item.total_record_count,
                     imageUrl: item.register_icon?.startsWith('data:') ? item.register_icon : undefined,
+                    href: item.register_mnemonic
+                        ? `/register/${String(item.register_mnemonic).toLowerCase()}`
+                        : undefined,
                 })),
             };
         }
@@ -83,12 +99,14 @@ const StatsCard = ({
                         label: t('incoming_messages'),
                         value: data.no_of_messages|| "0",
                         imageUrl: "/images/messages/message_icon.png",
+                        href: "/incoming-messages",
                     },
                     {
                         id: "outgoingMessages",
                         label: t('outgoing_messages'),
                         value: data.outgoing || "0",
                         imageUrl: "/images/messages/message_icon.png",
+                        href: "/outgoing-messages",
                     },
                 ],
             };
@@ -103,12 +121,14 @@ const StatsCard = ({
                         label: t('change_requests'),
                         value: data.change_request_count,
                         imageUrl: "/images/register/statsIcon/pending.png",
+                        href: "/tasks/change-request",
                     },
                     {
                         id: "intake_form",
                         label: t('form_submissions'),
                         value: data.intake_form_count,
                         imageUrl: "/images/register/statsIcon/topics.png",
+                        href: "/tasks/intake-form",
                     },
                 ],
             };
@@ -136,8 +156,60 @@ const StatsCard = ({
         }
     }, [data, stats_endpoint]);
 
+    const handleCardActivate = () => {
+        if (loading) return;
+        if (active) {
+            onNavigate?.();
+            return;
+        }
+        onSelect?.();
+    };
+
+    const handleCardClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        if ((event.target as HTMLElement).closest("a")) return;
+        handleCardActivate();
+    };
+
+    const handleCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleCardActivate();
+        }
+    };
+
+    const rowContent = (row: StatsRow) => (
+        <>
+            {row.imageUrl && (
+                <Image
+                    src={row.imageUrl}
+                    width={20}
+                    height={20}
+                    alt=""
+                    className={active ? "invert" : "opacity-60"}
+                />
+            )}
+
+            {/* value */}
+            <span className="font-roboto text-[16px] font-bold leading-7 truncate overflow-hidden whitespace-nowrap" title={String(row.value)}>
+                {row.value}
+            </span>
+
+            {/* label */}
+            <span className="font-roboto text-[16px] font-medium leading-7 opacity-80 truncate overflow-hidden whitespace-nowrap" title={row.label}>
+                {row.label}
+            </span>
+        </>
+    );
+
     return (
-        <div className={`flex flex-col justify-between  transition-all duration-200 w-full rounded-[10px] px-7 py-6 ${active ? "border-black bg-neutral-first text-neutral-second" : "bg-secondary-second text-secondary-third"}`}>
+        <div
+            role="button"
+            tabIndex={0}
+            onClick={handleCardClick}
+            onKeyDown={handleCardKeyDown}
+            className={`flex flex-col justify-between transition-all duration-200 w-full rounded-[10px] px-7 py-6 cursor-pointer ${active ? "border-black bg-neutral-first text-neutral-second" : "bg-secondary-second text-secondary-third"}`}
+        >
             <div className="min-h-40">
                 {/* count and title */}
                 <div className="mb-4 mt-4">
@@ -148,7 +220,7 @@ const StatsCard = ({
                         </div>
                     ) : (
                         <>
-                            <h2 className="font-roboto text-[45px] font-bold leading-none truncate overflow-hidden whitespace-nowrap" title={totalCount}>
+                            <h2 className="font-roboto text-[45px] font-bold leading-none truncate overflow-hidden whitespace-nowrap" title={String(totalCount ?? "")}>
                                 {totalCount}
                             </h2>
                             <h3 className="font-roboto text-[22px] font-bold leading-7 truncate overflow-hidden whitespace-nowrap" title={title}>
@@ -170,26 +242,20 @@ const StatsCard = ({
                     // items
                     <ul>
                         {rows.map((row) => (
-                            <li key={row.id} className="flex items-center gap-2">
-                                {row.imageUrl && (
-                                    <Image
-                                        src={row.imageUrl}
-                                        width={20}
-                                        height={20}
-                                        alt=""
-                                        className={active ? "invert" : "opacity-60"}
-                                    />
+                            <li key={row.id}>
+                                {row.href ? (
+                                    <Link
+                                        href={row.href}
+                                        onClick={(event) => event.stopPropagation()}
+                                        className="flex items-center gap-2 cursor-pointer no-underline"
+                                    >
+                                        {rowContent(row)}
+                                    </Link>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        {rowContent(row)}
+                                    </div>
                                 )}
-
-                                {/* value */}
-                                <span className="font-roboto text-[16px] font-bold leading-7 truncate overflow-hidden whitespace-nowrap" title={row.value}>
-                                    {row.value}
-                                </span>
-
-                                {/* label */}
-                                <span className="font-roboto text-[16px] font-medium leading-7 opacity-80 truncate overflow-hidden whitespace-nowrap" title={row.label}>
-                                    {row.label}
-                                </span>
                             </li>
                         ))}
                     </ul>

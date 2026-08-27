@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar, BreadcrumbBar } from '@/components/shared';
 import { useParams } from 'next/navigation';
 import {
@@ -15,8 +15,7 @@ import {
     getTabDetails
 } from '@/features/configuration/shared';
 import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
-import { usePagination } from '@/shared/hooks/usePagination';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { CONFIGURATION_TABS_ACTIONS } from '@/features/shared/permissions';
 import { CONFIGURATION_SECTIONS_ACTIONS } from '@/features/shared/permissions';
@@ -28,9 +27,12 @@ const TabConfigurationPage = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditTabModalOpen, setIsEditTabModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const { config } = useRuntimeConfig();
-    const PAGE_SIZE = config.pageSize || 10;
+    const pageSize = usePageSize();
     const [paginationInfo, setPaginationInfo] = useState({ totalItems: 0, currentCount: 0 });
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
 
     const { can } = useRbac();
     const canEdit = can(CONFIGURATION_TABS_ACTIONS.edit);
@@ -41,7 +43,7 @@ const TabConfigurationPage = () => {
 
     const pagination = usePagination({
         currentPage,
-        pageSize: PAGE_SIZE,
+        pageSize,
         totalItems: paginationInfo.totalItems,
         currentCount: paginationInfo.currentCount,
     });
@@ -116,7 +118,7 @@ const TabConfigurationPage = () => {
                 isModalOpen={isModalOpen}
                 onCloseModal={() => setIsModalOpen(false)}
                 page={currentPage}
-                pageSize={PAGE_SIZE}
+                pageSize={pageSize}
                 onDataLoaded={(totalItems, currentCount) => setPaginationInfo({ totalItems, currentCount })}
             />
 

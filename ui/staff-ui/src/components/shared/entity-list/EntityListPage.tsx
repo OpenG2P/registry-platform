@@ -40,11 +40,44 @@ export default function EntityListPage<T>({
     sortBy,
     onSortChange,
     actions,
+    moreMenuItems,
+    selectable = false,
+    selectedIds,
+    getItemId,
+    onToggleSelect,
+    onTogglePageSelect,
 }: EntityListPageProps<T>) {
     const t = useTranslations();
     const { view, setView } = useListView(defaultView, viewStorageKey);
 
     const hasFilterRow = showSearch || showFilters || appliedFilters.length > 0;
+
+    const pageIds = selectable && getItemId ? items.map((item) => getItemId(item)) : [];
+    const allPageSelected =
+        pageIds.length > 0 && pageIds.every((id) => selectedIds?.has(id));
+    const somePageSelected =
+        pageIds.some((id) => selectedIds?.has(id)) && !allPageSelected;
+
+    const showCardSelectAll =
+        view !== 'list' && selectable && Boolean(onTogglePageSelect) && pageIds.length > 0;
+
+    const selectAllControl = showCardSelectAll ? (
+        <label className="flex items-center gap-2 cursor-pointer">
+            <input
+                type="checkbox"
+                checked={allPageSelected}
+                ref={(el) => {
+                    if (el) el.indeterminate = somePageSelected;
+                }}
+                onChange={(event) => onTogglePageSelect?.(pageIds, event.target.checked)}
+                className="size-4 accent-primary-second shrink-0"
+                aria-label={t.has('select_all') ? t('select_all') : 'Select all'}
+            />
+            <span className="text-[16px] font-normal text-neutral-first whitespace-nowrap">
+                {t.has('select_all') ? t('select_all') : 'Select all'}
+            </span>
+        </label>
+    ) : null;
 
     const emptyContent = emptyMessage ?? (
         <div className="text-sm text-neutral-first/50 text-center py-6">
@@ -74,6 +107,7 @@ export default function EntityListPage<T>({
                     <MoreMenu
                         view={view}
                         onViewChange={setView}
+                        extraItems={moreMenuItems}
                     />
                 </div>
             </div>
@@ -95,6 +129,7 @@ export default function EntityListPage<T>({
                 showFilters={showFilters}
                 filterLoading={filterLoading}
                 onApplyFilters={onApplyFilters}
+                leading={selectAllControl}
             />
         </div>
     ) : null;
@@ -154,6 +189,11 @@ export default function EntityListPage<T>({
                                     onRowClick={onRowClick}
                                     sortBy={sortBy}
                                     onSortChange={onSortChange}
+                                    selectable={selectable}
+                                    selectedIds={selectedIds}
+                                    getItemId={getItemId}
+                                    onToggleSelect={onToggleSelect}
+                                    onTogglePageSelect={onTogglePageSelect}
                                 />
                             )}
                             <div

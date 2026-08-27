@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TopBar, BreadcrumbBar } from '@/components/shared';
 import { useParams } from 'next/navigation';
 import {
@@ -13,8 +13,7 @@ import ScoreContributingAttributesView from '@/features/configuration/registers/
 import EditScoreModal from '@/features/configuration/registers/EditScoreModal';
 import ViewScoreDefinitionModal from '@/features/configuration/registers/ViewScoreDefinitionModal';
 import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
-import { usePagination } from '@/shared/hooks/usePagination';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { CONFIGURATION_SCORES_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
@@ -30,9 +29,12 @@ const ScoreDefinitionAttributesPage = () => {
     const [isEditScoreModalOpen, setIsEditScoreModalOpen] = useState(false);
     const [isViewScoreModalOpen, setIsViewScoreModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
-    const { config } = useRuntimeConfig();
-    const PAGE_SIZE = config.pageSize || 10;
+    const pageSize = usePageSize();
     const [paginationInfo, setPaginationInfo] = useState({ totalItems: 0, currentCount: 0 });
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
 
     const { can } = useRbac();
     const canCreate = can(CONFIGURATION_SCORES_ACTIONS.create);
@@ -47,7 +49,7 @@ const ScoreDefinitionAttributesPage = () => {
 
     const pagination = usePagination({
         currentPage,
-        pageSize: PAGE_SIZE,
+        pageSize,
         totalItems: paginationInfo.totalItems,
         currentCount: paginationInfo.currentCount,
     });
@@ -81,7 +83,7 @@ const ScoreDefinitionAttributesPage = () => {
     };
 
     const handleNext = () => {
-        if (currentPage * PAGE_SIZE < paginationInfo.totalItems) {
+        if (currentPage * pageSize < paginationInfo.totalItems) {
             setCurrentPage((prev) => prev + 1);
         }
     };
@@ -142,7 +144,7 @@ const ScoreDefinitionAttributesPage = () => {
                 isModalOpen={isModalOpen}
                 onCloseModal={() => setIsModalOpen(false)}
                 page={currentPage}
-                pageSize={PAGE_SIZE}
+                pageSize={pageSize}
                 onDataLoaded={(totalItems, currentCount) =>
                     setPaginationInfo({ totalItems, currentCount })
                 }

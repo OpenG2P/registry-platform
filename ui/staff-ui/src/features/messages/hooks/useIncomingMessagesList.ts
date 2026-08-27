@@ -25,7 +25,7 @@ export function useIncomingMessagesList({
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchText]);
+    }, [searchText, pageSize]);
 
     const { data, loading } = useFetch<any>({
         url: '/api/incoming-message/get/list',

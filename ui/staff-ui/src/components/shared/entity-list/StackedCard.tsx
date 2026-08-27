@@ -21,6 +21,9 @@ export interface StackedCardProps {
     columns: StackedCardColumn[];
     onViewDetails?: () => void;
     viewDetailsDisabled?: boolean;
+    selectable?: boolean;
+    selected?: boolean;
+    onSelectChange?: (selected: boolean) => void;
 }
 
 export default function StackedCard({
@@ -28,18 +31,37 @@ export default function StackedCard({
     columns,
     onViewDetails,
     viewDetailsDisabled = false,
+    selectable = false,
+    selected = false,
+    onSelectChange,
 }: StackedCardProps) {
     const t = useTranslations();
     const heading = title?.trim() || '—';
 
     return (
         <div className="rounded-[10px] bg-neutral-second px-10 py-5">
-            <h3
-                className="mb-4 min-w-0 text-[20px] font-semibold leading-snug tracking-tight text-neutral-first line-clamp-2 md:text-[22px]"
-                title={heading !== '—' ? heading : undefined}
-            >
-                {heading}
-            </h3>
+            <div className="mb-4 flex items-start gap-3">
+                {selectable ? (
+                    <label
+                        className="mt-1.5 shrink-0 flex items-center cursor-pointer"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={(event) => onSelectChange?.(event.target.checked)}
+                            className="size-4 accent-primary-second"
+                            aria-label={heading}
+                        />
+                    </label>
+                ) : null}
+                <h3
+                    className="min-w-0 flex-1 text-[20px] font-semibold leading-snug tracking-tight text-neutral-first line-clamp-2 md:text-[22px]"
+                    title={heading !== '—' ? heading : undefined}
+                >
+                    {heading}
+                </h3>
+            </div>
 
             <div className="grid grid-cols-4 items-stretch gap-6 text-[16px] text-neutral-first/50">
                 {columns.map((column, index) => (

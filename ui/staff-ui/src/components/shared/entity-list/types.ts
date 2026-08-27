@@ -4,6 +4,16 @@ import { FilterConfig, FilterRule } from '@/features/filter/types';
 export type ViewMode = 'card' | 'list';
 export type SortDir = 'asc' | 'desc' | null;
 
+export interface MoreMenuItem {
+    id: string;
+    label?: string;
+    icon?: ReactNode;
+    disabled?: boolean;
+    divider?: boolean;
+    onClick?: () => void;
+    children?: MoreMenuItem[];
+}
+
 export interface ColumnDef<T> {
     key: string;
     header: string;
@@ -54,4 +64,11 @@ export interface EntityListPageProps<T> {
     onSortChange?: (sortBy: string | null) => void;
 
     actions?: ReactNode;
+    moreMenuItems?: MoreMenuItem[];
+
+    selectable?: boolean;
+    selectedIds?: Set<string>;
+    getItemId?: (item: T) => string;
+    onToggleSelect?: (id: string) => void;
+    onTogglePageSelect?: (ids: string[], selected: boolean) => void;
 }

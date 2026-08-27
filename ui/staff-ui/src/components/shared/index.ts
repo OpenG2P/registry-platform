@@ -15,7 +15,7 @@ export {
     CompactCardSkeleton,
     useListView,
 } from './entity-list';
-export type { EntityListPageProps, ColumnDef, ViewMode } from './entity-list';
+export type { EntityListPageProps, ColumnDef, ViewMode, MoreMenuItem } from './entity-list';
 export type {
     StackedCardProps,
     StackedCardColumn,
