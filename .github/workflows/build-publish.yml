@@ -1,0 +1,106 @@
+name: Build & Publish
+
+# Thin caller: all versioning/build/publish logic lives in
+# openg2p/openg2p-packaging@v1. This file declares only what THIS repo contains.
+#
+# These images are the BASE for farmer-registry, national-social-registry and
+# disability-registry, which build FROM them -- so their names are load-bearing.
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+  workflow_dispatch:
+    inputs:
+      changelog_skip_ai:
+        description: 'Skip the AI summary — publish the changelog from commit messages only (use when AI is unavailable). Leave OFF for a normal run.'
+        type: boolean
+        default: false
+      changelog_regenerate:
+        description: 'Backfill the AI summary for a release that published without one: enter its release version e.g. 1.0.1 (a bare N.N.N, not a develop version). Leave EMPTY for a normal run.'
+        type: string
+        default: ''
+
+jobs:
+  build-publish:
+    uses: openg2p/openg2p-packaging/.github/workflows/build-publish.yml@v1
+    with:
+      changelog_skip_ai: ${{ inputs.changelog_skip_ai || false }}
+      changelog_regenerate: ${{ inputs.changelog_regenerate || '' }}
+
+      images: |
+        [
+          {"name": "staff-api",,
+           "repo": "openg2p/openg2p-registry-staff-api",,
+           "dockerfile": "docker/staff-api/Dockerfile",
+           "pins": [
+             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
+             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
+           ]},
+
+          {"name": "partner-api",,
+           "repo": "openg2p/openg2p-registry-partner-api",,
+           "dockerfile": "docker/partner-api/Dockerfile",
+           "pins": [
+             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
+             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
+           ]},
+
+          {"name": "bene-api",,
+           "repo": "openg2p/openg2p-registry-bene-api",,
+           "dockerfile": "docker/bene-api/Dockerfile",
+           "pins": [
+             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
+             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
+           ]},
+
+          {"name": "agent-portal-api",,
+           "repo": "openg2p/openg2p-registry-agent-portal-api",,
+           "dockerfile": "docker/agent-portal-api/Dockerfile",
+           "pins": [
+             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
+             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
+           ]},
+
+          {"name": "celery",,
+           "repo": "openg2p/openg2p-registry-celery",,
+           "dockerfile": "docker/celery/Dockerfile",
+           "pins": [
+             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
+             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
+           ]},
+
+          {"name": "db-seed",,
+           "repo": "openg2p/openg2p-registry-db-seed",,
+           "dockerfile": "docker/db-seed/Dockerfile",
+           "pins": [
+             {"arg": "OPENG2P_DATA_BRANCH", "repo": "https://github.com/openg2p/openg2p-data", "ref": "develop"}
+           ]},
+
+          {"name": "sanity-tests",,
+           "repo": "openg2p/openg2p-registry-sanity-tests",,
+           "dockerfile": "docker/sanity/Dockerfile"},
+
+          {"name": "staff-ui",,
+           "repo": "openg2p/openg2p-registry-staff-ui",,
+           "dockerfile": "ui/staff-ui/Dockerfile",
+           "context": "ui/staff-ui"},
+
+          {"name": "agent-ui",,
+           "repo": "openg2p/openg2p-registry-agent-ui",,
+           "dockerfile": "ui/agent-ui/Dockerfile",
+           "context": "ui/agent-ui"}
+        ]
+
+      chart-path: helm/openg2p-registry
+
+      chart-image-paths: |
+        [".staffApi.image.tag",".partnerApi.image.tag",".beneApi.image.tag",".agentPortalApi.image.tag",".celeryWorker.image.tag",".celeryBeat.image.tag",".dbSeed.image.tag",".staffUi.image.tag",".agentPortalUi.image.tag",".sanity.image.tag"]
+
+      packaging-ref: v1
+
+    secrets:
+      docker_hub_actor: ${{ secrets.docker_hub_actor }}
+      docker_hub_token: ${{ secrets.docker_hub_token }}
+      OPENG2P_BOT_GITHUB_PAT: ${{ secrets.OPENG2P_BOT_GITHUB_PAT }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
