@@ -30,66 +30,120 @@ jobs:
 
       images: |
         [
-          {"name": "staff-api",,
-           "repo": "openg2p/openg2p-registry-staff-api",,
-           "dockerfile": "docker/staff-api/Dockerfile",
-           "pins": [
-             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
-             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
-           ]},
-
-          {"name": "partner-api",,
-           "repo": "openg2p/openg2p-registry-partner-api",,
-           "dockerfile": "docker/partner-api/Dockerfile",
-           "pins": [
-             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
-             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
-           ]},
-
-          {"name": "bene-api",,
-           "repo": "openg2p/openg2p-registry-bene-api",,
-           "dockerfile": "docker/bene-api/Dockerfile",
-           "pins": [
-             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
-             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
-           ]},
-
-          {"name": "agent-portal-api",,
-           "repo": "openg2p/openg2p-registry-agent-portal-api",,
-           "dockerfile": "docker/agent-portal-api/Dockerfile",
-           "pins": [
-             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
-             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
-           ]},
-
-          {"name": "celery",,
-           "repo": "openg2p/openg2p-registry-celery",,
-           "dockerfile": "docker/celery/Dockerfile",
-           "pins": [
-             {"arg": "FASTAPI_COMMON_REF", "repo": "https://github.com/openg2p/openg2p-fastapi-common", "ref": "develop"},
-             {"arg": "IAM_CORE_REF", "repo": "https://github.com/openg2p/iam", "ref": "develop"}
-           ]},
-
-          {"name": "db-seed",,
-           "repo": "openg2p/openg2p-registry-db-seed",,
-           "dockerfile": "docker/db-seed/Dockerfile",
-           "pins": [
-             {"arg": "OPENG2P_DATA_BRANCH", "repo": "https://github.com/openg2p/openg2p-data", "ref": "develop"}
-           ]},
-
-          {"name": "sanity-tests",,
-           "repo": "openg2p/openg2p-registry-sanity-tests",,
-           "dockerfile": "docker/sanity/Dockerfile"},
-
-          {"name": "staff-ui",,
-           "repo": "openg2p/openg2p-registry-staff-ui",,
-           "dockerfile": "ui/staff-ui/Dockerfile",
-           "context": "ui/staff-ui"},
-
-          {"name": "agent-ui",,
-           "repo": "openg2p/openg2p-registry-agent-ui",,
-           "dockerfile": "ui/agent-ui/Dockerfile",
-           "context": "ui/agent-ui"}
+          {
+            "name": "staff-api",
+            "repo": "openg2p/openg2p-registry-staff-api",
+            "dockerfile": "docker/staff-api/Dockerfile",
+            "pins": [
+              {
+                "arg": "FASTAPI_COMMON_REF",
+                "repo": "https://github.com/openg2p/openg2p-fastapi-common",
+                "ref": "develop"
+              },
+              {
+                "arg": "IAM_CORE_REF",
+                "repo": "https://github.com/openg2p/iam",
+                "ref": "develop"
+              }
+            ]
+          },
+          {
+            "name": "partner-api",
+            "repo": "openg2p/openg2p-registry-partner-api",
+            "dockerfile": "docker/partner-api/Dockerfile",
+            "pins": [
+              {
+                "arg": "FASTAPI_COMMON_REF",
+                "repo": "https://github.com/openg2p/openg2p-fastapi-common",
+                "ref": "develop"
+              },
+              {
+                "arg": "IAM_CORE_REF",
+                "repo": "https://github.com/openg2p/iam",
+                "ref": "develop"
+              }
+            ]
+          },
+          {
+            "name": "bene-api",
+            "repo": "openg2p/openg2p-registry-bene-api",
+            "dockerfile": "docker/bene-api/Dockerfile",
+            "pins": [
+              {
+                "arg": "FASTAPI_COMMON_REF",
+                "repo": "https://github.com/openg2p/openg2p-fastapi-common",
+                "ref": "develop"
+              },
+              {
+                "arg": "IAM_CORE_REF",
+                "repo": "https://github.com/openg2p/iam",
+                "ref": "develop"
+              }
+            ]
+          },
+          {
+            "name": "agent-portal-api",
+            "repo": "openg2p/openg2p-registry-agent-portal-api",
+            "dockerfile": "docker/agent-portal-api/Dockerfile",
+            "pins": [
+              {
+                "arg": "FASTAPI_COMMON_REF",
+                "repo": "https://github.com/openg2p/openg2p-fastapi-common",
+                "ref": "develop"
+              },
+              {
+                "arg": "IAM_CORE_REF",
+                "repo": "https://github.com/openg2p/iam",
+                "ref": "develop"
+              }
+            ]
+          },
+          {
+            "name": "celery",
+            "repo": "openg2p/openg2p-registry-celery",
+            "dockerfile": "docker/celery/Dockerfile",
+            "pins": [
+              {
+                "arg": "FASTAPI_COMMON_REF",
+                "repo": "https://github.com/openg2p/openg2p-fastapi-common",
+                "ref": "develop"
+              },
+              {
+                "arg": "IAM_CORE_REF",
+                "repo": "https://github.com/openg2p/iam",
+                "ref": "develop"
+              }
+            ]
+          },
+          {
+            "name": "db-seed",
+            "repo": "openg2p/openg2p-registry-db-seed",
+            "dockerfile": "docker/db-seed/Dockerfile",
+            "pins": [
+              {
+                "arg": "OPENG2P_DATA_BRANCH",
+                "repo": "https://github.com/openg2p/openg2p-data",
+                "ref": "develop"
+              }
+            ]
+          },
+          {
+            "name": "sanity-tests",
+            "repo": "openg2p/openg2p-registry-sanity-tests",
+            "dockerfile": "docker/sanity/Dockerfile"
+          },
+          {
+            "name": "staff-ui",
+            "repo": "openg2p/openg2p-registry-staff-ui",
+            "dockerfile": "ui/staff-ui/Dockerfile",
+            "context": "ui/staff-ui"
+          },
+          {
+            "name": "agent-ui",
+            "repo": "openg2p/openg2p-registry-agent-ui",
+            "dockerfile": "ui/agent-ui/Dockerfile",
+            "context": "ui/agent-ui"
+          }
         ]
 
       chart-path: helm/openg2p-registry
