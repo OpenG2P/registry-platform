@@ -269,7 +269,7 @@ dbSeed:
   # Upload flat Jinja templates from the db-seed image to MinIO after SQL seed
   loadTemplates: true
   image:
-    repository: registry.gitlab.com/openg2p/registry/registry-platform/db-seed
+    repository: openg2p/openg2p-registry-db-seed
     tag: "develop"
     pullPolicy: Always
 
@@ -379,7 +379,7 @@ partnerApi:
     create: false
     name: ""
   image:
-    repository: registry.gitlab.com/openg2p/registry/registry-platform/partner-api
+    repository: openg2p/openg2p-registry-partner-api
     tag: "develop"
     pullPolicy: Always
   podSecurityContext:
@@ -598,7 +598,7 @@ beneApi:
     create: false
     name: ""
   image:
-    repository: registry.gitlab.com/openg2p/registry/registry-platform/bene-api
+    repository: openg2p/openg2p-registry-bene-api
     tag: "1.0"
     pullPolicy: Always
   podSecurityContext:
@@ -752,7 +752,7 @@ staffApi:
     create: false
     name: ""
   image:
-    repository: registry.gitlab.com/openg2p/registry/registry-platform/staff-api
+    repository: openg2p/openg2p-registry-staff-api
     tag: "develop"
     pullPolicy: Always
   podSecurityContext:
@@ -963,7 +963,7 @@ staffUi:
     create: false
     name: ""
   image:
-    repository: registry.gitlab.com/openg2p/registry/registry-platform/staff-ui
+    repository: openg2p/openg2p-registry-staff-ui
     tag: "1.0.0"
     pullPolicy: Always
   podSecurityContext:
@@ -1088,7 +1088,7 @@ celeryBeat:
   nameOverride: celery-beat-producer
   replicaCount: 1
   image:
-    repository: registry.gitlab.com/openg2p/registry/registry-platform/celery
+    repository: openg2p/openg2p-registry-celery
     tag: "develop"
     pullPolicy: Always
 
@@ -1167,7 +1167,7 @@ celeryWorker:
   nameOverride: celery-worker
   replicaCount: 1
   image:
-    repository: registry.gitlab.com/openg2p/registry/registry-platform/celery
+    repository: openg2p/openg2p-registry-celery
     tag: "develop"
     pullPolicy: Always
 
@@ -1557,7 +1557,7 @@ sanity:
   # runE2e stays off: the full round-trip needs PM, CM, AWE and Keycloak admin.
   enabled: true
   image:
-    repository: registry.gitlab.com/openg2p/registry/registry-platform/sanity-tests
+    repository: openg2p/openg2p-registry-sanity-tests
     tag: develop
     pullPolicy: Always
   # In-cluster partner-api Service URL (no ingress path prefix), :80.
