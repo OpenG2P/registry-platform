@@ -148,7 +148,7 @@ class G2PRegisterService(BaseService):
         return dict_to_orm(G2PRegisterSchema, orm_row_to_dict(schema_metadata))
 
     @cache(
-        expire=_config.cache_expires_in_seconds,
+        expire=60,
         key_builder=data_policies_key_builder,
         coder=PickleCoder,
     )

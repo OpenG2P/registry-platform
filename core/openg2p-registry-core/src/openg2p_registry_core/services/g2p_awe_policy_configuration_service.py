@@ -2,12 +2,17 @@ import logging
 import uuid
 from typing import List
 
+from fastapi_cache import FastAPICache
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from ..helpers.orm_cache import dict_to_orm, orm_row_to_dict, policy_lookup_key_builder
 from ..models import (
     AwePolicyScopeEnum,
     G2PRegisterDefinition,
@@ -16,6 +21,8 @@ from ..models import (
 from ..schemas import AwePolicyConfigurationData
 
 _logger = logging.getLogger("g2p-awe-policy-configuration-service")
+_config = Settings.get_config(strict=False)
+_POLICY_LOOKUP_CACHE_NAMESPACE = "awe-policy-lookup"
 
 CHANGE_REQUEST_POLICY_TYPES = (
     "registry.change_request",
@@ -86,6 +93,7 @@ class G2PAwePolicyConfigurationService(BaseService):
             session.add(row)
             await session.commit()
             await session.refresh(row)
+            await self._invalidate_policy_lookup_cache()
             return [AwePolicyConfigurationData.model_validate(row)]
 
     async def update_awe_policy_configuration(
@@ -132,6 +140,7 @@ class G2PAwePolicyConfigurationService(BaseService):
 
             await session.commit()
             await session.refresh(row)
+            await self._invalidate_policy_lookup_cache()
             return [AwePolicyConfigurationData.model_validate(row)]
 
     async def delete_awe_policy_configuration(self, awe_policy_config_id: str) -> List[AwePolicyConfigurationData]:
@@ -141,6 +150,7 @@ class G2PAwePolicyConfigurationService(BaseService):
             data = AwePolicyConfigurationData.model_validate(row)
             await session.delete(row)
             await session.commit()
+            await self._invalidate_policy_lookup_cache()
             return [data]
 
     def _parse_and_validate_scope(
@@ -222,6 +232,59 @@ class G2PAwePolicyConfigurationService(BaseService):
         intake_form_id: str | None = None,
     ) -> G2PRegistryAwePolicyConfiguration | None:
         """Resolve policy: SECTION (if section_id) → INTAKE_FORM (if form_id) → REGISTER."""
+        cached = await self._find_effective_policy_configuration_cached(
+            session,
+            register_id=register_id,
+            policy_type=policy_type,
+            section_id=section_id,
+            intake_form_id=intake_form_id,
+        )
+        return self._coerce_policy_configuration(cached)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        namespace=_POLICY_LOOKUP_CACHE_NAMESPACE,
+        key_builder=policy_lookup_key_builder,
+        coder=PickleCoder,
+    )
+    async def _find_effective_policy_configuration_cached(
+        self,
+        session: AsyncSession,
+        *,
+        register_id: str,
+        policy_type: str,
+        section_id: str | None = None,
+        intake_form_id: str | None = None,
+    ) -> dict | None:
+        row = await self._query_effective_policy_configuration(
+            session,
+            register_id=register_id,
+            policy_type=policy_type,
+            section_id=section_id,
+            intake_form_id=intake_form_id,
+        )
+        return orm_row_to_dict(row) if row else None
+
+    def _coerce_policy_configuration(
+        self, policy_metadata
+    ) -> G2PRegistryAwePolicyConfiguration | None:
+        if policy_metadata is None:
+            return None
+        if isinstance(policy_metadata, dict):
+            return dict_to_orm(G2PRegistryAwePolicyConfiguration, policy_metadata)
+        return dict_to_orm(
+            G2PRegistryAwePolicyConfiguration, orm_row_to_dict(policy_metadata)
+        )
+
+    async def _query_effective_policy_configuration(
+        self,
+        session: AsyncSession,
+        *,
+        register_id: str,
+        policy_type: str,
+        section_id: str | None = None,
+        intake_form_id: str | None = None,
+    ) -> G2PRegistryAwePolicyConfiguration | None:
         type_filter = self._policy_type_filter(policy_type)
 
         if section_id:
@@ -261,6 +324,11 @@ class G2PAwePolicyConfigurationService(BaseService):
                 )
             )
         ).scalar_one_or_none()
+
+    async def _invalidate_policy_lookup_cache(self) -> None:
+        # Namespace-wide: REGISTER-scope rows are fallbacks for every
+        # (section_id, intake_form_id) combination of that register+type.
+        await FastAPICache.clear(namespace=_POLICY_LOOKUP_CACHE_NAMESPACE)
 
     async def _get_configuration_or_error(
         self, awe_policy_config_id: str, session: AsyncSession

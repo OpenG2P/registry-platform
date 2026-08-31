@@ -70,3 +70,16 @@ def data_policies_key_builder(func, namespace: str, *args, **kwargs):
     raw = json.dumps(policies if policies is not None else [], sort_keys=True, default=str)
     digest = hashlib.sha256(raw.encode()).hexdigest()[:16]
     return f"{namespace}:{_func_name(func)}:{digest}"
+
+
+def policy_lookup_key_builder(func, namespace: str, *args, **kwargs):
+    """Unique key from (register_id, policy_type, section_id, intake_form_id); ignores session."""
+    call_kwargs = kwargs.get("kwargs") or {}
+    register_id = call_kwargs.get("register_id")
+    policy_type = call_kwargs.get("policy_type")
+    section_id = call_kwargs.get("section_id")
+    intake_form_id = call_kwargs.get("intake_form_id")
+    return (
+        f"{namespace}:{_func_name(func)}:"
+        f"{register_id}:{policy_type}:{section_id}:{intake_form_id}"
+    )
