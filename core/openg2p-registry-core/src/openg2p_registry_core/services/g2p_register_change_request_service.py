@@ -131,9 +131,14 @@ class G2PRegisterChangeRequestService(BaseService):
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
 
-            register_definition: G2PRegisterDefinition = await self.validate_register_definition(change_request_request_payload.register_id, session)
-            register_section: G2PRegisterSection = await self.validate_section(change_request_request_payload.section_id, session)
-            register_tab: G2PRegisterUITab = await self.validate_tab(change_request_request_payload.tab_id, session)
+            register_section: G2PRegisterSection = await self.validate_section(
+                change_request_request_payload.section_id, session
+            )
+            await self.validate_tab(change_request_request_payload.tab_id, session)
+            register_definition: G2PRegisterDefinition = await self.validate_register_definition(
+                change_request_request_payload.register_id or register_section.register_id,
+                session,
+            )
             section_register_definition: G2PRegisterDefinition = await self.validate_register_definition(
                 register_section.section_register_id,
                 session,
@@ -191,15 +196,25 @@ class G2PRegisterChangeRequestService(BaseService):
                 else []
             )
             await session.flush()
-            await G2PAweIntegrationService.get_component().start_change_request_workflow(
-                session,
-                g2p_register_change_request,
-                serialized_payloads,
-                bearer_token=bearer_token,
-                requester=requester_sub or created_by,
-            )
             await session.commit()
             await session.refresh(g2p_register_change_request)
+
+            try:
+                await G2PAweIntegrationService.get_component().start_change_request_workflow(
+                    session,
+                    g2p_register_change_request,
+                    serialized_payloads,
+                    bearer_token=bearer_token,
+                    requester=requester_sub or created_by,
+                )
+                await session.commit()
+                await session.refresh(g2p_register_change_request)
+            except Exception:
+                _logger.exception(
+                    "AWE workflow failed after change request commit change_request_id=%s",
+                    g2p_register_change_request.change_request_id,
+                )
+                await session.rollback()
 
             return g2p_register_change_request
 
@@ -779,21 +794,7 @@ class G2PRegisterChangeRequestService(BaseService):
         return register_section
 
     async def validate_change_request_section(self, g2p_register_change_request: G2PRegisterChangeRequest, session) -> G2PRegisterSection:
-        register_section: G2PRegisterSection = (
-            await session.execute(
-                select(G2PRegisterSection).where(
-                    G2PRegisterSection.section_id == g2p_register_change_request.section_id
-                )
-            )
-        ).scalar()
-        if not register_section:
-            raise G2PRegistryException(
-                code=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[1],
-                message=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[0]
-            )
-        # Note: internal_record_id is already set during change request creation in construct_change_request
-        # Do not generate a new one here during approval
-        return register_section
+        return await self.validate_section(g2p_register_change_request.section_id, session)
 
     async def validate_change_request_exists(self, change_request_id: str, session) -> G2PRegisterChangeRequest:
         _logger.info(f"Validating change request exists for ID: {change_request_id}")
@@ -1025,49 +1026,33 @@ class G2PRegisterChangeRequestService(BaseService):
 
     # Validation methods
     async def validate_register_definition(self, register_id: str, session: AsyncSession) -> G2PRegisterDefinition:
-        register_definition: G2PRegisterDefinition = (
-            await session.execute(
-                select(G2PRegisterDefinition).where(
-                    G2PRegisterDefinition.register_id == register_id
-                )
-            )
-        ).scalar()
+        register_definition = self._coerce_register_definition(
+            await self._get_register_definition(register_id, session)
+        )
         if not register_definition:
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
                 message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
             )
-        return register_definition
+        return await session.merge(register_definition)
 
     async def validate_section(self, section_id: str, session: AsyncSession) -> G2PRegisterSection:
-        register_section: G2PRegisterSection =(
-                await session.execute(
-                select(G2PRegisterSection).where(
-                    G2PRegisterSection.section_id == section_id
-                )
-            )
-        ).scalar()
+        register_section = self._coerce_section(await self._get_section(section_id, session))
         if not register_section:
             raise G2PRegistryException(
-                code="SECTION_NOT_FOUND",
-                message="Section not found"
+                code=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[1],
+                message=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[0]
             )
-        return register_section
+        return await session.merge(register_section)
 
     async def validate_tab(self, tab_id: str, session: AsyncSession) -> G2PRegisterUITab:
-        register_tab: G2PRegisterUITab = (
-            await session.execute(
-                select(G2PRegisterUITab).where(
-                    G2PRegisterUITab.tab_id == tab_id
-                )
-            )
-        ).scalar()
+        register_tab = self._coerce_tab(await self._get_tab(tab_id, session))
         if not register_tab:
             raise G2PRegistryException(
-                code="TAB_NOT_FOUND",
-                message="Tab not found"
+                code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                message="Tab not found",
             )
-        return register_tab
+        return await session.merge(register_tab)
 
     async def validate_change_request_creation(
         self,
@@ -1078,17 +1063,16 @@ class G2PRegisterChangeRequestService(BaseService):
     ) -> None:
         if register_definition.register_purpose != RegisterPurposeEnum.REGISTER.value:
             raise self._invalid_request("Change request must belong to a register")
-        # TODO: remove redundancy if register_id removed from request payload
-        if section.register_id != payload.register_id:
+        subject_register_id = payload.register_id or section.register_id
+        if payload.register_id and section.register_id != payload.register_id:
             raise self._invalid_request("Section does not belong to the specified register")
-        # TODO: remove redundancy if section_register_id removed in request payload
-        if section.section_register_id != payload.section_register_id:
+        if payload.section_register_id and section.section_register_id != payload.section_register_id:
             raise self._invalid_request("Section Register does not match the one specified in the payload")
         if not payload.internal_record_id:
             raise self._invalid_request("Change request must have an internal_record_id to identify the subject record")
 
         section_register_purpose = section_register_definition.register_purpose
-        if section_register_purpose == RegisterPurposeEnum.REGISTER.value and section.section_register_id != payload.register_id:
+        if section_register_purpose == RegisterPurposeEnum.REGISTER.value and section.section_register_id != subject_register_id:
             raise self._invalid_request("Cross-register change requests are not allowed")
 
         allowed_actions = (
@@ -1410,7 +1394,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
         display_payloads = await self._payloads_for_display_metadata(
             session,
-            change_request_request_payload.section_register_id,
+            register_section.section_register_id,
             serialized_payloads,
         )
 
@@ -1440,11 +1424,14 @@ class G2PRegisterChangeRequestService(BaseService):
         g2p_register_change_request = G2PRegisterChangeRequest(
             change_request_id=change_request_id,
             record_name=constructed_record_name,
-            register_id=change_request_request_payload.register_id,
+            register_id=change_request_request_payload.register_id or register_section.register_id,
             tab_id=change_request_request_payload.tab_id,
             internal_record_id=internal_record_id,
             section_id=change_request_request_payload.section_id,
-            section_register_id=change_request_request_payload.section_register_id,
+            section_register_id=(
+                change_request_request_payload.section_register_id
+                or register_section.section_register_id
+            ),
             source_partner_id=source_partner_id or "system",
             change_request_source=change_request_source,
             created_by=actor_name,

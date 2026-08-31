@@ -3,12 +3,16 @@ import logging
 import uuid
 from datetime import datetime
 
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import Date as SQLDate, and_, case, exists, func, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from ..helpers.orm_cache import single_id_key_builder
 from ..repositories.register_repository import RegisterRecordRepository
 from iam_core.helpers.data_policy_helper import DataPolicyHelper
 from .g2p_awe_integration_service import G2PAweIntegrationService
@@ -57,6 +61,7 @@ _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 _DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
 _INTAKE_CLASS_PREFIX = "G2PIntakeForm"
 _logger = logging.getLogger("g2p-intake-form-data-service")
+_config = Settings.get_config(strict=False)
 
 
 class G2PIntakeFormDataService(BaseService):
@@ -1466,6 +1471,11 @@ class G2PIntakeFormDataService(BaseService):
         )
         return result.scalar_one_or_none() or 0
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _get_register_definition(self, register_id: str, session) -> G2PRegisterDefinition:
         register_definition = await session.get(G2PRegisterDefinition, register_id)
         if not register_definition:
