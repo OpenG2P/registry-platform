@@ -1037,10 +1037,20 @@ agentPortalApi:
     # the UI posts to this API, which calls it here — the same shape as every
     # other backend call the portal makes.
     #
-    # It resolves the ISSUER'S key itself. Our Certify publishes that key at
-    # /v1/certify/.well-known/jwks.json (and a did:web document), and both are
-    # reachable inside the cluster, so no key has to be copied into the verifier
-    # or kept in step by hand.
+    # It resolves the ISSUER'S key itself, from Certify's
+    # /v1/certify/.well-known/jwks.json -- reachable inside the cluster, so no
+    # key is copied into the verifier or kept in step by hand.
+    #
+    # JWKS specifically, NOT the did:web document. Certify builds the DID
+    # document's verificationMethod list from the REGISTERED CREDENTIAL CONFIGS'
+    # signature algorithm (DIDDocumentUtil.getSignatureCryptoSuiteMap reads
+    # credential_config.signature_algo), so it carries the EdDSA key that signs
+    # the JSON-LD credential and NOT the ES256 key that signs the claim-169 QR --
+    # qrSignatureAlgo is not part of that map. JwksServiceImpl instead walks
+    # mosip.certify.signature-algo.key-alias-mapper and publishes every alias,
+    # so the QR's ES256 key is only in the JWKS. On paper the QR signature is
+    # the one anyone checks, so this distinction decides whether verification
+    # can work at all.
     REGISTRY_AGENT_PORTAL_API_VERIFY_SERVICE_URL: '{{ tpl .Values.vcVerification.serviceUrl $ }}'
     REGISTRY_AGENT_PORTAL_API_VC_AUTH_WINDOW_SECONDS: '{{ .Values.vcIssuance.authWindowSeconds }}'
     REGISTRY_AGENT_PORTAL_API_VC_REGISTER_ID: '{{ .Values.vcIssuance.registerId }}'
