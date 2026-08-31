@@ -10,17 +10,13 @@ from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..models import G2PRegisterDefinition, G2PRegisterSection, RegisterPurposeEnum
-from ..schemas.change_request import ChangeActionEnum, ChangePayload
+from ..models import G2PRegisterDefinition, G2PRegisterSection
+from ..schemas.change_request import ChangePayload
 
 _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 _REGISTER_CLASS_PREFIX = "G2PRegister"
-_ALWAYS_ALLOWED_CONTROL_FIELDS = frozenset({"edit_action", "internal_record_id"})
-_TABLE_PURPOSES = frozenset(
-    {
-        RegisterPurposeEnum.TABLE.value,
-        RegisterPurposeEnum.CORE_TABLE.value,
-    }
+_ALWAYS_ALLOWED_CONTROL_FIELDS = frozenset(
+    {"edit_action", "internal_record_id", "link_internal_record_id"}
 )
 _TABLE_WIDGETS = frozenset({"table", "dialog-table"})
 _DOCUMENT_WIDGETS = frozenset({"docs", "documents"})
@@ -77,19 +73,14 @@ class G2PChangeRequestSectionPayloadService(BaseService):
                     ),
                 )
 
+        allowed_payload_fields = set(allowed_fields)
+        allowed_payload_fields.update(_ALWAYS_ALLOWED_CONTROL_FIELDS)
+
         violations: list[tuple[int, list[str]]] = []
         for row_index, change_payload in enumerate(change_payloads):
-            payload_data = change_payload.model_dump()
-            action = payload_data.get("edit_action")
-            allowed_for_action = set(allowed_fields)
-            allowed_for_action.update(_ALWAYS_ALLOWED_CONTROL_FIELDS)
-            if (
-                action == ChangeActionEnum.ADD.value
-                and section_register_definition.register_purpose in _TABLE_PURPOSES
-            ):
-                allowed_for_action.add("link_internal_record_id")
-
-            unknown_fields = sorted(set(payload_data) - allowed_for_action)
+            unknown_fields = sorted(
+                set(change_payload.model_dump()) - allowed_payload_fields
+            )
             if unknown_fields:
                 violations.append((row_index, unknown_fields))
 
