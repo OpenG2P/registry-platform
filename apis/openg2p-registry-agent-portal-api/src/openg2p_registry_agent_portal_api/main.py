@@ -54,8 +54,9 @@ app = initializer.return_app()
 # CSRF -> ValidateAndRefresh -> ResolvePermission -> app
 #
 # Without ResolvePermissionMiddleware the @require_permissions decorators on the
-# issuance routes would be inert, so this chain is what actually enforces that an
-# agent — and only an agent — can issue.
+# issuance and verification routes would be inert, so this chain is what actually
+# enforces that an agent — and only an agent holding the right permission — can
+# issue a credential or check one.
 app.add_middleware(
     ResolvePermissionMiddleware,
     client_id=_config.keycloak_client_id,

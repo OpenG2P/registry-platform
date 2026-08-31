@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 import AppShell from '@/components/AppShell';
-import { ISSUE_PERMISSION, useAuth } from '@/context/Authcontext';
+import { ISSUE_PERMISSION, VERIFY_PERMISSION, useAuth } from '@/context/Authcontext';
 
 /**
  * Landing page.
@@ -18,7 +18,7 @@ import { ISSUE_PERMISSION, useAuth } from '@/context/Authcontext';
  * cannot, not an empty page.
  */
 export default function Home() {
-    const { canIssue } = useAuth();
+    const { canIssue, canVerify } = useAuth();
 
     return (
         <AppShell>
@@ -41,6 +41,26 @@ export default function Home() {
                         <span className="task-card-desc">
                             Not available for this account — it needs the
                             <code> {ISSUE_PERMISSION} </code> permission in the agent realm.
+                        </span>
+                    </div>
+                )}
+
+                {canVerify ? (
+                    <Link href="/verify" className="task-card">
+                        <span className="task-card-icon" aria-hidden="true">🔍</span>
+                        <span className="task-card-title">Verify Verifiable Credentials</span>
+                        <span className="task-card-desc">
+                            Upload a printed credential or a photo of one and check that it
+                            was signed by a trusted issuer.
+                        </span>
+                    </Link>
+                ) : (
+                    <div className="task-card task-card-disabled" aria-disabled="true">
+                        <span className="task-card-icon" aria-hidden="true">🔍</span>
+                        <span className="task-card-title">Verify Verifiable Credentials</span>
+                        <span className="task-card-desc">
+                            Not available for this account — it needs the
+                            <code> {VERIFY_PERMISSION} </code> permission in the agent realm.
                         </span>
                     </div>
                 )}

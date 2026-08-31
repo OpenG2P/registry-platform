@@ -371,6 +371,11 @@
       "permission_mnemonic": "register:issue_credential",
       "permission_description": "Issue a verifiable credential to an authenticated beneficiary",
       "active": true
+    },
+    {
+      "permission_mnemonic": "register:verify_credential",
+      "permission_description": "Verify a credential presented by a citizen",
+      "active": true
     }
   ],
   "roles": [
@@ -638,6 +643,14 @@
       "active": true,
       "permissions": [
         "register:issue_credential"
+      ]
+    },
+    {
+      "role_mnemonic": "register:verify_credential",
+      "role_description": "Field agent who may check a presented credential. Separate from issuing one.",
+      "active": true,
+      "permissions": [
+        "register:verify_credential"
       ]
     }
   ]

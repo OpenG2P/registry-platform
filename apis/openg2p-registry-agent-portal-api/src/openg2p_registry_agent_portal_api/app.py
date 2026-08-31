@@ -9,9 +9,10 @@ from openg2p_fastapi_common.app import Initializer as BaseInitializer
 from openg2p_registry_core.app import Initializer as CoreInitializer
 from openg2p_registry_extensions.app import Initializer as ExtensionsInitializer
 
-from .controllers import VcIssuanceController
+from .controllers import VcIssuanceController, VcVerificationController
 from .helpers import RequestResponseHelper
 from .services import (
+    CredentialVerificationService,
     BeneficiaryAuthService,
     CertifyIssuanceService,
     IssuanceLogService,
@@ -28,6 +29,7 @@ class Initializer(BaseInitializer):
         RegistryLookupService()
         BeneficiaryAuthService()
         CertifyIssuanceService()
+        CredentialVerificationService()
         PdfRenderService()
         IssuanceLogService()
 
@@ -42,6 +44,21 @@ class Initializer(BaseInitializer):
             _logger.info(
                 "VC issuance is DISABLED (registry_agent_portal_api_vc_issuance_enabled). "
                 "No issuance routes are mounted."
+            )
+
+        # Verification is switched independently of issuance: checking a card
+        # someone presents is a different act from creating one, and a
+        # deployment may reasonably want only the first.
+        if _config.vc_verification_enabled:
+            VcVerificationController().post_init()
+            _logger.info(
+                "VC verification is ENABLED; agent portal verification routes mounted."
+            )
+        else:
+            _logger.info(
+                "VC verification is DISABLED "
+                "(registry_agent_portal_api_vc_verification_enabled). "
+                "No verification routes are mounted."
             )
 
     def migrate_database(self, args):

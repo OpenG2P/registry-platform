@@ -81,6 +81,12 @@ export interface StartedAuth {
   provider_name?: string;
 }
 
+export interface VerificationResult {
+  verified: boolean;
+  status?: string;
+  claims?: Record<string, unknown> | null;
+}
+
 export interface AuthStatus {
   authentication_id?: string;
   status: string;
@@ -103,6 +109,16 @@ export const api = {
       internal_record_id,
       authentication_id,
     }),
+
+  /**
+   * Check a credential the citizen has presented.
+   *
+   * The QR is read in the BROWSER, from the uploaded PDF or photo, and only the
+   * decoded payload is sent — no image ever leaves the machine, and the server
+   * stays a thin pass-through to the verifier.
+   */
+  verify: (qr_payload: string) =>
+    post<VerificationResult>("verify", { qr_payload }),
 
   /** Returns the printable credential. The server streams the PDF itself. */
   async issue(

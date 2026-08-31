@@ -843,6 +843,16 @@ agentPortalApi:
 
   # The capability switch inside the service. Kept separate from `enabled` so a
   # deployment can run the agent portal without credential issuance.
+  # ── Credential VERIFICATION (agent checks a card someone presents) ───────
+  # Independent of issuance on purpose. Needs openg2p-inji-verify deployed
+  # (verifiable-credentials repo) — that chart runs MOSIP's verify-service
+  # stateless, with no config-server and no database.
+  vcVerification:
+    enabled: false
+    # Where verify-service listens. Default matches the openg2p-inji-verify
+    # chart installed as a subchart of commons-services.
+    serviceUrl: 'http://commons-services-inji-verify-service/v1/verify'
+
   vcIssuance:
     enabled: false
     # How long a completed beneficiary authentication may authorise an issuance,
@@ -1020,6 +1030,18 @@ agentPortalApi:
 
     # Feature switch, read by the service at startup.
     REGISTRY_AGENT_PORTAL_API_VC_ISSUANCE_ENABLED: '{{ .Values.vcIssuance.enabled }}'
+    # Verification is switched separately from issuance: a deployment may want
+    # agents to CHECK a card without being able to create one.
+    REGISTRY_AGENT_PORTAL_API_VC_VERIFICATION_ENABLED: '{{ .Values.vcVerification.enabled }}'
+    # Inji Verify's verify-service, in-cluster. The browser never reaches it:
+    # the UI posts to this API, which calls it here — the same shape as every
+    # other backend call the portal makes.
+    #
+    # It resolves the ISSUER'S key itself. Our Certify publishes that key at
+    # /v1/certify/.well-known/jwks.json (and a did:web document), and both are
+    # reachable inside the cluster, so no key has to be copied into the verifier
+    # or kept in step by hand.
+    REGISTRY_AGENT_PORTAL_API_VERIFY_SERVICE_URL: '{{ tpl .Values.vcVerification.serviceUrl $ }}'
     REGISTRY_AGENT_PORTAL_API_VC_AUTH_WINDOW_SECONDS: '{{ .Values.vcIssuance.authWindowSeconds }}'
     REGISTRY_AGENT_PORTAL_API_VC_REGISTER_ID: '{{ .Values.vcIssuance.registerId }}'
     REGISTRY_AGENT_PORTAL_API_VC_AUTH_PROVIDER_ID: '{{ tpl .Values.vcIssuance.authProviderId $ }}'
@@ -1866,6 +1888,7 @@ keycloak-init:
           clientRoleMappings:
             agent-portal:
               - "register:issue_credential"
+              - "register:verify_credential"
     staff:
       clients:
         # Per-release client inside the shared `staff` realm. clientId is

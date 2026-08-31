@@ -1,3 +1,11 @@
+from .vc_verification import (
+    VerifyCredentialPayload,
+    VerifyCredentialRequest,
+    VerifyCredentialRequestBody,
+    VerifyCredentialResponse,
+    VerifyCredentialResponseBody,
+    VerifyCredentialResultPayload,
+)
 from .vc_issuance import (
     AuthenticationStatusPayload,
     AuthenticationStatusRequest,

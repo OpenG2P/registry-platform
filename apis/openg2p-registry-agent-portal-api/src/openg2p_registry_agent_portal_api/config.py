@@ -51,6 +51,12 @@ class Settings(ExtSettings):
     # the service without issuance, or not run it at all. Off by default: an
     # existing registry taking a new chart version must be unaffected.
     vc_issuance_enabled: bool = False
+    # Credential VERIFICATION is a separate capability from issuance: a
+    # deployment may want agents to check a card without being able to issue
+    # one, and the two are separately permissioned. Off by default, like
+    # issuance, so a portal that has not opted in exposes no verification
+    # surface at all.
+    vc_verification_enabled: bool = False
 
     # Registry Database
     db_username: str = "postgres"
@@ -114,6 +120,11 @@ class Settings(ExtSettings):
     # claims, redeems the pre-authorized code, and asks for the signed
     # credential. Certify is reached in-cluster and is not exposed publicly.
     certify_base_url: str = "http://commons-services-inji-certify/v1/certify"
+    # Inji Verify's verify-service, in-cluster. It is never reached from the
+    # browser: the UI posts to this API, which calls it here, the same shape as
+    # every other backend call the portal makes.
+    verify_service_url: str = "http://commons-services-inji-verify-service/v1/verify"
+    verify_timeout_seconds: int = 30
     certify_http_timeout: int = 30
     certify_offer_expires_in: int = 600
     certify_tx_code: str = "1234"

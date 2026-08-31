@@ -366,3 +366,50 @@ a.task-card:focus-visible {
   color: var(--color-accent);
   text-decoration: underline;
 }
+
+/* ── Verification screen ─────────────────────────────────────────────────── */
+.dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: 10px;
+  padding: 2rem 1.25rem;
+  text-align: center;
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dropzone:hover,
+.dropzone.is-dragging {
+  border-color: var(--color-accent);
+}
+
+.dropzone input[type='file'] {
+  display: none;
+}
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.verdict-ok {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid var(--color-success);
+  color: var(--color-success);
+}
+
+.verdict-bad {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+}
+
+.verdict-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}

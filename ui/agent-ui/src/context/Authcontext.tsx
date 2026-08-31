@@ -4,6 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useState, ReactNode 
 
 /** Permission an agent must hold to issue. Mirrors ISSUE_PERMISSION on the API. */
 export const ISSUE_PERMISSION = 'register:issue_credential';
+/** ...and to check one someone presents. Separate: a deployment may grant one
+ *  without the other. */
+export const VERIFY_PERMISSION = 'register:verify_credential';
 
 /** Shape IAM's /auth/get_logged_in_user returns. Only the fields this UI
  *  reads are named; IAM sends more and the extras are simply carried. */
@@ -17,6 +20,7 @@ interface AuthContextType {
     isLoggedIn: boolean;
     user: LoggedInUser | null;
     canIssue: boolean;
+    canVerify: boolean;
     logout: () => void;
     handleUnauthorized: () => void;
 }
@@ -84,13 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [handleUnauthorized]);
 
     const canIssue = permissions.includes(ISSUE_PERMISSION);
+    const canVerify = permissions.includes(VERIFY_PERMISSION);
 
     if (isLoading) {
         return <p className="muted" style={{ padding: '2rem' }}>Signing in…</p>;
     }
 
     return (
-        <AuthContext.Provider value={{ isLoggedIn, user, canIssue, logout, handleUnauthorized }}>
+        <AuthContext.Provider value={{ isLoggedIn, user, canIssue, canVerify, logout, handleUnauthorized }}>
             {children}
         </AuthContext.Provider>
     );

@@ -1,1 +1,2 @@
 from .vc_issuance_controller import VcIssuanceController
+from .vc_verification_controller import VcVerificationController
