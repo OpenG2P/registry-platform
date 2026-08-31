@@ -1313,6 +1313,9 @@ class G2PRegisterChangeRequestService(BaseService):
         for key, value in schema_data.items():
             if key not in change_payload or key in {"internal_record_id", "edit_action"} or key not in mapper.columns:
                 continue
+            # Empty/null parent link means omit, not clear the existing parent.
+            if key == "link_internal_record_id" and not value:
+                continue
             value = self._normalize_model_value(value, key, mapper)
             setattr(existing, key, value)
 

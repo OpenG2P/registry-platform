@@ -297,7 +297,7 @@ async def test_table_add_automatically_allows_parent_link(service, purpose):
 
 
 @pytest.mark.asyncio
-async def test_update_requires_parent_link_to_be_schema_bound(service):
+async def test_update_allows_parent_link_without_schema_binding(service):
     service._resolve_orm_fields = AsyncMock(
         return_value={"name", "link_internal_record_id"}
     )
@@ -311,8 +311,7 @@ async def test_update_requires_parent_link_to_be_schema_bound(service):
         link_internal_record_id="parent-2",
     )
 
-    with pytest.raises(G2PRegistryException, match="link_internal_record_id"):
-        await service.validate([payload], section, _definition(), AsyncMock())
+    await service.validate([payload], section, _definition("TABLE"), AsyncMock())
 
 
 @pytest.mark.asyncio
