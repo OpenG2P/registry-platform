@@ -4,6 +4,7 @@ from fastapi import Request
 from iam_core.user_auth.decorators import require_permissions
 from openg2p_fastapi_common.controller import BaseController
 
+from ..audit_context import set_audit
 from ..config import Settings
 from ..helpers import RequestResponseHelper
 from ..schemas import (
@@ -12,7 +13,11 @@ from ..schemas import (
     VerifyCredentialResponseBody,
     VerifyCredentialResultPayload,
 )
-from ..services import CredentialVerificationError, CredentialVerificationService
+from ..services import (
+    CredentialVerificationError,
+    CredentialVerificationService,
+    subject_id,
+)
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -60,7 +65,15 @@ class VcVerificationController(BaseController):
         qr = (payload.qr_payload or "").strip()
         credential = (payload.credential_json or "").strip()
 
+        set_audit(
+            request,
+            action="verify_credential",
+            resource_type="verifiable_credential",
+        )
+
         if not qr and not credential:
+            set_audit(request, outcome="failure",
+                      detail={"reason": "no payload supplied"})
             return self.helper.error(
                 VerifyCredentialResponse,
                 VerifyCredentialResponseBody,
@@ -76,7 +89,10 @@ class VcVerificationController(BaseController):
         except CredentialVerificationError as error:
             # An unreachable or erroring verifier is NOT "this credential is
             # invalid" — reporting it that way would have an agent turn away a
-            # citizen holding a perfectly good card.
+            # citizen holding a perfectly good card. The audit has to keep them
+            # apart too, or an outage reads as a wave of forged credentials.
+            set_audit(request, outcome="failure",
+                      detail={"error_code": error.code, "reason": error.message})
             return self.helper.error(
                 VerifyCredentialResponse,
                 VerifyCredentialResponseBody,
@@ -84,6 +100,23 @@ class VcVerificationController(BaseController):
                 error.message,
                 verify_request,
             )
+
+        # What was actually checked, and what the answer was. Without this the
+        # trail cannot distinguish a genuine credential from a forged one: both
+        # are HTTP 200.
+        claims = result.get("claims")
+        set_audit(
+            request,
+            resource_id=subject_id(claims),
+            outcome="success" if result["verified"] else "failure",
+            detail={
+                "verification_status": result["status"],
+                "verified": result["verified"],
+                # Enough to tie the event to a card without copying the
+                # citizen's details into the audit store.
+                "credential_issuer": (claims or {}).get("Issuer"),
+            },
+        )
 
         return self.helper.success(
             VerifyCredentialResponse,

@@ -33,8 +33,11 @@
   --color-danger: #c0392b;
   --color-success: #27ae60;
 
-  --font-body: "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading: "Roboto Slab", Georgia, serif;
+  /* next/font supplies --font-roboto / --font-roboto-slab from layout.tsx. The
+     literal names are kept as the next fallback so the tokens still resolve if a
+     page renders outside the font-variable scope. */
+  --font-body: var(--font-roboto), "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: var(--font-roboto-slab), "Roboto Slab", Georgia, serif;
 
   --radius-sm: 4px;
   --radius-md: 8px;

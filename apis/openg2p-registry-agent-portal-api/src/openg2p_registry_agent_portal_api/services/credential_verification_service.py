@@ -7,6 +7,7 @@ import httpx
 from openg2p_fastapi_common.service import BaseService
 
 from ..config import Settings
+from .cwt_claims import decode_claims
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -108,10 +109,25 @@ class CredentialVerificationService(BaseService):
             ) from error
 
         status = self._status_of(body)
+        verified = status == "SUCCESS"
+
+        # verify-service answers with the verdict and nothing else -- no payload,
+        # no claims -- so reading them off its response (as this did) always
+        # yielded None and the screen showed a bare "Valid". An agent cannot act
+        # on that: it says the card is genuine without saying whose it is.
+        # Decode the CWT ourselves for display only; the verdict above is still
+        # entirely verify-service's.
+        claims = body.get("payload") or body.get("claims")
+        if not claims and verified and not is_credential_json:
+            # Only once verified. Rendering the contents of a token that failed
+            # its signature check would put attacker-chosen text on screen next
+            # to a red cross, which is asking to be misread.
+            claims = decode_claims(payload)
+
         return {
-            "verified": status == "SUCCESS",
+            "verified": verified,
             "status": status,
-            "claims": body.get("payload") or body.get("claims") or None,
+            "claims": claims or None,
             "raw": body,
         }
 

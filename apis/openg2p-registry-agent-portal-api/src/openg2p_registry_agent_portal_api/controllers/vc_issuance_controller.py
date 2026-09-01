@@ -5,6 +5,7 @@ from fastapi import Request, Response
 from iam_core.user_auth.decorators import require_permissions
 from openg2p_fastapi_common.controller import BaseController
 
+from ..audit_context import set_audit
 from ..config import Settings
 from ..helpers import RequestResponseHelper
 from ..schemas import (
@@ -132,6 +133,7 @@ class VcIssuanceController(BaseController):
     @require_permissions({ISSUE_PERMISSION})
     async def get_vc_types(self, request: Request) -> VcTypesResponse:
         """What this deployment can issue — drives the agent's type selector."""
+        set_audit(request, action="list_vc_types", resource_type="vc_definition")
         types = [
             VcTypeInfo(config_id=d.config_id, display_name=d.display_name or d.config_id)
             for d in _config.vc_definitions
@@ -145,6 +147,12 @@ class VcIssuanceController(BaseController):
         self, request: Request, lookup_request: LookupBeneficiaryRequest
     ) -> LookupBeneficiaryResponse:
         payload = lookup_request.request_body.request_payload
+        # Looking a citizen up by national id is the agent action most worth
+        # being able to review later, so record the record it resolved to. The
+        # national id itself is deliberately NOT stored: the audit trail should
+        # let someone retrace what was done without becoming a second copy of
+        # the registry's identifiers.
+        set_audit(request, action="lookup_beneficiary", resource_type="registry_record")
         vc = _config.get_vc_definition()
         if vc is None:
             return self.helper.error(
@@ -160,6 +168,11 @@ class VcIssuanceController(BaseController):
                 LookupBeneficiaryResponse, LookupBeneficiaryResponseBody,
                 error.code, error.message, lookup_request,
             )
+        set_audit(
+            request,
+            resource_id=str(row[vc.record_id_column]),
+            detail={"eligible": reason is None, "reason": reason},
+        )
         result = LookupBeneficiaryResultPayload(
             internal_record_id=str(row[vc.record_id_column]),
             register_id=self._register_id(payload.register_id, row),
@@ -176,6 +189,14 @@ class VcIssuanceController(BaseController):
         self, request: Request, auth_request: StartAuthenticationRequest
     ) -> StartAuthenticationResponse:
         payload = auth_request.request_body.request_payload
+        # The beneficiary's consent step. Worth its own event: it names the
+        # record whose authentication was demanded, and by whom.
+        set_audit(
+            request,
+            action="start_beneficiary_authentication",
+            resource_type="registry_record",
+            resource_id=payload.internal_record_id,
+        )
         register_id = self._register_id(payload.register_id)
         if not register_id:
             return self.helper.error(
@@ -229,10 +250,21 @@ class VcIssuanceController(BaseController):
         self, request: Request, status_request: AuthenticationStatusRequest
     ) -> AuthenticationStatusResponse:
         payload = status_request.request_body.request_payload
+        # Polled every couple of seconds while the agent waits, so it is the
+        # noisiest event in the store. Kept because the moment a beneficiary
+        # authorises is exactly what an issuance is later justified by.
+        set_audit(
+            request,
+            action="check_beneficiary_authentication",
+            resource_type="registry_record",
+            resource_id=payload.internal_record_id,
+        )
         auth, authorised, reason, remaining = await self.beneficiary_auth_service.authorisation(
             internal_record_id=payload.internal_record_id,
             authentication_id=payload.authentication_id,
         )
+        set_audit(request, detail={"authorised": authorised,
+                                  "status": auth.status if auth else "NONE"})
         result = AuthenticationStatusResultPayload(
             authentication_id=auth.authentication_id if auth else None,
             status=auth.status if auth else "NONE",
@@ -257,7 +289,25 @@ class VcIssuanceController(BaseController):
         payload = issue_request.request_body.request_payload
         agent_id = self._agent_id(request)
 
+        # `g2p_vc_issuances` already records the successful issuances. The audit
+        # event is the other half: it survives independently of the registry
+        # database and covers the attempts that never became a row.
+        set_audit(
+            request,
+            action="issue_credential",
+            resource_type="verifiable_credential",
+            resource_id=payload.internal_record_id,
+            detail={"vc_type": payload.vc_type,
+                    "reprint_of": payload.reprint_of},
+        )
+
         def fail(code: str, message: str, status_code: int = 400):
+            # Every exit through here is a credential NOT issued, each for a
+            # different reason -- unknown type, beneficiary not authenticated,
+            # Certify refused, PDF failed. The reason is the whole value of the
+            # record, so carry it rather than just the status.
+            set_audit(request, outcome="failure",
+                      detail={"error_code": code, "reason": message})
             return Response(
                 content=self.helper.error(
                     IssueVcResponse, IssueVcResponseBody, code, message, issue_request
@@ -332,6 +382,18 @@ class VcIssuanceController(BaseController):
             credential_id=self.issuance_log_service.credential_id_of(credential),
             authentication_id=auth.authentication_id if auth else None,
             reprint_of=payload.reprint_of,
+        )
+
+        set_audit(
+            request,
+            outcome="success",
+            subject=register_id or None,
+            detail={
+                "issuance_id": entry.issuance_id,
+                "credential_id": entry.credential_id,
+                "vc_type": vc.config_id,
+                "authentication_id": auth.authentication_id if auth else None,
+            },
         )
 
         filename = f"{vc.config_id}-{entry.issuance_id}.pdf"

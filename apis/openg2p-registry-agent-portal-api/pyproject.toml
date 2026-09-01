@@ -20,6 +20,8 @@ dependencies = [
   "psycopg2",
   "httpx",
   "cryptography",
+  # Decodes the claim-169 CWT so the verify screen can show what was checked.
+  "cbor2",
   "qrcode",
   "pillow",
   "cairosvg",

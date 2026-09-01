@@ -60,6 +60,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.routing import Match
 
+from .audit_context import get_audit
 from .config import Settings
 
 _config = Settings.get_config()
@@ -184,12 +185,25 @@ class AuditMiddleware(BaseHTTPMiddleware):
         return self._client
 
     def _match_route(self, request: Request) -> Any | None:
-        """Match the request to its FastAPI route (mirrors ResolvePermissionMiddleware)."""
+        """Match the request to its FastAPI route.
+
+        Prefer the route the router itself resolved. Starlette records it on the
+        scope while dispatching, and by the time we run -- after call_next -- it
+        is there. The manual scan below is the fallback, and on its own it was
+        matching nothing: every event recorded action=unknown and a CloudEvent
+        type of ...agent_portal.unknown, on both this API and the staff one.
+        """
+        route = request.scope.get("route")
+        if route is not None:
+            return route
         router = getattr(request.app, "router", None)
-        for route in getattr(router, "routes", []):
-            match, _ = route.matches(request.scope)
+        for candidate in getattr(router, "routes", []):
+            try:
+                match, _ = candidate.matches(request.scope)
+            except Exception:  # a route type that cannot match this scope
+                continue
             if match == Match.FULL:
-                return route
+                return candidate
         return None
 
     # ---------- audit decision ----------
@@ -342,8 +356,14 @@ class AuditMiddleware(BaseHTTPMiddleware):
         if route is not None and getattr(route, "endpoint", None) is not None:
             func_name = route.endpoint.__name__
 
-        # First word of the function name as the action verb (best effort).
-        action = func_name.split("_", 1)[0] if "_" in func_name else func_name
+        # The handler's own account of what it did, where it knows.
+        declared = get_audit(request)
+
+        # Fall back to the endpoint name. Note this is the WHOLE name, not its
+        # first word: splitting on "_" turned verify_credential into "verify"
+        # and issue_credential into "issue", discarding the noun that made the
+        # verb meaningful.
+        action = declared.get("action") or func_name
 
         # Build context, plus a `reason` when the inner stack raised.
         context: dict = {
@@ -352,12 +372,21 @@ class AuditMiddleware(BaseHTTPMiddleware):
             "http_status": status_code,
             "request_id": request.headers.get("x-request-id"),
         }
+        if declared.get("detail"):
+            context["detail"] = declared["detail"]
+
         data: dict = {
             "actor": actor,
             "action": action,
-            "outcome": _status_to_outcome(status_code),
+            # A handler may override the verdict. A credential that fails
+            # verification returns HTTP 200 -- the call worked -- but filing it
+            # as `success` puts forged cards in the same bucket as genuine ones.
+            "outcome": declared.get("outcome") or _status_to_outcome(status_code),
             "context": context,
         }
+        for field in ("resource_type", "resource_id", "subject"):
+            if declared.get(field):
+                data[field] = declared[field]
         if raised is not None:
             # Capture exception class + truncated message into reason so
             # ops can grep for "JWKS" / "Connection refused" / etc. without
