@@ -10,7 +10,7 @@
  *   - Light grey #F6F6F6 — surfaces
  *   - Blue    #2A477A  — rarely
  *
- * Fonts: Roboto (body) + Roboto Slab (headings).
+ * Font: Roboto throughout, matching the staff portal.
  */
 
 :root {
@@ -33,11 +33,12 @@
   --color-danger: #c0392b;
   --color-success: #27ae60;
 
-  /* next/font supplies --font-roboto / --font-roboto-slab from layout.tsx. The
-     literal names are kept as the next fallback so the tokens still resolve if a
-     page renders outside the font-variable scope. */
+  /* next/font supplies --font-roboto from layout.tsx; the literal name is kept as
+     the next fallback so the tokens still resolve outside that scope. Headings
+     use the same face as body -- weight and size separate them, not a second
+     family, which is how the staff portal does it. */
   --font-body: var(--font-roboto), "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading: var(--font-roboto-slab), "Roboto Slab", Georgia, serif;
+  --font-heading: var(--font-roboto), "Roboto", -apple-system, BlinkMacSystemFont, sans-serif;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -219,7 +220,7 @@ button {
 }
 
 .app-title {
-  font-family: var(--font-heading, serif);
+  font-family: var(--font-heading);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -246,7 +247,7 @@ main {
 .card[aria-disabled="true"] { opacity: 0.55; }
 
 .card h2 {
-  font-family: var(--font-heading, serif);
+  font-family: var(--font-heading);
   font-size: 1rem;
   margin: 0 0 0.6rem;
   color: var(--color-black, #061327);

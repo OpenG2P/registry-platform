@@ -1,29 +1,27 @@
 import type { Metadata } from "next";
-import { Roboto, Roboto_Slab } from "next/font/google";
+import { Roboto } from "next/font/google";
 
 import { AuthProvider } from "@/context/Authcontext";
 
 import "./globals.css";
 
-// Branding mandates Roboto (body) and Roboto Slab (headings). globals.css named
-// both from the start but nothing ever loaded them, so every weight fell through
-// to the local fallback -- San Francisco for body, Georgia for headings. Loaded
-// here the same way the staff portal does it: next/font fetches at BUILD time and
-// self-hosts the result, so the running pod never needs to reach fonts.google.com.
+// Roboto, everywhere -- the same single face the staff portal loads, so the two
+// portals read as one product rather than two.
+//
+// globals.css named Roboto and Roboto Slab from the start but nothing ever
+// LOADED either, so every weight fell through to the local fallback: San
+// Francisco for body and Georgia for headings, neither of them brand fonts.
+// Branding does list Roboto Slab as a second face, but staff uses only Roboto
+// and a slab serif for headings reads as a different product next to it.
+//
+// next/font fetches at BUILD time and self-hosts the result, so the running pod
+// never needs to reach fonts.google.com.
 const roboto = Roboto({
     weight: ["300", "400", "500", "700"],
     style: ["normal"],
     subsets: ["latin"],
     display: "swap",
     variable: "--font-roboto",
-});
-
-const robotoSlab = Roboto_Slab({
-    weight: ["400", "500", "700"],
-    style: ["normal"],
-    subsets: ["latin"],
-    display: "swap",
-    variable: "--font-roboto-slab",
 });
 
 export const metadata: Metadata = {
@@ -33,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="en" className={`${roboto.variable} ${robotoSlab.variable}`}>
+        <html lang="en" className={roboto.variable}>
             <body>
                 <AuthProvider>{children}</AuthProvider>
             </body>
