@@ -3,9 +3,9 @@ import uuid
 from datetime import datetime
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from ..models import (
@@ -33,7 +33,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, outgoing_topic_payload: OutgoingTopicPayload
     ) -> OutgoingTopicData:
         """Create a new outgoing topic"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_id_exists(session, outgoing_topic_payload.register_id)
             await self._validate_data_model_id_exists(session, outgoing_topic_payload.data_model_id)
@@ -56,7 +56,7 @@ class G2POutgestionConfigurationService(BaseService):
 
     async def get_outgoing_topic(self, topic_id: str) -> OutgoingTopicData:
         """Get outgoing topic by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             topic_obj = await self._get_outgoing_topic(topic_id, session)
             return await self._build_topic_data_with_mnemonics(session, topic_obj)
@@ -65,7 +65,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, current_page: int, page_size: int
     ) -> tuple[list[OutgoingTopicData], int, int]:
         """Get paginated outgoing topics."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             offset = (current_page - 1) * page_size
             total_items_result = await session.execute(
@@ -94,7 +94,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, outgoing_topic_payload: OutgoingTopicUpdatePayload
     ) -> OutgoingTopicData:
         """Update outgoing topic - only updates provided fields"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             topic_obj = await self._get_outgoing_topic(outgoing_topic_payload.topic_id, session)
 
@@ -116,7 +116,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, topic_id: str
     ) -> OutgoingTopicData:
         """Toggle outgoing topic status"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             topic_obj = await self._get_outgoing_topic(topic_id, session)
 
@@ -133,7 +133,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, topic_id: str
     ) -> OutgoingTopicData:
         """Re-register outgoing topic"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             topic_obj = await self._get_outgoing_topic(topic_id, session)
 
@@ -149,7 +149,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, topic_id: str
     ) -> OutgoingTopicData:
         """Delete outgoing topic"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             topic_obj = await self._get_outgoing_topic(topic_id, session)
             if(topic_obj.is_active):
@@ -166,7 +166,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, template_payload: OutgoingTemplatePayload
     ) -> OutgoingTemplateData:
         """Create a new outgoing template (stores pre-uploaded template_document_id)."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_id_exists(session, template_payload.register_id)
             await self._validate_data_model_id_exists(session, template_payload.data_model_id)
@@ -187,7 +187,7 @@ class G2POutgestionConfigurationService(BaseService):
 
     async def get_template(self, template_id: str) -> OutgoingTemplateData:
         """Get outgoing template by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             template_obj = await self._get_outgoing_template(session, template_id)
             return await self._build_template_data_with_mnemonics(session, template_obj)
@@ -196,7 +196,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, current_page: int, page_size: int
     ) -> tuple[list[OutgoingTemplateData], int, int]:
         """Get paginated outgoing templates."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             offset = (current_page - 1) * page_size
             total_items_result = await session.execute(
@@ -225,7 +225,7 @@ class G2POutgestionConfigurationService(BaseService):
         self, template_update_payload: OutgoingTemplateUpdatePayload
     ) -> OutgoingTemplateData:
         """Update outgoing template"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             template_obj = await self._get_outgoing_template(
                 session, template_update_payload.template_id
@@ -249,7 +249,7 @@ class G2POutgestionConfigurationService(BaseService):
 
     async def delete_template(self, template_id: str) -> OutgoingTemplateData:
         """Delete outgoing template by ID and return deleted data."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             template_obj = await self._get_outgoing_template(session, template_id)
             deleted_template_data = await self._build_template_data_with_mnemonics(

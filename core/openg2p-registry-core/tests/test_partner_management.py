@@ -4,7 +4,7 @@ import asyncio
 import importlib
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from unittest.mock import patch
 
 import httpx
@@ -25,6 +25,18 @@ for _name in list(sys.modules):
     ):
         sys.modules.pop(_name)
 importlib.invalidate_caches()
+
+# Stub BaseService with get_component classmethod BEFORE importing
+fastapi_service = sys.modules.get("openg2p_fastapi_common.service") or ModuleType("openg2p_fastapi_common.service")
+if "openg2p_fastapi_common.service" not in sys.modules:
+    sys.modules["openg2p_fastapi_common.service"] = fastapi_service
+
+class BaseService:
+    @classmethod
+    def get_component(cls):
+        return cls()
+
+fastapi_service.BaseService = BaseService
 
 from openg2p_registry_core.errors import G2PRegistryException
 from openg2p_registry_core.helpers.partner_management import (

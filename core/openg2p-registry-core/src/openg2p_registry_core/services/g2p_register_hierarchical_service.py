@@ -3,11 +3,13 @@ import importlib
 from typing import Optional, Any
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 
 from sqlalchemy import select, inspect as sa_inspect
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
+from ..config import Settings
+from ..helpers.orm_cache import pair_id_key_builder, single_id_key_builder
 from ..models import G2PRegisterDefinition, G2PRegisterSection, G2PRegisterUITabSection, G2PRegisterSectionCompletionScore, RegisterPurposeEnum
 from ..schemas import RecordData, RegisterTabRecordData, AllowedParentsData, AllowedParentRecordData
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -43,7 +45,7 @@ class G2PRegisterHierarchicalService(BaseService):
         Returns:
             List of RecordData from the section register
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate both registers exist
             subject_register: G2PRegisterDefinition = await self._validate_register_definition(
@@ -656,7 +658,7 @@ class G2PRegisterHierarchicalService(BaseService):
         Returns:
             List of RegisterTabRecordData, one per unique section_register_id
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate subject register exists
             subject_register: G2PRegisterDefinition = await self._validate_register_definition(subject_register_id, session)
@@ -861,7 +863,7 @@ class G2PRegisterHierarchicalService(BaseService):
             allowed_parents=[]
         )
 
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # 1. Validate subject register exists
             await self._validate_register_definition(subject_register_id, session)

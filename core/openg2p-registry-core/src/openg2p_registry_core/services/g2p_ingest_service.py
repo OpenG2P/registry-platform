@@ -9,7 +9,6 @@ from openg2p_fastapi_common.context import dbengine
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..helpers import PartnerManagementClient, PatternMatcher
 from ..helpers.partner_management import RegisteredPartner
@@ -35,7 +34,7 @@ class G2PIngestService(BaseService):
         intake_form_id: Optional[str] = None,
     ) -> Tuple[str, Optional[str]]:
         _logger.info("Starting data ingestion with received request")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             data_model: DataModel = await self._get_data_model(ingest_data, data_model_mnemonic, session)

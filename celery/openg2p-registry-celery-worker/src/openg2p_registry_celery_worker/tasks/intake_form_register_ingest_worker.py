@@ -50,7 +50,7 @@ _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
-_async_engine = Engine.get_async_engine()
+_session_maker = Engine.get_async_session_maker()
 _loop = asyncio.new_event_loop()
 asyncio.set_event_loop(_loop)
 
@@ -61,7 +61,7 @@ def intake_form_register_ingest_worker(submission_id: str) -> None:
 
 
 async def _process_submission_async(submission_id: str) -> None:
-    session_maker = async_sessionmaker(bind=_async_engine, expire_on_commit=False)
+    session_maker = _session_maker
     try:
         async with session_maker() as session:
             async with session.begin():

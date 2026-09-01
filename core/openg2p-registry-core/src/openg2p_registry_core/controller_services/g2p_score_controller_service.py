@@ -1,8 +1,6 @@
 import logging
 
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 
 from ..schemas import (
@@ -28,7 +26,7 @@ class G2PScoreControllerService(BaseService):
 
         try:
             g2p_score_compute_service = G2PScoreComputeService.get_component()
-            session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+            session_maker = get_async_session_maker()
             async with session_maker() as session:
                 scores_data = await g2p_score_compute_service.get_scores_for_record(
                     link_internal_record_id=link_internal_record_id, session=session
@@ -52,7 +50,7 @@ class G2PScoreControllerService(BaseService):
         score_type: str = score_history_request_payload.score_type
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             score_history_data = await g2p_score_compute_service.get_score_history_for_record(
                 link_internal_record_id=link_internal_record_id,
