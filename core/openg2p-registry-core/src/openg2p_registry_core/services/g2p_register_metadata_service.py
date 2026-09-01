@@ -8,7 +8,7 @@ from openg2p_fastapi_common.service import BaseService
 
 from ..config import Settings
 from ..errors import G2PRegistryException
-from ..helpers.orm_cache import pair_id_key_builder, single_id_key_builder
+from ..helpers.orm_cache import optional_id_key_builder, pair_id_key_builder, single_id_key_builder
 from ..models import (
     G2PIntakeFormUITabSection,
     G2PRegisterDefinition,
@@ -78,6 +78,28 @@ class G2PRegisterMetadataService(BaseService):
         register_id: str | None = None,
         current_page: int | None = None,
         page_size: int | None = None,
+    ) -> tuple[list[G2PRegisterUITabData], int, int]:
+        # Locust / UI call unpaginated — cache the full assembled payload per register.
+        if current_page is None or page_size is None:
+            return await self._get_cached_all_tabs(register_id)
+        return await self._assemble_all_tabs(register_id, current_page, page_size)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=optional_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_all_tabs(
+        self, register_id: str | None = None
+    ) -> tuple[list[G2PRegisterUITabData], int, int]:
+        """Full tab list for a register (static metadata). Shared across users."""
+        return await self._assemble_all_tabs(register_id, None, None)
+
+    async def _assemble_all_tabs(
+        self,
+        register_id: str | None,
+        current_page: int | None,
+        page_size: int | None,
     ) -> tuple[list[G2PRegisterUITabData], int, int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
@@ -391,6 +413,28 @@ class G2PRegisterMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[G2PRegisterSectionData], int, int]:
+        # Locust / UI call unpaginated — cache the full assembled payload per register.
+        if current_page is None or page_size is None:
+            return await self._get_cached_all_sections(register_id)
+        return await self._assemble_all_sections(register_id, current_page, page_size)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_all_sections(
+        self, register_id: str
+    ) -> tuple[list[G2PRegisterSectionData], int, int]:
+        """Full section list for a register (static metadata). Shared across users."""
+        return await self._assemble_all_sections(register_id, None, None)
+
+    async def _assemble_all_sections(
+        self,
+        register_id: str,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list[G2PRegisterSectionData], int, int]:
         sections = await self._get_sections(
             register_id=register_id,
             include_ui_schema=True,
@@ -399,7 +443,10 @@ class G2PRegisterMetadataService(BaseService):
             current_page=current_page,
             page_size=page_size,
         )
-        total_items = await self._count_sections(register_id)
+        if current_page is None or page_size is None:
+            total_items = len(sections)
+        else:
+            total_items = await self._count_sections(register_id)
         number_of_pages = 1
         if page_size and page_size > 0:
             number_of_pages = (total_items + page_size - 1) // page_size

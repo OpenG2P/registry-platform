@@ -1,9 +1,13 @@
 import logging
 
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 from sqlalchemy import func, select
 from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 
+from ..config import Settings
+from ..helpers.orm_cache import optional_id_key_builder, single_id_key_builder
 from ..models import (
     G2PIntakeFormDefinition,
     G2PIntakeFormUITab,
@@ -26,6 +30,7 @@ from ..schemas import (
 from .g2p_register_metadata_service import G2PRegisterMetadataService
 
 _logger = logging.getLogger("g2p-intake-form-metadata-service")
+_config = Settings.get_config(strict=False)
 
 
 class G2PIntakeFormMetadataService(BaseService):
@@ -188,6 +193,15 @@ class G2PIntakeFormMetadataService(BaseService):
             )
 
     async def render_intake_form(self, form_id: str) -> IntakeFormRenderedData:
+        return await self._get_cached_render_intake_form(form_id)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_render_intake_form(self, form_id: str) -> IntakeFormRenderedData:
+        """Full rendered intake form (static metadata). Shared across users."""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             intake_form = await self._validate_intake_form(form_id, session)
@@ -324,6 +338,27 @@ class G2PIntakeFormMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[IntakeFormUITabData], int]:
+        if current_page is None or page_size is None:
+            return await self._get_cached_all_tabs(form_id)
+        return await self._assemble_all_tabs(form_id, current_page, page_size)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=optional_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_all_tabs(
+        self, form_id: str | None = None
+    ) -> tuple[list[IntakeFormUITabData], int]:
+        """Full intake-form tab list (static metadata). Shared across users."""
+        return await self._assemble_all_tabs(form_id, None, None)
+
+    async def _assemble_all_tabs(
+        self,
+        form_id: str | None,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list[IntakeFormUITabData], int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             query = select(G2PIntakeFormUITab).order_by(
@@ -341,7 +376,10 @@ class G2PIntakeFormMetadataService(BaseService):
             query = self._apply_pagination(query, current_page, page_size)
 
             tabs = (await session.execute(query)).scalars().all()
-            total_items = (await session.execute(count_query)).scalar_one()
+            if current_page is None or page_size is None:
+                total_items = len(tabs)
+            else:
+                total_items = (await session.execute(count_query)).scalar_one()
             return [
                 IntakeFormUITabData(
                     tab_id=tab.tab_id,
@@ -412,6 +450,27 @@ class G2PIntakeFormMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[IntakeFormUITabSectionData], int]:
+        if current_page is None or page_size is None:
+            return await self._get_cached_all_sections(tab_id)
+        return await self._assemble_all_sections(tab_id, current_page, page_size)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=optional_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_all_sections(
+        self, tab_id: str | None = None
+    ) -> tuple[list[IntakeFormUITabSectionData], int]:
+        """Full intake-form tab-section list (static metadata). Shared across users."""
+        return await self._assemble_all_sections(tab_id, None, None)
+
+    async def _assemble_all_sections(
+        self,
+        tab_id: str | None,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list[IntakeFormUITabSectionData], int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             query = (
@@ -439,7 +498,10 @@ class G2PIntakeFormMetadataService(BaseService):
             query = self._apply_pagination(query, current_page, page_size)
 
             rows = (await session.execute(query)).all()
-            total_items = (await session.execute(count_query)).scalar_one()
+            if current_page is None or page_size is None:
+                total_items = len(rows)
+            else:
+                total_items = (await session.execute(count_query)).scalar_one()
 
             return [
                 IntakeFormUITabSectionData(

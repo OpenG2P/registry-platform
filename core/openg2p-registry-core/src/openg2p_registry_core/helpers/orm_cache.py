@@ -51,6 +51,15 @@ def single_id_key_builder(func, namespace: str, *args, **kwargs):
     return f"{namespace}:{_func_name(func)}:{entity_id}"
 
 
+def optional_id_key_builder(func, namespace: str, *args, **kwargs):
+    """Key from first optional id arg (after self); None/missing → 'all'. Ignores session."""
+    try:
+        entity_id = _call_arg(func, kwargs, 0)
+    except (IndexError, KeyError):
+        entity_id = None
+    return f"{namespace}:{_func_name(func)}:{entity_id if entity_id is not None else 'all'}"
+
+
 def pair_id_key_builder(func, namespace: str, *args, **kwargs):
     """Unique key from first two id args (after self); ignores session. Includes func name."""
     first = _call_arg(func, kwargs, 0)
