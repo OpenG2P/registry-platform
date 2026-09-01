@@ -12,8 +12,6 @@ type ParentLookupPageResult = {
   pagination: Record<string, any>;
 };
 
-const parentLookupPageCache = new Map<string, ParentLookupPageResult>();
-const parentLookupPageInflight = new Map<string, Promise<ParentLookupPageResult>>();
 const parentLookupRecordCache = new Map<string, Record<string, any>>();
 
 const parsePagination = (
@@ -50,12 +48,14 @@ const indexParentRecords = (rows: Record<string, any>[]) => {
   }
 };
 
-const buildParentLookupCacheKey = (
-  service: string,
-  endpoint: string,
-  method: string,
-  params: Record<string, any>,
-) => `${service}|${endpoint}|${method}|${JSON.stringify(params)}`;
+const hasFilledParams = (params: Record<string, unknown> | undefined | null): boolean => {
+  if (!params) return false;
+  const values = Object.values(params);
+  if (values.length === 0) return false;
+  return values.every(
+    (value) => value !== null && value !== undefined && String(value).trim() !== '',
+  );
+};
 
 const fetchParentLookupPage = async (
   handler: DataSourceRequestHandler,
@@ -65,36 +65,13 @@ const fetchParentLookupPage = async (
   params: Record<string, any>,
   headers?: Record<string, string>,
 ): Promise<ParentLookupPageResult> => {
-  const resolvedMethod = method || 'POST';
-  const cacheKey = buildParentLookupCacheKey(service, endpoint, resolvedMethod, params);
-
-  const cached = parentLookupPageCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  const inflight = parentLookupPageInflight.get(cacheKey);
-  if (inflight) {
-    return inflight;
-  }
-
-  const fetchPromise = (async () => {
-    const result = await handler(service, endpoint, resolvedMethod, params, { headers });
-    const parsed: ParentLookupPageResult = {
-      rows: (result?.records ?? []) as Record<string, any>[],
-      pagination: (result?.pagination ?? {}) as Record<string, any>,
-    };
-    indexParentRecords(parsed.rows);
-    parentLookupPageCache.set(cacheKey, parsed);
-    return parsed;
-  })();
-
-  parentLookupPageInflight.set(cacheKey, fetchPromise);
-  try {
-    return await fetchPromise;
-  } finally {
-    parentLookupPageInflight.delete(cacheKey);
-  }
+  const result = await handler(service, endpoint, method || 'POST', params, { headers });
+  const parsed: ParentLookupPageResult = {
+    rows: (result?.records ?? []) as Record<string, any>[],
+    pagination: (result?.pagination ?? {}) as Record<string, any>,
+  };
+  indexParentRecords(parsed.rows);
+  return parsed;
 };
 
 export const ParentLookupWidget = ({
@@ -148,6 +125,16 @@ export const ParentLookupWidget = ({
     return merged;
   }, [hostContext, dataSource?.params]);
 
+  const canFetch = useMemo(
+    () =>
+      hasFilledParams(hostContext) &&
+      hasFilledParams(dataSource?.params) &&
+      !!dataSource?.service &&
+      !!dataSource?.endpoint &&
+      !!dataSourceRequestHandler,
+    [hostContext, dataSource, dataSourceRequestHandler],
+  );
+
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState<Record<string, any>[]>([]);
@@ -167,7 +154,7 @@ export const ParentLookupWidget = ({
 
   const fetchRecords = useCallback(
     async (text: string, page: number, size: number) => {
-      if (!dataSource?.service || !dataSource?.endpoint || !dataSourceRequestHandler) {
+      if (!canFetch || !dataSource?.service || !dataSource?.endpoint || !dataSourceRequestHandler) {
         return { rows: [] as Record<string, any>[], pagination: {} as Record<string, any> };
       }
       return fetchParentLookupPage(
@@ -184,7 +171,7 @@ export const ParentLookupWidget = ({
         dataSource.headers,
       );
     },
-    [dataSource, dataSourceRequestHandler, requestParams],
+    [canFetch, dataSource, dataSourceRequestHandler, requestParams],
   );
 
   const findRecordByValue = useCallback(
@@ -298,7 +285,7 @@ export const ParentLookupWidget = ({
       setIsHydrating(false);
       return;
     }
-    if (!dataSource?.service || !dataSource?.endpoint || !dataSourceRequestHandler) return;
+    if (!canFetch) return;
     if (hydratedValueRef.current === value) return;
 
     let cancelled = false;
@@ -325,7 +312,7 @@ export const ParentLookupWidget = ({
       cancelled = true;
       setIsHydrating(false);
     };
-  }, [hasValue, value, dataSource, dataSourceRequestHandler, findRecordByValue]);
+  }, [hasValue, value, canFetch, findRecordByValue]);
 
   const isReadonly = !!widgetConfig['widget-readonly'];
   const rawLabel = widgetConfig['widget-label'];
@@ -442,7 +429,7 @@ export const ParentLookupWidget = ({
 
   if (isReadonly && isCompact) {
     return (
-      <span className="text-sm text-gray-900 truncate block">
+      <span className="text-sm truncate block" style={{ color: 'inherit' }}>
         {hasValue ? displayName : '-'}
       </span>
     );

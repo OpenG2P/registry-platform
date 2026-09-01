@@ -186,7 +186,7 @@ export default function RegisterTypePage() {
     };
 
     const handleRetry = async (record: ExportQueueRecord) => {
-        const format: ExportFormat = record.export_format === 'CSV' ? 'CSV' : 'XLSX';
+        const format: ExportFormat = record.export_format === 'ZIP_CSV' ? 'ZIP_CSV' : 'XLSX';
         const payload = buildPayload(format, 'all');
         if (!payload) return;
         const result = await enqueue(payload);

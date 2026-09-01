@@ -71,22 +71,32 @@ export function normalizeEditActions(
 }
 
 
-export function intakeNormalisedRecords(records: any[], InternalRecordId?: string) {
+export function intakeNormalisedRecords(
+    records: any[],
+    InternalRecordId?: string,
+    listRecordIds?: string[],
+) {
     if (!Array.isArray(records)) return [];
 
-    return records.map((record) => {
+    return records.map((record, index) => {
         const result = { ...record };
 
+        const existingId = listRecordIds?.[index] || InternalRecordId;
+
         if (result.edit_action == null) {
-            result.edit_action = "ADD";
+            if (existingId) {
+                result.edit_action = "UPDATE";
+                result.internal_record_id = existingId;
+            } else {
+                result.edit_action = "ADD";
+                result.internal_record_id = "";
+            }
             if (result.link_internal_record_id == null) {
                 result.link_internal_record_id = "";
             }
-            result.internal_record_id = "";
-        }
-
-        if (InternalRecordId && !result.internal_record_id) {
-            result.internal_record_id = InternalRecordId;
+        } else if (!result.internal_record_id && existingId) {
+            result.internal_record_id = existingId;
+            result.edit_action = "UPDATE";
         }
 
         return result;

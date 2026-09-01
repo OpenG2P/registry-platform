@@ -12,7 +12,7 @@ export function useRegisterExport() {
     const enqueue = useCallback(async (payload: ExportRegisterRecordsPayload) => {
         setSubmitting(true);
         try {
-            return await execute('/api/register/export-registe-records', {
+            return await execute('/api/register/export-register-records', {
                 method: 'POST',
                 body: JSON.stringify(payload),
             });

@@ -107,11 +107,14 @@ function renderFormSteps({
       const level = step.level;
       const levelOptions = options[level.level_id] || [];
       const isLoading = loadingLevelId === level.level_id;
-      const disabled = !isEnabled || loadingLevels || isLoading;
+      const parentId = level.parent_level_id;
+      const parentUnselected = Boolean(parentId) && !selectedValues[parentId ?? ''];
+      const disabled = !isEnabled || loadingLevels || isLoading || parentUnselected;
       const levelHasValue = Boolean(selectedValues[level.level_id]);
       const showLevelError =
-        (isRequired && !isComplete && !levelHasValue) ||
-        (touched && hasError && !levelHasValue);
+        !parentUnselected &&
+        ((isRequired && !isComplete && !levelHasValue) ||
+          (touched && hasError && !levelHasValue));
       const label = formatLevelLabel(level.level_mnemonic);
 
       return (
@@ -120,7 +123,7 @@ function renderFormSteps({
             <WidgetFieldLabel
               className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
               label={label}
-              required={isRequired && (!isComplete || levelHasValue)}
+              required={isRequired}
             />
             <div className="flex-1 min-w-0">
               <select
@@ -153,19 +156,21 @@ function renderFormSteps({
       ? encodeGeoSelectValue(chosen.level_id, selectedValues[chosen.level_id])
       : '';
     const forkLoading = step.levels.some((level) => loadingLevelId === level.level_id);
-    const disabled = !isEnabled || loadingLevels || forkLoading;
+    const parentUnselected = !selectedValues[step.parentLevel.level_id];
+    const disabled = !isEnabled || loadingLevels || forkLoading || parentUnselected;
     const showLevelError =
-      (isRequired && !isComplete && !encodedValue) ||
-      (touched && hasError && !encodedValue);
+      !parentUnselected &&
+      ((isRequired && !isComplete && !encodedValue) ||
+        (touched && hasError && !encodedValue));
 
     return (
       <div key={step.key} className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-start">
-          <WidgetFieldLabel
-            className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-            label={formatLevelLabel(activeLevel.level_mnemonic)}
-            required={isRequired && (!isComplete || Boolean(encodedValue))}
-          />
+            <WidgetFieldLabel
+              className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+              label={formatLevelLabel(activeLevel.level_mnemonic)}
+              required={isRequired}
+            />
           <div className="flex-1 min-w-0">
             <select
               value={encodedValue}
