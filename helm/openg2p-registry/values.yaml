@@ -902,6 +902,26 @@ agentPortalApi:
       # Docker Hub, and Bitnami's images are no longer freely published.
       keygenImage: python:3.12-slim
       psqlImage: postgres:16-alpine
+      # Reads and writes the one Secret below; needs nothing else. alpine/k8s is
+      # what the rest of this chart set already uses for kubectl steps -- Bitnami
+      # no longer publishes these freely, so it is not an option here.
+      kubectlImage: alpine/k8s:1.31.0
+      # Keep the client keypair in a Secret as well as the registry database.
+      #
+      # The database alone is not enough. The private key is the credential
+      # eSignet authenticates this registry with, and the registry schema is
+      # rebuilt by a reinstall -- so the row disappears, the bootstrap Job sees
+      # no key, and mints a new one. That ROTATES a live credential as a side
+      # effect of reinstalling: eSignet keeps the old public half, and every
+      # beneficiary authentication then fails with `invalid_assertion`, which
+      # looks like a misconfiguration and gives no clue that a key moved.
+      #
+      # A Secret outlives the schema, so the key is restored and reused instead.
+      # Turn this off only where something else owns the keypair's lifecycle --
+      # and then expect to re-register the client on eSignet after every reseed.
+      persistKeyToSecret:
+        enabled: true
+        secretName: '{{ .Release.Name }}-registrant-auth-client-key'
       esignet:
         # Public host, used to derive the authorize/token/userinfo endpoints and
         # the issuer the provider row trusts.

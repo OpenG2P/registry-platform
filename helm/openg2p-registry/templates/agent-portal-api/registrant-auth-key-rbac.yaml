@@ -1,0 +1,70 @@
+{{- if and .Values.agentPortalApi.enabled .Values.agentPortalApi.vcIssuance.enabled .Values.agentPortalApi.vcIssuance.bootstrap.enabled }}
+{{- if .Values.agentPortalApi.vcIssuance.bootstrap.persistKeyToSecret.enabled }}
+{{- /*
+  Lets the bootstrap Job keep the eSignet client keypair in ONE Secret.
+
+  Why the key cannot live only in the registry database: it is the private half
+  of the credential eSignet authenticates this registry with, and the registry
+  schema is rebuilt by a reinstall. When that row goes, the guard in the
+  bootstrap Job sees no key and mints a fresh one -- rotating a live credential
+  as a side effect of reinstalling. eSignet then holds a public key that no
+  longer matches, and every beneficiary authentication fails with
+  `invalid_assertion`, which reads like a misconfiguration rather than a
+  rotation.
+
+  A Secret outlives the schema, so the key survives a reseed and is reused
+  instead of regenerated.
+
+  Scoped to the single Secret it maintains via resourceNames, so this token
+  cannot read or rewrite anything else in the namespace. `create` cannot be
+  restricted by resourceName -- Kubernetes evaluates it before the object name
+  is known -- which is why it sits in its own rule.
+*/ -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-registrant-auth-bootstrap
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "13"
+    "helm.sh/hook-delete-policy": before-hook-creation
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-registrant-auth-bootstrap
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "13"
+    "helm.sh/hook-delete-policy": before-hook-creation
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames:
+      - {{ tpl .Values.agentPortalApi.vcIssuance.bootstrap.persistKeyToSecret.secretName $ | quote }}
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-registrant-auth-bootstrap
+  labels: {{- include "common.labels.standard" (dict "customLabels" .Values.commonLabels "context" $) | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "13"
+    "helm.sh/hook-delete-policy": before-hook-creation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Release.Name }}-registrant-auth-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-registrant-auth-bootstrap
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

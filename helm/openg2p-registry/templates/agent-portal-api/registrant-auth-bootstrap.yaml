@@ -47,26 +47,82 @@ spec:
       name: {{ .Release.Name }}-registrant-auth-bootstrap
     spec:
       restartPolicy: Never
+{{- if $b.persistKeyToSecret.enabled }}
+      serviceAccountName: {{ .Release.Name }}-registrant-auth-bootstrap
+{{- end }}
       volumes:
         - name: keys
           emptyDir: {}
       initContainers:
-        # Generates a fresh RSA keypair. Split out because the postgres client
-        # image carries no openssl, and the seed step needs psql.
+{{- if $b.persistKeyToSecret.enabled }}
+        # Restores the keypair from the Secret, if one was kept. Runs BEFORE
+        # keygen so keygen can see whether it has anything to do.
+        #
+        # This exists because the registry schema does not survive a reinstall.
+        # With the key held only in g2p_registrant_authentication_providers, a
+        # reseed silently rotates a live credential: eSignet keeps the old public
+        # half and every beneficiary authentication then fails with
+        # `invalid_assertion` -- a failure that reads like misconfiguration and
+        # gives no hint that a key moved underneath it.
+        - name: key-restore
+          image: {{ $b.kubectlImage | quote }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              SECRET={{ tpl $b.persistKeyToSecret.secretName $ | quote }}
+              if kubectl get secret "$SECRET" >/dev/null 2>&1; then
+                kubectl get secret "$SECRET" -o jsonpath='{.data.client\.pem}' \
+                  | base64 -d > /keys/client.pem
+                echo "key-restore: reusing the keypair held in secret/$SECRET"
+              else
+                echo "key-restore: no secret/$SECRET yet — a key will be generated"
+              fi
+          volumeMounts:
+            - name: keys
+              mountPath: /keys
+{{- end }}
+        # Generates an RSA keypair ONLY if there is not already one to use.
+        # Split out because the postgres client image carries no openssl, and the
+        # seed step needs psql.
         - name: keygen
           image: {{ $b.keygenImage | quote }}
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -eu
-              openssl genrsa -out /keys/client.pem 2048 2>/dev/null
+              if [ -s /keys/client.pem ]; then
+                echo "keygen: a keypair was restored — not generating a new one"
+              else
+                openssl genrsa -out /keys/client.pem 2048 2>/dev/null
+                echo "keygen: generated a 2048-bit RSA keypair"
+              fi
               # JWK 'n' is the modulus; psql turns this hex into base64url.
               openssl rsa -in /keys/client.pem -noout -modulus \
                 | sed 's/^Modulus=//' > /keys/modulus.hex
-              echo "keygen: generated a 2048-bit RSA keypair"
           volumeMounts:
             - name: keys
               mountPath: /keys
+{{- if $b.persistKeyToSecret.enabled }}
+        # Writes the keypair to the Secret so the next install restores it rather
+        # than minting a replacement. Deliberately BEFORE the seed step: if
+        # seeding fails halfway, the key is still kept and the retry reuses the
+        # same one instead of rotating again.
+        - name: key-persist
+          image: {{ $b.kubectlImage | quote }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              SECRET={{ tpl $b.persistKeyToSecret.secretName $ | quote }}
+              kubectl create secret generic "$SECRET" \
+                --from-file=client.pem=/keys/client.pem \
+                --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+              echo "key-persist: keypair stored in secret/$SECRET"
+          volumeMounts:
+            - name: keys
+              mountPath: /keys
+{{- end }}
       containers:
         - name: seed
           image: {{ $b.psqlImage | quote }}
