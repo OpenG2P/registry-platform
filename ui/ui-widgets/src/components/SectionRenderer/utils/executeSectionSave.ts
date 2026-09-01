@@ -118,6 +118,19 @@ const stripDocsWidgetFields = (
   });
 };
 
+const readSectionInternalRecordId = (
+  source: Record<string, unknown>,
+  sectionRegisterId?: string,
+): string | undefined => {
+  if (!sectionRegisterId) return undefined;
+  const sectionData = source[sectionRegisterId];
+  if (!sectionData || typeof sectionData !== 'object' || Array.isArray(sectionData)) {
+    return undefined;
+  }
+  const id = (sectionData as Record<string, unknown>).internal_record_id;
+  return typeof id === 'string' && id.length > 0 ? id : undefined;
+};
+
 const extractProfileImage = (
   records: unknown[],
 ): { records: unknown[]; profileImage: File | null } => {
@@ -208,7 +221,26 @@ export const executeSectionSave = async ({
       section.panels,
     );
     const isTable = sectionWidgets.some((widget) => isTableLikeWidget(widget));
-    records = diffSectionChangeRecords(baselineStripped, records, { isTable });
+    const internalRecordId =
+      readSectionInternalRecordId(baselineSource, sectionRegisterId) ??
+      readSectionInternalRecordId(currentSchemaData, sectionRegisterId);
+
+    let tableColumnKeys: string[] | undefined;
+    if (isTable) {
+      const tableWidget = sectionWidgets.find(isTableLikeWidget);
+      const columns = (tableWidget as any)?.['widget-data-columns'];
+      if (Array.isArray(columns)) {
+        tableColumnKeys = columns
+          .map((column: any) => column['column-key'] ?? column['widget-data-path'])
+          .filter((key): key is string => typeof key === 'string' && key.length > 0);
+      }
+    }
+
+    records = diffSectionChangeRecords(baselineStripped, records, {
+      isTable,
+      internalRecordId,
+      tableColumnKeys,
+    });
 
     if (records.length === 0 && sectionFiles.length === 0 && !profileImage) {
       return { validated: true, saved: false, currentSchemaData };

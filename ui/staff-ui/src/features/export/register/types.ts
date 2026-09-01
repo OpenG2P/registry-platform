@@ -1,4 +1,4 @@
-export type ExportFormat = 'XLSX' | 'CSV';
+export type ExportFormat = 'XLSX' | 'ZIP_CSV';
 
 export type ExportScope = 'all' | 'selected';
 

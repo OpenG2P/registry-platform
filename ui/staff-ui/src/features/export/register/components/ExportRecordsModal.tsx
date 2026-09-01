@@ -168,10 +168,10 @@ export default function ExportRecordsModal({
                                 />
                                 <RadioOption
                                     name="export-format"
-                                    value="CSV"
-                                    checked={format === 'CSV'}
-                                    label={t.has('CSV') ? t('CSV') : 'CSV'}
-                                    onChange={() => setFormat('CSV')}
+                                    value="ZIP_CSV"
+                                    checked={format === 'ZIP_CSV'}
+                                    label={t.has('ZIP_CSV') ? t('ZIP_CSV') : 'ZIP CSV'}
+                                    onChange={() => setFormat('ZIP_CSV')}
                                 />
                             </div>
                         </div>

@@ -481,6 +481,9 @@ function childLevelsToShow(
   selectedValues: Record<string, string>,
   options: Record<string, GeoSelectOption[]>,
 ): GeoLevel[] {
+  if (children.length === 1) {
+    return children;
+  }
   return children.filter(
     (child) =>
       selectedValues[child.level_id] ||
@@ -492,6 +495,8 @@ function childLevelsToShow(
 /**
  * One form control per hop. A parent with several child levels (city vs
  * subdistrict) is a single grouped dropdown, not parallel fields.
+ * Linear children are always included so the full chain is visible at once;
+ * options stay empty until the parent is selected.
  */
 export function buildGeoFormSteps(
   orderedLevels: GeoLevel[],
@@ -513,7 +518,7 @@ export function buildGeoFormSteps(
   ];
 
   let current = roots[0];
-  while (selectedValues[current.level_id]) {
+  while (true) {
     const children = getChildLevels(orderedLevels, current.level_id);
     if (children.length === 0) {
       break;
@@ -522,7 +527,7 @@ export function buildGeoFormSteps(
     if (toShow.length === 0) {
       break;
     }
-    const parentValueId = selectedValues[current.level_id];
+    const parentValueId = selectedValues[current.level_id] || '';
     if (toShow.length === 1) {
       const next = toShow[0];
       steps.push({
@@ -531,9 +536,6 @@ export function buildGeoFormSteps(
         level: next,
         parentValueId,
       });
-      if (!selectedValues[next.level_id]) {
-        break;
-      }
       current = next;
       continue;
     }

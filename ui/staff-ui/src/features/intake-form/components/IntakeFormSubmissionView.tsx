@@ -89,6 +89,7 @@ export default function IntakeFormSubmissionView({
         registerType,
         submissionId,
         initialRecordName: submission?.record_name,
+        initialSectionPayloads: section_payloads ?? null,
         onSuccess: () => {},
     });
 

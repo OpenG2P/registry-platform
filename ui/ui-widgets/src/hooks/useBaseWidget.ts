@@ -100,18 +100,12 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       return docsValue !== undefined ? docsValue : config['widget-data-default'];
     }
 
-    let value = values[widgetId];
+    let value = config['widget-data-path']
+      ? getWidgetValue(values, config['widget-data-path'], widgetId)
+      : values[widgetId];
 
-    if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
-      value = extractValueFromObject(value);
-    }
-
-    if (value === undefined && config['widget-data-path']) {
-      value = getWidgetValue(values, config['widget-data-path'], widgetId);
-
-      if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
-        value = extractValueFromObject(value);
-      }
+    if (value === undefined) {
+      value = values[widgetId];
     }
 
     if (value === undefined && userHasSetValueRef.current && values[widgetId] !== undefined) {
@@ -370,6 +364,13 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
 
   useEffect(() => {
     if (!dataSource) {
+      return;
+    }
+
+    if (
+      dataSource.type === 'api' &&
+      (config.widget === 'parent-lookup' || config.widget === 'register-lookup')
+    ) {
       return;
     }
 

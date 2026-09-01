@@ -1,15 +1,3 @@
-const IDENTITY_AND_META_KEYS = new Set([
-  'edit_action',
-  'internal_record_id',
-  'link_internal_record_id',
-  'functional_record_id',
-  'created_at',
-  'created_by',
-  'last_approved_at',
-  'last_approved_by',
-  'search_text',
-]);
-
 type RowRecord = Record<string, unknown>;
 
 const isPlainRecord = (value: unknown): value is RowRecord =>
@@ -35,10 +23,8 @@ const getRowId = (row: RowRecord): string | null => {
   return typeof id === 'string' && id.length > 0 ? id : null;
 };
 
-const sectionFieldKeys = (baseline: RowRecord, current: RowRecord): string[] => {
-  const keys = new Set([...Object.keys(baseline), ...Object.keys(current)]);
-  return [...keys].filter((key) => !IDENTITY_AND_META_KEYS.has(key));
-};
+const sectionFieldKeys = (baseline: RowRecord, current: RowRecord): string[] =>
+  [...new Set([...Object.keys(baseline), ...Object.keys(current)])];
 
 const pickChangedFields = (baseline: RowRecord, current: RowRecord): RowRecord => {
   const changed: RowRecord = {};
@@ -50,7 +36,7 @@ const pickChangedFields = (baseline: RowRecord, current: RowRecord): RowRecord =
   return changed;
 };
 
-/** All section fields (changed or not). Identity / meta keys stay out of the CR payload. */
+/** All widget-bound section fields (changed or not). */
 const pickAllSectionFields = (baseline: RowRecord, current: RowRecord): RowRecord => {
   const fields: RowRecord = {};
   for (const key of sectionFieldKeys(baseline, current)) {
@@ -64,28 +50,70 @@ const pickAllSectionFields = (baseline: RowRecord, current: RowRecord): RowRecor
 const toRowList = (records: unknown[]): RowRecord[] =>
   records.filter(isPlainRecord);
 
-const diffFormRecord = (baselineRecords: unknown[], currentRecords: unknown[]): unknown[] => {
+const diffFormRecord = (
+  baselineRecords: unknown[],
+  currentRecords: unknown[],
+  internalRecordId?: string,
+): unknown[] => {
   const baseline = toRowList(baselineRecords)[0] ?? {};
   const current = toRowList(currentRecords)[0] ?? {};
   const changedFields = pickChangedFields(baseline, current);
   if (Object.keys(changedFields).length === 0) return [];
-  return [{ ...pickAllSectionFields(baseline, current), edit_action: 'UPDATE' }];
+
+  const payload: RowRecord = {
+    ...pickAllSectionFields(baseline, current),
+    edit_action: 'UPDATE',
+  };
+
+  const recordId =
+    getRowId(current) ??
+    getRowId(baseline) ??
+    (typeof internalRecordId === 'string' && internalRecordId.length > 0
+      ? internalRecordId
+      : null);
+  if (recordId) {
+    payload.internal_record_id = recordId;
+  }
+
+  return [payload];
+};
+
+const pickSectionFields = (row: RowRecord, sectionKeys: Set<string>): RowRecord => {
+  const out: RowRecord = {};
+  for (const key of sectionKeys) {
+    if (Object.prototype.hasOwnProperty.call(row, key)) {
+      out[key] = row[key];
+    }
+  }
+  if (row.internal_record_id !== undefined) out.internal_record_id = row.internal_record_id;
+  if (row.link_internal_record_id !== undefined) out.link_internal_record_id = row.link_internal_record_id;
+  return out;
 };
 
 const diffTableRows = (
   baselineRecords: unknown[],
   currentRecords: unknown[],
+  tableColumnKeys?: string[],
 ): unknown[] => {
   const baselineRows = toRowList(baselineRecords);
   const currentRows = toRowList(currentRecords);
 
-  const baselineById = new Map<string, RowRecord>();
+  let sectionKeys: Set<string>;
+  if (tableColumnKeys && tableColumnKeys.length > 0) {
+    sectionKeys = new Set(tableColumnKeys);
+  } else {
+    sectionKeys = new Set<string>();
+    for (const row of baselineRows) {
+      for (const key of Object.keys(row)) {
+        sectionKeys.add(key);
+      }
+    }
+  }
 
+  const baselineById = new Map<string, RowRecord>();
   for (const row of baselineRows) {
     const id = getRowId(row);
-    if (id) {
-      baselineById.set(id, row);
-    }
+    if (id) baselineById.set(id, row);
   }
 
   const result: RowRecord[] = [];
@@ -96,34 +124,26 @@ const diffTableRows = (
 
     const rowId = getRowId(row);
 
-    // Deleted row
     if (editAction === 'DELETE') {
       if (!rowId) return;
-
       result.push({
         ...row,
         internal_record_id: rowId,
         edit_action: 'DELETE',
       });
-
       return;
     }
 
-    // New row
     if (editAction === 'ADD' || !rowId) {
       result.push({
         ...row,
         edit_action: 'ADD',
       });
-
       return;
     }
 
-    // Existing row:
-    // Always include the complete row with UPDATE action,
-    // whether it was actually modified or not.
     result.push({
-      ...row,
+      ...pickSectionFields(row, sectionKeys),
       edit_action: 'UPDATE',
     });
   });
@@ -134,9 +154,9 @@ const diffTableRows = (
 export function diffSectionChangeRecords(
   baselineRecords: unknown[],
   currentRecords: unknown[],
-  { isTable }: { isTable: boolean },
+  { isTable, internalRecordId, tableColumnKeys }: { isTable: boolean; internalRecordId?: string; tableColumnKeys?: string[] },
 ): unknown[] {
   return isTable
-    ? diffTableRows(baselineRecords, currentRecords)
-    : diffFormRecord(baselineRecords, currentRecords);
+    ? diffTableRows(baselineRecords, currentRecords, tableColumnKeys)
+    : diffFormRecord(baselineRecords, currentRecords, internalRecordId);
 }

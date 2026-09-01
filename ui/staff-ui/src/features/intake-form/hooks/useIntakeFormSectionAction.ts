@@ -9,6 +9,7 @@ import { extractFilesFromSection, intakeNormalisedRecords } from '@/features/reg
 import { UploadedDocument } from '@/features/shared/types';
 import { useTranslations } from 'next-intl';
 import { useFileUpload } from '@/features/shared/hooks';
+import { SectionPayload } from '../types/intake-form';
 
 interface UseIntakeFormSectionActionProps {
     registerId?: string;
@@ -17,6 +18,7 @@ interface UseIntakeFormSectionActionProps {
     section?: IntakeFormSection | null;
     submissionId?: string | null;
     initialRecordName?: string | null;
+    initialSectionPayloads?: SectionPayload[] | null;
     onSuccess?: () => void;
 }
 
@@ -27,6 +29,7 @@ export const useIntakeFormSectionAction = ({
     section,
     submissionId = null,
     initialRecordName = null,
+    initialSectionPayloads = null,
     onSuccess
 }: UseIntakeFormSectionActionProps) => {
     const t = useTranslations();
@@ -36,6 +39,7 @@ export const useIntakeFormSectionAction = ({
 
     const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(submissionId);
     const [sectionInternalIds, setSectionInternalIds] = useState<Record<string, string>>({});
+    const [listSectionRecordIds, setListSectionRecordIds] = useState<Record<string, string[]>>({});
     const [recordName, setRecordName] = useState<string | null>(initialRecordName);
     const [applicationReference, setApplicationReference] = useState<string | null>(null);
 
@@ -46,6 +50,27 @@ export const useIntakeFormSectionAction = ({
     useEffect(() => {
         setRecordName(initialRecordName ?? null);
     }, [initialRecordName]);
+
+    
+    useEffect(() => {
+        if (!initialSectionPayloads?.length) return;
+        const newSectionIds: Record<string, string> = {};
+        const newListIds: Record<string, string[]> = {};
+        for (const payload of initialSectionPayloads) {
+            if (!payload.records?.length) continue;
+            if (payload.is_list) {
+                const ids = payload.records
+                    .map((r: any) => r.internal_record_id)
+                    .filter(Boolean);
+                if (ids.length) newListIds[payload.section_register_id] = ids;
+            } else {
+                const id = payload.records[0]?.internal_record_id;
+                if (id) newSectionIds[payload.section_register_id] = id;
+            }
+        }
+        setSectionInternalIds(prev => ({ ...prev, ...newSectionIds }));
+        setListSectionRecordIds(prev => ({ ...prev, ...newListIds }));
+    }, [initialSectionPayloads]);
 
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
@@ -116,7 +141,6 @@ export const useIntakeFormSectionAction = ({
             documentsResponse.push(...uploadResult);
         }
 
-        // Keep existing documents that are already uploaded
         const existingDocuments = (change?.files || []).filter(file => file && typeof file === 'object' && ('document_id' in file));
         documentsResponse = [...existingDocuments as UploadedDocument[], ...documentsResponse];
         console.log("change payload", change?.records);
@@ -124,11 +148,14 @@ export const useIntakeFormSectionAction = ({
         const savePayload = {
             submission_id: activeSubmissionId || submissionId,
             section_id: activeSection.section_id,
-            section_payload: intakeNormalisedRecords(change?.records, sectionInternalIds[activeSection.section_register_id]),
+            section_payload: intakeNormalisedRecords(
+                change?.records,
+                sectionInternalIds[activeSection.section_register_id],
+                listSectionRecordIds[activeSection.section_register_id],
+            ),
             section_register_id: activeSection.section_register_id,
             form_id: formId,
             register_id: registerId,
-            created_by: "TEST_USER", //TODO:add here original user name.
             documents:documentsResponse.map((document, index) => ({
                 document_id: document.document_id,
                 label: fileLabels[index] || "unknown_label",
@@ -156,19 +183,28 @@ export const useIntakeFormSectionAction = ({
             setRecordName(saveResult.record_name);
         }
 
-        // Extract and cache the internal_record_id for non-list sections from the response.
-        // This ensures that subsequent saves, or other sections belonging to the same register,
-        // will reuse the existing internal_record_id rather than creating duplicate records for the same section_register_id.
+        // Cache internal_record_ids from the response so subsequent saves
+        // send UPDATE (not ADD) and keep related records connected.
         if (saveResult.section_payloads) {
             const currentSectionPayload = saveResult.section_payloads.find(
                 (payload: any) => payload.section_register_id === activeSection.section_register_id
             );
 
-            if (currentSectionPayload && !currentSectionPayload.is_list && currentSectionPayload.records?.length > 0) {
-                setSectionInternalIds(prev => ({
-                    ...prev,
-                    [activeSection.section_register_id]: currentSectionPayload.records[0].internal_record_id
-                }));
+            if (currentSectionPayload && currentSectionPayload.records?.length > 0) {
+                if (currentSectionPayload.is_list) {
+                    const ids = currentSectionPayload.records
+                        .map((r: any) => r.internal_record_id)
+                        .filter(Boolean);
+                    setListSectionRecordIds(prev => ({
+                        ...prev,
+                        [activeSection.section_register_id]: ids,
+                    }));
+                } else {
+                    setSectionInternalIds(prev => ({
+                        ...prev,
+                        [activeSection.section_register_id]: currentSectionPayload.records[0].internal_record_id,
+                    }));
+                }
             }
         }
 
