@@ -2,13 +2,19 @@
 
 /**
  * Reads the QR out of a file the agent uploaded — a printed credential scanned
- * to PDF, or a photo of one.
+ * to PDF, or a photo of one — and returns it in the form the verifier accepts.
  *
  * This runs in the BROWSER on purpose. The alternative, posting the image to
  * the API, would mean shipping a picture of a citizen's credential to the
  * server and adding a QR/PDF toolchain (zbar, poppler) to a Python image that
- * needs neither. Reading it here sends only the payload string, which is the
- * only part the verifier wants.
+ * needs neither. Reading it here sends only a short string.
+ *
+ * TWO steps, and the second is easy to miss: the string encoded in the QR is
+ * Base45(zlib(hex-CWT)), and Inji's verify-service wants the HEX, not the
+ * Base45. Posting the raw QR text is rejected with ERR_INVALID_HEX — which
+ * reads like a malformed credential rather than a wrongly-framed request.
+ * PixelPass does that unwrap, and it is the same library Certify used to build
+ * the QR, so this cannot drift from the producer.
  */
 
 import jsQR from 'jsqr';
@@ -86,5 +92,15 @@ async function readFromPdf(file: File): Promise<string | null> {
 export async function readQrFromFile(file: File): Promise<string | null> {
     const isPdf =
         file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    return isPdf ? readFromPdf(file) : readFromImage(file);
+    const scanned = isPdf ? await readFromPdf(file) : await readFromImage(file);
+    if (!scanned) return null;
+
+    // Base45(zlib(hex)) -> hex. Dynamically imported so it is not in the
+    // initial bundle: an agent who only issues never loads it.
+    const { decode } = await import('@injistack/pixelpass');
+    const hex = decode(scanned);
+    // A QR that reads but does not unwrap is not a credential QR at all (a
+    // random QR on the page, a different scheme). Treat it as "not found"
+    // rather than sending something the verifier will reject as invalid.
+    return typeof hex === 'string' && hex.length > 0 ? hex : null;
 }

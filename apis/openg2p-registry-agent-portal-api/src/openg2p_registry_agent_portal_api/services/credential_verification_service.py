@@ -1,6 +1,8 @@
 import logging
 from typing import Any, Dict, Optional
 
+import re
+
 import httpx
 from openg2p_fastapi_common.service import BaseService
 
@@ -9,13 +11,23 @@ from ..config import Settings
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
-# What the QR on a printed OpenG2P credential actually is: a claim-169 CWT
-# (CBOR -> COSE_Sign1 -> CWT, zlib, Base45). verify-service selects its verifier
-# from the Content-Type, and this is the one that means "claim-169 QR payload".
+# What the QR on a printed OpenG2P credential is: a claim-169 CWT
+# (CBOR -> COSE_Sign1 -> tag 61, hex-encoded, zlib-compressed, Base45).
+# verify-service selects its verifier from the Content-Type, and this is the one
+# that means "claim-169 CWT".
+#
+# It expects the HEX, not the Base45 string printed in the QR. Posting the raw
+# QR text is rejected with ERR_INVALID_HEX -- which reads like a bad credential
+# rather than a wrongly-framed request, and cost a full debugging pass to pin
+# down. The Agent Portal UI unwraps Base45(zlib(hex)) with PixelPass before
+# calling this, so what arrives here is already hex.
 CWT_CONTENT_TYPE = "application/vc+cwt"
 # A whole JSON-LD credential, for the case where someone pastes one rather than
 # scanning a card.
 LDP_CONTENT_TYPE = "application/json"
+
+# An even number of hex digits: the CWT as verify-service wants it.
+_HEX = re.compile(r"(?:[0-9a-fA-F]{2})+")
 
 
 class CredentialVerificationError(Exception):
@@ -50,6 +62,17 @@ class CredentialVerificationService(BaseService):
         if not payload:
             raise CredentialVerificationError(
                 "G2P-VC-400", "No QR payload was supplied."
+            )
+
+        # Catch the Base45 QR string being sent straight through. verify-service
+        # would answer ERR_INVALID_HEX, which an agent reads as "this credential
+        # is fake" -- the one wrong thing to tell them about a card that may be
+        # perfectly good.
+        if not is_credential_json and not _HEX.fullmatch(payload):
+            raise CredentialVerificationError(
+                "G2P-VC-400",
+                "The QR payload must be the hex-encoded CWT, not the raw Base45 "
+                "string from the QR. Unwrap it with PixelPass first.",
             )
 
         content_type = LDP_CONTENT_TYPE if is_credential_json else CWT_CONTENT_TYPE
