@@ -58,11 +58,11 @@ dependencies:
     condition: redis.enabled
   - name: openg2p-id-generator
     alias: idgenerator
-    version: 0.0.0-develop.47
+    version: 1.1.2
     repository: https://openg2p.github.io/openg2p-helm
     condition: idgenerator.enabled
   - name: keycloak-init
-    version: 1.1.1
+    version: 1.2.0
     repository: https://openg2p.github.io/openg2p-helm
     condition: keycloak-init.enabled
   # AWE is no longer bundled here — it is installed once per environment by
