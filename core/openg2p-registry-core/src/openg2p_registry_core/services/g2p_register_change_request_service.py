@@ -354,8 +354,9 @@ class G2PRegisterChangeRequestService(BaseService):
         register_section = await self.validate_change_request_section(change_request, session)
         if not skip_verification:
             await self.validate_change_request_verifications(change_request, session)
-        if not skip_sequence_check:
-            await self.validate_change_request_sequence(change_request, session)
+        # Disabled: do not block approval when earlier pending CRs exist.
+        # if not skip_sequence_check:
+        #     await self.validate_change_request_sequence(change_request, session)
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
@@ -788,9 +789,10 @@ class G2PRegisterChangeRequestService(BaseService):
         # Validate whether verifications are done
         if not skip_verification:
             await self.validate_change_request_verifications(change_request, session)
+        # Disabled: do not block approval when earlier pending CRs exist.
         # Ensure there are no earlier change requests for the internal_record_id pending approval
-        if not skip_sequence_check:
-            await self.validate_change_request_sequence(change_request, session)
+        # if not skip_sequence_check:
+        #     await self.validate_change_request_sequence(change_request, session)
         return register_section
 
     async def validate_change_request_section(self, g2p_register_change_request: G2PRegisterChangeRequest, session) -> G2PRegisterSection:
