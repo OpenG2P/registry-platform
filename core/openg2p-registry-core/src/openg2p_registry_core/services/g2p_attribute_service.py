@@ -3,10 +3,10 @@ import uuid
 from typing import List, Optional
 
 from fastapi_cache import FastAPICache
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PAttribute, G2PAttributeValue, G2PAttributeValueRole
@@ -186,7 +186,7 @@ class G2PAttributeService(BaseService):
         if session is not None:
             return await _run(session)
 
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as db_session:
             return await _run(db_session)
 
@@ -373,7 +373,7 @@ class G2PAttributeService(BaseService):
         if session is not None:
             return await _run(session)
 
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as db_session:
             return await _run(db_session)
 

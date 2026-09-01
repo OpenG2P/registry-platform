@@ -3,10 +3,10 @@ import logging
 from typing import Iterable, List, Optional
 
 from fastapi import UploadFile
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models.enum import DocumentBucket
@@ -52,7 +52,7 @@ class G2PDocumentService(BaseService):
         created_by: str,
     ) -> DocumentsData:
         handler = get_document_handler()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             uploaded: list[DocumentData] = []
             for document in documents:
@@ -88,7 +88,7 @@ class G2PDocumentService(BaseService):
             return DocumentsData(documents=uploaded)
 
     async def get_documents(self, document_ids: List[str]) -> DocumentsData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             rows = await self._get_document_rows(session, document_ids)
             return DocumentsData(
@@ -101,7 +101,7 @@ class G2PDocumentService(BaseService):
         every reference in the junction/history tables.
         """
         handler = get_document_handler()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             rows = await self._get_document_rows(session, document_ids)
 
@@ -146,7 +146,7 @@ class G2PDocumentService(BaseService):
     async def get_change_request_documents(
          self, change_request_id: str
     ) -> ChangeRequestDocumentsData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             return await self.get_change_request_documents_with_session(
                 session, change_request_id
@@ -220,7 +220,7 @@ class G2PDocumentService(BaseService):
     async def get_intake_form_documents(
         self, submission_id: str
     ) -> IntakeFormDocumentsData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             return await self.get_intake_form_documents_with_session(
                 session, submission_id
@@ -255,7 +255,7 @@ class G2PDocumentService(BaseService):
     async def get_section_documents(
         self, internal_record_id: str
     ) -> SectionDocumentsData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             return await self.get_section_documents_with_session(
                 session, internal_record_id

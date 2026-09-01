@@ -3,9 +3,7 @@ import logging
 from fastapi_cache.coder import PickleCoder
 from fastapi_cache.decorator import cache
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 
 from ..config import Settings
@@ -45,7 +43,7 @@ class G2PRegisterMetadataService(BaseService):
         tab_order: int = 0,
         is_active: bool = True,
     ) -> RegisterTabIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_from_db(register_id, session)
             tab = G2PRegisterUITab(
@@ -60,7 +58,7 @@ class G2PRegisterMetadataService(BaseService):
             return RegisterTabIdData(tab_id=tab.tab_id)
 
     async def delete_tab(self, tab_id: str) -> None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_tab_from_db(tab_id, session)
 
@@ -81,7 +79,7 @@ class G2PRegisterMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[G2PRegisterUITabData], int, int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             query = select(G2PRegisterUITab)
             if register_id is not None:
@@ -103,7 +101,7 @@ class G2PRegisterMetadataService(BaseService):
             return tab_list, total_items, number_of_pages
 
     async def get_tab(self, tab_id: str) -> G2PRegisterUITabData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab = await self._validate_tab(tab_id, session)
             return self._build_tab_data(tab)
@@ -115,7 +113,7 @@ class G2PRegisterMetadataService(BaseService):
         tab_order: int | None = None,
         is_active: bool | None = None,
     ) -> RegisterTabIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab = await self._validate_tab_from_db(tab_id, session)
 
@@ -136,7 +134,7 @@ class G2PRegisterMetadataService(BaseService):
         section_order: int = 0,
         register_id: str | None = None,
     ) -> RegisterTabSectionIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab = await self._validate_tab_from_db(tab_id, session, register_id)
             await self._validate_section_from_db(section_id, session, tab.register_id)
@@ -169,7 +167,7 @@ class G2PRegisterMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> list[G2PRegisterUITabSectionData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Locust / UI call unpaginated — cache the full assembled payload per tab.
             if current_page is None or page_size is None:
@@ -267,7 +265,7 @@ class G2PRegisterMetadataService(BaseService):
         section_id: str | None = None,
         section_order: int | None = None,
     ) -> G2PRegisterUITabSectionData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab_section = await self._validate_tab_section_from_db(tab_section_id, session)
             if section_id is not None:
@@ -293,7 +291,7 @@ class G2PRegisterMetadataService(BaseService):
             return self._build_tab_section_data(tab_section, section_data=section_data)
 
     async def remove_tab_section(self, tab_section_id: str) -> None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab_section = await self._validate_tab_section_from_db(tab_section_id, session)
             await session.delete(tab_section)
@@ -319,7 +317,7 @@ class G2PRegisterMetadataService(BaseService):
         section_weightage: float = 0.0,
         section_ui_schema: dict | None = None,
     ) -> RegisterSectionIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_from_db(register_id, session)
             await self._validate_register_from_db(section_register_id, session)
@@ -346,7 +344,7 @@ class G2PRegisterMetadataService(BaseService):
             return RegisterSectionIdData(section_id=section.section_id)
 
     async def delete_section(self, section_id: str) -> None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section = await self._validate_section_from_db(section_id, session)
 
@@ -412,7 +410,7 @@ class G2PRegisterMetadataService(BaseService):
         section_id: str,
         register_id: str | None = None,
     ) -> G2PRegisterSectionData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section = await self._validate_section(section_id, session, register_id)
             relation_register_id = register_id or section.register_id
@@ -441,7 +439,7 @@ class G2PRegisterMetadataService(BaseService):
         is_core_section: bool | None = None,
         section_weightage: float | None = None,
     ) -> RegisterSectionIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section = await self._validate_section_from_db(section_id, session)
 
@@ -480,7 +478,7 @@ class G2PRegisterMetadataService(BaseService):
         section_ui_schema: dict | None = None,
         register_id: str | None = None,
     ) -> RegisterSectionIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section = await self._validate_section_from_db(section_id, session, register_id)
             section.section_ui_schema = section_ui_schema
@@ -492,7 +490,7 @@ class G2PRegisterMetadataService(BaseService):
         section_id: str,
         register_id: str | None = None,
     ) -> RegisterSectionUISchemaData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section = await self._validate_section(section_id, session, register_id)
             return RegisterSectionUISchemaData(
@@ -519,7 +517,7 @@ class G2PRegisterMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> list[G2PRegisterSectionData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register(register_id, session)
             query = (
@@ -542,7 +540,7 @@ class G2PRegisterMetadataService(BaseService):
             ]
 
     async def _count_sections(self, register_id: str) -> int:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             count_query = (
                 select(func.count())

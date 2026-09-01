@@ -5,13 +5,13 @@ from datetime import datetime
 
 from fastapi_cache.coder import PickleCoder
 from fastapi_cache.decorator import cache
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from openg2p_registry_core.services.g2p_completion_score_service import G2PCompletionScoreService
 from openg2p_registry_core.services.g2p_score_compute_service import G2PScoreComputeService
 from sqlalchemy import Date as SQLDate, and_, exists, func, inspect, or_, select
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -128,7 +128,7 @@ class G2PRegisterChangeRequestService(BaseService):
         bearer_token: str | None = None,
         requester_sub: str | None = None,
     ):
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
 
             register_section: G2PRegisterSection = await self.validate_section(
@@ -222,7 +222,7 @@ class G2PRegisterChangeRequestService(BaseService):
         self,
         data_policies: list[dict] | None = None,
     ) -> ChangeRequestSummaryData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request_summary_data: ChangeRequestSummaryData = await self._fetch_change_request_summary_data(
                 session, data_policies
@@ -241,7 +241,7 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestData], int]:
         """Get all change requests for a specific internal record and tab with pagination"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._ensure_subject_record_readable(
                 subject_register_id, subject_record_id, data_policies, session
@@ -255,7 +255,7 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> ChangeRequestData:
         """Get a single change request by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._ensure_change_request_readable(change_request_id, data_policies, session)
             change_request_data: ChangeRequestData = await self._fetch_change_request(change_request_id, session)
@@ -266,7 +266,7 @@ class G2PRegisterChangeRequestService(BaseService):
         self, change_request_id: str
     ) -> ChangeRequestSequenceCheckData:
         """Return whether earlier pending CRs block approval for this change request."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request = (
                 await session.execute(
@@ -310,7 +310,7 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestFlattenedData], int]:
         """Get all change requests for a specific internal record and tab with flattened change_payload fields"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._ensure_subject_record_readable(
                 subject_register_id, subject_record_id, data_policies, session
@@ -319,7 +319,7 @@ class G2PRegisterChangeRequestService(BaseService):
             return change_requests_list, total_items
 
     async def approve_change_request(self, change_request_id: str, approved_by: str | None = None):
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request = await self._approve_change_request_core(
                 change_request_id=change_request_id,
@@ -762,7 +762,7 @@ class G2PRegisterChangeRequestService(BaseService):
         reason: str,
         rejected_by: str | None = None,
     ):
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request = await self.validate_change_request_exists(change_request_id, session)
             _logger.info("Validated change request for rejection: %s", change_request)
@@ -1509,7 +1509,7 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestSearchResultData], int]:
         """Search in change requests using search_text field with pagination"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             search_results, total_items = await self._search_in_change_request(
                 search_text, current_page, page_size, filter_by, session, sort_by, data_policies
@@ -1626,7 +1626,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
     async def get_number_of_pending_change_requests(self, subject_register_id: str, subject_record_id: str, tab_id: str) -> NumberOfPendingChangeRequestsData:
         """Get the number of pending change requests for a given register, internal_record_id and tab_id"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition = self._coerce_register_definition(
                 await self._get_register_definition(subject_register_id, session)
@@ -1657,7 +1657,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
     async def get_number_of_cross_register_changes(self, subject_register_id: str, subject_record_id: str) -> NumberOfCrossRegisterChangesData:
         """Get the number of cross-register pending change requests by searching subject_record_id in search_text of G2PRegisterChangeRequestPayload"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition = self._coerce_register_definition(
                 await self._get_register_definition(subject_register_id, session)
@@ -1689,7 +1689,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
     async def get_cross_register_changes(self, subject_register_id: str, subject_record_id: str) -> list[CrossRegisterChangeRequestData]:
         """Get the list of cross-register pending change requests by searching subject_record_id in search_text of G2PRegisterChangeRequestPayload"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition = self._coerce_register_definition(
                 await self._get_register_definition(subject_register_id, session)

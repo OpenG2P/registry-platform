@@ -213,7 +213,7 @@ async def test_create_invalidates_policy_lookup_cache(service, memory_cache):
     session = AsyncMock()
     session.add = MagicMock()
     with (
-        patch.object(_mod, "async_sessionmaker", _session_maker(session)),
+        patch.object(_mod, "get_async_session_maker", _session_maker(session)),
         patch.object(service, "_validate_register_exists", new_callable=AsyncMock),
         patch.object(service, "_invalidate_policy_lookup_cache", new_callable=AsyncMock) as invalidate,
     ):
@@ -238,7 +238,7 @@ async def test_update_invalidates_policy_lookup_cache(service, memory_cache):
     session = AsyncMock()
     existing = _policy_row()
     with (
-        patch.object(_mod, "async_sessionmaker", _session_maker(session)),
+        patch.object(_mod, "get_async_session_maker", _session_maker(session)),
         patch.object(service, "_get_configuration_or_error", new_callable=AsyncMock, return_value=existing),
         patch.object(service, "_invalidate_policy_lookup_cache", new_callable=AsyncMock) as invalidate,
     ):
@@ -263,7 +263,7 @@ async def test_delete_invalidates_policy_lookup_cache(service, memory_cache):
     session = AsyncMock()
     existing = _policy_row()
     with (
-        patch.object(_mod, "async_sessionmaker", _session_maker(session)),
+        patch.object(_mod, "get_async_session_maker", _session_maker(session)),
         patch.object(service, "_get_configuration_or_error", new_callable=AsyncMock, return_value=existing),
         patch.object(service, "_invalidate_policy_lookup_cache", new_callable=AsyncMock) as invalidate,
     ):

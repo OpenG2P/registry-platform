@@ -1,6 +1,5 @@
 import logging
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.pool import NullPool
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from .config import Settings
 
@@ -24,6 +23,16 @@ def construct_db_datasource(db_driver, db_username, db_password, db_hostname, db
     return datasource
 
 
+def _async_engine_kwargs(datasource: str) -> dict:
+    kwargs = {"echo": _config.db_logging}
+    if datasource and not datasource.startswith("sqlite"):
+        kwargs["pool_pre_ping"] = _config.db_pool_pre_ping
+        kwargs["pool_recycle"] = _config.db_pool_recycle
+        kwargs["pool_size"] = _config.db_pool_size
+        kwargs["max_overflow"] = _config.db_pool_max_overflow
+    return kwargs
+
+
 def get_engine():
     """
     Returns a dictionary containing database engines for different databases.
@@ -37,10 +46,16 @@ def get_engine():
         _config.master_data_db_port,
         _config.master_data_db_dbname,
     )
-    db_engine_master_data = create_async_engine(db_datasource_master_data, poolclass=NullPool)
+    db_engine_master_data = create_async_engine(
+        db_datasource_master_data,
+        **_async_engine_kwargs(db_datasource_master_data),
+    )
 
     return {
         "db_engine_master_data": db_engine_master_data,
+        "db_session_maker_master_data": async_sessionmaker(
+            db_engine_master_data, expire_on_commit=False
+        ),
     }
 
 
@@ -54,3 +69,7 @@ def get_engines():
         _engines = get_engine()
     return _engines
 
+
+def get_master_data_session_maker():
+    """Process-wide session factory for master-data-db."""
+    return get_engines()["db_session_maker_master_data"]

@@ -4,11 +4,10 @@ from functools import lru_cache
 from typing import Optional
 
 from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from openg2p_fastapi_common.service import BaseService
 from fastapi_cache.decorator import cache
 
-from ..engine import get_engines
+from ..engine import get_master_data_session_maker
 from ..config import Settings
 
 _logger = logging.getLogger('g2p-geo-hierarchy-service')
@@ -49,12 +48,10 @@ class G2PGeoHierarchyService(BaseService):
         if not level_value_id:
             return None
             
-        master_data_engine = get_engines().get("db_engine_master_data")
-        if not master_data_engine:
+        session_maker = get_master_data_session_maker()
+        if not session_maker:
             _logger.warning("master-data-db engine not configured")
             return None
-            
-        session_maker = async_sessionmaker(master_data_engine, expire_on_commit=False)
         
         async with session_maker() as session:
             hierarchy = []
