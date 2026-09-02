@@ -72,10 +72,11 @@ _CLAIM_169_KEYS = {
     16: "Binary Image",
     17: "Binary Image Format",
     18: "Best Quality Fingers",
-    35: "Data",
-    36: "Data format",
-    37: "Data sub format",
-    38: "Data issuer",
+    # PixelPass numbers the Data* group in its OWN key space, not the top-level
+    # attribute space -- so a top-level 'Data' is written as key 0. Confirmed by
+    # decoding a real issued credential, which is also how we learned that a
+    # top-level 'Data issuer' becomes key 3 and overwrites Language.
+    0: "Data",
 }
 
 # Enumerated values are numbers on the wire too.
@@ -88,10 +89,15 @@ _CLAIM_169_VALUES = {
 # signed payload but there is nothing useful to print, so they are summarised.
 _BINARY_KEYS = frozenset({"Binary Image", "Face", "Right Iris", "Left Iris", "Voice"})
 
-# The registry has no identifier key, so the Farmer ID rides in "Data" (see the
-# qrSettings comment in the registry chart). Relabel it on the way out so the
-# agent sees what it is instead of the generic slot name.
-DATA_LABEL = "Farmer ID"
+# The registry has no identifier key, so the record id rides in "Data" -- key 0
+# on the wire (see the qrSettings comment in the registry chart).
+#
+# What that id is CALLED belongs to the manifestation, not here: this module is
+# part of the Registry Platform and serves every registry built on it, so a
+# "Farmer ID" label would be wrong for all but one of them. Callers pass the
+# label from their VC definition (`qr_data_label`); this neutral default is what
+# shows when none is configured.
+DATA_LABEL = "ID"
 
 
 def _untag(obj: Any, expected: int) -> Any:
@@ -119,7 +125,7 @@ def _render(label: str, value: Any) -> Any:
     return value
 
 
-def _decode_169(raw: Any) -> Dict[str, Any]:
+def _decode_169(raw: Any, data_label: str = DATA_LABEL) -> Dict[str, Any]:
     """Flatten the claim-169 body into label -> value."""
     if isinstance(raw, (bytes, bytearray)):
         raw = cbor2.loads(raw)
@@ -135,12 +141,14 @@ def _decode_169(raw: Any) -> Dict[str, Any]:
     for key, value in raw.items():
         label = _CLAIM_169_KEYS.get(key, f"Field {key}") if isinstance(key, int) else str(key)
         if label == "Data":
-            label = DATA_LABEL
+            label = data_label
         out[label] = _render(label, value)
     return out
 
 
-def decode_claims(hex_payload: str) -> Optional[Dict[str, Any]]:
+def decode_claims(
+    hex_payload: str, data_label: str = DATA_LABEL
+) -> Optional[Dict[str, Any]]:
     """Return displayable claims from a hex-encoded claim-169 CWT.
 
     Returns None on anything unexpected. A failure to decode must never change
@@ -168,7 +176,7 @@ def decode_claims(hex_payload: str) -> Optional[Dict[str, Any]]:
                     )
                 claims[label] = value
         if CLAIM_169 in payload:
-            claims.update(_decode_169(payload[CLAIM_169]))
+            claims.update(_decode_169(payload[CLAIM_169], data_label))
         return claims or None
     except Exception:
         # Deliberately broad: this is presentation only. Log for diagnosis and
@@ -177,9 +185,15 @@ def decode_claims(hex_payload: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def subject_id(claims: Optional[Dict[str, Any]]) -> Optional[str]:
-    """The identifier to record in the audit trail, if the QR carried one."""
+def subject_id(
+    claims: Optional[Dict[str, Any]], data_label: str = DATA_LABEL
+) -> Optional[str]:
+    """The identifier to record in the audit trail, if the QR carried one.
+
+    Takes the same label the claims were decoded with, so the audit event names
+    the record whichever way this deployment labelled it.
+    """
     if not claims:
         return None
-    value = claims.get(DATA_LABEL)
+    value = claims.get(data_label)
     return str(value) if value not in (None, "") else None

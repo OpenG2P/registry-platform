@@ -15,7 +15,7 @@ Only the handler knows those answers, so it says so:
 
     set_audit(request, action="verify_credential",
               resource_type="verifiable_credential",
-              resource_id=farmer_id, outcome="failure",
+              resource_id=record_id, outcome="failure",
               detail={"verification_status": "INVALID"})
 
 Nothing here can fail a request: an audit trail that can break issuance is worse

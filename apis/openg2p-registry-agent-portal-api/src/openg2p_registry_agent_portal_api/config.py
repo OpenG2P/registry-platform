@@ -28,6 +28,15 @@ class VcDefinition(BaseModel):
     # Where the signed compact QR lands in the credential returned by Certify.
     qr_claim_path: str = "claim169.qrCode"
     display_name: Optional[str] = None
+    # What to call the identifier the QR carries in claim-169's "Data" slot.
+    #
+    # claim-169 has no identifier key of its own, so the registry's own id rides
+    # in the generic "Data" attribute (see the qrSettings comment in the chart).
+    # The PLATFORM cannot name it: this API serves every manifestation, and the
+    # id is a Farmer ID here, something else in the next registry. Each
+    # manifestation supplies the label; unset, the verification screen shows the
+    # neutral "ID".
+    qr_data_label: Optional[str] = None
 
 
 class Settings(ExtSettings):

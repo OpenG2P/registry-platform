@@ -18,6 +18,7 @@ from ..services import (
     CredentialVerificationService,
     subject_id,
 )
+from ..services.cwt_claims import DATA_LABEL
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -26,6 +27,12 @@ _logger = logging.getLogger(_config.logging_default_logger_name)
 # presents and creating a new one are different acts with different risk, and a
 # deployment may well want staff who can do the first and not the second.
 VERIFY_PERMISSION = "register:verify_credential"
+
+
+def _data_label() -> str:
+    """What this deployment calls the id carried in claim-169's "Data" slot."""
+    definition = _config.get_vc_definition()
+    return (definition.qr_data_label if definition else None) or DATA_LABEL
 
 
 class VcVerificationController(BaseController):
@@ -107,7 +114,7 @@ class VcVerificationController(BaseController):
         claims = result.get("claims")
         set_audit(
             request,
-            resource_id=subject_id(claims),
+            resource_id=subject_id(claims, _data_label()),
             outcome="success" if result["verified"] else "failure",
             detail={
                 "verification_status": result["status"],

@@ -7,7 +7,7 @@ import httpx
 from openg2p_fastapi_common.service import BaseService
 
 from ..config import Settings
-from .cwt_claims import decode_claims
+from .cwt_claims import DATA_LABEL, decode_claims
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -122,7 +122,14 @@ class CredentialVerificationService(BaseService):
             # Only once verified. Rendering the contents of a token that failed
             # its signature check would put attacker-chosen text on screen next
             # to a red cross, which is asking to be misread.
-            claims = decode_claims(payload)
+            # The label for claim-169's "Data" slot comes from the credential
+            # definition, because only the manifestation knows what its record
+            # id is called. Falls back to the neutral default.
+            definition = _config.get_vc_definition()
+            claims = decode_claims(
+                payload,
+                (definition.qr_data_label if definition else None) or DATA_LABEL,
+            )
 
         return {
             "verified": verified,
