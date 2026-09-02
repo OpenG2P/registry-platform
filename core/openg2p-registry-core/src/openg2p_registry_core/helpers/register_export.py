@@ -130,9 +130,11 @@ def build_main_export_conditions(
 ) -> list:
     from ..services.filter_builder import FilterBuilder
 
-    conditions = [
-        implementation_class.search_text.ilike(f"%{search_text or ''}%")
-    ]
+    conditions = []
+    if search_text and search_text.strip():
+        conditions.append(
+            implementation_class.search_text.ilike(f"%{search_text.strip()}%")
+        )
     if (
         hasattr(implementation_class, "record_status")
         and not has_explicit_record_status_filter(filter_by)

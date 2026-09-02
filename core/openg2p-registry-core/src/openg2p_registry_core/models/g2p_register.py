@@ -69,6 +69,18 @@ class G2PRegister(BaseORMModel):
             index_name = f"idx_{cls.__tablename__}_search_text_trigram"
             idx = Index(index_name, cls.search_text, postgresql_using='gin', postgresql_ops={'search_text': 'gin_trgm_ops'})
             idx._set_parent(cls.__table__, allow_replacements=True)
+
+            export_active_index = Index(
+                f"idx_{cls.__tablename__}_export_active",
+                cls.last_approved_at.desc(),
+                cls.internal_record_id,
+                postgresql_where=(
+                    cls.record_status == RecordStatusEnum.ACTIVE.value
+                ),
+            )
+            export_active_index._set_parent(
+                cls.__table__, allow_replacements=True
+            )
             
             # Register event listeners for automatic search_text and record_name population
             @event.listens_for(cls, "before_insert")
