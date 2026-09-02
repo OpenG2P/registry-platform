@@ -207,7 +207,7 @@ global:
 
   # Register export
   exportQueueVisibilityDays: 2
-  exportBatchSize: 500
+  exportBatchSize: 2000
   exportNoOfTasksToProcess: 5
   exportBeatProducerFrequency: 20
   exportWorkerMaxAttempts: 3
