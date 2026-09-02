@@ -6,10 +6,8 @@ from typing import Any
 from cryptography.fernet import Fernet
 
 from sqlalchemy import desc, select
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
 
 from iam_core.models import LoginProvider
@@ -53,7 +51,6 @@ class _ClaimsCrypto:
 class G2PRegistrantAuthenticationService(BaseService):
     def __init__(self):
         super().__init__()
-        self._engine = dbengine.get()
         self._auth_tx_store = self._init_auth_transaction_store()
         self._adapters = AdapterFactory.get_component()
         self._crypto = _ClaimsCrypto(_config.registrant_auth_claims_encryption_key)
@@ -84,7 +81,7 @@ class G2PRegistrantAuthenticationService(BaseService):
         self,
         register_id: str,
     ) -> list[G2PRegistrantAuthenticationProvider]:
-        session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             rows = await session.execute(
                 select(G2PRegistrantAuthenticationProvider)
@@ -100,7 +97,7 @@ class G2PRegistrantAuthenticationService(BaseService):
         self,
         provider_id: str,
     ) -> G2PRegistrantAuthenticationProvider:
-        session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             provider = await session.get(G2PRegistrantAuthenticationProvider, provider_id)
             if not provider:
@@ -118,7 +115,7 @@ class G2PRegistrantAuthenticationService(BaseService):
         provider_id: str,
         initiated_by_staff_id: str,
     ) -> tuple[str, str, str]:
-        session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition = await session.get(G2PRegisterDefinition, register_id)
             if not register_definition:
@@ -219,7 +216,7 @@ class G2PRegistrantAuthenticationService(BaseService):
         auth_id = ctx.get("authentication_id")
         foundational_id = str(ctx.get("foundational_id") or "")
 
-        session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             auth = await session.get(G2PRegistrantAuthentication, auth_id)
             if not auth:
@@ -385,7 +382,7 @@ class G2PRegistrantAuthenticationService(BaseService):
         *,
         internal_record_id: str,
     ) -> G2PRegistrantAuthentication | None:
-        session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row = await session.execute(
                 select(G2PRegistrantAuthentication)
@@ -401,7 +398,7 @@ class G2PRegistrantAuthenticationService(BaseService):
         internal_record_id: str,
         limit: int = 50,
     ) -> list[G2PRegistrantAuthentication]:
-        session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row = await session.execute(
                 select(G2PRegistrantAuthentication)
@@ -437,7 +434,7 @@ class G2PRegistrantAuthenticationService(BaseService):
         now = datetime.now(tz=timezone.utc).replace(tzinfo=None)
         window_end = now + timedelta(days=int(days_before))
 
-        session_maker = async_sessionmaker(self._engine, expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             rows = await session.execute(
                 select(

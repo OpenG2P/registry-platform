@@ -5,12 +5,11 @@ import uuid
 from copy import deepcopy
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..helpers import PatternMatcher
 from ..models import (
@@ -23,7 +22,7 @@ from ..models import (
     ProcessStatusEnum,
     IncomingModelSemanticPattern,
 )
-from ..engine import get_engines
+from ..engine import get_master_data_session_maker
 
 _logger = logging.getLogger("g2p-partner-service")
 
@@ -37,7 +36,7 @@ class G2PIngestService(BaseService):
         intake_form_id: Optional[str] = None,
     ) -> Tuple[str, Optional[str]]:
         _logger.info("Starting data ingestion with received request")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             data_model: DataModel = await self._get_data_model(ingest_data, data_model_mnemonic, session)
@@ -155,8 +154,7 @@ class G2PIngestService(BaseService):
         self, partner_mnemonic: str
     ) -> IncomingPartner:
         """Get incoming partner from master-data-db by partner mnemonic"""
-        master_data_engine = get_engines().get("db_engine_master_data")
-        master_data_session_maker = async_sessionmaker(master_data_engine, expire_on_commit=False)
+        master_data_session_maker = get_master_data_session_maker()
         async with master_data_session_maker() as master_data_session:
             partner: IncomingPartner | None = (
                 await master_data_session.execute(

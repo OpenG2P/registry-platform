@@ -1,11 +1,9 @@
 import logging
 from typing import List, Optional, Tuple
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.schemas import G2PPaginationRequest, G2PPaginationResponse
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from openg2p_registry_staff_api.helpers.data_policy_request_helper import (
     get_data_policy_mnemonics,
     get_data_policies,
@@ -43,7 +41,7 @@ class G2PAttributeControllerService(BaseService):
         current_page, page_size = self._extract_pagination_values(pagination_request)
         search_text = self._extract_search_text(pagination_request)
         g2p_attribute_service = G2PAttributeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             attributes, total_items = await g2p_attribute_service.get_attributes(
                 session,
@@ -60,7 +58,7 @@ class G2PAttributeControllerService(BaseService):
         _logger.info("Fetching attribute through controller service")
         payload = request.request_body.request_payload
         g2p_attribute_service = G2PAttributeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             return await g2p_attribute_service.get_attribute(payload.attribute_id, session)
 
@@ -68,7 +66,7 @@ class G2PAttributeControllerService(BaseService):
         _logger.info("Creating attribute through controller service")
         payload = request.request_body.request_payload
         g2p_attribute_service = G2PAttributeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             attribute = await g2p_attribute_service.create_attribute(
                 attribute_code=payload.attribute_code,
@@ -83,7 +81,7 @@ class G2PAttributeControllerService(BaseService):
         _logger.info("Updating attribute through controller service")
         payload = request.request_body.request_payload
         g2p_attribute_service = G2PAttributeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             attribute = await g2p_attribute_service.update_attribute(
                 attribute_id=payload.attribute_id,
@@ -99,7 +97,7 @@ class G2PAttributeControllerService(BaseService):
         _logger.info("Deleting attribute through controller service")
         payload = request.request_body.request_payload
         g2p_attribute_service = G2PAttributeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             attribute_id = await g2p_attribute_service.delete_attribute(
                 payload.attribute_id,
@@ -140,7 +138,7 @@ class G2PAttributeControllerService(BaseService):
         _logger.info("Creating attribute value through controller service")
         payload = request.request_body.request_payload
         g2p_attribute_service = G2PAttributeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             attribute_value = await g2p_attribute_service.create_attribute_value(
                 attribute_id=payload.attribute_id,
@@ -159,7 +157,7 @@ class G2PAttributeControllerService(BaseService):
         _logger.info("Updating attribute value through controller service")
         payload = request.request_body.request_payload
         g2p_attribute_service = G2PAttributeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             attribute_value = await g2p_attribute_service.update_attribute_value(
                 value_id=payload.value_id,
@@ -178,7 +176,7 @@ class G2PAttributeControllerService(BaseService):
         _logger.info("Deleting attribute value through controller service")
         payload = request.request_body.request_payload
         g2p_attribute_service = G2PAttributeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             value_id = await g2p_attribute_service.delete_attribute_value(
                 payload.value_id,

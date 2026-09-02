@@ -1,10 +1,10 @@
 import logging
 from typing import Any, Iterable, Optional
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -69,7 +69,7 @@ class G2PAttributeValueValidator(BaseService):
         if session is not None:
             self._codes = await _run(session)
         else:
-            session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+            session_maker = get_async_session_maker()
             async with session_maker() as db_session:
                 self._codes = await _run(db_session)
         return self._codes

@@ -1,11 +1,9 @@
 import logging
 from typing import Any
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..helpers import AWEClientError, AweHelper
 from ..helpers.awe_status_summary import parse_awe_request_status_summary
@@ -111,11 +109,12 @@ class G2PAweProxyControllerService(BaseService):
         bearer_token: str,
     ) -> dict[str, Any]:
         await self._validate_artifact_in_flight(payload.artifact_type, payload.artifact_id, payload.current_stage)
-        await self._validate_change_request_sequence_for_decision(
-            payload.artifact_type,
-            payload.artifact_id,
-            payload.action,
-        )
+        # Disabled: do not block approve decisions when earlier pending CRs exist.
+        # await self._validate_change_request_sequence_for_decision(
+        #     payload.artifact_type,
+        #     payload.artifact_id,
+        #     payload.action,
+        # )
 
         try:
             return await AweHelper.get_component().submit_decision(
@@ -218,7 +217,7 @@ class G2PAweProxyControllerService(BaseService):
         artifact_id: str,
     ) -> tuple[str | None, str | None, str | None]:
         """Return ``(approval_status, awe_request_status_summary, awe_request_id)``."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             if artifact_type == REGISTRY_CHANGE_REQUEST_ARTIFACT:
                 row = (

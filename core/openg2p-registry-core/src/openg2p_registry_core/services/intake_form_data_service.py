@@ -3,12 +3,16 @@ import logging
 import uuid
 from datetime import datetime
 
-from openg2p_fastapi_common.context import dbengine
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import Date as SQLDate, and_, case, exists, func, inspect, or_, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from ..helpers.orm_cache import single_id_key_builder
 from ..repositories.register_repository import RegisterRecordRepository
 from iam_core.helpers.data_policy_helper import DataPolicyHelper
 from .g2p_awe_integration_service import G2PAweIntegrationService
@@ -57,6 +61,7 @@ _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 _DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
 _INTAKE_CLASS_PREFIX = "G2PIntakeForm"
 _logger = logging.getLogger("g2p-intake-form-data-service")
+_config = Settings.get_config(strict=False)
 
 
 class G2PIntakeFormDataService(BaseService):
@@ -66,7 +71,7 @@ class G2PIntakeFormDataService(BaseService):
         section_register_id: str,
         form_register_id: str,
     ) -> IntakeAllowedParentsData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._get_submission_or_error(submission_id, session)
             link_service = G2PIntakeFormLinkService.get_component()
@@ -100,7 +105,7 @@ class G2PIntakeFormDataService(BaseService):
         created_by: str,
         documents: list[DocumentAttachment] | None = None,
     ) -> SubmissionResponsePayload:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             submission = await self.save_intake_form_submission_with_session(
                 submission_id,
@@ -488,7 +493,7 @@ class G2PIntakeFormDataService(BaseService):
         section_payloads: list[SectionPayloadInput] | None,
         created_by: str,
     ) -> SubmissionResponsePayload:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             submission = await self.create_submission_with_session(
                 form_id,
@@ -545,7 +550,7 @@ class G2PIntakeFormDataService(BaseService):
         bearer_token: str | None = None,
         requester_sub: str | None = None,
     ) -> SubmissionResponsePayload:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             submission = await self.finalize_submission_with_session(
                 submission_id,
@@ -595,7 +600,7 @@ class G2PIntakeFormDataService(BaseService):
         return submission
 
     async def approve_submission(self, submission_id: str, approved_by: str) -> SubmissionResponsePayload:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             submission = await self._get_submission_or_error(submission_id, session)
             if submission.approval_status != ApprovalStatusEnum.PENDING.value:
@@ -628,7 +633,7 @@ class G2PIntakeFormDataService(BaseService):
             return await self.get_submission_payload(submission.submission_id)
 
     async def reject_submission(self, submission_id: str, rejected_by: str) -> SubmissionResponsePayload:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             submission = await self._get_submission_or_error(submission_id, session)
             if submission.approval_status != ApprovalStatusEnum.PENDING.value:
@@ -717,7 +722,7 @@ class G2PIntakeFormDataService(BaseService):
         return submission
 
     async def delete_submission(self, submission_id: str) -> SubmissionResponsePayload:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             response = await self.delete_submission_with_session(submission_id, session)
             await session.commit()
@@ -739,7 +744,7 @@ class G2PIntakeFormDataService(BaseService):
         submission_id: str,
         data_policies: list[dict] | None = None,
     ) -> SubmissionResponsePayload:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             submission = await self._ensure_submission_readable(
                 submission_id, data_policies, session
@@ -757,7 +762,7 @@ class G2PIntakeFormDataService(BaseService):
         self,
         submission_id: str,
     ) -> SubmissionResponsePayload:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             submission = await self._get_submission_or_error(submission_id, session)
             if submission.awe_request_id:
@@ -785,7 +790,7 @@ class G2PIntakeFormDataService(BaseService):
         filter_by: dict | None = None,
         data_policies: list[dict] | None = None,
     ) -> tuple[list[SubmissionResponsePayload], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             intake_class = await self._resolve_intake_form_class(register_id, session)
             match_subquery = await self._build_intake_match_subquery(
@@ -828,7 +833,7 @@ class G2PIntakeFormDataService(BaseService):
         tab_id: str,
         data_policies: list[dict] | None = None,
     ) -> list[SectionPayloadResponseItem]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             submission = await self._ensure_submission_readable(
                 submission_id, data_policies, session
@@ -902,7 +907,7 @@ class G2PIntakeFormDataService(BaseService):
             return response_items
 
     async def process_submission_register_ingest(self, submission_id: str) -> None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             try:
                 async with session.begin():
@@ -1466,6 +1471,11 @@ class G2PIntakeFormDataService(BaseService):
         )
         return result.scalar_one_or_none() or 0
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _get_register_definition(self, register_id: str, session) -> G2PRegisterDefinition:
         register_definition = await session.get(G2PRegisterDefinition, register_id)
         if not register_definition:
@@ -1800,7 +1810,7 @@ class G2PIntakeFormDataService(BaseService):
         self,
         submission_id: str,
     ) -> list[DeduplicationIntakeFormRegisterResultData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             rows = (
                 await session.execute(
@@ -1832,7 +1842,7 @@ class G2PIntakeFormDataService(BaseService):
         self,
         submission_id: str,
     ) -> list[DeduplicationIntakeFormIntakeFormResultData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             rows = (
                 await session.execute(
@@ -1865,7 +1875,7 @@ class G2PIntakeFormDataService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> IntakeFormSubmissionsSummaryData:
         """Fetch aggregate summary counts for intake form submissions."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             summary_query = select(
                 func.count().label("total_submissions"),

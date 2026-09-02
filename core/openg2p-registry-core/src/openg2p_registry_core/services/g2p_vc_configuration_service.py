@@ -3,9 +3,9 @@ import uuid
 from typing import List, Optional, Tuple
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 
 from ..models import (
@@ -30,7 +30,7 @@ class G2PVcConfigurationService(BaseService):
         current_page: Optional[int] = None,
         page_size: Optional[int] = None,
     ) -> Tuple[List[VcConfigurationData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_exists(register_id, session)
             _logger.info("validation Register exists")
@@ -57,7 +57,7 @@ class G2PVcConfigurationService(BaseService):
         register_id: Optional[str] = None,
     ) -> Tuple[List[VcConfigurationData], int]:
         """Get registry vc configurations, optionally filtered by register_id."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             if register_id:
                 await self._validate_register_exists(register_id, session)
@@ -85,7 +85,7 @@ class G2PVcConfigurationService(BaseService):
         intake_form_id: Optional[str] = None,
         data_model_id: Optional[str] = None,
     ) -> List[VcConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_exists(register_id, session)
             _logger.info("validation Register exists")
@@ -111,7 +111,7 @@ class G2PVcConfigurationService(BaseService):
         data_model_id: Optional[str] = None,
         vc_mnemonic: Optional[str] = None,
     ) -> List[VcConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             g2p_register_vc_configuration: G2PRegistryVcConfiguration = (
                 await self._get_vc_configuration(vc_config_id, session)
@@ -134,7 +134,7 @@ class G2PVcConfigurationService(BaseService):
         self,
         vc_config_id: str,
     ) -> List[VcConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             g2p_register_vc_configuration = await self._get_vc_configuration(
                 vc_config_id, session

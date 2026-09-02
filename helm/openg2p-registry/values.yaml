@@ -432,6 +432,11 @@ partnerApi:
     REGISTRY_PARTNER_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_PARTNER_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_PARTNER_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # SQLAlchemy pool per gunicorn worker process (also used for master-data).
+    REGISTRY_PARTNER_API_DB_POOL_SIZE: 5
+    REGISTRY_PARTNER_API_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_PARTNER_API_DB_POOL_PRE_PING: true
+    REGISTRY_PARTNER_API_DB_POOL_RECYCLE: 1800
     REGISTRY_PARTNER_API_PORT: '{{ .Values.containerPort }}'
 
     REGISTRY_PARTNER_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
@@ -634,6 +639,11 @@ beneApi:
     REGISTRY_BENE_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_BENE_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_BENE_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # SQLAlchemy pool per gunicorn worker process.
+    REGISTRY_BENE_PORTAL_API_DB_POOL_SIZE: 5
+    REGISTRY_BENE_PORTAL_API_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_BENE_PORTAL_API_DB_POOL_PRE_PING: true
+    REGISTRY_BENE_PORTAL_API_DB_POOL_RECYCLE: 1800
 
     REGISTRY_BENE_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -794,6 +804,13 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_STAFF_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_STAFF_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # SQLAlchemy pool per gunicorn worker process (also used for master-data).
+    # 5+10 with STAFF_PORTAL_NO_OF_WORKERS=3 stays well under typical Postgres
+    # max_connections; raise these if you bump workers without adding pods.
+    REGISTRY_STAFF_PORTAL_API_DB_POOL_SIZE: 5
+    REGISTRY_STAFF_PORTAL_API_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_STAFF_PORTAL_API_DB_POOL_PRE_PING: true
+    REGISTRY_STAFF_PORTAL_API_DB_POOL_RECYCLE: 1800
 
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_DRIVER: 'postgresql+asyncpg'
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_USERNAME: '{{ .Values.global.masterDataDBUser }}'
@@ -1094,6 +1111,11 @@ celeryBeat:
     REGISTRY_CELERY_BEAT_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_CELERY_BEAT_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_CELERY_BEAT_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # SQLAlchemy pool per beat process.
+    REGISTRY_CELERY_BEAT_DB_POOL_SIZE: 5
+    REGISTRY_CELERY_BEAT_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_CELERY_BEAT_DB_POOL_PRE_PING: true
+    REGISTRY_CELERY_BEAT_DB_POOL_RECYCLE: 1800
 
     REGISTRY_CELERY_BEAT_CELERY_BROKER_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
     REGISTRY_CELERY_BEAT_CELERY_BACKEND_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
@@ -1172,6 +1194,11 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_CELERY_WORKERS_DB_PORT: 5432
     REGISTRY_CELERY_WORKERS_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # SQLAlchemy pool per worker process (also used for master-data).
+    REGISTRY_CELERY_WORKERS_DB_POOL_SIZE: 5
+    REGISTRY_CELERY_WORKERS_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_CELERY_WORKERS_DB_POOL_PRE_PING: true
+    REGISTRY_CELERY_WORKERS_DB_POOL_RECYCLE: 1800
 
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_DRIVER: 'postgresql+asyncpg'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_USERNAME: '{{ .Values.global.masterDataDBUser }}'

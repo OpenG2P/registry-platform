@@ -5,13 +5,13 @@ from datetime import datetime
 
 from fastapi_cache.coder import PickleCoder
 from fastapi_cache.decorator import cache
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from openg2p_registry_core.services.g2p_completion_score_service import G2PCompletionScoreService
 from openg2p_registry_core.services.g2p_score_compute_service import G2PScoreComputeService
 from sqlalchemy import Date as SQLDate, and_, exists, func, inspect, or_, select
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -128,12 +128,17 @@ class G2PRegisterChangeRequestService(BaseService):
         bearer_token: str | None = None,
         requester_sub: str | None = None,
     ):
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
 
-            register_definition: G2PRegisterDefinition = await self.validate_register_definition(change_request_request_payload.register_id, session)
-            register_section: G2PRegisterSection = await self.validate_section(change_request_request_payload.section_id, session)
-            register_tab: G2PRegisterUITab = await self.validate_tab(change_request_request_payload.tab_id, session)
+            register_section: G2PRegisterSection = await self.validate_section(
+                change_request_request_payload.section_id, session
+            )
+            await self.validate_tab(change_request_request_payload.tab_id, session)
+            register_definition: G2PRegisterDefinition = await self.validate_register_definition(
+                change_request_request_payload.register_id or register_section.register_id,
+                session,
+            )
             section_register_definition: G2PRegisterDefinition = await self.validate_register_definition(
                 register_section.section_register_id,
                 session,
@@ -191,15 +196,25 @@ class G2PRegisterChangeRequestService(BaseService):
                 else []
             )
             await session.flush()
-            await G2PAweIntegrationService.get_component().start_change_request_workflow(
-                session,
-                g2p_register_change_request,
-                serialized_payloads,
-                bearer_token=bearer_token,
-                requester=requester_sub or created_by,
-            )
             await session.commit()
             await session.refresh(g2p_register_change_request)
+
+            try:
+                await G2PAweIntegrationService.get_component().start_change_request_workflow(
+                    session,
+                    g2p_register_change_request,
+                    serialized_payloads,
+                    bearer_token=bearer_token,
+                    requester=requester_sub or created_by,
+                )
+                await session.commit()
+                await session.refresh(g2p_register_change_request)
+            except Exception:
+                _logger.exception(
+                    "AWE workflow failed after change request commit change_request_id=%s",
+                    g2p_register_change_request.change_request_id,
+                )
+                await session.rollback()
 
             return g2p_register_change_request
 
@@ -207,7 +222,7 @@ class G2PRegisterChangeRequestService(BaseService):
         self,
         data_policies: list[dict] | None = None,
     ) -> ChangeRequestSummaryData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request_summary_data: ChangeRequestSummaryData = await self._fetch_change_request_summary_data(
                 session, data_policies
@@ -226,7 +241,7 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestData], int]:
         """Get all change requests for a specific internal record and tab with pagination"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._ensure_subject_record_readable(
                 subject_register_id, subject_record_id, data_policies, session
@@ -240,7 +255,7 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> ChangeRequestData:
         """Get a single change request by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._ensure_change_request_readable(change_request_id, data_policies, session)
             change_request_data: ChangeRequestData = await self._fetch_change_request(change_request_id, session)
@@ -251,7 +266,7 @@ class G2PRegisterChangeRequestService(BaseService):
         self, change_request_id: str
     ) -> ChangeRequestSequenceCheckData:
         """Return whether earlier pending CRs block approval for this change request."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request = (
                 await session.execute(
@@ -295,7 +310,7 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestFlattenedData], int]:
         """Get all change requests for a specific internal record and tab with flattened change_payload fields"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._ensure_subject_record_readable(
                 subject_register_id, subject_record_id, data_policies, session
@@ -304,7 +319,7 @@ class G2PRegisterChangeRequestService(BaseService):
             return change_requests_list, total_items
 
     async def approve_change_request(self, change_request_id: str, approved_by: str | None = None):
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request = await self._approve_change_request_core(
                 change_request_id=change_request_id,
@@ -339,8 +354,9 @@ class G2PRegisterChangeRequestService(BaseService):
         register_section = await self.validate_change_request_section(change_request, session)
         if not skip_verification:
             await self.validate_change_request_verifications(change_request, session)
-        if not skip_sequence_check:
-            await self.validate_change_request_sequence(change_request, session)
+        # Disabled: do not block approval when earlier pending CRs exist.
+        # if not skip_sequence_check:
+        #     await self.validate_change_request_sequence(change_request, session)
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
@@ -747,7 +763,7 @@ class G2PRegisterChangeRequestService(BaseService):
         reason: str,
         rejected_by: str | None = None,
     ):
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request = await self.validate_change_request_exists(change_request_id, session)
             _logger.info("Validated change request for rejection: %s", change_request)
@@ -773,27 +789,14 @@ class G2PRegisterChangeRequestService(BaseService):
         # Validate whether verifications are done
         if not skip_verification:
             await self.validate_change_request_verifications(change_request, session)
+        # Disabled: do not block approval when earlier pending CRs exist.
         # Ensure there are no earlier change requests for the internal_record_id pending approval
-        if not skip_sequence_check:
-            await self.validate_change_request_sequence(change_request, session)
+        # if not skip_sequence_check:
+        #     await self.validate_change_request_sequence(change_request, session)
         return register_section
 
     async def validate_change_request_section(self, g2p_register_change_request: G2PRegisterChangeRequest, session) -> G2PRegisterSection:
-        register_section: G2PRegisterSection = (
-            await session.execute(
-                select(G2PRegisterSection).where(
-                    G2PRegisterSection.section_id == g2p_register_change_request.section_id
-                )
-            )
-        ).scalar()
-        if not register_section:
-            raise G2PRegistryException(
-                code=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[1],
-                message=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[0]
-            )
-        # Note: internal_record_id is already set during change request creation in construct_change_request
-        # Do not generate a new one here during approval
-        return register_section
+        return await self.validate_section(g2p_register_change_request.section_id, session)
 
     async def validate_change_request_exists(self, change_request_id: str, session) -> G2PRegisterChangeRequest:
         _logger.info(f"Validating change request exists for ID: {change_request_id}")
@@ -1025,49 +1028,33 @@ class G2PRegisterChangeRequestService(BaseService):
 
     # Validation methods
     async def validate_register_definition(self, register_id: str, session: AsyncSession) -> G2PRegisterDefinition:
-        register_definition: G2PRegisterDefinition = (
-            await session.execute(
-                select(G2PRegisterDefinition).where(
-                    G2PRegisterDefinition.register_id == register_id
-                )
-            )
-        ).scalar()
+        register_definition = self._coerce_register_definition(
+            await self._get_register_definition(register_id, session)
+        )
         if not register_definition:
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
                 message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
             )
-        return register_definition
+        return await session.merge(register_definition)
 
     async def validate_section(self, section_id: str, session: AsyncSession) -> G2PRegisterSection:
-        register_section: G2PRegisterSection =(
-                await session.execute(
-                select(G2PRegisterSection).where(
-                    G2PRegisterSection.section_id == section_id
-                )
-            )
-        ).scalar()
+        register_section = self._coerce_section(await self._get_section(section_id, session))
         if not register_section:
             raise G2PRegistryException(
-                code="SECTION_NOT_FOUND",
-                message="Section not found"
+                code=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[1],
+                message=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[0]
             )
-        return register_section
+        return await session.merge(register_section)
 
     async def validate_tab(self, tab_id: str, session: AsyncSession) -> G2PRegisterUITab:
-        register_tab: G2PRegisterUITab = (
-            await session.execute(
-                select(G2PRegisterUITab).where(
-                    G2PRegisterUITab.tab_id == tab_id
-                )
-            )
-        ).scalar()
+        register_tab = self._coerce_tab(await self._get_tab(tab_id, session))
         if not register_tab:
             raise G2PRegistryException(
-                code="TAB_NOT_FOUND",
-                message="Tab not found"
+                code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                message="Tab not found",
             )
-        return register_tab
+        return await session.merge(register_tab)
 
     async def validate_change_request_creation(
         self,
@@ -1078,17 +1065,16 @@ class G2PRegisterChangeRequestService(BaseService):
     ) -> None:
         if register_definition.register_purpose != RegisterPurposeEnum.REGISTER.value:
             raise self._invalid_request("Change request must belong to a register")
-        # TODO: remove redundancy if register_id removed from request payload
-        if section.register_id != payload.register_id:
+        subject_register_id = payload.register_id or section.register_id
+        if payload.register_id and section.register_id != payload.register_id:
             raise self._invalid_request("Section does not belong to the specified register")
-        # TODO: remove redundancy if section_register_id removed in request payload
-        if section.section_register_id != payload.section_register_id:
+        if payload.section_register_id and section.section_register_id != payload.section_register_id:
             raise self._invalid_request("Section Register does not match the one specified in the payload")
         if not payload.internal_record_id:
             raise self._invalid_request("Change request must have an internal_record_id to identify the subject record")
 
         section_register_purpose = section_register_definition.register_purpose
-        if section_register_purpose == RegisterPurposeEnum.REGISTER.value and section.section_register_id != payload.register_id:
+        if section_register_purpose == RegisterPurposeEnum.REGISTER.value and section.section_register_id != subject_register_id:
             raise self._invalid_request("Cross-register change requests are not allowed")
 
         allowed_actions = (
@@ -1410,7 +1396,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
         display_payloads = await self._payloads_for_display_metadata(
             session,
-            change_request_request_payload.section_register_id,
+            register_section.section_register_id,
             serialized_payloads,
         )
 
@@ -1440,11 +1426,14 @@ class G2PRegisterChangeRequestService(BaseService):
         g2p_register_change_request = G2PRegisterChangeRequest(
             change_request_id=change_request_id,
             record_name=constructed_record_name,
-            register_id=change_request_request_payload.register_id,
+            register_id=change_request_request_payload.register_id or register_section.register_id,
             tab_id=change_request_request_payload.tab_id,
             internal_record_id=internal_record_id,
             section_id=change_request_request_payload.section_id,
-            section_register_id=change_request_request_payload.section_register_id,
+            section_register_id=(
+                change_request_request_payload.section_register_id
+                or register_section.section_register_id
+            ),
             source_partner_id=source_partner_id or "system",
             change_request_source=change_request_source,
             created_by=actor_name,
@@ -1522,7 +1511,7 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestSearchResultData], int]:
         """Search in change requests using search_text field with pagination"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             search_results, total_items = await self._search_in_change_request(
                 search_text, current_page, page_size, filter_by, session, sort_by, data_policies
@@ -1639,7 +1628,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
     async def get_number_of_pending_change_requests(self, subject_register_id: str, subject_record_id: str, tab_id: str) -> NumberOfPendingChangeRequestsData:
         """Get the number of pending change requests for a given register, internal_record_id and tab_id"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition = self._coerce_register_definition(
                 await self._get_register_definition(subject_register_id, session)
@@ -1670,7 +1659,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
     async def get_number_of_cross_register_changes(self, subject_register_id: str, subject_record_id: str) -> NumberOfCrossRegisterChangesData:
         """Get the number of cross-register pending change requests by searching subject_record_id in search_text of G2PRegisterChangeRequestPayload"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition = self._coerce_register_definition(
                 await self._get_register_definition(subject_register_id, session)
@@ -1702,7 +1691,7 @@ class G2PRegisterChangeRequestService(BaseService):
 
     async def get_cross_register_changes(self, subject_register_id: str, subject_record_id: str) -> list[CrossRegisterChangeRequestData]:
         """Get the list of cross-register pending change requests by searching subject_record_id in search_text of G2PRegisterChangeRequestPayload"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition = self._coerce_register_definition(
                 await self._get_register_definition(subject_register_id, session)

@@ -1,8 +1,6 @@
 import logging
 
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -25,7 +23,7 @@ class G2PChangeRequestCoreService(BaseService):
         _logger.info("Creating core-data change request")
 
         change_request_service = G2PRegisterChangeRequestService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_section_is_core(
                 change_request_request_payload.section_id,
@@ -95,7 +93,7 @@ class G2PChangeRequestCoreService(BaseService):
                 message="change_request_id is required for core-data change request operations",
             )
 
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request = await change_request_service.validate_change_request_exists(
                 change_request_id,

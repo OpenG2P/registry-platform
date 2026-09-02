@@ -3,10 +3,8 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from ..models import ImportFileProcessQueue, ProcessStatusEnum
 
 _logger = logging.getLogger("input-mechanism-data-service")
@@ -27,7 +25,7 @@ class InputMechanismDataService(BaseService):
         Persist an import file into import_file_process_queue. The document
         must already be uploaded (DATA_IMPORT_FILES bucket) and catalogued.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             from .g2p_document_service import G2PDocumentService
             document_service = G2PDocumentService.get_component()

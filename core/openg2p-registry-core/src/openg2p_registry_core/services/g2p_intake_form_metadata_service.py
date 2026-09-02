@@ -1,11 +1,13 @@
 import logging
 
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 
+from ..config import Settings
+from ..helpers.orm_cache import optional_id_key_builder, single_id_key_builder
 from ..models import (
     G2PIntakeFormDefinition,
     G2PIntakeFormUITab,
@@ -28,6 +30,7 @@ from ..schemas import (
 from .g2p_register_metadata_service import G2PRegisterMetadataService
 
 _logger = logging.getLogger("g2p-intake-form-metadata-service")
+_config = Settings.get_config(strict=False)
 
 
 class G2PIntakeFormMetadataService(BaseService):
@@ -39,7 +42,7 @@ class G2PIntakeFormMetadataService(BaseService):
         number_of_verifications: int = 0,
         used_only_in_ingestion_pipeline: bool = False,
     ) -> IntakeFormIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_for_intake_form_creation(register_id, session)
 
@@ -63,7 +66,7 @@ class G2PIntakeFormMetadataService(BaseService):
         number_of_verifications: int | None = None,
         used_only_in_ingestion_pipeline: bool | None = None,
     ) -> IntakeFormIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             intake_form = await self._validate_intake_form(form_id, session)
 
@@ -80,7 +83,7 @@ class G2PIntakeFormMetadataService(BaseService):
             return IntakeFormIdData(form_id=intake_form.form_id)
 
     async def delete_intake_form(self, form_id: str) -> None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             intake_form = await self._validate_intake_form(form_id, session)
 
@@ -111,7 +114,7 @@ class G2PIntakeFormMetadataService(BaseService):
         page_size: int | None = None,
         used_only_in_ingestion_pipeline: bool | None = None,
     ) -> tuple[list[IntakeFormDefinitionData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             query = (
                 select(
@@ -158,7 +161,7 @@ class G2PIntakeFormMetadataService(BaseService):
             ], total_items
 
     async def get_intake_form(self, form_id: str) -> IntakeFormDefinitionData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row = (
                 await session.execute(
@@ -190,7 +193,16 @@ class G2PIntakeFormMetadataService(BaseService):
             )
 
     async def render_intake_form(self, form_id: str) -> IntakeFormRenderedData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        return await self._get_cached_render_intake_form(form_id)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_render_intake_form(self, form_id: str) -> IntakeFormRenderedData:
+        """Full rendered intake form (static metadata). Shared across users."""
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             intake_form = await self._validate_intake_form(form_id, session)
 
@@ -263,7 +275,7 @@ class G2PIntakeFormMetadataService(BaseService):
         tab_label: str,
         tab_order: int = 0,
     ) -> IntakeFormTabIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_intake_form(form_id, session)
             tab = G2PIntakeFormUITab(
@@ -277,7 +289,7 @@ class G2PIntakeFormMetadataService(BaseService):
             return IntakeFormTabIdData(tab_id=tab.tab_id)
 
     async def delete_tab(self, tab_id: str) -> None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab = await self._validate_tab(tab_id, session)
             tab_sections = (
@@ -297,7 +309,7 @@ class G2PIntakeFormMetadataService(BaseService):
         tab_label: str | None = None,
         tab_order: int | None = None,
     ) -> IntakeFormTabIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab = await self._validate_tab(tab_id, session)
 
@@ -310,7 +322,7 @@ class G2PIntakeFormMetadataService(BaseService):
             return IntakeFormTabIdData(tab_id=tab.tab_id)
 
     async def get_tab(self, tab_id: str) -> IntakeFormUITabData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab = await self._validate_tab(tab_id, session)
             return IntakeFormUITabData(
@@ -326,7 +338,28 @@ class G2PIntakeFormMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[IntakeFormUITabData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        if current_page is None or page_size is None:
+            return await self._get_cached_all_tabs(form_id)
+        return await self._assemble_all_tabs(form_id, current_page, page_size)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=optional_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_all_tabs(
+        self, form_id: str | None = None
+    ) -> tuple[list[IntakeFormUITabData], int]:
+        """Full intake-form tab list (static metadata). Shared across users."""
+        return await self._assemble_all_tabs(form_id, None, None)
+
+    async def _assemble_all_tabs(
+        self,
+        form_id: str | None,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list[IntakeFormUITabData], int]:
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             query = select(G2PIntakeFormUITab).order_by(
                 G2PIntakeFormUITab.tab_order.asc(),
@@ -343,7 +376,10 @@ class G2PIntakeFormMetadataService(BaseService):
             query = self._apply_pagination(query, current_page, page_size)
 
             tabs = (await session.execute(query)).scalars().all()
-            total_items = (await session.execute(count_query)).scalar_one()
+            if current_page is None or page_size is None:
+                total_items = len(tabs)
+            else:
+                total_items = (await session.execute(count_query)).scalar_one()
             return [
                 IntakeFormUITabData(
                     tab_id=tab.tab_id,
@@ -360,7 +396,7 @@ class G2PIntakeFormMetadataService(BaseService):
         section_id: str,
         section_order: int = 0,
     ) -> IntakeFormTabSectionIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_tab(tab_id, session)
             await self._validate_section(section_id, session)
@@ -387,7 +423,7 @@ class G2PIntakeFormMetadataService(BaseService):
             return IntakeFormTabSectionIdData(tab_section_id=tab_section.tab_section_id)
 
     async def remove_section(self, tab_section_id: str) -> None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab_section = await self._validate_tab_section(tab_section_id, session)
             await session.delete(tab_section)
@@ -398,7 +434,7 @@ class G2PIntakeFormMetadataService(BaseService):
         tab_section_id: str,
         section_order: int | None = None,
     ) -> IntakeFormTabSectionIdData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab_section = await self._validate_tab_section(tab_section_id, session)
 
@@ -414,7 +450,28 @@ class G2PIntakeFormMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[IntakeFormUITabSectionData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        if current_page is None or page_size is None:
+            return await self._get_cached_all_sections(tab_id)
+        return await self._assemble_all_sections(tab_id, current_page, page_size)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=optional_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_all_sections(
+        self, tab_id: str | None = None
+    ) -> tuple[list[IntakeFormUITabSectionData], int]:
+        """Full intake-form tab-section list (static metadata). Shared across users."""
+        return await self._assemble_all_sections(tab_id, None, None)
+
+    async def _assemble_all_sections(
+        self,
+        tab_id: str | None,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list[IntakeFormUITabSectionData], int]:
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             query = (
                 select(
@@ -441,7 +498,10 @@ class G2PIntakeFormMetadataService(BaseService):
             query = self._apply_pagination(query, current_page, page_size)
 
             rows = (await session.execute(query)).all()
-            total_items = (await session.execute(count_query)).scalar_one()
+            if current_page is None or page_size is None:
+                total_items = len(rows)
+            else:
+                total_items = (await session.execute(count_query)).scalar_one()
 
             return [
                 IntakeFormUITabSectionData(
