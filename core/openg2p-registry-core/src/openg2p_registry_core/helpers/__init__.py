@@ -1,9 +1,14 @@
 from .awe_config import get_awe_settings
 from .awe_helper import AWEClientError, AweHelper
 from .document import DocumentBucket, DocumentHandler, get_document_handler
+from .master_data import (
+    MasterDataClient,
+    get_master_data_settings,
+)
 from .partner_management import (
     PartnerManagementClient,
     RegisteredPartner,
+    canonical_partner_id,
     get_partner_mgmt_settings,
     partner_reference_id,
 )

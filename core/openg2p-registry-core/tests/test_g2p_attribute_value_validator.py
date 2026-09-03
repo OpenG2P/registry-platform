@@ -32,7 +32,6 @@ def validator_module():
         package,
         f"{package}.services",
         f"{package}.config",
-        f"{package}.engine",
         f"{package}.errors",
         "openg2p_fastapi_common",
         "openg2p_fastapi_common.service",
@@ -58,10 +57,6 @@ def validator_module():
     )
     config.Settings = SimpleNamespace(get_config=lambda strict=False: settings)
     sys.modules[f"{package}.config"] = config
-
-    engine = ModuleType(f"{package}.engine")
-    engine.get_engines = lambda: {"db_engine_master_data": object()}
-    sys.modules[f"{package}.engine"] = engine
 
     errors = ModuleType(f"{package}.errors")
     errors.G2PRegistryErrorCodes = SimpleNamespace(REQUEST_VALIDATION_ERROR=_Code())
@@ -189,37 +184,3 @@ async def test_enabled_validator_rejects_empty_master_data(validator_module):
             [{"commodity": "WHEAT"}],
             field_map={"commodity": "CROP_COMMODITY"},
         )
-
-
-@pytest.mark.asyncio
-async def test_code_cache_refreshes_after_ttl(validator_module, monkeypatch):
-    result = SimpleNamespace(all=lambda: [("GENDER", "MALE")])
-    execute = AsyncMock(return_value=result)
-
-    class _Session:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_args):
-            return None
-
-    _Session.execute = execute
-
-    class _SessionMaker:
-        def __call__(self):
-            return _Session()
-
-    monkeypatch.setattr(
-        validator_module,
-        "async_sessionmaker",
-        lambda *_args, **_kwargs: _SessionMaker(),
-    )
-    times = iter((100.0, 101.0, 106.0))
-    monkeypatch.setattr(validator_module, "_now", lambda: next(times))
-
-    validator = validator_module.G2PAttributeValueValidator()
-    await validator._load()
-    await validator._load()
-    await validator._load()
-
-    assert execute.await_count == 2

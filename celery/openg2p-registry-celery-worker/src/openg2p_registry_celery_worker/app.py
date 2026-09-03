@@ -9,6 +9,7 @@ _logger = logging.getLogger(_config.logging_default_logger_name)
 
 from celery import Celery
 from openg2p_registry_core.helpers import (
+    MasterDataClient,
     PartnerManagementClient,
     TemplateHelper,
     WebsubHelper,
@@ -17,6 +18,7 @@ from openg2p_registry_core.helpers import (
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
 from openg2p_fastapi_common.exception import BaseExceptionHandler        
 from openg2p_registry_core.services import (
+    G2PAttributeValueValidator,
     G2PIngestService,
     G2PIntakeFormDataService,
     G2PIntakeFormLinkService,
@@ -36,6 +38,13 @@ class Initializer(BaseInitializer):
         super().initialize()
         BaseExceptionHandler()
 
+        # Helpers
+        get_document_handler()
+        TemplateHelper()
+        WebsubHelper()
+        PartnerManagementClient()
+        MasterDataClient()
+
         # Services
         G2PRegisterService()
         G2PIngestService()
@@ -44,16 +53,11 @@ class Initializer(BaseInitializer):
         G2PRegisterChangeRequestService()
         G2PChangeRequestWorkerService()
         G2PGeoHierarchyService()
+        G2PAttributeValueValidator()
 
-        # Factories (celery does not run CoreInitializer)
+        # Factories
         G2PRegisterDomainFactory()
         G2PIdGeneratorFactory()
-
-        # Helpers
-        get_document_handler()
-        TemplateHelper()
-        WebsubHelper()
-        PartnerManagementClient()
 
 
 celery_app = Celery(

@@ -543,6 +543,7 @@ async def _fanout_outgest_rows(
             changed_at=submission.approved_at or datetime.now(),
             approved_by=submission.approved_by,
             approved_at=submission.approved_at,
+            changed_by_partner_id=submission.partner_id,
             hierarchical_service=hierarchical_service,
         )
 

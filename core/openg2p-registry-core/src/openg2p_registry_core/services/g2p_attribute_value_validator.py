@@ -1,18 +1,13 @@
 import logging
-import time
 from typing import Any, Iterable, Optional
 
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from ..config import Settings
-from ..engine import get_engines
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 
 _config = Settings.get_config(strict=False)
 _logger = logging.getLogger("g2p-attribute-value-validator")
-_now = time.monotonic
 
 
 class G2PAttributeValueValidator(BaseService):
@@ -20,48 +15,25 @@ class G2PAttributeValueValidator(BaseService):
 
     def __init__(self):
         super().__init__()
-        self._codes: Optional[dict[str, set[str]]] = None
-        self._loaded_at: float | None = None
 
     @property
     def enabled(self) -> bool:
         return bool(getattr(_config, "validate_attribute_values", False))
 
     def invalidate(self) -> None:
-        self._codes = None
-        self._loaded_at = None
+        from ..helpers.master_data import MasterDataClient
+
+        client = MasterDataClient.get_component()
+        if client is not None:
+            client.invalidate()
 
     async def _load(self) -> dict[str, set[str]]:
-        now = _now()
-        if (
-            self._codes is not None
-            and self._loaded_at is not None
-            and now - self._loaded_at < _config.cache_expires_in_seconds
-        ):
-            return self._codes
+        from ..helpers.master_data import MasterDataClient
 
-        master_data_engine = get_engines().get("db_engine_master_data")
-        if master_data_engine is None:
-            raise RuntimeError("Master Data database engine is not configured")
-
-        session_maker = async_sessionmaker(master_data_engine, expire_on_commit=False)
-        async with session_maker() as session:
-            rows = (
-                await session.execute(
-                    text(
-                        "SELECT attribute_id, value_code "
-                        "FROM g2p_attribute_values "
-                        "WHERE value_code IS NOT NULL"
-                    )
-                )
-            ).all()
-
-        codes: dict[str, set[str]] = {}
-        for attribute_id, value_code in rows:
-            codes.setdefault(attribute_id, set()).add(value_code)
-        self._codes = codes
-        self._loaded_at = now
-        return codes
+        client = MasterDataClient.get_component()
+        if client is None:
+            client = MasterDataClient()
+        return await client.get_attribute_codes()
 
     @staticmethod
     def _path_fields(value: Any) -> Iterable[str]:
