@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..helpers.orm_cache import dict_to_orm, orm_row_to_dict, single_id_key_builder
+from ..helpers.orm_cache import data_policies_key_builder, dict_to_orm, orm_row_to_dict, single_id_key_builder
 from ..models import (
     ApprovalStatusEnum,
     ChangeRequestSourceEnum,
@@ -218,10 +218,16 @@ class G2PRegisterChangeRequestService(BaseService):
 
             return g2p_register_change_request
 
+    @cache(
+        expire=_config.cache_summary_expires_in_seconds,
+        key_builder=data_policies_key_builder,
+        coder=PickleCoder,
+    )
     async def get_change_request_summary_data(
         self,
         data_policies: list[dict] | None = None,
     ) -> ChangeRequestSummaryData:
+        """Dashboard summary; 10 min TTL shared across users with the same data policies."""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             change_request_summary_data: ChangeRequestSummaryData = await self._fetch_change_request_summary_data(
