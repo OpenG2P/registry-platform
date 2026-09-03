@@ -62,13 +62,15 @@ class Settings(IamSettings):
     # In-process TTL for partner lookups (0 disables). Avoids one PM call per ingest row.
     partner_mgmt_cache_seconds: int = 300
 
-    # Master Data Database Configuration
-    master_data_db_driver: str = "postgresql+asyncpg"
-    master_data_db_username: str = "postgres"
-    master_data_db_password: str = "postgres"
-    master_data_db_hostname: str = "localhost"
-    master_data_db_port: int = 5432
-    master_data_db_dbname: str = "openg2p_gen2_master_data_db"
+    # Master Data API — attribute/geo validation (no connection to master-data DB).
+    master_data_api_url: str = ""  # e.g. http://commons-services-master-data-api
+    master_data_timeout_seconds: float = 10.0
+    # In-process TTL for code lists and geo hierarchy (0 disables).
+    master_data_cache_seconds: int = 300
+    # Optional client_credentials. Empty falls back to partner_mgmt_admin_*.
+    master_data_token_url: str = ""
+    master_data_client_id: str = ""
+    master_data_client_secret: str = ""
 
     # Cache Configuration
     cache_expires_in_seconds: int = 60 * 5

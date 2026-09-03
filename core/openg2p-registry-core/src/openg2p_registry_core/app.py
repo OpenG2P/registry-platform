@@ -41,6 +41,7 @@ from .controller_services import (
 from .helpers import (
     AweHelper,
     ApplicationReferenceGenerator,
+    MasterDataClient,
     PartnerManagementClient,
     PatternMatcher,
     TemplateHelper,
@@ -162,6 +163,7 @@ class Initializer(BaseInitializer):
         TemplateHelper()
         PatternMatcher()
         PartnerManagementClient()
+        MasterDataClient()
         ApplicationReferenceGenerator(_config.application_reference_format)
         CryptoFactory.get()
         AweHelper()

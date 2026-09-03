@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import select
 
+from ..helpers.partner_management import canonical_partner_id
 from ..models import (
     G2PRegisterDefinition,
     OutgoingRawData,
@@ -60,6 +61,7 @@ async def fanout_outgest_rows(
 
     source_id = intake_form_submission_id or change_request_id
     payload_id = f"{source_id}:{register_definition.register_id}:{register_row.internal_record_id}"
+    resolved_partner_id = await canonical_partner_id(changed_by_partner_id)
 
     session.add(
         OutgoingRawDataPayload(
@@ -85,7 +87,7 @@ async def fanout_outgest_rows(
                 changed_at=changed_at,
                 approved_by=approved_by,
                 approved_at=approved_at,
-                changed_by_partner_id=changed_by_partner_id,
+                changed_by_partner_id=resolved_partner_id,
                 transformation_status=ProcessStatusEnum.PENDING.value,
             )
         )

@@ -175,7 +175,7 @@ class G2PGeo(BaseORMModel):
     def update_geo_hierarchy(self, _key: str, value: str) -> str:
         """
         Automatically populate geo_code_hierarchy_json when geo_lowest_level_value_id is set.
-        Fetches the hierarchy from master-data-db with caching.
+        Fetches the hierarchy from the Master Data API with caching.
         """
         if value:
             from ..services import G2PGeoHierarchyService

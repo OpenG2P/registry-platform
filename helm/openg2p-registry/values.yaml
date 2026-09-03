@@ -10,10 +10,9 @@ global:
   registryDBSecret: '{{ .Release.Name }}'
   registryDBUserPasswordKey: '{{ .Release.Name }}-db-user'
 
-  # Master Data DB credentials — must match the values set by the
-  # openg2p-commons-services chart (release `commons-services`). Commons
-  # uses plain DB names (no release-name prefix) since only one Master
-  # Data instance is expected per environment.
+  # Master Data DB credentials — used by the registry db-seed Job when it
+  # loads geo into the Master Data database. Runtime registry pods talk to
+  # Master Data over HTTP (masterDataApiUrl), not this database.
   masterDataDB: 'master_data'
   masterDataDBPort: 5432
   masterDataDBUser: 'master_data_user'
@@ -437,11 +436,9 @@ partnerApi:
 
     REGISTRY_PARTNER_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
-    REGISTRY_PARTNER_API_MASTER_DATA_DB_DRIVER: 'postgresql+asyncpg'
-    REGISTRY_PARTNER_API_MASTER_DATA_DB_USERNAME: '{{ .Values.global.masterDataDBUser }}'
-    REGISTRY_PARTNER_API_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
-    REGISTRY_PARTNER_API_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
-    REGISTRY_PARTNER_API_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
+    REGISTRY_PARTNER_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
 
     REGISTRY_PARTNER_API_KEYMANAGER_API_BASE_URL: "{{ .Values.global.keymanagerInstallationName }}/v1/keymanager"
     REGISTRY_PARTNER_API_KEYMANAGER_API_TIMEOUT: 10
@@ -487,10 +484,6 @@ partnerApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
-    REGISTRY_PARTNER_API_MASTER_DATA_DB_PASSWORD:
-      secretKeyRef:
-        name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
-        key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
     REGISTRY_PARTNER_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
@@ -516,6 +509,11 @@ partnerApi:
         name: '{{ tpl .Values.global.authClientSecret $ }}'
         key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.pmSeedClientId $ }}'
+        key: client_secret
+        optional: true
+    REGISTRY_PARTNER_API_MASTER_DATA_CLIENT_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.pmSeedClientId $ }}'
         key: client_secret
@@ -804,11 +802,9 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_STAFF_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
 
-    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_DRIVER: 'postgresql+asyncpg'
-    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_USERNAME: '{{ .Values.global.masterDataDBUser }}'
-    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
-    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
-    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
 
     REGISTRY_STAFF_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -851,10 +847,6 @@ staffApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
-    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_PASSWORD:
-      secretKeyRef:
-        name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
-        key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
@@ -876,6 +868,11 @@ staffApi:
         name: '{{ tpl .Values.global.aweCallbackHmacSecretName $ }}'
         key: '{{ .Values.global.aweCallbackHmacSecretKey }}'
     REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.pmSeedClientId $ }}'
+        key: client_secret
+        optional: true
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.pmSeedClientId $ }}'
         key: client_secret
@@ -1193,11 +1190,9 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_DB_PORT: 5432
     REGISTRY_CELERY_WORKERS_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
 
-    REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_DRIVER: 'postgresql+asyncpg'
-    REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_USERNAME: '{{ .Values.global.masterDataDBUser }}'
-    REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
-    REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
-    REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
 
     REGISTRY_CELERY_WORKERS_CELERY_BROKER_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
     REGISTRY_CELERY_WORKERS_CELERY_BACKEND_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
@@ -1245,11 +1240,12 @@ celeryWorker:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
-    REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_PASSWORD:
-      secretKeyRef:
-        name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
-        key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
     REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.pmSeedClientId $ }}'
+        key: client_secret
+        optional: true
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_CLIENT_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.pmSeedClientId $ }}'
         key: client_secret
