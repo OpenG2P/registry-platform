@@ -21,6 +21,7 @@ interface RegisterImportFileConfigViewProps {
     currentPage?: number;
     pageSize?: number;
     onDataLoaded?: (totalItems: number, currentCount: number) => void;
+    embedded?: boolean;
 }
 
 export default function RegisterImportFileConfigView({
@@ -29,6 +30,7 @@ export default function RegisterImportFileConfigView({
     currentPage = 1,
     pageSize = 10,
     onDataLoaded,
+    embedded = false,
 }: RegisterImportFileConfigViewProps) {
     const t = useTranslations();
     const { registerId } = useParams<{ registerId: string }>();
@@ -129,6 +131,7 @@ export default function RegisterImportFileConfigView({
                 data={importFileConfigurations}
                 loading={loading}
                 rowKey={(item: ImportFileConfiguration) => item.import_file_configuration_id}
+                embedded={embedded}
                 actions={(item) => (
                     <div className="flex gap-4">
                 

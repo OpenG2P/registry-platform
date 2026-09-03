@@ -33,6 +33,18 @@ type PaginationState = { totalItems: number; currentCount: number };
 
 const EMPTY_PAGINATION: PaginationState = { totalItems: 0, currentCount: 0 };
 
+const setPaginationIfChanged = (
+    setter: React.Dispatch<React.SetStateAction<PaginationState>>,
+    totalItems: number,
+    currentCount: number,
+) => {
+    setter((prev) =>
+        prev.totalItems === totalItems && prev.currentCount === currentCount
+            ? prev
+            : { totalItems, currentCount },
+    );
+};
+
 const RegisterConfigurationPage = () => {
     const t = useTranslations();
     const { registerId } = useParams<{ registerId: string }>();
@@ -183,16 +195,18 @@ const RegisterConfigurationPage = () => {
             />
 
             <div className=" ml-4 mt-4 px-7.5">
-                <div className="flex justify-between items-center h-14">
-                    <ConfigurationTabs
-                        activeTab={activeTab}
-                        setActiveTab={setActiveTab}
-                        tabLabels={tabLabels}
-                    />
+                <div className="flex justify-between items-center min-h-14">
+                    <div className="relative z-10 shrink-0">
+                        <ConfigurationTabs
+                            activeTab={activeTab}
+                            setActiveTab={setActiveTab}
+                            tabLabels={tabLabels}
+                        />
+                    </div>
 
-                    {/* TopBar */}
-                    <div className="flex items-center h-full">
+                    <div className="flex items-center shrink-0">
                         <TopBar
+                            embedded
                             breadcrumb={[]}
                             showFilters={false}
                             showPagination={!!activePaginatedTab}
@@ -241,7 +255,7 @@ const RegisterConfigurationPage = () => {
             </div>
 
 
-            <div className="mt-0">
+            <div className="relative z-[1] mt-0">
                 {activeTab === 'tabs' && (
                     <RegisterTabConfigView
                         isModalOpen={isTabModalOpen}
@@ -249,7 +263,7 @@ const RegisterConfigurationPage = () => {
                         page={tabPage}
                         pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
-                            setTabPagination({ totalItems, currentCount })
+                            setPaginationIfChanged(setTabPagination, totalItems, currentCount)
                         }
                     />
                 )}
@@ -261,7 +275,7 @@ const RegisterConfigurationPage = () => {
                         page={sectionPage}
                         pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
-                            setSectionPagination({ totalItems, currentCount })
+                            setPaginationIfChanged(setSectionPagination, totalItems, currentCount)
                         }
                     />
                 )}
@@ -273,7 +287,7 @@ const RegisterConfigurationPage = () => {
                         currentPage={scorePage}
                         pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
-                            setScorePagination({ totalItems, currentCount })
+                            setPaginationIfChanged(setScorePagination, totalItems, currentCount)
                         }
                     />
                 )}
@@ -285,7 +299,7 @@ const RegisterConfigurationPage = () => {
                         currentPage={fileImportPage}
                         pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
-                            setFileImportPagination({ totalItems, currentCount })
+                            setPaginationIfChanged(setFileImportPagination, totalItems, currentCount)
                         }
                     />
                 )}
@@ -297,7 +311,7 @@ const RegisterConfigurationPage = () => {
                         currentPage={vcImportPage}
                         pageSize={pageSize}
                         onDataLoaded={(totalItems, currentCount) =>
-                            setVcImportPagination({ totalItems, currentCount })
+                            setPaginationIfChanged(setVcImportPagination, totalItems, currentCount)
                         }
                     />
                 )}

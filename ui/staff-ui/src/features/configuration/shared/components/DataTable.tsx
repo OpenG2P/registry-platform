@@ -64,7 +64,7 @@ export default function DataTable<T>({
                     <div
                         key={rowKey(item)}
                         onClick={() => onRowClick?.(item)}
-                        className={`grid gap-4 items-center -mx-8 px-16 h-15 transition-colors ${index % 2 === 0 ? 'bg-secondary-second/25' : 'bg-neutral-second'} ${onRowClick ? 'cursor-pointer hover:bg-secondary-second/40' : ''}`}
+                        className={`grid gap-4 items-center -mx-8 px-16 h-15 ${index % 2 === 0 ? 'bg-secondary-second/25' : 'bg-neutral-second'} ${onRowClick ? 'cursor-pointer' : ''}`}
                         style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}
                     >
                         {columns.map((col) => {

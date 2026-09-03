@@ -22,6 +22,7 @@ interface RegisterSectionConfigViewProps {
 	onDataLoaded?: (totalItems: number, currentCount: number) => void;
 	isModalOpen: boolean;
 	onCloseModal: () => void;
+	embedded?: boolean;
 }
 
 export default function RegisterSectionConfigView({
@@ -30,6 +31,7 @@ export default function RegisterSectionConfigView({
 	onDataLoaded,
 	isModalOpen,
 	onCloseModal,
+	embedded = false,
 }: RegisterSectionConfigViewProps) {
 	const t = useTranslations();
 	const router = useRouter();
@@ -92,6 +94,7 @@ export default function RegisterSectionConfigView({
 				data={sections || []}
 				loading={loading}
 				rowKey={(item) => item.section_id}
+				embedded={embedded}
 				onRowClick={(item) =>
 					router.push(`/configuration/registers/${registerId}/sections/${item.section_id}`)
 				}

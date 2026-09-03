@@ -49,6 +49,9 @@ interface TopBarProps {
 
     /** Rendered after the PaginationBar — use for the MoreMenu kebab */
     endActions?: React.ReactNode;
+
+    /** Sit beside tabs instead of stretching across the page */
+    embedded?: boolean;
 }
 
 export default function TopBar({
@@ -82,10 +85,23 @@ export default function TopBar({
     filterConfig = [],
     filterLoading = false,
     endActions,
+    embedded = false,
 }: TopBarProps) {
     return (
-        <div className="w-full h-17.5 flex justify-center items-center">
-            <div className="w-full px-7.5 flex justify-between items-center">
+        <div
+            className={
+                embedded
+                    ? 'flex items-center h-full'
+                    : 'w-full h-17.5 flex justify-center items-center'
+            }
+        >
+            <div
+                className={
+                    embedded
+                        ? 'flex items-center'
+                        : 'w-full px-7.5 flex justify-between items-center'
+                }
+            >
                 <div className="flex items-center gap-4">
                     {breadcrumb && breadcrumb.length > 0 && (
                         <BreadcrumbBar breadcrumb={breadcrumb} />

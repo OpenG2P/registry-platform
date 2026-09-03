@@ -54,20 +54,22 @@ const SectionConfigurationPage = () => {
     }
 
     return (
-        <>
+        <div className="flex flex-col flex-1 min-h-0">
             <div className="pt-4 px-7.5 mb-2 shrink-0">
                 <BreadcrumbBar breadcrumb={breadcrumb} />
             </div>
 
-            <ConfigDetailsSummary
-                title={section.section_mnemonic || 'None'}
-                description={section.section_description || 'None'}
-                onEdit={
-                    canEdit
-                        ? () => setIsEditModalOpen(true)
-                        : undefined
-                }
-            />
+            <div className="shrink-0">
+                <ConfigDetailsSummary
+                    title={section.section_mnemonic || 'None'}
+                    description={section.section_description || 'None'}
+                    onEdit={
+                        canEdit
+                            ? () => setIsEditModalOpen(true)
+                            : undefined
+                    }
+                />
+            </div>
 
             <SectionDetailsConfigView
                 sectionUISchema={section?.section_ui_schema}
@@ -83,7 +85,7 @@ const SectionConfigurationPage = () => {
                     onSuccess={refresh}
                 />
             )}
-        </>
+        </div>
     );
 };
 

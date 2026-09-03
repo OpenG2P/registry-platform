@@ -18,6 +18,7 @@ interface RegisterVcImportViewProps {
     currentPage?: number;
     pageSize?: number;
     onDataLoaded?: (totalItems: number, currentCount: number) => void;
+    embedded?: boolean;
 }
 
 export default function RegisterVcImportView({
@@ -26,6 +27,7 @@ export default function RegisterVcImportView({
     currentPage = 1,
     pageSize = 10,
     onDataLoaded,
+    embedded = false,
 }: RegisterVcImportViewProps) {
     const t = useTranslations();
     const { registerId } = useParams<{ registerId: string }>();
@@ -123,6 +125,7 @@ export default function RegisterVcImportView({
                 data={vcImports}
                 loading={loading}
                 rowKey={(item: VcImport) => item.vc_config_id}
+                embedded={embedded}
                 actions={(item) => (
                     <div className="flex gap-4">
                         <Can action={CONFIGURATION_TABS_ACTIONS.edit}>

@@ -19,7 +19,7 @@ export { SectionsContainer } from './components/SectionsContainer';
 export type { SectionMode, SectionsContainerProps, SectionsFormHandle } from './components/SectionsContainer';
 
 export { SectionBuilder } from './components/SectionBuilder';
-export type { SectionBuilderProps } from './components/SectionBuilder';
+export type { SectionBuilderProps, BuilderNotifyType } from './components/SectionBuilder';
 export { JSONEditorPanel } from './components/SectionBuilder';
 export { VisualBuilderPanel } from './components/SectionBuilder';
 export { SectionTree } from './components/SectionBuilder';
@@ -28,6 +28,8 @@ export { PropertyEditor } from './components/SectionBuilder';
 
 import './registry/defaultWidgets';
 export { widgetRegistry } from './registry/WidgetRegistry';
+export { WIDGET_TYPES, getWidgetCategory, createDefaultWidgetConfig } from './registry/widgetTypes';
+export type { WidgetType } from './registry/widgetTypes';
 export type { WidgetRegistryEntry } from './types';
 export { registerDefaultWidgets } from './registry/defaultWidgets';
 

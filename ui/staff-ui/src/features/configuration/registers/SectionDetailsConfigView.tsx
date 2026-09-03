@@ -1,6 +1,6 @@
 'use client';
 import { SectionBuilder } from '@openg2p/registry-widgets';
-import type { SectionConfig } from '@openg2p/registry-widgets';
+import type { BuilderNotifyType, SectionConfig } from '@openg2p/registry-widgets';
 import { useFetch } from '@/shared/hooks';
 import { RegistryWidgetProvider } from '@/shared/widgets';
 import { toast } from 'react-toastify';
@@ -13,6 +13,28 @@ interface SectionDetailsConfigViewProps {
     isCoreSection?: boolean;
 }
 
+const notify = (message: string, type: BuilderNotifyType) => {
+    const options = {
+        position: 'top-right' as const,
+        className: 'rounded-[15px] shadow-xl border border-secondary-first',
+    };
+
+    switch (type) {
+        case 'success':
+            toast.success(message, options);
+            break;
+        case 'error':
+            toast.error(message, options);
+            break;
+        case 'warn':
+            toast.warn(message, options);
+            break;
+        default:
+            toast.info(message, options);
+            break;
+    }
+};
+
 export default function SectionDetailsConfigView({
     sectionUISchema,
     registerId,
@@ -20,10 +42,9 @@ export default function SectionDetailsConfigView({
     isCoreSection = false,
 }: SectionDetailsConfigViewProps) {
     const t = useTranslations();
-    const { execute: updateUISchema, loading } = useFetch();
+    const { execute: updateUISchema } = useFetch();
 
-    const handleSectionChange = (updatedSection: SectionConfig) => {
-        //If required then perform some action on UI schema onchange.
+    const handleSectionChange = (_updatedSection: SectionConfig) => {
     };
 
     const handleSave = async (updatedSection: SectionConfig) => {
@@ -55,15 +76,15 @@ export default function SectionDetailsConfigView({
     };
 
     return (
-        <div className=' min-h-150 mx-8 mt-6 bg-neutral-second rounded-[10px] px-8 pb-8 pt-12 mb-6 overflow-x-visible'>
+        <div className="flex flex-1 flex-col min-h-0 mx-8 mt-6 mb-6 overflow-hidden rounded-[10px] bg-neutral-second px-8 pb-8 pt-12">
             <RegistryWidgetProvider>
                 <SectionBuilder
                     initialSection={sectionUISchema}
                     onChange={handleSectionChange}
                     onSave={handleSave}
+                    onNotify={notify}
                 />
             </RegistryWidgetProvider>
         </div>
-
     );
 }

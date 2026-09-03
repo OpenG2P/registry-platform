@@ -91,7 +91,16 @@ export const WidgetProvider = ({
       <ThemeContext.Provider value={resolvedTheme}>
         <WidgetContext.Provider value={contextValue}>
           <WidgetEventBusContext.Provider value={eventBus}>
-            <div className="openg2p-widget-theme-root" style={cssVariables}>
+            <div
+              className="openg2p-widget-theme-root"
+              style={{
+                ...cssVariables,
+                flex: '1 1 0%',
+                minHeight: 0,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
               <style className="owt-field-styles">{OWT_FIELD_STYLES}</style>
               {children}
             </div>
