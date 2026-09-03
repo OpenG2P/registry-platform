@@ -39,6 +39,7 @@ _stub_iam_data_policy_helper()
 
 from openg2p_registry_core.helpers.document.minio_client import MinioClient
 from openg2p_registry_core.helpers.register_export import (
+    build_main_export_conditions,
     build_related_export_conditions,
     has_explicit_record_status_filter,
     resolve_register_export_hierarchy,
@@ -99,6 +100,14 @@ class _RelatedExportRecord(_HierarchyBase):
     __tablename__ = "test_related_export_record"
 
     internal_record_id: Mapped[str] = mapped_column(String, primary_key=True)
+    record_status: Mapped[str] = mapped_column(String)
+
+
+class _MainExportRecord(_HierarchyBase):
+    __tablename__ = "test_main_export_record"
+
+    internal_record_id: Mapped[str] = mapped_column(String, primary_key=True)
+    search_text: Mapped[str] = mapped_column(String)
     record_status: Mapped[str] = mapped_column(String)
 
 
@@ -185,6 +194,77 @@ def test_related_export_conditions_default_to_active_records():
     assert len(conditions) == 1
     compiled = str(conditions[0].compile(compile_kwargs={"literal_binds": True}))
     assert "ACTIVE" in compiled
+
+
+def test_blank_search_text_omits_ilike():
+    session = MagicMock()
+    session.execute.return_value.scalar_one_or_none.return_value = None
+    with patch(
+        "openg2p_registry_core.services.filter_builder.FilterBuilder"
+    ) as filter_builder:
+        filter_builder.return_value.build_conditions.return_value = []
+        conditions = build_main_export_conditions(
+            session,
+            _register("person", "Person"),
+            _MainExportRecord,
+            search_text=None,
+            filter_by=None,
+            data_policies=None,
+        )
+
+    compiled = [
+        str(condition.compile(compile_kwargs={"literal_binds": True})).lower()
+        for condition in conditions
+    ]
+    assert conditions
+    assert not any("like" in sql for sql in compiled)
+
+
+def test_whitespace_search_text_omits_ilike():
+    session = MagicMock()
+    session.execute.return_value.scalar_one_or_none.return_value = None
+    with patch(
+        "openg2p_registry_core.services.filter_builder.FilterBuilder"
+    ) as filter_builder:
+        filter_builder.return_value.build_conditions.return_value = []
+        conditions = build_main_export_conditions(
+            session,
+            _register("person", "Person"),
+            _MainExportRecord,
+            search_text="   ",
+            filter_by=None,
+            data_policies=None,
+        )
+
+    compiled = [
+        str(condition.compile(compile_kwargs={"literal_binds": True})).lower()
+        for condition in conditions
+    ]
+    assert not any("like" in sql for sql in compiled)
+
+
+def test_search_text_adds_ilike():
+    session = MagicMock()
+    session.execute.return_value.scalar_one_or_none.return_value = None
+    with patch(
+        "openg2p_registry_core.services.filter_builder.FilterBuilder"
+    ) as filter_builder:
+        filter_builder.return_value.build_conditions.return_value = []
+        conditions = build_main_export_conditions(
+            session,
+            _register("person", "Person"),
+            _MainExportRecord,
+            search_text="Ada",
+            filter_by=None,
+            data_policies=None,
+        )
+
+    compiled = " ".join(
+        str(condition.compile(compile_kwargs={"literal_binds": True})).lower()
+        for condition in conditions
+    )
+    assert "like" in compiled
+    assert "%ada%" in compiled
 
 
 def test_named_minio_upload_keeps_caller_object_name():

@@ -33,7 +33,7 @@ class Settings(ExtSettings):
     worker_max_attempts: int = 5
 
     # Register export
-    export_batch_size: int = 500
+    export_batch_size: int = 2000
     export_worker_max_attempts: int = 3
     export_presigned_url_expiry_hours: int = 48
     export_files_prefix: str = "register-exports/"
