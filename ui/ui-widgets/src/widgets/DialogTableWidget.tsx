@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { tSchema } from '../utils/tSchema';
+import { tSchema, toTitleCase } from '../utils/tSchema';
 import { useWidgetContext } from '../components/WidgetProvider';
+import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 import { useDispatch, useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
@@ -69,16 +70,16 @@ const buildDialogColumnSegments = (columns: any[]): DialogColumnSegment[] => {
 /** Match TableWidget cell styling for add / update / delete rows */
 const getRowCellStyle = (editAction?: string): CSSProperties => {
   if (editAction === 'ADD') {
-    return { color: 'var(--owt-color-success, #16A34A)' };
+    return { color: 'var(--owt-color-success)' };
   }
   if (editAction === 'DELETE') {
     return {
-      color: 'var(--owt-color-error, #B91C1C)',
+      color: 'var(--owt-color-error)',
       textDecoration: 'line-through',
     };
   }
   if (editAction === 'UPDATE') {
-    return { color: 'var(--owt-color-warning, #F59E0B)' };
+    return { color: 'var(--owt-color-warning)' };
   }
   return {};
 };
@@ -152,12 +153,14 @@ const DialogTableField = memo(function DialogTableField({
 export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
   const { value, error, touched, isEnabled, onChange, config: widgetConfig } = useBaseWidget({ config });
   const { t } = useWidgetContext();
+  const themeRoot = useOwtThemeRootProps();
   const dispatch = useDispatch();
 
   const rows: any[] = Array.isArray(value) ? value : [];
   const columns: any[] = widgetConfig['widget-data-columns'] || [];
   const operations = widgetConfig['widget-data-operations'] || {};
   const isReadonly = widgetConfig['widget-readonly'] || false;
+  const actionsHeaderLabel = toTitleCase(t?.('common.actions') || 'Actions');
 
   // Soft-delete (keep row, red + strikethrough) whenever remove is allowed — matches TableWidget
   const shouldSoftDeleteOnRemove = !isReadonly && !!operations.remove;
@@ -509,10 +512,10 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
               onClick={openAddDialog}
               className="px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                border: '1px solid var(--owt-btn-primary-border, #F07B1A)',
-                backgroundColor: 'var(--owt-color-primary, #F5BB1A)',
-                color: 'var(--owt-color-bg, #FFFFFF)',
+                borderRadius: 'var(--owt-btn-border-radius)',
+                border: '1px solid var(--owt-btn-primary-border)',
+                backgroundColor: 'var(--owt-color-primary)',
+                color: 'var(--owt-color-bg)',
               }}
             >
               {t?.('table.addRecord') || 'Add New Record'}
@@ -523,40 +526,47 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
         <div
           className="overflow-x-auto border"
           style={{
-            borderRadius: 'var(--owt-widget-table-border-radius, 15px)',
-            borderColor: 'var(--owt-widget-table-border-color, #C4C4C4)',
+            borderRadius: 'var(--owt-widget-table-border-radius)',
+            borderColor: 'var(--owt-widget-table-border-color)',
           }}
         >
           <table className="min-w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-            <thead style={{ backgroundColor: 'var(--owt-widget-table-header-bg, #F6F6F6)' }}>
-              <tr style={{ borderBottom: '1px solid var(--owt-widget-table-row-divider, #E4E4E4)' }}>
-                {visibleColumns.map((col) => (
-                  <th
-                    key={col['column-key']}
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                    style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
-                  >
-                    {tSchema(t, col['column-label'] || col['widget-label'] || col['column-key'])}
-                  </th>
-                ))}
+            <thead style={{ backgroundColor: 'var(--owt-widget-table-header-bg)' }}>
+              <tr style={{ borderBottom: '1px solid var(--owt-widget-table-row-divider)' }}>
+                {visibleColumns.map((col) => {
+                  const headerLabel = toTitleCase(
+                    tSchema(t, col['column-label'] || col['widget-label'] || col['column-key']),
+                  );
+                  return (
+                    <th
+                      key={col['column-key']}
+                      className="px-4 py-3 text-left text-sm font-medium max-w-[12rem]"
+                      style={{ color: 'var(--owt-widget-table-header-color)' }}
+                      title={headerLabel}
+                    >
+                      <span className="block truncate">{headerLabel}</span>
+                    </th>
+                  );
+                })}
                 {((operations.edit || operations.remove) && !isReadonly) && (
                   <th
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                    style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
+                    className="px-4 py-3 text-left text-sm font-medium max-w-[12rem]"
+                    style={{ color: 'var(--owt-widget-table-header-color)' }}
+                    title={actionsHeaderLabel}
                   >
-                    {t?.('common.actions') || 'Actions'}
+                    <span className="block truncate">{actionsHeaderLabel}</span>
                   </th>
                 )}
               </tr>
             </thead>
 
-            <tbody style={{ backgroundColor: 'var(--owt-widget-table-body-bg, #FFFFFF)' }}>
+            <tbody style={{ backgroundColor: 'var(--owt-widget-table-body-bg)' }}>
               {rows.length === 0 && (
                 <tr>
                   <td
                     colSpan={visibleColumns.length + (((operations.edit || operations.remove) && !isReadonly) ? 1 : 0)}
                     className="px-4 py-6 text-center text-sm"
-                    style={{ color: 'var(--owt-widget-table-empty-color, #727474)' }}
+                    style={{ color: 'var(--owt-widget-table-empty-color)' }}
                   >
                     {t?.('table.noData') || 'No records available.'}
                     {operations.add && !isReadonly && ` ${t?.('table.clickToAdd') || 'Click "Add New Record" to add one.'}`}
@@ -570,9 +580,9 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                 <tr
                   key={rowIndex}
                   style={{
-                    borderBottom: '1px solid var(--owt-widget-table-row-divider, #E4E4E4)',
+                    borderBottom: '1px solid var(--owt-widget-table-row-divider)',
                     backgroundColor: row?.edit_action === 'DELETE'
-                      ? 'var(--owt-widget-table-deleted-row-bg, #FEE2E2)'
+                      ? 'var(--owt-widget-table-deleted-row-bg)'
                       : undefined,
                   }}
                 >
@@ -637,8 +647,8 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                             disabled={!isEnabled}
                             className="px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{
-                              borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                              color: 'var(--owt-color-primary-dark, #F07B1A)',
+                              borderRadius: 'var(--owt-btn-border-radius)',
+                              color: 'var(--owt-color-primary-dark)',
                               backgroundColor: 'transparent',
                               border: 'none',
                             }}
@@ -653,8 +663,8 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                             disabled={!isEnabled}
                             className="px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                             style={{
-                              borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                              color: 'var(--owt-color-error, #B91C1C)',
+                              borderRadius: 'var(--owt-btn-border-radius)',
+                              color: 'var(--owt-color-error)',
                               backgroundColor: 'transparent',
                               border: 'none',
                             }}
@@ -673,24 +683,24 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
         </div>
 
         {touched && error.length > 0 && (
-          <p className="text-sm mt-1" style={{ color: 'var(--owt-widget-error-color, #B91C1C)' }}>
+          <p className="text-sm mt-1" style={{ color: 'var(--owt-widget-error-color)' }}>
             {error[0]}
           </p>
         )}
       </div>
 
       {dialogOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className={`${themeRoot.className} fixed inset-0 flex items-center justify-center z-50`} style={{ ...themeRoot.style, backgroundColor: 'var(--owt-color-overlay)' }}>
           <div
             className="rounded-lg p-6 w-full mx-4"
             style={{
               maxWidth: '900px',
-              backgroundColor: 'var(--owt-color-bg, #FFFFFF)',
-              borderRadius: 'var(--owt-widget-card-border-radius, 20px)',
+              backgroundColor: 'var(--owt-color-bg)',
+              borderRadius: 'var(--owt-widget-card-border-radius)',
             }}
           >
             <div className="flex items-start justify-between gap-4 mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--owt-color-text, #011627)' }}>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--owt-color-text)' }}>
                 {dialogMode === 'add' ? addDialogTitle : editDialogTitle}
               </h3>
               <button
@@ -699,7 +709,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                 style={{
                   border: 'none',
                   background: 'transparent',
-                  color: 'var(--owt-color-text-muted, #727474)',
+                  color: 'var(--owt-color-text-muted)',
                   cursor: 'pointer',
                   fontSize: '20px',
                   lineHeight: 1,
@@ -737,10 +747,10 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                 onClick={closeDialog}
                 className="px-4 py-2 text-sm font-medium"
                 style={{
-                  borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                  border: '1px solid var(--owt-btn-secondary-border, #C4C4C4)',
-                  backgroundColor: 'var(--owt-btn-secondary-bg, #FFFFFF)',
-                  color: 'var(--owt-btn-secondary-color, #011627)',
+                  borderRadius: 'var(--owt-btn-border-radius)',
+                  border: '1px solid var(--owt-btn-secondary-border)',
+                  backgroundColor: 'var(--owt-btn-secondary-bg)',
+                  color: 'var(--owt-btn-secondary-color)',
                 }}
               >
                 {t?.('common.cancel') || 'Cancel'}
@@ -751,10 +761,10 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                 disabled={isReadonly || !isEnabled}
                 className="px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                  border: '1px solid var(--owt-btn-primary-border, #F07B1A)',
-                  backgroundColor: 'var(--owt-color-primary, #F5BB1A)',
-                  color: 'var(--owt-color-bg, #FFFFFF)',
+                  borderRadius: 'var(--owt-btn-border-radius)',
+                  border: '1px solid var(--owt-btn-primary-border)',
+                  backgroundColor: 'var(--owt-color-primary)',
+                  color: 'var(--owt-color-bg)',
                 }}
               >
                 {t?.('common.save') || 'Save'}

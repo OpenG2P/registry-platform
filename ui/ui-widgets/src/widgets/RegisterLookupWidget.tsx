@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { tSchema } from '../utils/tSchema';
+import { tSchema, toTitleCase } from '../utils/tSchema';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { useWidgetContext } from '../components/WidgetProvider';
+import { owtFieldInputClass } from '../theme';
+import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 import { WidgetRenderer } from '../components/WidgetRenderer';
 import { searchIcon, closeIcon } from '../assets';
 
@@ -37,10 +39,12 @@ const RecordDisplayPanel = ({
   row,
   widgetIdPrefix,
   className = '',
+  isEditMode = false,
 }: {
   row: Record<string, any>;
   widgetIdPrefix: string;
   className?: string;
+  isEditMode?: boolean;
 }) => {
   const { t } = useWidgetContext();
 
@@ -78,7 +82,11 @@ const RecordDisplayPanel = ({
       {showDivider && (
         <div
           className="absolute right-0 top-0 bottom-[5px] w-px"
-          style={{ backgroundColor: 'var(--owt-panel-divider-color, #C4C4C4)' }}
+          style={{
+            backgroundColor: isEditMode
+              ? 'var(--owt-color-primary)'
+              : 'var(--owt-panel-divider-color)',
+          }}
         />
       )}
     </div>
@@ -96,7 +104,7 @@ const RecordDisplayPanel = ({
           min-width: 0 !important;
           overflow: hidden !important;
         }
-        .register-lookup-record-panel .DisplayFieldWidget > .text-base.text-gray-600 {
+        .register-lookup-record-panel .DisplayFieldWidget > .text-base.owt-text-muted {
           width: 50% !important;
           min-width: 50% !important;
           max-width: 50% !important;
@@ -105,7 +113,7 @@ const RecordDisplayPanel = ({
           text-overflow: ellipsis !important;
           white-space: nowrap !important;
         }
-        .register-lookup-record-panel .DisplayFieldWidget > .flex-1 > .text-gray-900 {
+        .register-lookup-record-panel .DisplayFieldWidget > .flex-1 > .owt-text {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -181,10 +189,10 @@ const PaginationFooter = ({
       className={
         embedded
           ? 'flex flex-wrap items-center gap-3 flex-1 min-w-0'
-          : 'flex flex-wrap items-center justify-between gap-3 px-5 py-3 flex-shrink-0 border-t border-gray-200'
+          : 'flex flex-wrap items-center justify-between gap-3 px-5 py-3 flex-shrink-0 border-t owt-border'
       }
     >
-      <span className="text-sm text-gray-600">
+      <span className="text-sm owt-text-muted">
         {totalCount === 1
           ? t?.('common.record', { count: totalCount, defaultValue: `${totalCount} record` })
           : t?.('common.records', { count: totalCount, defaultValue: `${totalCount} records` })}
@@ -195,11 +203,11 @@ const PaginationFooter = ({
           type="button"
           onClick={onPrev}
           disabled={currentPage <= 1}
-          className="px-3 h-8 text-sm font-medium rounded-[10px] bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {t?.('common.previous', { defaultValue: 'Prev' })}
         </button>
-        <div className="flex items-center gap-1.5 text-sm text-gray-600">
+        <div className="flex items-center gap-1.5 text-sm owt-text-muted">
           <span>{t?.('common.page', { defaultValue: 'Page' })}</span>
           <input
             type="text"
@@ -213,7 +221,9 @@ const PaginationFooter = ({
               }
             }}
             onBlur={commitPage}
-            className="w-10 h-8 text-center text-sm text-gray-900 outline-none rounded-[10px] border border-gray-300 bg-white"
+            className={owtFieldInputClass({
+              className: 'w-10 h-8 text-center text-sm outline-none rounded-[10px]',
+            })}
             aria-label={t?.('common.pageNumber', { defaultValue: 'Page number' })}
           />
           <span>
@@ -224,7 +234,7 @@ const PaginationFooter = ({
           type="button"
           onClick={onNext}
           disabled={currentPage >= totalPages}
-          className="px-3 h-8 text-sm font-medium rounded-[10px] bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {t?.('common.next', { defaultValue: 'Next' })}
         </button>
@@ -256,16 +266,20 @@ const ResultsTable = ({
   return (
     <div className="overflow-auto h-full">
       <table className="w-full text-sm border-collapse">
-        <thead className="sticky top-0 z-[1] bg-gray-50">
+        <thead className="sticky top-0 z-[1] owt-bg-alt">
           <tr>
-            {columns.map((col) => (
-              <th
-                key={col.key}
-                className="text-left px-4 py-2 text-sm font-medium text-gray-600 whitespace-nowrap border-b border-gray-200 bg-gray-50"
-              >
-                {tSchema(t, col.header)}
-              </th>
-            ))}
+            {columns.map((col) => {
+              const headerLabel = toTitleCase(tSchema(t, col.header));
+              return (
+                <th
+                  key={col.key}
+                  className="text-left px-4 py-2 text-sm font-medium owt-text-muted border-b owt-border owt-bg-alt max-w-[12rem]"
+                  title={headerLabel}
+                >
+                  <span className="block truncate">{headerLabel}</span>
+                </th>
+              );
+            })}
           </tr>
         </thead>
         <tbody>
@@ -277,8 +291,8 @@ const ResultsTable = ({
                 key={tableRowKey}
                 onClick={() => onRowClick(row)}
                 onDoubleClick={() => onRowDoubleClick?.(row)}
-                className={`cursor-pointer border-b border-gray-100 transition-colors ${
-                  isSelected ? 'bg-blue-100' : 'hover:bg-blue-50'
+                className={`cursor-pointer border-b owt-border transition-colors ${
+                  isSelected ? 'owt-highlight' : 'owt-highlight-hover'
                 }`}
               >
                 {columns.map((col) => {
@@ -289,7 +303,7 @@ const ResultsTable = ({
                         : '-'
                       : normalizeDisplayFields(row).find((f) => f.label === col.key)?.value ?? '-';
                   return (
-                    <td key={col.key} className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
+                    <td key={col.key} className="px-4 py-2 text-sm owt-text whitespace-nowrap">
                       {cellValue}
                     </td>
                   );
@@ -317,6 +331,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
 
   const { t } = useWidgetContext();
   const { dataSourceRequestHandler } = useWidgetContext();
+  const themeRoot = useOwtThemeRootProps();
 
   const dataSource = widgetConfig['widget-data-source'] as Record<string, any> | undefined;
   const lookupConfig = widgetConfig['widget-lookup-config'] as Record<string, any> | undefined;
@@ -499,11 +514,12 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
 
   const hydratedPanel =
     isHydrating ? (
-      <p className="text-sm text-gray-500">{t?.('common.loading', { defaultValue: 'Loading...' })}</p>
+      <p className="text-sm owt-text-muted">{t?.('common.loading', { defaultValue: 'Loading...' })}</p>
     ) : appliedRecord ? (
       <RecordDisplayPanel
         row={appliedRecord}
         widgetIdPrefix={`${widgetIdPrefix}-${isReadonly ? 'readonly' : 'applied'}`}
+        isEditMode={!isReadonly}
       />
     ) : null;
 
@@ -517,8 +533,8 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               <button
                 type="button"
                 onClick={openLookup}
-                className="text-sm underline p-0 border-0 bg-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
-                style={{ color: 'var(--owt-color-info, #2563eb)' }}
+                className="text-sm underline p-0 border-0 bg-transparent cursor-pointer focus:outline-none rounded owt-link"
+                style={{ color: 'var(--owt-color-info)' }}
               >
                 {t?.('common.change', { defaultValue: 'Change' })}
               </button>
@@ -531,13 +547,13 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                   setAppliedRecord(null);
                   setPendingRow(null);
                 }}
-                className="text-sm underline text-red-500 p-0 border-0 bg-transparent cursor-pointer focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 rounded"
+                className="text-sm underline p-0 border-0 bg-transparent cursor-pointer focus:outline-none rounded owt-field-error"
               >
                 {t?.('common.remove', { defaultValue: 'Remove' })}
               </button>
             </div>
           )}
-          {!isReadonly && touched && error.length > 0 && <p className="text-red-500 text-sm mt-1">{error[0]}</p>}
+          {!isReadonly && touched && error.length > 0 && <p className="owt-field-error text-sm mt-1">{error[0]}</p>}
         </div>
       ) : !isReadonly ? (
         <div className="w-full min-w-0">
@@ -546,15 +562,17 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
             disabled={!isEnabled}
             onClick={openLookup}
             title={actionLabel}
-            className={`flex items-center gap-2 w-full sm:w-[180px] max-w-full px-3 h-[30px] text-sm border rounded-[10px] shadow-sm transition-colors ${
-              hasError ? 'border-red-500 text-gray-700' : 'border-gray-300 text-gray-700'
-            } ${!isEnabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white cursor-pointer'}`}
+            className={owtFieldInputClass({
+              error: hasError,
+              disabled: !isEnabled,
+              className: 'flex items-center gap-2 w-full sm:w-[180px] max-w-full px-3 h-[30px] text-sm cursor-pointer',
+            })}
           >
             <img src={searchIcon} alt="" className="w-4 h-4 opacity-50 flex-shrink-0" />
             <span className="min-w-0 truncate">{actionLabel}</span>
-            {isRequired && <span className="shrink-0 text-red-500">*</span>}
+            {isRequired && <span className="shrink-0 owt-field-required">*</span>}
           </button>
-          {touched && error.length > 0 && <p className="text-red-500 text-sm mt-1">{error[0]}</p>}
+          {touched && error.length > 0 && <p className="owt-field-error text-sm mt-1">{error[0]}</p>}
         </div>
       ) : null}
 
@@ -562,12 +580,13 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
         <>
           <div
             className="fixed inset-0 z-50"
-            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+            style={{ backgroundColor: 'var(--owt-color-overlay)' }}
             onClick={() => { setIsOpen(false); onBlur(); }}
           />
           <div
-            className="flex flex-col overflow-hidden"
+            className={`${themeRoot.className} flex flex-col overflow-hidden`}
             style={{
+              ...themeRoot.style,
               position: 'fixed',
               top: modalPos.y,
               left: modalPos.x,
@@ -579,9 +598,9 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               minHeight: 260,
               maxWidth: '96vw',
               maxHeight: '92vh',
-              backgroundColor: 'var(--owt-color-bg, #FFFFFF)',
-              borderRadius: 'var(--owt-widget-card-border-radius, 20px)',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+              backgroundColor: 'var(--owt-color-bg)',
+              borderRadius: 'var(--owt-widget-card-border-radius)',
+              boxShadow: '0 24px 64px var(--owt-color-shadow)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -591,9 +610,9 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                 isDragging.current = true;
                 dragOrigin.current = { mouseX: e.clientX, mouseY: e.clientY, posX: modalPos.x, posY: modalPos.y };
               }}
-              className="flex items-center justify-between px-5 py-4 flex-shrink-0 select-none border-b border-gray-200 cursor-grab"
+              className="flex items-center justify-between px-5 py-4 flex-shrink-0 select-none border-b owt-border cursor-grab"
             >
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold owt-text">
                 {t?.('common.selectTitle', { label, defaultValue: `Select ${label}` })}
               </h3>
               <button
@@ -607,8 +626,8 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               </button>
             </div>
 
-            <div className="px-5 py-3 flex-shrink-0 border-b border-gray-200">
-              <div className="flex items-center gap-2 px-3 h-[30px] border border-gray-300 rounded-[10px] bg-white">
+            <div className="px-5 py-3 flex-shrink-0 border-b owt-border">
+              <div className={owtFieldInputClass({ className: 'flex items-center gap-2 px-3 h-[30px] rounded-[10px]' })}>
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -621,7 +640,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                     }
                   }}
                   placeholder={searchPlaceholder}
-                  className="flex-1 outline-none text-sm text-gray-900 bg-transparent"
+                  className="flex-1 outline-none text-sm owt-text bg-transparent"
                 />
                 <button
                   type="button"
@@ -636,7 +655,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
 
             <div className="overflow-auto flex-1">
               {searchResults.length === 0 ? (
-                <p className="text-center text-sm text-gray-500 py-10">
+                <p className="text-center text-sm owt-text-muted py-10">
                   {searchText
                     ? t?.('common.noResults', { defaultValue: 'No results found' })
                     : t?.('common.searchHint', { defaultValue: 'Type and press Enter or click search' })}
@@ -652,7 +671,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
             </div>
 
             <div
-              className={`flex-shrink-0 flex flex-wrap items-center gap-3 px-5 py-3 border-t border-gray-200 ${
+              className={`flex-shrink-0 flex flex-wrap items-center gap-3 px-5 py-3 border-t owt-border ${
                 totalCount !== null ? 'justify-between' : 'justify-end'
               }`}
             >
@@ -673,7 +692,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                 onClick={() => pendingRow && applySelection(pendingRow)}
                 disabled={!pendingRow}
                 className="px-4 h-9 text-sm font-medium rounded-[10px] text-white disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                style={{ backgroundColor: 'var(--owt-color-info, #2563eb)' }}
+                style={{ backgroundColor: 'var(--owt-color-info)' }}
               >
                 {selectRecordLabel}
               </button>

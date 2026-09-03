@@ -2,6 +2,7 @@
 import { SectionBuilder } from '@openg2p/registry-widgets';
 import type { SectionConfig } from '@openg2p/registry-widgets';
 import { useFetch } from '@/shared/hooks';
+import { RegistryWidgetProvider } from '@/shared/widgets';
 import { toast } from 'react-toastify';
 import { useTranslations } from "next-intl";
 
@@ -55,11 +56,13 @@ export default function SectionDetailsConfigView({
 
     return (
         <div className=' min-h-150 mx-8 mt-6 bg-neutral-second rounded-[10px] px-8 pb-8 pt-12 mb-6 overflow-x-visible'>
-            <SectionBuilder
-                initialSection={sectionUISchema}
-                onChange={handleSectionChange}
-                onSave={handleSave}
-            />
+            <RegistryWidgetProvider>
+                <SectionBuilder
+                    initialSection={sectionUISchema}
+                    onChange={handleSectionChange}
+                    onSave={handleSave}
+                />
+            </RegistryWidgetProvider>
         </div>
 
     );

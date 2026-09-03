@@ -5,7 +5,7 @@ import { createWidgetStore, WidgetStore } from '../store';
 import { setValues } from '../store/widgetSlice';
 import { WidgetEventBus } from '../events/WidgetEventBus';
 import { WidgetEventBusContext } from '../hooks/useWidgetEventBus';
-import { WidgetTheme, resolveTheme, themeToCSSVariables } from '../theme';
+import { WidgetTheme, themeToCSSVariables, OWT_FIELD_STYLES } from '../theme';
 import { ThemeContext } from '../hooks/useWidgetTheme';
 
 export interface WidgetProviderProps {
@@ -43,30 +43,35 @@ export const WidgetProvider = ({
   theme,
   children,
 }: WidgetProviderProps) => {
+  const parent = useWidgetContext();
+  const parentTheme = useContext(ThemeContext);
+  const resolvedTheme = theme ?? parentTheme;
+  const resolvedT = t ?? parent.t;
+  const resolvedHandler = dataSourceRequestHandler ?? parent.dataSourceRequestHandler;
+  const resolvedHostContext = hostContext ?? parent.hostContext;
   const widgetStore = useMemo(() => store || createWidgetStore(), [store]);
   const eventBus = useMemo(() => new WidgetEventBus(), []);
-  const resolvedTheme = useMemo(() => resolveTheme(theme), [theme]);
   const cssVariables = useMemo(() => themeToCSSVariables(resolvedTheme), [resolvedTheme]);
 
   const contextValue = useMemo(
     () => ({
-      dataSourceRequestHandler,
+      dataSourceRequestHandler: resolvedHandler,
       schemaData,
-      hostContext,
-      t,
+      hostContext: resolvedHostContext,
+      t: resolvedT,
     }),
-    [dataSourceRequestHandler, schemaData, hostContext, t]
+    [resolvedHandler, schemaData, resolvedHostContext, resolvedT]
   );
 
   useEffect(() => {
-    if (!dataSourceRequestHandler) {
+    if (!resolvedHandler) {
       console.warn(
         '[WidgetProvider] dataSourceRequestHandler is not provided. ' +
         'Widgets with API data sources will not be able to load data. ' +
         'Please provide dataSourceRequestHandler prop to WidgetProvider.'
       );
     }
-  }, [dataSourceRequestHandler]);
+  }, [resolvedHandler]);
 
   useEffect(() => {
     return () => {
@@ -87,6 +92,7 @@ export const WidgetProvider = ({
         <WidgetContext.Provider value={contextValue}>
           <WidgetEventBusContext.Provider value={eventBus}>
             <div className="openg2p-widget-theme-root" style={cssVariables}>
+              <style className="owt-field-styles">{OWT_FIELD_STYLES}</style>
               {children}
             </div>
           </WidgetEventBusContext.Provider>

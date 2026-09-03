@@ -1,8 +1,3 @@
-/**
- * JSON Schema definitions for Section Builder validation
- * These schemas are used by json-edit-react to provide validation and constraints
- */
-
 export const WIDGET_TYPES = [
   'text',
   'textarea',
@@ -57,9 +52,6 @@ export const BOOLEAN_REPRESENTATIONS = ['true-false', 'yes-no', 'on-off', 'custo
 
 export const BOOLEAN_CONTROL_TYPES = ['checkbox', 'radio', 'toggle'] as const;
 
-/**
- * Base widget schema - common properties for all widgets
- */
 const baseWidgetSchema = {
   type: 'object' as const,
   properties: {
@@ -411,9 +403,6 @@ const baseWidgetSchema = {
   required: ['widget', 'widget-id'],
 };
 
-/**
- * Panel schema
- */
 export const panelSchema = {
   type: 'object' as const,
   properties: {
@@ -474,9 +463,6 @@ export const panelSchema = {
   },
 };
 
-/**
- * Section schema
- */
 export const sectionSchema = {
   type: 'object' as const,
   properties: {
@@ -528,9 +514,6 @@ export const sectionSchema = {
   required: ['section-id', 'panels'],
 };
 
-/**
- * Get schema for a specific context (section, panel, or widget)
- */
 export function getSchemaForContext(context: 'section' | 'panel' | 'widget'): any {
   switch (context) {
     case 'section':

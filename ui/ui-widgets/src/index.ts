@@ -52,7 +52,7 @@ export type {
   WidgetThemeButton,
   WidgetThemeWidget,
 } from './theme';
-export { defaultTheme, resolveTheme } from './theme';
+export { themeToCSSVariables, owtFieldInputClass } from './theme';
 export { useWidgetTheme } from './hooks/useWidgetTheme';
 
 export { translateUISchema, translateWidgetConfig, translatePanelConfig } from './utils/schemaTranslation';

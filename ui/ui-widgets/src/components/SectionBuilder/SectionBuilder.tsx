@@ -3,6 +3,8 @@ import { SectionConfig, PanelConfig, BaseWidgetConfig } from '../../types';
 import { JSONEditorPanel } from './JSONEditorPanel';
 import { VisualBuilderPanel } from './VisualBuilderPanel';
 import { TreeNode } from './SectionTree';
+import { themeToCSSVariables, OWT_FIELD_STYLES } from '../../theme';
+import { useWidgetTheme } from '../../hooks/useWidgetTheme';
 
 export interface SectionBuilderProps {
   initialSection?: SectionConfig;
@@ -10,10 +12,6 @@ export interface SectionBuilderProps {
   onSave?: (section: SectionConfig) => void;
 }
 
-/**
- * Main Section Builder Component
- * Provides dual-panel interface for editing section JSON
- */
 export const SectionBuilder: React.FC<SectionBuilderProps> = ({
   initialSection,
   onChange,
@@ -31,8 +29,8 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
   );
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
   const [isMaximized, setIsMaximized] = useState<boolean>(false);
-  
-  // Store the original section for reset functionality
+  const theme = useWidgetTheme();
+
   const originalSectionRef = useRef<SectionConfig>(
     initialSection ? JSON.parse(JSON.stringify(initialSection)) : defaultSection
   );
@@ -40,7 +38,6 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
 
   useEffect(() => {
     if (initialSection) {
-      // Only update original on initial mount
       if (isInitialMount.current) {
         originalSectionRef.current = JSON.parse(JSON.stringify(initialSection));
         isInitialMount.current = false;
@@ -59,11 +56,10 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
     [onChange]
   );
 
-  // Reset to original section - resets both JSON editor and visual builder
   const handleReset = useCallback(() => {
     const original = JSON.parse(JSON.stringify(originalSectionRef.current));
     setSection(original);
-    setSelectedNode(null); // Clear selection on reset
+    setSelectedNode(null);
     if (onChange) {
       onChange(original);
     }
@@ -140,7 +136,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
       const updatedSection = JSON.parse(JSON.stringify(section));
 
       if (node.type === 'section') {
-        // Can't delete section, but can reset it
+
         return;
       }
 
@@ -156,7 +152,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
 
           for (const panel of current.panels) {
             if (panel['panel-id'] === node.id && node.type === 'panel') {
-              // This shouldn't happen due to findIndex above, but handle nested case
+
               const index = current.panels.indexOf(panel);
               if (index !== -1) {
                 current.panels.splice(index, 1);
@@ -243,7 +239,6 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
     setIsMaximized((prev) => !prev);
   }, []);
 
-  // Handle Escape key to exit fullscreen
   useEffect(() => {
     if (!isMaximized) return;
 
@@ -258,7 +253,8 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
   }, [isMaximized]);
 
   return (
-    <>
+    <div className="openg2p-widget-theme-root" style={themeToCSSVariables(theme)}>
+      <style>{OWT_FIELD_STYLES}</style>
       {isMaximized && (
         <div
           style={{
@@ -267,7 +263,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: 'var(--owt-color-overlay)',
             zIndex: 9998,
           }}
           onClick={toggleMaximize}
@@ -279,7 +275,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
           height: isMaximized ? '100vh' : '100%',
           width: isMaximized ? '100vw' : '100%',
           minHeight: 0,
-          background: '#FFFFFF',
+          background: 'var(--owt-color-bg)',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           overflow: 'hidden',
           border: 'none',
@@ -289,10 +285,10 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
           zIndex: isMaximized ? 9999 : 'auto',
         }}
       >
-      {/* Left Panel: JSON Editor */}
-      <div style={{ 
-        width: '50%', 
-        height: '100%', 
+
+      <div style={{
+        width: '50%',
+        height: '100%',
         minHeight: 0,
         overflow: 'hidden',
         display: 'flex',
@@ -300,17 +296,16 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
         flexDirection: 'column',
         borderRight: '0px',
       }}>
-        <JSONEditorPanel 
-          section={section} 
+        <JSONEditorPanel
+          section={section}
           onChange={handleSectionChange}
           onReset={handleReset}
         />
       </div>
 
-      {/* Right Panel: Visual Builder */}
-      <div style={{ 
-        width: '50%', 
-        height: '100%', 
+      <div style={{
+        width: '50%',
+        height: '100%',
         minHeight: 0,
         overflow: 'hidden',
         display: 'flex',
@@ -330,7 +325,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
           onToggleMaximize={toggleMaximize}
         />
       </div>
+      </div>
     </div>
-    </>
   );
 };

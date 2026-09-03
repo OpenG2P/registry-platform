@@ -25,10 +25,10 @@ export const SectionStyles = ({
       min-height: auto !important;
       height: auto !important;
     }
-    .${sectionClassId} label.text-gray-700,
-    .${sectionClassId} .text-gray-600 {
+    .${sectionClassId} label.owt-text,
+    .${sectionClassId} .text-base.owt-text-muted {
       font-weight: 400 !important;
-      color: var(--owt-color-text-muted, #727474) !important;
+      color: var(--owt-color-text-muted) !important;
       width: 50% !important;
       min-width: 50% !important;
       max-width: 50% !important;
@@ -36,6 +36,9 @@ export const SectionStyles = ({
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       white-space: nowrap !important;
+    }
+    .${sectionClassId} .owt-text {
+      color: var(--owt-color-text) !important;
     }
     ${readonlyValueRowRootsCss} {
       min-width: 0 !important;
@@ -67,13 +70,13 @@ export const SectionStyles = ({
       visibility: hidden;
     }
     .${sectionClassId}-edit {
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2),
-                  0 8px 10px -6px rgba(0, 0, 0, 0.1);
-      border-color: var(--owt-color-primary-dark, #F07B1A);
+      box-shadow: 0 10px 25px -5px var(--owt-color-shadow),
+                  0 8px 10px -6px var(--owt-color-shadow);
+      border-color: var(--owt-color-primary-dark);
       border-style: dashed;
       border-width: 1px;
-      background-color: var(--owt-color-primary-light, #FBE6AA);
-      border-radius: var(--owt-section-border-radius, 10px);
+      background-color: var(--owt-color-primary-light);
+      border-radius: var(--owt-section-border-radius);
       z-index: 10;
       position: absolute;
     }
@@ -95,6 +98,7 @@ export const SectionStyles = ({
       position: relative;
     }
     #${gridId} > hr,
+    #${gridId} > .section-divider,
     #${gridId} > .registry-edit-details {
       flex: 0 0 100%;
       width: 100%;
@@ -156,23 +160,23 @@ export const SectionStyles = ({
       gap: 0.5rem;
     }
     .${sectionClassId}.intake-form-accordion-item {
-      border-color: var(--owt-color-border-light, #E4E4E4);
+      border-color: var(--owt-color-border-light);
       transition: box-shadow 0.2s ease, border-color 0.2s ease;
     }
     .${sectionClassId}.intake-form-accordion-item:hover {
-      border-color: var(--owt-color-border, #C4C4C4);
+      border-color: var(--owt-color-border);
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-accordion-header {
       transition: opacity 0.2s ease, background-color 0.2s ease;
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-accordion-header h2 {
-      color: var(--owt-color-primary-dark, #F07B1A);
+      color: var(--owt-color-primary-dark);
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-accordion-header[data-interactive="true"]:hover {
       opacity: 0.85;
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-accordion-header[data-interactive="true"]:focus-visible {
-      outline: 2px solid var(--owt-color-primary, #F5BB1A);
+      outline: 2px solid var(--owt-color-primary);
       outline-offset: 2px;
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-accordion-header[data-interactive="false"]:focus-visible {
@@ -187,17 +191,17 @@ export const SectionStyles = ({
       width: 100%;
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-prev-btn {
-      color: var(--owt-color-text-muted, #727474) !important;
+      color: var(--owt-color-text-muted) !important;
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-prev-btn:disabled {
-      color: var(--owt-color-border, #C4C4C4) !important;
+      color: var(--owt-color-border) !important;
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-prev-btn:hover:not(:disabled) {
-      background-color: var(--owt-color-bg-alt, #F6F6F6);
-      border-color: var(--owt-btn-primary-border, #F07B1A);
+      background-color: var(--owt-color-bg-alt);
+      border-color: var(--owt-btn-primary-border);
     }
     .${sectionClassId}.intake-form-accordion-item .intake-form-save-btn:hover:not(:disabled) {
-      background-color: var(--owt-color-border-light, #E4E4E4);
+      background-color: var(--owt-color-border-light);
     }
   `}</style>
 );

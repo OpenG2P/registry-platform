@@ -5,10 +5,10 @@ import { JsonEditor } from 'json-edit-react';
 import { SectionConfig } from '../../types';
 import { SectionRenderer } from '../SectionRenderer';
 import { WidgetProvider, useWidgetContext } from '../WidgetProvider';
+import { useOwtThemeRootProps } from '../../hooks/useWidgetTheme';
 import { createWidgetStore, type WidgetStore } from '../../store';
 import { resetIcon, previewIcon } from '../../assets';
 
-// Inject styles to constrain json-edit-react container
 if (typeof document !== 'undefined') {
   const styleId = 'json-editor-constraints';
   if (!document.getElementById(styleId)) {
@@ -28,7 +28,7 @@ if (typeof document !== 'undefined') {
         height: auto !important;
         max-height: none !important;
         flex-shrink: 0 !important;
-        background-color: white !important;
+        background-color: var(--owt-color-bg) !important;
       }
       .json-editor-scroll-container .jer-component {
         width: 100% !important;
@@ -54,13 +54,10 @@ import {
 interface JSONEditorPanelProps {
   section: SectionConfig;
   onChange: (section: SectionConfig) => void;
-  onReset?: () => void; // Optional reset handler from parent
+  onReset?: () => void;
   context?: 'section' | 'panel' | 'widget';
 }
 
-/**
- * JSON Editor Panel - Left side of Section Builder
- */
 export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
   section,
   onChange,
@@ -72,12 +69,11 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
   const [rawJsonView, setRawJsonView] = useState<boolean>(false);
   const [rawJsonText, setRawJsonText] = useState<string>('');
   const [showPreview, setShowPreview] = useState<boolean>(false);
-  const [editorKey, setEditorKey] = useState<number>(0); // Key to force JsonEditor re-render on reset
+  const [editorKey, setEditorKey] = useState<number>(0);
+  const themeRoot = useOwtThemeRootProps();
 
-  // Store the original section when component mounts or section prop changes
   const originalSectionRef = useRef<SectionConfig>(section);
 
-  // Get WidgetProvider context for preview modal (optional - may not be available)
   let widgetContext;
   try {
     widgetContext = useWidgetContext();
@@ -89,54 +85,42 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
     };
   }
 
-  // Create a store for the preview modal if we're not in a Provider
-  // This ensures SectionRenderer has access to Redux
   const previewStore = useMemo(() => createWidgetStore(), []);
 
-  // Track if this is the initial mount
   const isInitialMount = useRef(true);
 
   useEffect(() => {
-    // Only update original section on initial mount (when page loads)
-    // This ensures reset works until save is clicked
-    // Don't update original when user makes edits (those come through onChange)
+
     if (isInitialMount.current) {
-      originalSectionRef.current = JSON.parse(JSON.stringify(section)); // Deep copy
+      originalSectionRef.current = JSON.parse(JSON.stringify(section));
       isInitialMount.current = false;
     }
-    // Always sync the display with the section prop (for external updates like reset from parent)
+
     setJsonData(section);
     setRawJsonText(JSON.stringify(section, null, 2));
-    // Force JsonEditor to update when section prop changes (e.g., from parent reset)
+
     setEditorKey(prev => prev + 1);
   }, [section]);
 
-  // Reset to original section
   const handleReset = useCallback(() => {
-    // If parent provides onReset, use it (this will reset both JSON editor and visual builder)
+
     if (onReset) {
       onReset();
-      // Also force JsonEditor to remount to ensure it picks up the reset
+
       setEditorKey(prev => prev + 1);
       return;
     }
 
-    // Fallback: reset only this panel (for standalone usage)
-    const original = JSON.parse(JSON.stringify(originalSectionRef.current)); // Deep copy to ensure new reference
+    const original = JSON.parse(JSON.stringify(originalSectionRef.current));
 
-    // Update state immediately
     setJsonData(original);
     setRawJsonText(JSON.stringify(original, null, 2));
 
-    // Force JsonEditor to completely remount by changing key
-    // This is critical because json-edit-react maintains internal state that doesn't sync with props
     setEditorKey(prev => prev + 1);
 
-    // Notify parent
     onChange(original);
   }, [onChange, onReset]);
 
-  // Handle Escape key to close preview
   useEffect(() => {
     if (!showPreview) return;
 
@@ -150,17 +134,15 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
     return () => window.removeEventListener('keydown', handleEscape);
   }, [showPreview]);
 
-  // Make section editable for preview - remove readonly flags from widgets
   const makeSectionEditable = useCallback((section: SectionConfig): SectionConfig => {
     const processWidget = (widget: any): any => {
       if (!widget || typeof widget !== 'object') return widget;
 
       const editableWidget = {
         ...widget,
-        'widget-readonly': false, // Make all widgets editable in preview
+        'widget-readonly': false,
       };
 
-      // Process nested widgets
       if (widget.widgets && Array.isArray(widget.widgets)) {
         editableWidget.widgets = widget.widgets.map(processWidget);
       }
@@ -169,7 +151,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
         editableWidget['widget-item'] = processWidget(widget['widget-item']);
       }
 
-      // Process table columns
       if (widget['widget-data-columns'] && Array.isArray(widget['widget-data-columns'])) {
         editableWidget['widget-data-columns'] = widget['widget-data-columns'].map((col: any) => {
           if (col && typeof col === 'object' && col.widget) {
@@ -205,7 +186,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
     };
   }, []);
 
-  // Auto-populate widget-type based on widget selection
   const autoPopulateWidgetType = useCallback((data: any): any => {
     if (!data || typeof data !== 'object') return data;
 
@@ -214,7 +194,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
 
       const widgetType = widget.widget;
       if (widgetType && !widget['widget-type']) {
-        // Auto-determine widget-type based on widget name
+
         const widgetTypeMap: Record<string, 'input' | 'layout' | 'table' | 'group'> = {
           'text': 'input',
           'textarea': 'input',
@@ -239,7 +219,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
         };
       }
 
-      // Process nested widgets
       if (widget.widgets && Array.isArray(widget.widgets)) {
         widget = {
           ...widget,
@@ -247,7 +226,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
         };
       }
 
-      // Process widget-item
       if (widget['widget-item']) {
         widget = {
           ...widget,
@@ -255,7 +233,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
         };
       }
 
-      // Process table columns
       if (widget['widget-data-columns'] && Array.isArray(widget['widget-data-columns'])) {
         widget = {
           ...widget,
@@ -286,12 +263,10 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
 
       let processed = { ...panel };
 
-      // Process widgets in panel
       if (processed.widgets && Array.isArray(processed.widgets)) {
         processed.widgets = processed.widgets.map(processWidget);
       }
 
-      // Process nested panels
       if (processed.panels && Array.isArray(processed.panels)) {
         processed.panels = processed.panels.map(processPanel);
       }
@@ -299,7 +274,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
       return processed;
     };
 
-    // Process section
     if (data.panels && Array.isArray(data.panels)) {
       return {
         ...data,
@@ -311,16 +285,14 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
   }, []);
 
   const handleJsonChange = useCallback((data: any) => {
-    // json-edit-react may wrap the data in a "root" key - unwrap it if present
+
     let unwrappedData = data?.root ? data.root : data;
 
-    // Auto-populate widget-type for widgets that don't have it
     unwrappedData = autoPopulateWidgetType(unwrappedData);
 
     setJsonData(unwrappedData);
     setRawJsonText(JSON.stringify(unwrappedData, null, 2));
 
-    // Basic validation
     const errors: string[] = [];
     if (!unwrappedData['section-id']) {
       errors.push('section-id is required');
@@ -331,7 +303,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
 
     setValidationErrors(errors);
 
-    // Only update if valid
     if (errors.length === 0) {
       onChange(unwrappedData);
     }
@@ -353,7 +324,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
 
       setValidationErrors(errors);
 
-      // Auto-populate widget-type
       const processed = autoPopulateWidgetType(parsed);
 
       if (errors.length === 0) {
@@ -367,44 +337,37 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
 
   const toggleRawJsonView = useCallback(() => {
     if (!rawJsonView) {
-      // Switching to raw view - update text from current data
+
       setRawJsonText(JSON.stringify(jsonData, null, 2));
     }
     setRawJsonView(!rawJsonView);
   }, [rawJsonView, jsonData]);
 
-  // Create enum configuration for json-edit-react
-  // This maps field paths to their allowed enum values
   const enumConfig = useCallback(() => {
     return {
-      // Section level
-      'section-id': undefined, // string, no enum
-      'section-title': undefined, // string, no enum
-      'section-editable': undefined, // boolean, no enum
-      'section-column-span': undefined, // number, no enum
 
-      // Panel level - can be nested in panels array
-      'panel-id': undefined, // string, no enum
-      'panel-orientation': ORIENTATIONS, // enum: ['horizontal', 'vertical']
-      'panel-column-span': undefined, // number, no enum
+      'section-id': undefined,
+      'section-title': undefined,
+      'section-editable': undefined,
+      'section-column-span': undefined,
 
-      // Widget level - can be nested in widgets array or widget-item
-      'widget': WIDGET_TYPES, // enum: all widget types
-      'widget-type': ['input', 'layout', 'table', 'group'], // enum
-      'widget-id': undefined, // string, no enum
-      'widget-label': undefined, // string, no enum
-      'widget-orientation': ORIENTATIONS, // enum: ['horizontal', 'vertical']
-      'widget-required': undefined, // boolean, no enum
-      'widget-readonly': undefined, // boolean, no enum
+      'panel-id': undefined,
+      'panel-orientation': ORIENTATIONS,
+      'panel-column-span': undefined,
 
-      // Widget data source type
-      'widget-data-source.type': DATA_SOURCE_TYPES, // enum: ['static', 'api', 'schema']
-      'widget-data-source.method': ['GET', 'POST', 'PUT', 'DELETE'], // HTTP methods
+      'widget': WIDGET_TYPES,
+      'widget-type': ['input', 'layout', 'table', 'group'],
+      'widget-id': undefined,
+      'widget-label': undefined,
+      'widget-orientation': ORIENTATIONS,
+      'widget-required': undefined,
+      'widget-readonly': undefined,
 
-      // Widget validation
-      'widget-data-validation.validationType': VALIDATION_TYPES, // enum: ['email', 'phone', 'url']
+      'widget-data-source.type': DATA_SOURCE_TYPES,
+      'widget-data-source.method': ['GET', 'POST', 'PUT', 'DELETE'],
 
-      // Widget format options
+      'widget-data-validation.validationType': VALIDATION_TYPES,
+
       'widget-data-format.inputType': ['text', 'email', 'password', 'number', 'tel', 'url', 'search', 'file'],
       'widget-data-format.characterType': CHARACTER_TYPES,
       'widget-data-format.caseControl': CASE_CONTROLS,
@@ -418,7 +381,6 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
       'widget-data-format.dateConstraint': ['any', 'past-only', 'future-only'],
       'widget-data-format.dateTimeConstraint': ['any', 'past-only', 'future-only'],
 
-      // Widget options
       'widget-data-options.action': ['show', 'hide', 'enable', 'disable', 'require'],
       'widget-data-options.condition.operator': CONDITION_OPERATORS,
     };
@@ -438,36 +400,36 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
       <div
         style={{
           padding: '16px 20px',
-          background: '#ffffff',
+          background: 'var(--owt-color-bg)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ fontWeight: 600, fontSize: '16px', color: '#2c3e50' }}>
+          <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--owt-color-text)' }}>
             JSON Editor
           </div>
           {validationErrors.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#28a745' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--owt-color-success)' }}>
               <div
                 style={{
                   width: '12px',
                   height: '12px',
                   borderRadius: '50%',
-                  background: '#28a745',
+                  background: 'var(--owt-color-success)',
                 }}
               />
               <span style={{ fontSize: '12px' }}>Valid JSON Schema</span>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#e74c3c' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--owt-color-error)' }}>
               <div
                 style={{
                   width: '12px',
                   height: '12px',
                   borderRadius: '50%',
-                  background: '#e74c3c',
+                  background: 'var(--owt-color-error)',
                 }}
               />
               <span style={{ fontSize: '12px' }}>Validation Errors</span>
@@ -485,10 +447,10 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
             onClick={handleReset}
             style={{
               padding: '6px 12px',
-              border: '1px solid #ddd',
+              border: '1px solid var(--owt-color-border-light)',
               borderRadius: '10px',
-              background: '#f3f3f3',
-              color: '#666',
+              background: 'var(--owt-color-bg-alt)',
+              color: 'var(--owt-color-text-muted)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -498,12 +460,12 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
               transition: 'all 0.2s',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#f8f9fa';
-              e.currentTarget.style.borderColor = '#999';
+              e.currentTarget.style.background = 'var(--owt-color-bg-alt)';
+              e.currentTarget.style.borderColor = 'var(--owt-color-border)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'white';
-              e.currentTarget.style.borderColor = '#ddd';
+              e.currentTarget.style.background = 'var(--owt-color-bg)';
+              e.currentTarget.style.borderColor = 'var(--owt-color-border-light)';
             }}
             title="Reset to original JSON"
           >
@@ -516,7 +478,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
           </button>
           <button
             onClick={() => setShowPreview(true)}
-            className="flex items-center gap-2 px-6 py-1.5 bg-[#4A90E2] hover:bg-[#357ABD] text-[#000000] font-bold rounded-full transition-all shadow-sm"
+            className="flex items-center gap-2 px-6 py-1.5 bg-[var(--owt-color-info)] hover:bg-[var(--owt-color-info)] text-[var(--owt-color-text)] font-bold rounded-full transition-all owt-shadow-sm"
             title="Preview Section"
           >
             <span className="text-[14px]">Preview</span>
@@ -529,7 +491,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
           <span
             style={{
               fontSize: '12px',
-              color: !rawJsonView ? '#007bff' : '#6c757d',
+              color: !rawJsonView ? 'var(--owt-color-info)' : 'var(--owt-color-text-muted)',
               fontWeight: !rawJsonView ? 600 : 400,
               transition: 'color 0.2s',
             }}
@@ -542,7 +504,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
               position: 'relative',
               width: '44px',
               height: '24px',
-              background: rawJsonView ? '#007bff' : '#ccc',
+              background: rawJsonView ? 'var(--owt-color-info)' : 'var(--owt-color-border)',
               borderRadius: '12px',
               cursor: 'pointer',
               transition: 'background 0.2s',
@@ -555,17 +517,17 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
                 left: rawJsonView ? '22px' : '2px',
                 width: '20px',
                 height: '20px',
-                background: 'white',
+                background: 'var(--owt-color-bg)',
                 borderRadius: '50%',
                 transition: 'left 0.2s',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                boxShadow: '0 2px 4px var(--owt-color-shadow)',
               }}
             />
           </div>
           <span
             style={{
               fontSize: '12px',
-              color: rawJsonView ? '#007bff' : '#6c757d',
+              color: rawJsonView ? 'var(--owt-color-info)' : 'var(--owt-color-text-muted)',
               fontWeight: rawJsonView ? 600 : 400,
               transition: 'color 0.2s',
             }}
@@ -580,8 +542,8 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
           minHeight: 0,
           maxHeight: '100%',
           overflow: 'hidden',
-          background: 'white',
-          border: '1px solid #E1E1E1',
+          background: 'var(--owt-color-bg)',
+          border: '1px solid var(--owt-color-border-light)',
           borderRadius: '10px',
           padding: rawJsonView ? '0' : '20px',
           position: 'relative',
@@ -596,8 +558,8 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
             style={{
               width: '100%',
               height: '100%',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-color-bg)',
+              color: 'var(--owt-color-text)',
               border: 'none',
               padding: '20px',
               fontFamily: 'Monaco, Menlo, "Ubuntu Mono", Consolas, "source-code-pro", monospace',
@@ -626,7 +588,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
             }}
           >
             <JsonEditor
-              key={`editor-${editorKey}`} // Force re-render on reset - use string key for better remounting
+              key={`editor-${editorKey}`}
               data={jsonData}
               setData={handleJsonChange}
               {...({ enumOptions: enumConfig() } as any)}
@@ -636,14 +598,15 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
       </div>
       {showPreview && createPortal(
         <div
-          className="section-builder-preview-backdrop"
+          className={`${themeRoot.className} section-builder-preview-backdrop`}
           style={{
+            ...themeRoot.style,
             position: 'fixed',
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: 'var(--owt-color-overlay)',
             zIndex: 10000,
             display: 'flex',
             alignItems: 'center',
@@ -655,16 +618,16 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
           <div
             className="section-builder-preview-modal"
             style={{
-              background: 'white',
+              background: 'var(--owt-color-bg)',
               borderRadius: '8px',
               width: '100%',
-              minWidth: '700px', // Ensure enough width for 600px content + padding
+              minWidth: '700px',
               maxWidth: '90vw',
               height: '90vh',
               maxHeight: '90vh',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 4px 20px var(--owt-color-shadow)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -672,14 +635,14 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
               className="section-builder-preview-header"
               style={{
                 padding: '15px 20px',
-                borderBottom: '1px solid #ddd',
+                borderBottom: '1px solid var(--owt-color-border-light)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: '#f8f9fa',
+                background: 'var(--owt-color-bg-alt)',
               }}
             >
-              <h2 className="section-builder-preview-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#2c3e50' }}>
+              <h2 className="section-builder-preview-title" style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--owt-color-text)' }}>
                 Section Preview
               </h2>
               <button
@@ -689,8 +652,8 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
                   padding: '6px 12px',
                   border: 'none',
                   borderRadius: '4px',
-                  background: '#e74c3c',
-                  color: 'white',
+                  background: 'var(--owt-color-error)',
+                  color: 'var(--owt-color-bg)',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: 600,
@@ -717,9 +680,9 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
                   <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                     <SectionRenderer
                       section={makeSectionEditable(jsonData)}
-                      hideEditButton={true} // Hide edit button in preview - widgets are already editable
+                      hideEditButton={true}
                       onValueChange={(widgetId, value) => {
-                        // Handle value changes in preview (optional - for tracking)
+
                         console.log('Preview value changed:', widgetId, value);
                       }}
                     />

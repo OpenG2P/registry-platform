@@ -18,9 +18,6 @@ interface VisualBuilderPanelProps {
   onToggleMaximize?: () => void;
 }
 
-/**
- * Visual Builder Panel - Right side of Section Builder
- */
 export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
   section,
   selectedNode,
@@ -34,7 +31,6 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
   isMaximized = false,
   onToggleMaximize,
 }) => {
-  // Validate section before saving
   const validateSection = (sectionToValidate: SectionConfig): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
 
@@ -46,7 +42,6 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
       errors.push('Section must have at least one panel');
     }
 
-    // Validate panels
     const validatePanels = (panels: PanelConfig[]): void => {
       panels.forEach((panel, index) => {
         if (!panel['panel-id']) {
@@ -97,10 +92,9 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
   };
 
   const handleNodeChange = (node: TreeNode, updates: Partial<SectionConfig | PanelConfig | BaseWidgetConfig>) => {
-    // Create a deep copy of the section
+
     const updatedSection = JSON.parse(JSON.stringify(section));
 
-    // Find and update the node in the section structure
     const updateInSection = (current: any, targetId: string, targetType: string): boolean => {
       if (targetType === 'section' && current['section-id'] === targetId) {
         Object.assign(current, updates);
@@ -149,7 +143,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
         onAddPanel(selectedNode.id, selectedNode.type);
       }
     } else {
-      // Add to root section
+
       onAddPanel(section['section-id'], 'section');
     }
   };
@@ -159,11 +153,11 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
       if (selectedNode.type === 'panel') {
         onAddWidget(selectedNode.id);
       } else if (selectedNode.type === 'section') {
-        // Find first panel or create one
+
         if (section.panels && section.panels.length > 0) {
           onAddWidget(section.panels[0]['panel-id']);
         } else {
-          // Create a panel first, then add widget
+
           const newPanel: PanelConfig = {
             'panel-id': `panel-${Date.now()}`,
             'panel-orientation': 'vertical',
@@ -178,7 +172,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
         }
       }
     } else {
-      // Add to first panel or create one
+
       if (section.panels && section.panels.length > 0) {
         onAddWidget(section.panels[0]['panel-id']);
       }
@@ -201,14 +195,14 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
         style={{
           padding: '20px 20px 20px 20px',
 
-          background: '#ffffff',
+          background: 'var(--owt-color-bg)',
 
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
-        <div style={{ fontWeight: 600, fontSize: '16px', color: '#2c3e50', paddingTop: '5px' }}>
+        <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--owt-color-text)', paddingTop: '5px' }}>
           Visual Builder
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -218,8 +212,8 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
               padding: '8px 16px',
               border: 'none',
               borderRadius: '10px',
-              background: '#2196f3',
-              color: 'white',
+              background: 'var(--owt-color-info)',
+              color: 'var(--owt-color-bg)',
               fontWeight: 600,
               cursor: 'pointer',
               fontSize: '12px',
@@ -234,8 +228,8 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
               padding: '8px 16px',
               border: 'none',
               borderRadius: '10px',
-              background: '#4caf50',
-              color: 'white',
+              background: 'var(--owt-color-success)',
+              color: 'var(--owt-color-bg)',
               fontWeight: 600,
               cursor: 'pointer',
               fontSize: '12px',
@@ -251,8 +245,8 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
                 padding: '8px 16px',
                 border: 'none',
                 borderRadius: '10px',
-                background: '#000000',
-                color: 'white',
+                background: 'var(--owt-color-text)',
+                color: 'var(--owt-color-bg)',
                 fontWeight: 600,
                 cursor: 'pointer',
                 fontSize: '12px',
@@ -270,7 +264,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 background: 'transparent',
-                color: '#666',
+                color: 'var(--owt-color-text-muted)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -294,19 +288,19 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
           flex: 1,
           display: 'flex',
           overflow: 'hidden',
-          border: '1px solid #ddd',
+          border: '1px solid var(--owt-color-border-light)',
           borderRadius: '10px',
-          minHeight: 0, // Important for flex children to respect overflow
+          minHeight: 0,
         }}
       >
-        {/* Tree View */}
+
         <div
           style={{
             width: '45%',
-            borderRight: '1px solid #ddd',
+            borderRight: '1px solid var(--owt-color-border-light)',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: 0, // Important for flex children to respect overflow
+            minHeight: 0,
             overflow: 'hidden',
           }}
         >
@@ -321,13 +315,12 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
           />
         </div>
 
-        {/* Properties Panel */}
         <div
           style={{
             width: '55%',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: 0, // Important for flex children to respect overflow
+            minHeight: 0,
             overflow: 'hidden',
           }}
         >

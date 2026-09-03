@@ -70,135 +70,173 @@ export interface WidgetTheme {
   widget?: WidgetThemeWidget;
 }
 
-export const defaultTheme: Required<{
-  colors: Required<WidgetThemeColors>;
-  section: Required<WidgetThemeSection>;
-  panel: Required<WidgetThemePanel>;
-  button: Required<WidgetThemeButton>;
-  widget: Required<WidgetThemeWidget>;
-}> = {
-  colors: {
-    primary: '#F5BB1A',
-    primaryDark: '#F07B1A',
-    primaryLight: '#FBE6AA',
-    primaryAccent: '#EE7C22',
-    border: '#C4C4C4',
-    borderLight: '#E4E4E4',
-    background: '#FFFFFF',
-    backgroundAlt: '#F6F6F6',
-    text: '#011627',
-    textMuted: '#727474',
-    success: '#16A34A',
-    successDark: '#047857',
-    successLight: '#D1FAE5',
-    error: '#B91C1C',
-    errorLight: '#FEE2E2',
-    warning: '#F59E0B',
-    info: '#2563EB',
-  },
-  section: {
-    borderRadius: '8px',
-    borderColor: '#E4E4E4',
-    backgroundColor: '#FFFFFF',
-    titleColor: '#011627',
-    dividerColor: '#F5BB1A',
-  },
-  panel: {
-    dividerColor: '#C4C4C4',
-    backgroundColor: 'transparent',
-  },
-  button: {
-    primaryBg: '#FFFFFF',
-    primaryColor: '#011627',
-    primaryBorder: '#F07B1A',
-    secondaryBg: '#FFFFFF',
-    secondaryColor: '#011627',
-    secondaryBorder: '#C4C4C4',
-    borderRadius: '6px',
-  },
-  widget: {
-    labelColor: '#011627',
-    inputBorderColor: '#C4C4C4',
-    inputFocusBorderColor: '#F5BB1A',
-    inputBackground: '#FFFFFF',
-    errorColor: '#B91C1C',
-    helpTextColor: '#727474',
-    tableHeaderBg: '#F6F6F6',
-    tableHeaderColor: '#727474',
-    tableBodyBg: '#FFFFFF',
-    tableBorderColor: '#C4C4C4',
-    tableRowDividerColor: '#E4E4E4',
-    tableEditingRowBg: '#FBE6AA',
-    tableDeletedRowBg: '#FEE2E2',
-    tableEmptyTextColor: '#727474',
-    tableBorderRadius: '15px',
-  },
-};
 
-export function resolveTheme(theme?: WidgetTheme): typeof defaultTheme {
-  if (!theme) return defaultTheme;
+export function themeToCSSVariables(theme?: WidgetTheme): React.CSSProperties {
+  const c = theme?.colors;
+  const s = theme?.section;
+  const p = theme?.panel;
+  const b = theme?.button;
+  const w = theme?.widget;
+
   return {
-    colors: { ...defaultTheme.colors, ...theme.colors },
-    section: { ...defaultTheme.section, ...theme.section },
-    panel: { ...defaultTheme.panel, ...theme.panel },
-    button: { ...defaultTheme.button, ...theme.button },
-    widget: { ...defaultTheme.widget, ...theme.widget },
+    '--owt-color-primary': c?.primary ?? '#EABB13',
+    '--owt-color-primary-dark': c?.primaryDark ?? '#ED7C22',
+    '--owt-color-primary-light': c?.primaryLight ?? '#F3F1F4',
+    '--owt-color-primary-accent': c?.primaryAccent ?? '#ED7C22',
+    '--owt-color-border': c?.border ?? '#A1A1A1',
+    '--owt-color-border-light': c?.borderLight ?? '#E1E1E1',
+    '--owt-color-bg': c?.background ?? '#FFFFFF',
+    '--owt-color-bg-alt': c?.backgroundAlt ?? '#F3F1F4',
+    '--owt-color-text': c?.text ?? '#000000',
+    '--owt-color-text-muted': c?.textMuted ?? '#A1A1A1',
+    '--owt-color-success': c?.success ?? '#28A745',
+    '--owt-color-success-dark': c?.successDark ?? '#28A745',
+    '--owt-color-success-light': c?.successLight ?? '#F3F1F4',
+    '--owt-color-error': c?.error ?? '#DC3545',
+    '--owt-color-danger': c?.error ?? '#DC3545',
+    '--owt-color-error-light': c?.errorLight ?? '#F3F1F4',
+    '--owt-color-warning': c?.warning ?? '#FFC107',
+    '--owt-color-info': c?.info ?? '#007BFF',
+    '--owt-section-border-radius': s?.borderRadius ?? '8px',
+    '--owt-section-border-color': s?.borderColor ?? '#E1E1E1',
+    '--owt-section-bg': s?.backgroundColor ?? '#FFFFFF',
+    '--owt-section-title-color': s?.titleColor ?? '#000000',
+    '--owt-section-divider-color': s?.dividerColor ?? '#EABB13',
+    '--owt-panel-divider-color': p?.dividerColor ?? '#A1A1A1',
+    '--owt-panel-bg': p?.backgroundColor ?? 'transparent',
+    '--owt-btn-primary-bg': b?.primaryBg ?? '#FFFFFF',
+    '--owt-btn-primary-color': b?.primaryColor ?? '#000000',
+    '--owt-btn-primary-border': b?.primaryBorder ?? '#ED7C22',
+    '--owt-btn-secondary-bg': b?.secondaryBg ?? '#FFFFFF',
+    '--owt-btn-secondary-color': b?.secondaryColor ?? '#000000',
+    '--owt-btn-secondary-border': b?.secondaryBorder ?? '#A1A1A1',
+    '--owt-btn-border-radius': b?.borderRadius ?? '6px',
+    '--owt-widget-label-color': w?.labelColor ?? '#000000',
+    '--owt-widget-input-border': w?.inputBorderColor ?? '#A1A1A1',
+    '--owt-widget-input-focus-border': w?.inputFocusBorderColor ?? '#EABB13',
+    '--owt-widget-input-bg': w?.inputBackground ?? '#FFFFFF',
+    '--owt-widget-error-color': w?.errorColor ?? '#DC3545',
+    '--owt-widget-helptext-color': w?.helpTextColor ?? '#A1A1A1',
+    '--owt-widget-table-header-bg': w?.tableHeaderBg ?? '#F3F1F4',
+    '--owt-widget-table-header-color': w?.tableHeaderColor ?? '#A1A1A1',
+    '--owt-widget-table-body-bg': w?.tableBodyBg ?? '#FFFFFF',
+    '--owt-widget-table-border-color': w?.tableBorderColor ?? '#A1A1A1',
+    '--owt-widget-table-row-divider': w?.tableRowDividerColor ?? '#E1E1E1',
+    '--owt-widget-table-editing-row-bg': w?.tableEditingRowBg ?? '#F3F1F4',
+    '--owt-widget-table-deleted-row-bg': w?.tableDeletedRowBg ?? '#F3F1F4',
+    '--owt-widget-table-empty-color': w?.tableEmptyTextColor ?? '#A1A1A1',
+    '--owt-widget-table-border-radius': w?.tableBorderRadius ?? '15px',
+    '--owt-widget-card-border-radius': '20px',
+    '--owt-color-overlay': 'color-mix(in srgb, var(--owt-color-text) 50%, transparent)',
+    '--owt-color-shadow': 'color-mix(in srgb, var(--owt-color-text) 20%, transparent)',
+  } as React.CSSProperties;
+}
+
+export function owtThemeRootProps(
+  theme?: WidgetTheme,
+  extraStyle?: React.CSSProperties,
+): { className: string; style: React.CSSProperties } {
+  return {
+    className: 'openg2p-widget-theme-root',
+    style: { ...themeToCSSVariables(theme), ...extraStyle },
   };
 }
 
-/**
- * Maps a resolved theme to CSS custom properties (`--owt-*`, OpenG2P Widget Theme)
- * on the provider wrapper for use via `var(--owt-…)`.
- */
-export function themeToCSSVariables(
-  resolved: ReturnType<typeof resolveTheme>,
-): React.CSSProperties {
-  return {
-    '--owt-color-primary': resolved.colors.primary,
-    '--owt-color-primary-dark': resolved.colors.primaryDark,
-    '--owt-color-primary-light': resolved.colors.primaryLight,
-    '--owt-color-primary-accent': resolved.colors.primaryAccent,
-    '--owt-color-border': resolved.colors.border,
-    '--owt-color-border-light': resolved.colors.borderLight,
-    '--owt-color-bg': resolved.colors.background,
-    '--owt-color-bg-alt': resolved.colors.backgroundAlt,
-    '--owt-color-text': resolved.colors.text,
-    '--owt-color-text-muted': resolved.colors.textMuted,
-    '--owt-color-success': resolved.colors.success,
-    '--owt-color-success-dark': resolved.colors.successDark,
-    '--owt-color-success-light': resolved.colors.successLight,
-    '--owt-color-error': resolved.colors.error,
-    '--owt-color-error-light': resolved.colors.errorLight,
-    '--owt-color-warning': resolved.colors.warning,
-    '--owt-color-info': resolved.colors.info,
-    '--owt-section-border-radius': resolved.section.borderRadius,
-    '--owt-section-border-color': resolved.section.borderColor,
-    '--owt-section-bg': resolved.section.backgroundColor,
-    '--owt-section-title-color': resolved.section.titleColor,
-    '--owt-section-divider-color': resolved.section.dividerColor,
-    '--owt-panel-divider-color': resolved.panel.dividerColor,
-    '--owt-panel-bg': resolved.panel.backgroundColor,
-    '--owt-btn-primary-bg': resolved.button.primaryBg,
-    '--owt-btn-primary-color': resolved.button.primaryColor,
-    '--owt-btn-primary-border': resolved.button.primaryBorder,
-    '--owt-btn-secondary-bg': resolved.button.secondaryBg,
-    '--owt-btn-secondary-color': resolved.button.secondaryColor,
-    '--owt-btn-secondary-border': resolved.button.secondaryBorder,
-    '--owt-btn-border-radius': resolved.button.borderRadius,
-    '--owt-widget-label-color': resolved.widget.labelColor,
-    '--owt-widget-input-border': resolved.widget.inputBorderColor,
-    '--owt-widget-input-focus-border': resolved.widget.inputFocusBorderColor,
-    '--owt-widget-input-bg': resolved.widget.inputBackground,
-    '--owt-widget-error-color': resolved.widget.errorColor,
-    '--owt-widget-helptext-color': resolved.widget.helpTextColor,
-    '--owt-widget-table-header-bg': resolved.widget.tableHeaderBg,
-    '--owt-widget-table-header-color': resolved.widget.tableHeaderColor,
-    '--owt-widget-table-body-bg': resolved.widget.tableBodyBg,
-    '--owt-widget-table-border-color': resolved.widget.tableBorderColor,
-    '--owt-widget-table-row-divider': resolved.widget.tableRowDividerColor,
-    '--owt-widget-table-editing-row-bg': resolved.widget.tableEditingRowBg,
-    '--owt-widget-table-deleted-row-bg': resolved.widget.tableDeletedRowBg,
-    '--owt-widget-table-empty-color': resolved.widget.tableEmptyTextColor,
-    '--owt-widget-table-border-radius': resolved.widget.tableBorderRadius,
-  } as React.CSSProperties;
+export const OWT_FIELD_STYLES = `
+  .owt-text {
+    color: var(--owt-color-text);
+  }
+  .owt-text-muted {
+    color: var(--owt-color-text-muted);
+  }
+  .owt-bg {
+    background-color: var(--owt-color-bg);
+  }
+  .owt-bg-alt {
+    background-color: var(--owt-color-bg-alt);
+  }
+  .owt-border {
+    border-color: var(--owt-color-border-light);
+  }
+  .owt-highlight {
+    background-color: var(--owt-color-primary-light);
+  }
+  .owt-highlight-hover:hover {
+    background-color: var(--owt-color-primary-light);
+  }
+  .owt-shadow-sm {
+    box-shadow: 0 1px 2px 0 var(--owt-color-shadow);
+  }
+  .owt-shadow-lg {
+    box-shadow: 0 10px 15px -3px var(--owt-color-shadow), 0 4px 6px -4px var(--owt-color-shadow);
+  }
+  .owt-field-input {
+    border: 1px solid var(--owt-widget-input-border);
+    background-color: var(--owt-widget-input-bg);
+    color: var(--owt-color-text);
+  }
+  .owt-field-input:focus {
+    outline: none;
+    border-color: var(--owt-widget-input-focus-border);
+    box-shadow: 0 0 0 1px var(--owt-widget-input-focus-border);
+  }
+  .owt-field-input.owt-field-input-error,
+  .owt-field-input.owt-field-input-error:focus {
+    border-color: var(--owt-widget-error-color);
+    box-shadow: 0 0 0 1px var(--owt-widget-error-color);
+  }
+  .owt-field-input:disabled,
+  .owt-field-input.owt-field-input-disabled {
+    background-color: var(--owt-color-bg-alt);
+    cursor: not-allowed;
+  }
+  .owt-field-check {
+    accent-color: var(--owt-color-primary);
+    border-color: var(--owt-widget-input-border);
+  }
+  .owt-field-error {
+    color: var(--owt-widget-error-color);
+  }
+  .owt-field-help {
+    color: var(--owt-widget-helptext-color);
+  }
+  .owt-field-required {
+    color: var(--owt-widget-error-color);
+  }
+  .owt-boolean-chip {
+    border: 1px solid var(--owt-widget-input-border);
+    background-color: var(--owt-widget-input-bg);
+    color: var(--owt-color-text);
+  }
+  .owt-boolean-chip-selected {
+    border-color: var(--owt-color-primary);
+    background-color: var(--owt-color-primary);
+    color: var(--owt-color-text);
+  }
+  .owt-link {
+    color: var(--owt-color-info);
+  }
+  .owt-chip {
+    background-color: var(--owt-color-primary-light);
+    color: var(--owt-color-text);
+  }
+`;
+
+export function owtFieldInputClass({
+  error = false,
+  disabled = false,
+  className = '',
+}: {
+  error?: boolean;
+  disabled?: boolean;
+  className?: string;
+} = {}): string {
+  return [
+    'owt-field-input',
+    error ? 'owt-field-input-error' : '',
+    disabled ? 'owt-field-input-disabled' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }

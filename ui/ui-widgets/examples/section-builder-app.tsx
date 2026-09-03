@@ -61,7 +61,7 @@ function App() {
           height: '100vh',
           display: 'flex',
           flexDirection: 'column',
-          background: '#f5f5f5',
+          background: 'var(--owt-color-bg-alt)',
           boxSizing: 'border-box',
           overflow: 'hidden',
         }}>
@@ -69,8 +69,8 @@ function App() {
             display: 'flex',
             gap: '8px',
             padding: '12px 20px',
-            background: '#fff',
-            borderBottom: '1px solid #e5e5e5',
+            background: 'var(--owt-color-bg)',
+            borderBottom: '1px solid var(--owt-color-border-light)',
             flexWrap: 'wrap',
           }}>
             {TABS.map(({ id, label }) => (
@@ -81,7 +81,7 @@ function App() {
                 style={{
                   padding: '8px 16px',
                   fontWeight: activeTab === id ? 600 : 400,
-                  background: activeTab === id ? '#e5e7eb' : 'transparent',
+                  background: activeTab === id ? 'var(--owt-color-bg-alt)' : 'transparent',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',

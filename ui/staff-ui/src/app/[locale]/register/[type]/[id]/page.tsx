@@ -5,15 +5,14 @@ import {
     TabsLayout,
 } from '@/components/shared';
 import {
-    WidgetProvider,
     SectionRenderer,
 } from '@openg2p/registry-widgets';
+import { RegistryWidgetProvider } from '@/shared/widgets';
 import RegisterChangeRequestCard from '@/features/change-request/components/RegisterChangeRequestCard';
 import { useState } from 'react';
 
 import { useRegisterDetail } from '@/features/register/hooks/useRegisterDetail';
 import RegisterDetailsPageSkeleton from '@/features/register/components/RegisterDetailsPageSkeleton';
-import { dataSourceRequestHandler } from '@/shared/services';
 import { VersionHistoryCard } from '@/features/register/components';
 
 
@@ -60,12 +59,10 @@ export default function RegisterDetailPage() {
                     <div className="col-span-12 lg:col-span-9">
                         <div className="col-span-12 lg:col-span-9">
                             {orderedTabSections.length > 0 && sectionDataMap ? (
-                                <WidgetProvider
+                                <RegistryWidgetProvider
                                     key={activeTabId}
                                     store={widgetStore}
                                     schemaData={sectionDataMap}
-                                    t={t}
-                                    dataSourceRequestHandler={dataSourceRequestHandler}
                                     hostContext={{
                                         subject_register_id: currentRegister?.register_id,
                                         internal_record_id: internalRecordId,
@@ -80,14 +77,13 @@ export default function RegisterDetailPage() {
                                                     section={section_ui_schema}
                                                     onSectionSave={handleSectionSave}
                                                     hideEditButton={hideEditButton}
-                                                    dataSourceRequestHandler={dataSourceRequestHandler}
                                                     dbSectionId={section_id}
                                                     sectionRegisterId={section_register_id}
                                                 />
                                             </div>
                                         );
                                     })}
-                                </WidgetProvider>
+                                </RegistryWidgetProvider>
                             ) : !isLoading && (
                                 <div className=" px-6 py-5 flex items-center justify-center text-center">
                                     <div className="text-[16px] text-neutral-first/50 font-medium">

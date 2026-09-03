@@ -42,6 +42,6 @@ export const buildReadonlyStyleSelectors = (sectionClassId: string) => ({
     (c) => `.${sectionClassId} .${c} > .flex-1`,
   ).join(',\n        '),
   readonlySingleLineValueTextCss: READONLY_SINGLE_LINE_VALUE_ROW_CLASSES.map(
-    (c) => `.${sectionClassId} .${c} > .flex-1 > .text-gray-900`,
+    (c) => `.${sectionClassId} .${c} > .flex-1 > .owt-text`,
   ).join(',\n        '),
 });

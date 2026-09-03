@@ -10,9 +10,6 @@ interface PropertyEditorProps {
   onDuplicate: (node: TreeNode) => void;
 }
 
-/**
- * Property editor component for editing selected node properties
- */
 export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   node,
   onChange,
@@ -32,12 +29,12 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       <div
         style={{
           padding: '15px',
-          background: '#f8f9fa',
+          background: 'var(--owt-color-bg-alt)',
           height: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#666',
+          color: 'var(--owt-color-text-muted)',
         }}
       >
         Select an item to edit properties
@@ -80,7 +77,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       <>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Section ID <span style={{ color: '#e74c3c' }}>*</span>
+            Section ID <span style={{ color: 'var(--owt-color-error)' }}>*</span>
           </label>
           <input
             type="text"
@@ -89,11 +86,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -108,11 +105,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -138,11 +135,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -156,7 +153,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       <>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Panel ID <span style={{ color: '#e74c3c' }}>*</span>
+            Panel ID <span style={{ color: 'var(--owt-color-error)' }}>*</span>
           </label>
           <input
             type="text"
@@ -165,11 +162,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -183,10 +180,10 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
+              background: 'var(--owt-widget-input-bg)',
             }}
           >
             {ORIENTATIONS.map((opt) => (
@@ -208,11 +205,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -226,36 +223,36 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       <>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Widget Type <span style={{ color: '#e74c3c' }}>*</span>
+            Widget Type <span style={{ color: 'var(--owt-color-error)' }}>*</span>
           </label>
           <select
             value={widget.widget || ''}
             onChange={(e) => {
               const newWidgetType = e.target.value;
-              // When widget type changes, preserve common fields but clear widget-specific ones
+
               const updated: any = {
                 ...widget,
                 widget: newWidgetType,
               };
-              
-              // Clear widget-specific fields that don't apply to the new type
+
+
               if (!['select', 'radio', 'checkbox'].includes(newWidgetType)) {
                 delete updated['widget-data-source'];
               }
               if (newWidgetType !== 'table') {
                 delete updated['widget-data-columns'];
               }
-              
+
               setLocalData(updated);
               onChange(node, updated);
             }}
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
+              background: 'var(--owt-widget-input-bg)',
             }}
           >
             {WIDGET_TYPES.map((type) => (
@@ -267,7 +264,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Widget ID <span style={{ color: '#e74c3c' }}>*</span>
+            Widget ID <span style={{ color: 'var(--owt-color-error)' }}>*</span>
           </label>
           <input
             type="text"
@@ -276,11 +273,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -295,11 +292,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
             placeholder="Enter label..."
           />
@@ -315,11 +312,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
             placeholder="person.name"
           />
@@ -335,11 +332,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
             placeholder="Enter placeholder..."
           />
@@ -364,9 +361,9 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             <span>Readonly</span>
           </label>
         </div>
-        {/* Widget-specific fields based on widget type */}
+
         {['select', 'radio', 'checkbox'].includes(widget.widget) && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#e3f2fd', borderRadius: '4px' }}>
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-primary-light)', borderRadius: '4px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
               Data Source (Required for {widget.widget})
             </label>
@@ -383,10 +380,10 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                 style={{
                   width: '100%',
                   padding: '6px 8px',
-                  border: '1px solid #ccc',
+                  border: '1px solid var(--owt-color-border)',
                   borderRadius: '4px',
                   fontSize: '11px',
-                  background: 'white',
+                  background: 'var(--owt-widget-input-bg)',
                 }}
               >
                 <option value="static">Static</option>
@@ -406,19 +403,19 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                       const parsed = JSON.parse(e.target.value);
                       handleNestedChange('widget-data-source', 'options', parsed);
                     } catch {
-                      // Invalid JSON, ignore
+
                     }
                   }}
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
                     fontFamily: 'monospace',
                     minHeight: '80px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                   placeholder='[{"value": "opt1", "label": "Option 1"}]'
                 />
@@ -441,11 +438,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                       style={{
                         width: '100%',
                         padding: '6px 8px',
-                        border: '1px solid #ccc',
+                        border: '1px solid var(--owt-color-border)',
                         borderRadius: '4px',
                         fontSize: '11px',
-                        background: 'white',
-                        color: '#333',
+                        background: 'var(--owt-widget-input-bg)',
+                        color: 'var(--owt-color-text)',
                       }}
                       placeholder="https://api.example.com/options"
                     />
@@ -464,11 +461,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                         style={{
                           flex: 1,
                           padding: '6px 8px',
-                          border: '1px solid #ccc',
+                          border: '1px solid var(--owt-color-border)',
                           borderRadius: '4px',
                           fontSize: '11px',
-                          background: 'white',
-                          color: '#333',
+                          background: 'var(--owt-widget-input-bg)',
+                          color: 'var(--owt-color-text)',
                         }}
                         placeholder="value key"
                       />
@@ -481,11 +478,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                         style={{
                           flex: 1,
                           padding: '6px 8px',
-                          border: '1px solid #ccc',
+                          border: '1px solid var(--owt-color-border)',
                           borderRadius: '4px',
                           fontSize: '11px',
-                          background: 'white',
-                          color: '#333',
+                          background: 'var(--owt-widget-input-bg)',
+                          color: 'var(--owt-color-text)',
                         }}
                         placeholder="label key"
                       />
@@ -498,11 +495,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         )}
 
         {widget.widget === 'table' && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#fff3e0', borderRadius: '4px' }}>
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-primary-light)', borderRadius: '4px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
               Table Columns
             </label>
-            <div style={{ fontSize: '11px', color: '#666', marginBottom: '10px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--owt-color-text-muted)', marginBottom: '10px' }}>
               Configure columns in JSON editor or add via code
             </div>
             <textarea
@@ -512,19 +509,19 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   const parsed = JSON.parse(e.target.value);
                   handleChange('widget-data-columns', parsed);
                 } catch {
-                  // Invalid JSON, ignore
+
                 }
               }}
               style={{
                 width: '100%',
                 padding: '6px 8px',
-                border: '1px solid #ccc',
+                border: '1px solid var(--owt-color-border)',
                 borderRadius: '4px',
                 fontSize: '11px',
                 fontFamily: 'monospace',
                 minHeight: '100px',
-                background: 'white',
-                color: '#333',
+                background: 'var(--owt-widget-input-bg)',
+                color: 'var(--owt-color-text)',
               }}
               placeholder='[{"column-key": "col1", "widget-label": "Column 1", "widget": "text"}]'
             />
@@ -532,7 +529,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         )}
 
         {widget.widget === 'number' && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#f3e5f5', borderRadius: '4px' }}>
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-primary-light)', borderRadius: '4px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
               Number Validation
             </label>
@@ -550,11 +547,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -571,11 +568,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -584,7 +581,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         )}
 
         {['date', 'datetime'].includes(widget.widget) && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#e8f5e9', borderRadius: '4px' }}>
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-success-light)', borderRadius: '4px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
               Date Range Options
             </label>
@@ -602,11 +599,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -623,11 +620,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -645,8 +642,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
           </div>
         )}
 
-        {/* Validation section - show for all widgets */}
-        <div style={{ marginBottom: '20px', padding: '10px', background: '#f0f0f0', borderRadius: '4px' }}>
+        <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-bg-alt)', borderRadius: '4px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
             Validation
           </label>
@@ -685,11 +681,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -710,11 +706,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -728,11 +724,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   const getHeaderColor = () => {
     switch (node.type) {
       case 'section':
-        return '#2196f3';
+        return 'var(--owt-color-info)';
       case 'panel':
-        return '#ff9800';
+        return 'var(--owt-color-warning)';
       case 'widget':
-        return '#4caf50';
+        return 'var(--owt-color-success)';
     }
   };
 
@@ -741,15 +737,15 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       style={{
         padding: '15px',
         overflowY: 'auto',
-        background: '#f8f9fa',
+        background: 'var(--owt-color-bg-alt)',
         height: '100%',
       }}
     >
-      <h3 style={{ fontSize: '14px', marginBottom: '15px', color: '#2c3e50' }}>Properties</h3>
+      <h3 style={{ fontSize: '14px', marginBottom: '15px', color: 'var(--owt-color-text)' }}>Properties</h3>
       <div
         style={{
           background: getHeaderColor(),
-          color: 'white',
+          color: 'var(--owt-color-bg)',
           padding: '12px',
           borderRadius: '4px',
           marginBottom: '20px',
@@ -774,8 +770,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             padding: '10px',
             border: 'none',
             borderRadius: '10px',
-            background: '#f44336',
-            color: 'white',
+            background: 'var(--owt-color-error)',
+            color: 'var(--owt-color-bg)',
             fontWeight: 600,
             cursor: 'pointer',
             fontSize: '12px',
@@ -790,8 +786,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             padding: '10px',
             border: 'none',
             borderRadius: '10px',
-            background: '#ff9800',
-            color: 'white',
+            background: 'var(--owt-color-warning)',
+            color: 'var(--owt-color-bg)',
             fontWeight: 600,
             cursor: 'pointer',
             fontSize: '12px',

@@ -25,7 +25,7 @@ export const WidgetFieldLabel = ({
       title={tooltip}
     >
       <span className="min-w-0 truncate">{translatedLabel}</span>
-      {required && <span className="ml-1 shrink-0 text-red-500">*</span>}
+      {required && <span className="ml-1 shrink-0 owt-field-required">*</span>}
     </label>
   );
 };

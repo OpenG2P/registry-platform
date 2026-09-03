@@ -162,7 +162,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
           className="mb-[10px] FileDisplayWidget flex flex-row items-start w-full"
         >
           <div
-            className="w-1/2 min-w-0 pr-2 text-base text-gray-600 font-medium truncate"
+            className="w-1/2 min-w-0 pr-2 text-base owt-text-muted font-medium truncate"
             style={{ fontFamily: 'Roboto, sans-serif' }}
             title={tSchema(t, label)}
           >
@@ -172,7 +172,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
             {hasFile ? (
               <>
                 <span
-                  className="w-10/12 min-w-0 truncate text-base text-gray-900 font-medium"
+                  className="w-10/12 min-w-0 truncate text-base owt-text font-medium"
                   title={displayFileName}
                 >
                   {displayFileName}
@@ -187,7 +187,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
                 </button>
               </>
             ) : (
-              <span className="text-base text-gray-900 font-medium">-</span>
+              <span className="text-base owt-text font-medium">-</span>
             )}
           </div>
         </div>
@@ -198,7 +198,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
       <div key={docKey} className="mb-[10px]">
         <div className="flex flex-row items-start w-full">
           <WidgetFieldLabel
-            className="w-1/2 min-w-0 pr-2 text-base font-medium text-gray-700"
+            className="w-1/2 min-w-0 pr-2 text-base font-medium owt-text"
             label={tSchema(t, label)}
             required={isRequired}
           />
@@ -210,13 +210,13 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
                 }`}
                 style={{
                   borderColor: isEmptyRequired
-                    ? 'var(--owt-widget-error-color, #B91C1C)'
-                    : 'var(--owt-color-primary-dark, #F07B1A)',
-                  backgroundColor: 'var(--owt-color-background, #FFFFFF)',
+                    ? 'var(--owt-widget-error-color)'
+                    : 'var(--owt-color-primary-dark)',
+                  backgroundColor: 'var(--owt-color-bg)',
                 }}
               >
                 <img src={uploadIcon} alt="" className="h-4 w-4 shrink-0" />
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm font-medium owt-text">
                   {t?.('common.upload') ?? 'Upload'}
                 </span>
                 <input
@@ -234,7 +234,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
             )}
             {hasFile && (
               <div
-                className={`${docControlClass} gap-2 border border-gray-200 bg-white`}
+                className={`${docControlClass} gap-2 border owt-border owt-bg`}
                 title={displayFileName}
               >
                 <button
@@ -248,7 +248,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
                     alt=""
                     className="h-4 w-4 shrink-0"
                   />
-                  <span className="min-w-0 truncate text-sm font-medium text-gray-900">
+                  <span className="min-w-0 truncate text-sm font-medium owt-text">
                     {displayFileName}
                   </span>
                 </button>
@@ -256,7 +256,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
                   type="button"
                   onClick={() => handleRemove(docKey)}
                   disabled={!isEnabled}
-                  className={`inline-flex items-center justify-center shrink-0 h-5 w-5 p-0 border-0 rounded-full bg-gray-200 hover:bg-gray-300 focus:outline-none ${
+                  className={`inline-flex items-center justify-center shrink-0 h-5 w-5 p-0 border-0 rounded-full owt-bg-alt focus:outline-none ${
                     !isEnabled ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                   title={t?.('common.remove') ?? 'Remove'}
@@ -270,7 +270,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
               </div>
             )}
             {showValidationError && (
-              <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+              <p className="owt-field-error text-sm mt-1">{error[0]}</p>
             )}
           </div>
         </div>
@@ -302,8 +302,8 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
                   style={{
                     bottom: '5px',
                     backgroundColor: isReadonly
-                      ? 'var(--owt-panel-divider-color, #C4C4C4)'
-                      : 'var(--owt-color-primary, #F5BB1A)',
+                      ? 'var(--owt-panel-divider-color)'
+                      : 'var(--owt-color-primary)',
                   }}
                 />
               )}

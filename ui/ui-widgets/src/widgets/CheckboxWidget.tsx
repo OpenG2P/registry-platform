@@ -40,12 +40,12 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
       return (
         <div className="mb-[10px] CheckboxDisplayWidget flex flex-col sm:flex-row sm:items-start">
           {label && (
-            <div className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+            <div className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
               {label}:
             </div>
           )}
           <div className="flex-1">
-            <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
+            <div className="text-base owt-text font-medium" title={String(displayValue ?? '')}>
               {displayValue}
             </div>
             
@@ -58,7 +58,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
       <div className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
-            className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+            className="text-base font-medium leading-normal owt-text md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
             label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
@@ -70,14 +70,14 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
                 onChange={(e) => onChange(e.target.checked)}
                 onBlur={onBlur}
                 disabled={!isEnabled || widgetConfig['widget-readonly']}
-                className="relative top-[0.2em] h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check rounded"
               />
-              <span className="text-base leading-normal text-gray-700">
+              <span className="text-base leading-normal owt-text">
                 {isChecked ? 'Yes' : 'No'}
               </span>
             </label>
             {touched && error.length > 0 && (
-              <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
             )}
             
           </div>
@@ -150,12 +150,12 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     return (
       <div className="mb-3 CheckboxDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
-          <div className="text-sm text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" title={label}>
+          <div className="text-sm owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" title={label}>
             {label}:
           </div>
         )}
         <div className="flex-1">
-          <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
+          <div className="text-base owt-text font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
           
@@ -168,14 +168,14 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-baseline">
         <WidgetFieldLabel
-          className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+          className="text-base font-medium leading-normal owt-text md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
           label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
           <div className={layoutConfig.className} style={layoutConfig.style} onBlur={onBlur}>
             {loading ? (
-              <p className="text-sm text-gray-500">{t?.('common.loading')}</p>
+              <p className="text-sm owt-text-muted">{t?.('common.loading')}</p>
             ) : (
               processedOptions.map((option) => (
                 <label
@@ -190,15 +190,15 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
                     checked={selectedValues.includes(option.value)}
                     onChange={(e) => handleCheckboxChange(option.value, e.target.checked)}
                     disabled={!isEnabled || widgetConfig['widget-readonly']}
-                    className="relative top-[0.2em] h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check rounded"
                   />
-                  <span className="text-base leading-normal text-gray-700">{tSchema(t, option.label)}</span>
+                  <span className="text-base leading-normal owt-text">{tSchema(t, option.label)}</span>
                 </label>
               ))
             )}
           </div>
           {touched && error.length > 0 && (
-            <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
           )}
           
         </div>

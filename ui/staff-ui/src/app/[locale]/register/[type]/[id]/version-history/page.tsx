@@ -2,7 +2,6 @@
 
 import { useParams } from 'next/navigation';
 import {
-    WidgetProvider,
     createWidgetStore,
     SectionRenderer,
 } from '@openg2p/registry-widgets';
@@ -15,6 +14,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { useRegisterTabs } from '@/context/RegisterTabsContext';
 import { useBreadcrumb, useFetch } from '@/shared/hooks';
+import { RegistryWidgetProvider } from '@/shared/widgets';
 import { useChangeRequest } from '@/features/change-request/hooks';
 import { useIntakeFormSubmission } from '@/features/intake-form/hooks/useIntakeFormSubmission';
 import { useRecordHistoryDates, useRecordHistoryChanges } from '@/features/register/hooks/useRecordHistory';
@@ -24,7 +24,6 @@ import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRe
 import { useRegisterRecord } from '@/context/RegisterRecordContext';
 import { buildSectionDataMap, pickSubmissionSectionPayload } from '@/features/shared/utils';
 import VersionHistoryPageSkeleton from '@/features/register/components/VersionHistoryPageSkeleton';
-import { dataSourceRequestHandler } from '@/shared/services';
 
 type Change = {
     change_request_id?: string | null;
@@ -387,11 +386,9 @@ export default function VersionHistoryPage() {
 
                         {hasVersionHistory && stableSectionData && stableSectionUISchema && (
                             <div className="bg-neutral-second rounded-[30px]">
-                                <WidgetProvider
+                                <RegistryWidgetProvider
                                     store={widgetStore}
                                     schemaData={stableSectionData}
-                                    t={t}
-                                    dataSourceRequestHandler={dataSourceRequestHandler}
                                     hostContext={{
                                         subject_register_id: registerId || undefined,
                                         internal_record_id: internalRecordId || undefined,
@@ -402,7 +399,7 @@ export default function VersionHistoryPage() {
                                         hideEditButton
                                         mode="CRView"
                                     />
-                                </WidgetProvider>
+                                </RegistryWidgetProvider>
                             </div>
                         )}
                         {!hasVersionHistory && !isLoading && tabs.length > 0 && (

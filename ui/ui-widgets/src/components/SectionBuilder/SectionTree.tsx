@@ -22,9 +22,6 @@ interface SectionTreeProps {
   onDuplicateNode: (node: TreeNode) => void;
 }
 
-/**
- * Recursively build tree nodes from panel structure
- */
 function buildTreeNodesFromPanels(
   panels: PanelConfig[],
   parent?: TreeNode
@@ -41,13 +38,11 @@ function buildTreeNodesFromPanels(
       children: [],
     };
 
-    // Add nested panels recursively
     if (panel.panels && panel.panels.length > 0) {
       panelNode.children = panelNode.children || [];
       panelNode.children.push(...buildTreeNodesFromPanels(panel.panels, panelNode));
     }
 
-    // Add widgets
     if (panel.widgets && panel.widgets.length > 0) {
       panelNode.children = panelNode.children || [];
       panel.widgets.forEach((widget) => {
@@ -67,9 +62,6 @@ function buildTreeNodesFromPanels(
   return nodes;
 }
 
-/**
- * Tree view component for section structure
- */
 export const SectionTree: React.FC<SectionTreeProps> = ({
   section,
   selectedNode,
@@ -107,21 +99,21 @@ export const SectionTree: React.FC<SectionTreeProps> = ({
       if (isSelected) {
         switch (node.type) {
           case 'section':
-            return { ...baseStyles, background: '#e3f2fd', border: '1px solid #2196f3' };
+            return { ...baseStyles, background: 'var(--owt-color-primary-light)', border: '1px solid var(--owt-color-info)' };
           case 'panel':
-            return { ...baseStyles, background: '#fff3e0', border: '1px solid #ff9800' };
+            return { ...baseStyles, background: 'var(--owt-color-primary-light)', border: '1px solid var(--owt-color-warning)' };
           case 'widget':
-            return { ...baseStyles, background: '#e8f5e9', border: '1px solid #4caf50' };
+            return { ...baseStyles, background: 'var(--owt-color-success-light)', border: '1px solid var(--owt-color-success)' };
         }
       }
 
       switch (node.type) {
         case 'section':
-          return { ...baseStyles, background: '#e3f2fd', border: '1px solid #2196f3' };
+          return { ...baseStyles, background: 'var(--owt-color-primary-light)', border: '1px solid var(--owt-color-info)' };
         case 'panel':
-          return { ...baseStyles, background: '#fff3e0', border: '1px solid #ff9800' };
+          return { ...baseStyles, background: 'var(--owt-color-primary-light)', border: '1px solid var(--owt-color-warning)' };
         case 'widget':
-          return { ...baseStyles, background: '#e8f5e9', border: '1px solid #4caf50' };
+          return { ...baseStyles, background: 'var(--owt-color-success-light)', border: '1px solid var(--owt-color-success)' };
       }
 
       return baseStyles;
@@ -141,11 +133,11 @@ export const SectionTree: React.FC<SectionTreeProps> = ({
     const getActionButtonColor = () => {
       switch (node.type) {
         case 'section':
-          return '#2196f3';
+          return 'var(--owt-color-info)';
         case 'panel':
-          return '#ff9800';
+          return 'var(--owt-color-warning)';
         case 'widget':
-          return '#4caf50';
+          return 'var(--owt-color-success)';
       }
     };
 
@@ -184,7 +176,7 @@ export const SectionTree: React.FC<SectionTreeProps> = ({
               borderRadius: '50%',
               border: 'none',
               background: getActionButtonColor(),
-              color: 'white',
+              color: 'var(--owt-color-bg)',
               cursor: 'pointer',
               fontSize: '12px',
               opacity: isSelected ? '1' : '0',
@@ -211,19 +203,19 @@ export const SectionTree: React.FC<SectionTreeProps> = ({
         style={{
           padding: '15px',
           overflowY: 'auto',
-          background: '#f8f9fa',
+          background: 'var(--owt-color-bg-alt)',
           height: '100%',
         }}
       >
-        <h3 style={{ fontSize: '14px', marginBottom: '15px', color: '#2c3e50' }}>
+        <h3 style={{ fontSize: '14px', marginBottom: '15px', color: 'var(--owt-color-text)' }}>
           Section Structure
         </h3>
         <div
           style={{
             padding: '8px 12px',
             borderRadius: '4px',
-            background: '#e3f2fd',
-            border: '1px solid #2196f3',
+            background: 'var(--owt-color-primary-light)',
+            border: '1px solid var(--owt-color-info)',
             marginBottom: '10px',
             cursor: 'pointer',
             display: 'flex',
@@ -264,8 +256,8 @@ export const SectionTree: React.FC<SectionTreeProps> = ({
               height: '24px',
               borderRadius: '50%',
               border: 'none',
-              background: '#2196f3',
-              color: 'white',
+              background: 'var(--owt-color-info)',
+              color: 'var(--owt-color-bg)',
               cursor: 'pointer',
               fontSize: '12px',
             }}

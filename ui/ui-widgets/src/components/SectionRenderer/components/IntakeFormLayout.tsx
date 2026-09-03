@@ -87,8 +87,8 @@ export const IntakeFormLayout = ({
                 borderRadius: '9999px',
                 fontSize: '12px',
                 fontWeight: 500,
-                backgroundColor: 'var(--owt-color-success-light, #D1FAE5)',
-                color: 'var(--owt-color-success-dark, #047857)',
+                backgroundColor: 'var(--owt-color-success-light)',
+                color: 'var(--owt-color-success-dark)',
               }}
             >
               {t?.('common.sectionSaved') || 'Saved'}
@@ -102,8 +102,8 @@ export const IntakeFormLayout = ({
                 borderRadius: '9999px',
                 fontSize: '12px',
                 fontWeight: 500,
-                backgroundColor: 'var(--owt-color-error-light, #FEE2E2)',
-                color: 'var(--owt-color-error, #B91C1C)',
+                backgroundColor: 'var(--owt-color-error-light)',
+                color: 'var(--owt-color-error)',
               }}
             >
               {t?.('common.sectionModified') || 'Modified and not saved'}
@@ -134,12 +134,15 @@ export const IntakeFormLayout = ({
               isEditMode={isDraft !== false}
               wrapInContainer={false}
             />
-            <hr
-              className="w-full"
+            <div
+              className="section-divider"
+              role="separator"
               style={{
+                flex: '0 0 100%',
+                width: '100%',
+                maxWidth: '100%',
                 height: '1px',
-                backgroundColor: 'var(--owt-section-divider-color, #F5BB1A)',
-                border: 'none',
+                backgroundColor: 'var(--owt-color-primary)',
                 margin: '15px 0 0 0',
               }}
             />
@@ -173,10 +176,10 @@ export const IntakeFormLayout = ({
                     fontSize: '14px',
                     fontWeight: 400,
                     padding: '8px 24px',
-                    borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                    border: '1px solid var(--owt-btn-primary-border, #F07B1A)',
-                    background: 'var(--owt-btn-primary-bg, #FFFFFF)',
-                    color: 'var(--owt-color-text-muted, #727474)',
+                    borderRadius: 'var(--owt-btn-border-radius)',
+                    border: '1px solid var(--owt-btn-primary-border)',
+                    background: 'var(--owt-btn-primary-bg)',
+                    color: 'var(--owt-color-text-muted)',
                     cursor: 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -201,10 +204,10 @@ export const IntakeFormLayout = ({
                   fontSize: '14px',
                   fontWeight: 400,
                   padding: '8px 24px',
-                  borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                  border: '1px solid var(--owt-btn-primary-border, #F07B1A)',
-                  background: 'var(--owt-btn-primary-bg, #FFFFFF)',
-                  color: 'var(--owt-color-text-muted, #727474)',
+                  borderRadius: 'var(--owt-btn-border-radius)',
+                  border: '1px solid var(--owt-btn-primary-border)',
+                  background: 'var(--owt-btn-primary-bg)',
+                  color: 'var(--owt-color-text-muted)',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
