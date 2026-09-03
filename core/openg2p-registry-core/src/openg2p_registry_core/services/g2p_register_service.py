@@ -146,12 +146,12 @@ class G2PRegisterService(BaseService):
         return dict_to_orm(G2PRegisterSchema, orm_row_to_dict(schema_metadata))
 
     @cache(
-        expire=60,
+        expire=_config.cache_summary_expires_in_seconds,
         key_builder=data_policies_key_builder,
         coder=PickleCoder,
     )
     async def get_register_summary_data(self, data_policies: list[dict] | None = None) -> list[RegisterSummaryData]:
-        """Dashboard summary; short TTL shared across users with the same data policies."""
+        """Dashboard summary; 10 min TTL shared across users with the same data policies."""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_summary_data_list: list[RegisterSummaryData] = await self._fetch_register_summary_data(

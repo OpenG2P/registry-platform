@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..helpers.orm_cache import single_id_key_builder
+from ..helpers.orm_cache import data_policies_key_builder, single_id_key_builder
 from ..repositories.register_repository import RegisterRecordRepository
 from iam_core.helpers.data_policy_helper import DataPolicyHelper
 from .g2p_awe_integration_service import G2PAweIntegrationService
@@ -1870,11 +1870,16 @@ class G2PIntakeFormDataService(BaseService):
                 for r, rd in rows
             ]
 
+    @cache(
+        expire=_config.cache_summary_expires_in_seconds,
+        key_builder=data_policies_key_builder,
+        coder=PickleCoder,
+    )
     async def get_intake_form_submissions_summary(
         self,
         data_policies: list[dict] | None = None,
     ) -> IntakeFormSubmissionsSummaryData:
-        """Fetch aggregate summary counts for intake form submissions."""
+        """Dashboard summary; 10 min TTL shared across users with the same data policies."""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             summary_query = select(

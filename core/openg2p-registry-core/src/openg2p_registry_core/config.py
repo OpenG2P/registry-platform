@@ -59,7 +59,8 @@ class Settings(IamSettings):
     master_data_db_dbname: str = "openg2p_gen2_master_data_db"
 
     # Cache Configuration
-    cache_expires_in_seconds: int = 60 * 5
+    cache_expires_in_seconds: int = 60 * 60
+    cache_summary_expires_in_seconds: int = 60 * 10
 
     # WebSub Hub
     websub_base_url: str = "http://websub.play.svc.cluster.local"
