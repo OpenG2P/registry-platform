@@ -1,6 +1,18 @@
 questions:
 
 # General
+- variable: global.baseDomain
+  description: >-
+    The DNS domain every OpenG2P hostname in this environment sits under. Every
+    other hostname on this form defaults to a name under it — the registry, the
+    Agent Portal, Keycloak, MinIO, eSignet, Certify, the ID generator and the
+    cookie domain — so on a non-openg2p.org deployment set this ONE value and the
+    rest follow. Override an individual hostname below only where it genuinely
+    differs. Do not include a scheme or a trailing slash.
+  type: string
+  label: Base Domain
+  group: General
+
 - variable: global.registryHostname
   description: Hostname under which all Registry services will be accessed
   type: string
@@ -425,11 +437,10 @@ questions:
 - variable: global.agentPortalHostname
   description: >-
     Public hostname of the Agent Portal UI. Defaults to
-    <release>-agent.<namespace>.openg2p.org (e.g. fr-agent.trial.openg2p.org).
+    <release>-agent.<Base Domain> (e.g. fr-agent.trial.openg2p.org).
     This host is also registered as the redirect URI on the Keycloak
     agent-portal clients, so changing it here changes both.
   type: string
-  default: '{{ .Release.Name }}-agent.{{ .Release.Namespace }}.openg2p.org'
   label: Agent Portal Hostname
   group: VC Issuance
   show_if: agentPortalApi.enabled=true
@@ -464,7 +475,6 @@ questions:
     endpoints and the issuer this register trusts. Must be the eSignet the
     beneficiary is actually sent to.
   type: string
-  default: 'esignet.{{ .Release.Namespace }}.openg2p.org'
   label: eSignet Hostname
   group: VC Issuance
   show_if: agentPortalApi.vcIssuance.bootstrap.enabled=true
@@ -544,7 +554,6 @@ questions:
     Certify accepts on incoming proofs. Change this rather than the audience URL
     below — that is derived from it.
   type: string
-  default: certify.<namespace>.openg2p.org
   label: Certify Hostname
   group: VC Issuance
   show_if: agentPortalApi.vcIssuance.enabled=true
