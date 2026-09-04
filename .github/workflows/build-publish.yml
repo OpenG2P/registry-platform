@@ -2,6 +2,13 @@ name: Build & Publish
 
 # Thin caller: all versioning/build/publish logic lives in
 # openg2p/openg2p-packaging@v1. This file declares only what THIS repo contains.
+#
+# On a release line (branch N.N) or release tag (N.N.N), staff-ui must be
+# built against a *stable* @openg2p/registry-widgets pin — never a -dev
+# prerelease. npm-publish-ui-widgets.yml cuts that stable and pins staff-ui
+# first; this workflow waits for it. If the pin commit lands on a new SHA,
+# this run skips images so the follow-up run (triggered by the bot PAT)
+# publishes staff-ui from the pinned commit.
 
 on:
   push:
@@ -19,7 +26,94 @@ on:
         default: ''
 
 jobs:
+  await-widgets:
+    # Tags retag already-built images; release-line pushes actually build
+    # staff-ui. Both must see a stable widget pin. Feature branches and
+    # develop keep using whatever pin is in the tree (-dev is expected).
+    if: >-
+      (github.ref_type == 'branch' && matches(github.ref_name, '^[0-9]+\.[0-9]+$')) ||
+      (github.ref_type == 'tag' && matches(github.ref_name, '^[0-9]+\.[0-9]+\.[0-9]+$'))
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      proceed: ${{ steps.wait.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for widget release (and skip if it pushed a newer commit)
+        id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          # Poll until NPM Publish UI Widget has a terminal conclusion for this
+          # SHA. The sibling workflow can take a few seconds to appear.
+          conclusion=""
+          for i in $(seq 1 40); do
+            json=$(gh run list --repo "${{ github.repository }}" \
+              --workflow npm-publish-ui-widgets.yml \
+              --commit "$SHA" --limit 5 \
+              --json status,conclusion,databaseId)
+            count=$(printf '%s' "$json" | jq 'length')
+            if [ "$count" -eq 0 ]; then
+              if [ "$i" -lt 8 ]; then
+                echo "npm-publish run not listed yet (attempt $i); waiting…"
+                sleep 5
+                continue
+              fi
+              echo "No npm-publish run for $SHA; treating as no-op."
+              conclusion="skipped"
+              break
+            fi
+            status=$(printf '%s' "$json" | jq -r '.[0].status')
+            conclusion=$(printf '%s' "$json" | jq -r '.[0].conclusion // empty')
+            if [ "$status" = "in_progress" ] || [ "$status" = "queued" ] || \
+               [ "$status" = "waiting" ] || [ "$status" = "pending" ] || \
+               [ "$status" = "requested" ]; then
+              echo "waiting for npm-publish ($status)…"
+              sleep 15
+              continue
+            fi
+            break
+          done
+
+          if [ "$conclusion" != "success" ] && [ "$conclusion" != "skipped" ]; then
+            echo "::error::NPM Publish UI Widget ended with '${conclusion:-timeout}' for $SHA."
+            echo "staff-ui is not published until widgets are on npm and pinned."
+            exit 1
+          fi
+
+          if [ "$REF_TYPE" = "branch" ]; then
+            git fetch -q origin "$REF_NAME"
+            new=$(git rev-parse "origin/$REF_NAME")
+            if [ "$new" != "$SHA" ]; then
+              echo "Widget release pushed $new (was $SHA). Skipping images so that commit's pipeline publishes staff-ui with the new pin."
+              echo "proceed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          PIN=$(node -p "require('./ui/staff-ui/package.json').dependencies['@openg2p/registry-widgets']")
+          if [[ "$PIN" == *-dev.* ]]; then
+            echo "::error::staff-ui still pins $PIN. A release must pin a stable @openg2p/registry-widgets version before staff-ui is published."
+            exit 1
+          fi
+
+          echo "staff-ui pin=$PIN"
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
   build-publish:
+    needs: await-widgets
+    if: >-
+      always() &&
+      (needs.await-widgets.result == 'skipped' ||
+       (needs.await-widgets.result == 'success' && needs.await-widgets.outputs.proceed == 'true'))
     uses: openg2p/openg2p-packaging/.github/workflows/build-publish.yml@v1
     with:
       changelog_skip_ai: ${{ inputs.changelog_skip_ai || false }}
