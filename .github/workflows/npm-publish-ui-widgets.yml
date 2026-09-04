@@ -42,14 +42,14 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
-          # PAT on release lines so the pin commit retriggers build-publish.
-          # GITHUB_TOKEN on develop (commit uses [skip ci]).
-          token: ${{ github.ref == 'refs/heads/develop' && github.token || secrets.OPENG2P_BOT_GITHUB_PAT }}
+          # Same-repo GITHUB_TOKEN (openg2pbot PAT cannot push here).
+          token: ${{ github.token }}
 
       - name: Skip if not a widget-changing develop/RC push
         id: gate
@@ -179,18 +179,36 @@ jobs:
         working-directory: ${{ github.workspace }}
         env:
           REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
+          # setup-node's registry-url writes always-auth into the user npmrc.
+          # Trusted publishing does not set NODE_AUTH_TOKEN, so a later
+          # `npm install` of the public package 404s as ETARGET even when
+          # the version is already on the registry.
+          npm config delete always-auth 2>/dev/null || true
+          npm config delete '//registry.npmjs.org/:_authToken' 2>/dev/null || true
+          unset NODE_AUTH_TOKEN || true
+
+          installed=false
           for i in $(seq 1 12); do
-            npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui && break
+            if npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" \
+                 --prefix ui/staff-ui --save-exact \
+                 --registry https://registry.npmjs.org/; then
+              installed=true
+              break
+            fi
             echo "waiting for npm to propagate @openg2p/registry-widgets@${WIDGET_VERSION} (attempt $i/12)…"
             sleep 15
           done
-          npm view "@openg2p/registry-widgets@${WIDGET_VERSION}" version >/dev/null 2>&1 \
-            || { echo "::error::@openg2p/registry-widgets@${WIDGET_VERSION} still not installable after retries"; exit 1; }
+          if [ "$installed" != true ]; then
+            echo "::error::npm install of @openg2p/registry-widgets@${WIDGET_VERSION} failed after retries (package may be published but not installable from this runner)."
+            exit 1
+          fi
 
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
             ui/staff-ui/package.json ui/staff-ui/package-lock.json
@@ -203,6 +221,13 @@ jobs:
           fi
 
           git push origin "HEAD:${REF_NAME}"
+
+          # GITHUB_TOKEN pushes do not start new workflows. On an RC line the
+          # concurrent Build & Publish run is waiting on this pin — dispatch
+          # it against the new HEAD so staff-ui is built with the install.
+          if [ "$REF_NAME" != "develop" ]; then
+            gh workflow run "Build & Publish" --ref "$REF_NAME"
+          fi
 
   publish-release:
     # Frozen latest only — never on develop / RC / tag pushes.
@@ -231,7 +256,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.OPENG2P_BOT_GITHUB_PAT }}
+          token: ${{ github.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -267,17 +292,30 @@ jobs:
       - name: Commit version and sync staff-ui
         working-directory: ${{ github.workspace }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
+          npm config delete always-auth 2>/dev/null || true
+          npm config delete '//registry.npmjs.org/:_authToken' 2>/dev/null || true
+          unset NODE_AUTH_TOKEN || true
+
+          installed=false
           for i in $(seq 1 12); do
-            npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui && break
+            if npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" \
+                 --prefix ui/staff-ui --save-exact \
+                 --registry https://registry.npmjs.org/; then
+              installed=true
+              break
+            fi
             echo "waiting for npm to propagate @openg2p/registry-widgets@${WIDGET_VERSION} (attempt $i/12)…"
             sleep 15
           done
-          npm view "@openg2p/registry-widgets@${WIDGET_VERSION}" version >/dev/null 2>&1 \
-            || { echo "::error::@openg2p/registry-widgets@${WIDGET_VERSION} still not installable after retries"; exit 1; }
+          if [ "$installed" != true ]; then
+            echo "::error::npm install of @openg2p/registry-widgets@${WIDGET_VERSION} failed after retries."
+            exit 1
+          fi
 
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
             ui/staff-ui/package.json ui/staff-ui/package-lock.json
