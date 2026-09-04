@@ -21,7 +21,6 @@ import { useRecordHistoryDates, useRecordHistoryChanges } from '@/features/regis
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRegisterSectionsFromCR';
-import { useRegisterRecord } from '@/context/RegisterRecordContext';
 import { buildSectionDataMap, pickSubmissionSectionPayload } from '@/features/shared/utils';
 import VersionHistoryPageSkeleton from '@/features/register/components/VersionHistoryPageSkeleton';
 
@@ -107,10 +106,7 @@ export default function VersionHistoryPage() {
         useParams<{ type: string; id: string }>();
 
     const { currentRegister } = useRegister();
-    const { internalRecordId: resolvedInternalRecordId, functionalRecordId, recordName } =
-        useRegisterRecord();
-
-    const internalRecordId = resolvedInternalRecordId || decodeURIComponent(routeRecordId || '');
+    const internalRecordId = routeRecordId ? decodeURIComponent(routeRecordId) : '';
     const registerId = currentRegister?.register_id ?? '';
 
     const [filterState, dispatch] = useReducer(filterReducer, initialFilterState);
@@ -311,8 +307,8 @@ export default function VersionHistoryPage() {
     const isLoading =
         loadingDates ||
         loadingChanges ||
-        loadingChangeRequestData ||
-        loadingIntakeSubmission ||
+        (!!changeRequestId && loadingChangeRequestData) ||
+        (!!intakeSubmissionId && loadingIntakeSubmission) ||
         loadingSchema ||
         (!!aweRequestId && loadingTasks);
     const hasAnythingToShow = !!stableSectionData && !!stableSectionUISchema;
@@ -320,8 +316,6 @@ export default function VersionHistoryPage() {
 
     const breadcrumb = useBreadcrumb({
         registerType,
-        functionalRecordId,
-        recordName,
         internalRecordId,
         includeActiveTab: true,
         includeChangeRequest: false,

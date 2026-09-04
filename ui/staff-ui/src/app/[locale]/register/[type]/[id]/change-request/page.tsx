@@ -8,16 +8,14 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterTabs } from '@/context/RegisterTabsContext';
 import { useBreadcrumb, usePagination, usePageSize } from '@/shared/hooks';
-import { useRegisterRecord } from '@/context/RegisterRecordContext';
 import { useFetch } from '@/shared/hooks/useFetch';
 
 export default function ChangeRequestPage() {
     const t = useTranslations();
     const locale = useLocale();
-    const { type: registerType, id: internalRecordId } = useParams<{ type: string; id: string }>();
+    const { type: registerType, id } = useParams<{ type: string; id: string }>();
+    const internalRecordId = id ? decodeURIComponent(id) : undefined;
     const { currentRegister } = useRegister();
-
-    const { functionalRecordId, recordName } = useRegisterRecord();
 
     const {
         tabs,
@@ -66,8 +64,6 @@ export default function ChangeRequestPage() {
 
     const breadcrumb = useBreadcrumb({
         registerType,
-        functionalRecordId,
-        recordName,
         internalRecordId,
         includeActiveTab: true,
         includeChangeRequest: true,

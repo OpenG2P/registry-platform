@@ -11,7 +11,6 @@ interface BreadcrumbItem {
 
 interface BreadcrumbOptions {
     registerType?: string;
-    functionalRecordId?: string | null;
     recordName?: string | null;
     internalRecordId?: string | null;
     changeId?: string;
@@ -55,9 +54,9 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
                 href: `/register/${registerType}${search ? `?${search}` : ''}`,
             });
 
-            if (internalRecordId && activeTab) {
+            if (internalRecordId && activeTab && recordName?.trim()) {
                 items.push({
-                    label: recordName ?? '',
+                    label: recordName,
                     href: `/register/${registerType}/${internalRecordId}${search ? `?${search}` : ''}`,
                 });
             }

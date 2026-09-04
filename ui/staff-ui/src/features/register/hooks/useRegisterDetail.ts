@@ -4,19 +4,13 @@ import { useTranslations } from "next-intl";
 import { useBreadcrumb } from "@/shared/hooks";
 import { useRegister } from "@/context/RegisterContext";
 import { useRegisterTabs } from "@/context/RegisterTabsContext";
-import { useRegisterRecord } from "@/context/RegisterRecordContext";
 import { createWidgetStore } from "@openg2p/registry-widgets";
 import { useRegisterSections } from "./useRegisterSections";
 
 export const useRegisterDetail = (onChangeRequestCreated: () => void) => {
     const t = useTranslations();
-    const { type: registerType } = useParams<{ type: string }>();
-    const {
-        internalRecordId,
-        functionalRecordId,
-        recordName,
-        loading: resolvingId,
-    } = useRegisterRecord();
+    const { type: registerType, id } = useParams<{ type: string; id: string }>();
+    const internalRecordId = id ? decodeURIComponent(id) : undefined;
 
     const widgetStore = useMemo(() => createWidgetStore(), []);
 
@@ -26,8 +20,6 @@ export const useRegisterDetail = (onChangeRequestCreated: () => void) => {
 
     const breadcrumb = useBreadcrumb({
         registerType,
-        functionalRecordId,
-        recordName,
         internalRecordId,
         includeActiveTab: false,
     });
@@ -44,7 +36,6 @@ export const useRegisterDetail = (onChangeRequestCreated: () => void) => {
         registerType,
         t,
         internalRecordId,
-        resolvingId,
         widgetStore,
         tabs,
         activeTabIndex,

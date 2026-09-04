@@ -21,6 +21,7 @@ export const useRegisterSchema = (
                 register_id: registerId,
             }),
         },
+        enabled: !!registerId,
     });
     return {
         schema: data,

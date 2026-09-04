@@ -1,10 +1,10 @@
 import { useEffect, useMemo } from "react";
+import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { useFetch } from "@/shared/hooks/useFetch";
 import { isRecordAccessDeniedError } from "@/shared/utils/isRecordAccessDeniedError";
 import { useRegister } from "@/context/RegisterContext";
 import { useRegisterTabs } from "@/context/RegisterTabsContext";
-import { useRegisterRecord } from "@/context/RegisterRecordContext";
 import {
     TabSection,
     TabSectionData,
@@ -16,7 +16,8 @@ import { buildSectionsDataMap } from "@/features/shared/utils";
 
 export const useRegisterSections = (onChangeRequestCreated: () => void) => {
     const router = useRouter();
-    const { internalRecordId } = useRegisterRecord();
+    const { id } = useParams<{ type: string; id: string }>();
+    const internalRecordId = id ? decodeURIComponent(id) : undefined;
     const { activeTabId } = useRegisterTabs();
     const { currentRegister } = useRegister();
     const { can } = useRbac();

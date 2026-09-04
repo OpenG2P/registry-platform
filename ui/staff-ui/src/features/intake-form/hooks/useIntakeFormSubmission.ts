@@ -60,7 +60,7 @@ export const useIntakeFormSubmission = (submissionId?: string) => {
     return {
         submission,
         section_payloads: submission?.section_payloads,
-        loading: isInitialLoading,
+        loading: submissionId ? isInitialLoading : false,
         error,
         refetchSubmission,
         execute: refetchSubmission,

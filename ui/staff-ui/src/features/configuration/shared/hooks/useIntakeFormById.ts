@@ -11,6 +11,7 @@ export function useIntakeFormById(intakeFormId: string) {
                 form_id: intakeFormId
             })
         },
+        enabled: !!intakeFormId,
     });
 
     return {

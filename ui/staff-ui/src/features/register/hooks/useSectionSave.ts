@@ -1,9 +1,9 @@
 import { useCallback, useRef } from "react";
+import { useParams } from "next/navigation";
 import { useFetch } from "@/shared/hooks/useFetch";
 import { UploadedDocument } from "@/features/shared/types";
 import { useRegister } from "@/context/RegisterContext";
 import { useRegisterTabs } from "@/context/RegisterTabsContext";
-import { useRegisterRecord } from "@/context/RegisterRecordContext";
 import { SectionChanges } from "@openg2p/registry-widgets";
 import { extractFilesFromSection, normalizeEditActions } from "../utils";
 import { toast } from "react-toastify";
@@ -17,7 +17,8 @@ export const useSectionSave = (
     tabSections?: TabSection[]
 ) => {
     const t = useTranslations();
-    const { internalRecordId } = useRegisterRecord();
+    const { id } = useParams<{ type: string; id: string }>();
+    const internalRecordId = id ? decodeURIComponent(id) : undefined;
     const { activeTabId } = useRegisterTabs();
     const { currentRegister } = useRegister();
 
@@ -28,7 +29,6 @@ export const useSectionSave = (
 
     const handleSectionSave = useCallback(
         async (sectionChanges: SectionChanges) => {
-            console.log(sectionChanges.files, "sectionChanges.files*********************")
 
             // prevent duplicate submission, when user click multiples time
             if (isSubmitting.current) return;
