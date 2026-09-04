@@ -206,12 +206,13 @@ jobs:
 
   publish-release:
     # Release line N.N, release tag N.N.N, or a manual version.
+    # Job-level `if` cannot use regex (`matches` is not a GitHub Actions
+    # function); exact N.N / N.N.N is enforced in the plan step.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref_type == 'tag' &&
-       matches(github.ref_name, '^[0-9]+\.[0-9]+\.[0-9]+$')) ||
+      github.ref_type == 'tag' ||
       (github.event_name == 'push' && github.ref_type == 'branch' &&
-       matches(github.ref_name, '^[0-9]+\.[0-9]+$'))
+       contains(github.ref_name, '.') && github.ref != 'refs/heads/develop')
     runs-on: ubuntu-latest
     concurrency:
       group: npm-publish-ui-widgets-release
@@ -249,6 +250,22 @@ jobs:
 
           PUBLISH=false
           PIN_NEEDED=false
+
+          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
+            is_release=false
+            if [ "$REF_TYPE" = "branch" ] && [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+$ ]]; then
+              is_release=true
+            elif [ "$REF_TYPE" = "tag" ] && [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              is_release=true
+            fi
+            if [ "$is_release" != true ]; then
+              echo "Not a release line/tag ($REF_TYPE $REF_NAME); skipping."
+              echo "version=" >> "$GITHUB_OUTPUT"
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              echo "pin=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
 
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             VERSION="$INPUT_VERSION"

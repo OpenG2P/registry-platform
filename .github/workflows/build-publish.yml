@@ -30,9 +30,13 @@ jobs:
     # Tags retag already-built images; release-line pushes actually build
     # staff-ui. Both must see a stable widget pin. Feature branches and
     # develop keep using whatever pin is in the tree (-dev is expected).
+    # Job-level `if` cannot use regex (`matches` is not a GitHub Actions
+    # function); `contains('.')` is a coarse filter, exact N.N / N.N.N
+    # is enforced in the shell step below.
     if: >-
-      (github.ref_type == 'branch' && matches(github.ref_name, '^[0-9]+\.[0-9]+$')) ||
-      (github.ref_type == 'tag' && matches(github.ref_name, '^[0-9]+\.[0-9]+\.[0-9]+$'))
+      github.ref_type == 'tag' ||
+      (github.ref_type == 'branch' && contains(github.ref_name, '.') &&
+       github.ref != 'refs/heads/develop')
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -51,6 +55,18 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+
+          is_release=false
+          if [ "$REF_TYPE" = "branch" ] && [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            is_release=true
+          elif [ "$REF_TYPE" = "tag" ] && [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            is_release=true
+          fi
+          if [ "$is_release" != true ]; then
+            echo "Not a release line/tag ($REF_TYPE $REF_NAME); skipping widget wait."
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # Poll until NPM Publish UI Widget has a terminal conclusion for this
           # SHA. The sibling workflow can take a few seconds to appear.
