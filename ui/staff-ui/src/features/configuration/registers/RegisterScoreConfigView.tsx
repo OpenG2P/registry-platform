@@ -20,6 +20,7 @@ interface RegisterScoreConfigViewProps {
     currentPage?: number;
     pageSize?: number;
     onDataLoaded?: (totalItems: number, currentCount: number) => void;
+    embedded?: boolean;
 }
 
 export default function RegisterScoreConfigView({
@@ -28,6 +29,7 @@ export default function RegisterScoreConfigView({
     currentPage = 1,
     pageSize = 10,
     onDataLoaded,
+    embedded = false,
 }: RegisterScoreConfigViewProps) {
     const t = useTranslations();
     const router = useRouter();
@@ -119,6 +121,7 @@ export default function RegisterScoreConfigView({
                 data={scoreDefinitions}
                 loading={loading}
                 rowKey={(item) => item.score_definition_id}
+                embedded={embedded}
                 onRowClick={(item) =>
                     router.push(
                         `/configuration/registers/${registerId}/scores/${item.score_definition_id}`,

@@ -4,6 +4,7 @@ import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
+import { owtFieldInputClass } from '../theme';
 import { canPreviewInWeb, openFileInNewTab } from '../utils/filePreview';
 import { serializeValue, deserializeValue, isSerializedFile, deserializeFile } from '../utils/fileSerialization';
 import { uploadIcon, fileIcon } from '../assets';
@@ -187,8 +188,8 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
             <button
               type="button"
               onClick={(e) => handleFileClick(file, e)}
-              className="text-sm hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded cursor-pointer"
-              style={{ color: isSupportingDocument ? 'var(--owt-color-text, #011627)' : 'var(--owt-color-info, #2563eb)' }}
+              className="text-sm hover:underline focus:outline-none rounded cursor-pointer owt-link"
+              style={{ color: isSupportingDocument ? 'var(--owt-color-text)' : 'var(--owt-color-info)' }}
               title="Click to preview"
             >
               {fileName}
@@ -199,7 +200,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
         return (
           <div style={{ display: 'flex', alignItems: 'center' }}>
             {fileIconElement}
-            <span className="text-sm" style={{ color: isSupportingDocument ? 'var(--owt-color-text, #011627)' : '#4b5563' }}>
+            <span className="text-sm" style={{ color: isSupportingDocument ? 'var(--owt-color-text)' : 'var(--owt-color-text-muted)' }}>
               {fileName}
             </span>
           </div>
@@ -234,8 +235,8 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
                   <button
                     type="button"
                     onClick={(e) => handleFileClick(file, e)}
-                    className="text-sm hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded cursor-pointer"
-                    style={{ color: isSupportingDocument ? 'var(--owt-color-text, #011627)' : 'var(--owt-color-info, #2563eb)' }}
+                    className="text-sm hover:underline focus:outline-none rounded cursor-pointer owt-link"
+                    style={{ color: isSupportingDocument ? 'var(--owt-color-text)' : 'var(--owt-color-info)' }}
                     title="Click to preview"
                   >
                     {fileName}
@@ -246,7 +247,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
               return (
                 <div key={index} style={{ display: 'flex', alignItems: 'center' }}>
                   {fileIconElement}
-                  <span className="text-sm" style={{ color: isSupportingDocument ? 'var(--owt-color-text, #011627)' : '#4b5563' }}>
+                  <span className="text-sm" style={{ color: isSupportingDocument ? 'var(--owt-color-text)' : 'var(--owt-color-text-muted)' }}>
                     {fileName}
                   </span>
                 </div>
@@ -262,12 +263,12 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
     return (
       <div className="mb-[10px] FileDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
-          <div className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+          <div className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
             {label}:
           </div>
         )}
         <div className="flex-1" title={String(displayValue || '')}>
-          {displayValue ? renderFileDisplay() : <span className="text-base text-gray-900 font-medium">-</span>}
+          {displayValue ? renderFileDisplay() : <span className="text-base owt-text font-medium">-</span>}
           
         </div>
       </div>
@@ -278,17 +279,17 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
-          className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          className="text-base font-medium owt-text md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
           label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:space-x-4">
             <label
-              className={`cursor-pointer inline-flex items-center justify-between gap-2 border border-gray-300 shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${!isEnabled
-                ? 'opacity-50 cursor-not-allowed'
-                : ''
-                }`}
+              className={owtFieldInputClass({
+                disabled: !isEnabled,
+                className: 'cursor-pointer inline-flex items-center justify-between gap-2 owt-shadow-sm text-sm font-medium',
+              })}
               style={{
                 width: '100%',
                 maxWidth: '180px',
@@ -299,7 +300,7 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
               }}
             >
               <span style={{
-                color: isSupportingDocument ? 'rgba(0, 0, 0, 0.50)' : 'rgba(0, 0, 0, 0.50)',
+                color: isSupportingDocument ? 'var(--owt-color-text-muted)' : 'var(--owt-color-text-muted)',
                 fontFamily: 'Roboto',
                 fontSize: '16px',
                 fontStyle: 'normal',
@@ -335,11 +336,11 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
             )}
           </div>
           {touched && error.length > 0 && (
-            <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
           )}
           
           {maxSize && (
-            <p className="hidden sm:block text-gray-400 text-xs mt-1">
+            <p className="hidden sm:block owt-text-muted text-xs mt-1">
               {t?.('common.maxFileSize', { size: (maxSize / 1024 / 1024).toFixed(2) })}
             </p>
           )}

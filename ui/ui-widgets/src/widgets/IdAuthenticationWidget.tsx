@@ -393,10 +393,10 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
   }, [status, t]);
 
   const statusColor = useMemo(() => {
-    if (status === 'success') return 'var(--owt-color-success, #16A34A)';
-    if (status === 'failure') return 'var(--owt-color-danger, #DC2626)';
-    if (status === 'not_done') return 'var(--owt-color-warning, #D97706)';
-    return 'var(--owt-color-text-muted, #6B7280)';
+    if (status === 'success') return 'var(--owt-color-success)';
+    if (status === 'failure') return 'var(--owt-color-danger)';
+    if (status === 'not_done') return 'var(--owt-color-warning)';
+    return 'var(--owt-color-text-muted)';
   }, [status]);
 
   const buttonBusy = authActionLoading;
@@ -451,7 +451,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           min-width: 200px;
           max-width: 40%;
           font-size: 16px;
-          color: rgba(0, 0, 0, 0.6);
+          color: var(--owt-color-text-muted);
           font-weight: 500;
           line-height: 1.45;
           margin: 0;
@@ -462,7 +462,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           flex: 1 1 auto;
           min-width: 0;
           font-size: 16px;
-          color: var(--owt-color-text, #111827);
+          color: var(--owt-color-text);
           font-weight: 500;
           line-height: 1.45;
           word-break: break-word;
@@ -471,7 +471,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
         .${cls} .auth-value--foundational {
           font-size: 18px;
           font-weight: 700;
-          color: var(--owt-color-primary-dark, #F07B1A);
+          color: var(--owt-color-primary-dark);
           letter-spacing: 0.1px;
         }
 
@@ -484,11 +484,11 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           width: fit-content;
           padding: 4px 10px;
           border-radius: 999px;
-          background: rgba(2, 6, 23, 0.04);
-          border: 1px solid rgba(2, 6, 23, 0.08);
+          background: var(--owt-color-bg-alt);
+          border: 1px solid var(--owt-color-border-light);
           font-size: 13px;
           font-weight: 700;
-          color: var(--owt-color-text, #011627);
+          color: var(--owt-color-text);
         }
 
         .${cls} .auth-dot {
@@ -502,7 +502,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
           font-size: 14px;
           font-weight: 500;
-          color: var(--owt-color-text, #011627);
+          color: var(--owt-color-text);
           background: transparent;
           border: none;
           border-radius: 0;
@@ -516,10 +516,10 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           font-weight: 500;
           padding: 8px 24px;
           line-height: 1.5;
-          border-radius: var(--owt-btn-border-radius, 10px);
-          border: 1px solid rgb(237, 124, 34);
-          background-color: rgb(237, 124, 34);
-          color: var(--owt-color-bg, #FFFFFF);
+          border-radius: var(--owt-btn-border-radius);
+          border: 1px solid var(--owt-color-primary-accent);
+          background-color: var(--owt-color-primary-accent);
+          color: var(--owt-color-bg);
           font-family: Roboto, sans-serif;
           cursor: pointer;
           transition: opacity 0.15s ease;
@@ -532,7 +532,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
 
         .${cls} .auth-error {
           font-size: 12px;
-          color: var(--owt-color-danger, #DC2626);
+          color: var(--owt-color-danger);
           font-weight: 700;
           line-height: 1.3;
           text-align: left;
@@ -542,7 +542,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
         .${cls} .overlay-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(17, 24, 39, 0.55);
+          background: var(--owt-color-overlay);
           z-index: 9999;
           display: flex;
           align-items: center;
@@ -553,9 +553,9 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
         .${cls} .overlay-panel {
           width: min(1100px, 92vw);
           height: min(820px, 92vh);
-          background: var(--owt-color-bg, #FFFFFF);
+          background: var(--owt-color-bg);
           border-radius: 12px;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+          box-shadow: 0 10px 30px var(--owt-color-shadow);
           overflow: hidden;
           display: flex;
           flex-direction: column;
@@ -566,13 +566,13 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           align-items: center;
           justify-content: space-between;
           padding: 10px 14px;
-          border-bottom: 1px solid var(--owt-color-border-light, #E4E4E4);
+          border-bottom: 1px solid var(--owt-color-border-light);
           font-family: Roboto, sans-serif;
         }
 
         .${cls} .overlay-title {
           font-size: 14px;
-          color: var(--owt-color-text, #011627);
+          color: var(--owt-color-text);
           font-weight: 600;
           min-width: 0;
           overflow: hidden;
@@ -581,10 +581,10 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
         }
 
         .${cls} .overlay-close {
-          border: 1px solid var(--owt-btn-secondary-border, #C4C4C4);
-          background: var(--owt-btn-secondary-bg, #FFFFFF);
-          color: var(--owt-btn-secondary-color, #011627);
-          border-radius: var(--owt-btn-border-radius, 10px);
+          border: 1px solid var(--owt-btn-secondary-border);
+          background: var(--owt-btn-secondary-bg);
+          color: var(--owt-btn-secondary-color);
+          border-radius: var(--owt-btn-border-radius);
           padding: 6px 10px;
           font-size: 12px;
           cursor: pointer;

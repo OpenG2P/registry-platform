@@ -97,12 +97,12 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     return (
       <div className="mb-[10px] BooleanDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
-          <div className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+          <div className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
             {label}:
           </div>
         )}
         <div className="flex-1">
-          <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
+          <div className="text-base owt-text font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
           
@@ -116,7 +116,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
       <div className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
-            className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+            className="text-base font-medium leading-normal owt-text md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
             label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
@@ -128,16 +128,16 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                 onChange={handleCheckboxChange}
                 onBlur={onBlur}
                 disabled={!isEnabled || widgetConfig['widget-readonly']}
-                className="relative top-[0.2em] h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check rounded"
               />
               {(currentValue === true || currentValue === false) && (
-                <span className="text-base text-gray-700 leading-normal">
+                <span className="text-base owt-text leading-normal">
                   {currentValue === true ? trueLabel : falseLabel}
                 </span>
               )}
             </label>
             {touched && error.length > 0 && (
-              <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
             )}
             
           </div>
@@ -159,7 +159,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
       <div className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
-            className="text-base font-medium leading-normal text-gray-700 md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+            className="text-base font-medium leading-normal owt-text md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
             label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
@@ -173,9 +173,9 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                     checked={currentValue === null}
                     onChange={() => handleRadioChange(null)}
                     disabled={radioDisabled}
-                    className="relative top-[0.2em] h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check"
                   />
-                  <span className="text-base text-gray-700 leading-normal">{unsetLabel}</span>
+                  <span className="text-base owt-text leading-normal">{unsetLabel}</span>
                 </label>
               )}
               <label className={`inline-flex items-baseline gap-2 cursor-pointer ${optionDisabledClass}`}>
@@ -185,9 +185,9 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                   checked={currentValue === true}
                   onChange={() => handleRadioChange(true)}
                   disabled={radioDisabled}
-                  className="relative top-[0.2em] h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check"
                 />
-                <span className="text-base text-gray-700 leading-normal">{trueLabel}</span>
+                <span className="text-base owt-text leading-normal">{trueLabel}</span>
               </label>
               <label className={`inline-flex items-baseline gap-2 cursor-pointer ${optionDisabledClass}`}>
                 <input
@@ -196,13 +196,13 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                   checked={currentValue === false}
                   onChange={() => handleRadioChange(false)}
                   disabled={radioDisabled}
-                  className="relative top-[0.2em] h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check"
                 />
-                <span className="text-base text-gray-700 leading-normal">{falseLabel}</span>
+                <span className="text-base owt-text leading-normal">{falseLabel}</span>
               </label>
             </div>
             {touched && error.length > 0 && (
-              <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
             )}
             
           </div>
@@ -215,7 +215,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-baseline">
         <WidgetFieldLabel
-          className="text-base font-medium leading-normal text-gray-700 sm:min-w-[150px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+          className="text-base font-medium leading-normal owt-text sm:min-w-[150px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
           label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
@@ -226,11 +226,11 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                 type="button"
                 onClick={() => handleChange(null)}
                 disabled={!isEnabled || widgetConfig['widget-readonly']}
-                className={`px-3 py-1 text-sm border ${
+                className={`px-3 py-1 text-sm ${
                   currentValue === null
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-700 border-gray-300'
-                } ${!isEnabled || widgetConfig['widget-readonly'] ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                    ? 'owt-boolean-chip owt-boolean-chip-selected'
+                    : 'owt-boolean-chip'
+                } ${!isEnabled || widgetConfig['widget-readonly'] ? 'opacity-50 cursor-not-allowed' : ''}`}
                 style={{ borderRadius: '15px' }}
               >
                 {unsetLabel}
@@ -240,11 +240,11 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
               type="button"
               onClick={() => handleChange(true)}
               disabled={!isEnabled || widgetConfig['widget-readonly']}
-              className={`px-3 py-1 text-sm border ${
+              className={`px-3 py-1 text-sm ${
                 currentValue === true
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300'
-              } ${!isEnabled || widgetConfig['widget-readonly'] ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                  ? 'owt-boolean-chip owt-boolean-chip-selected'
+                  : 'owt-boolean-chip'
+              } ${!isEnabled || widgetConfig['widget-readonly'] ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ borderRadius: '15px' }}
             >
               {trueLabel}
@@ -253,18 +253,18 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
               type="button"
               onClick={() => handleChange(false)}
               disabled={!isEnabled || widgetConfig['widget-readonly']}
-              className={`px-3 py-1 text-sm border ${
+              className={`px-3 py-1 text-sm ${
                 currentValue === false
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300'
-              } ${!isEnabled || widgetConfig['widget-readonly'] ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                  ? 'owt-boolean-chip owt-boolean-chip-selected'
+                  : 'owt-boolean-chip'
+              } ${!isEnabled || widgetConfig['widget-readonly'] ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ borderRadius: '15px' }}
             >
               {falseLabel}
             </button>
           </div>
           {touched && error.length > 0 && (
-            <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
           )}
           
         </div>

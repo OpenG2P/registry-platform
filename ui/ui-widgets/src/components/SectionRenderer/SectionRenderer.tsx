@@ -201,15 +201,15 @@ export const SectionRenderer = ({
         style={{
           gridColumn: `span ${columnSpan}`,
           width: '100%',
-          borderRadius: 'var(--owt-section-border-radius, 10px)',
-          borderColor: 'var(--owt-color-bg, #FFFFFF)',
+          borderRadius: 'var(--owt-section-border-radius)',
+          borderColor: 'var(--owt-color-bg)',
           ...(mode === 'IntakeForm' && isExpanded
             ? {
-                backgroundColor: 'var(--owt-color-primary-light, #FBE6AA)',
-                border: '1px dashed var(--owt-color-primary-dark, #F07B1A)',
+                backgroundColor: 'var(--owt-color-primary-light)',
+                border: '1px dashed var(--owt-color-primary-dark)',
               }
             : {
-                backgroundColor: 'var(--owt-section-bg, #FFFFFF)',
+                backgroundColor: 'var(--owt-section-bg)',
               }),
           ...(isEditMode && sectionHeight
             ? { height: `${sectionHeight}px`, minHeight: `${sectionHeight}px` }

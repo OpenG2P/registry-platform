@@ -88,7 +88,7 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
 
   const format = widgetConfig['widget-data-format'] || {};
   const imageSize = (format as any).imageSize || 80;
-  const nameColor = (format as any).nameColor || 'var(--owt-color-primary-dark, #F07B1A)';
+  const nameColor = (format as any).nameColor || 'var(--owt-color-primary-dark)';
   const showIdLabel = (format as any).showIdLabel !== false;
 
   const widgetClassId = `profile-widget-${config['widget-id']}`;
@@ -114,8 +114,8 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
           height: ${imageSize}px;
           border-radius: 8px;
           object-fit: cover;
-          background-color: var(--owt-color-border-light, #e5e7eb);
-          border: 2px solid var(--owt-color-border, #d1d5db);
+          background-color: var(--owt-color-border-light);
+          border: 2px solid var(--owt-color-border);
           flex-shrink: 0;
         }
         
@@ -123,8 +123,8 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
           width: ${imageSize}px;
           height: ${imageSize}px;
           border-radius: 8px;
-          background-color: var(--owt-color-border-light, #e5e7eb);
-          border: 2px solid var(--owt-color-border, #d1d5db);
+          background-color: var(--owt-color-border-light);
+          border: 2px solid var(--owt-color-border);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -165,12 +165,12 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
         }
         
         .${widgetClassId} .profile-id-label {
-          color: var(--owt-color-text-muted, #6b7280);
+          color: var(--owt-color-text-muted);
           font-weight: 500;
         }
         
         .${widgetClassId} .profile-id-value {
-          color: var(--owt-color-text, #111827);
+          color: var(--owt-color-text);
           font-weight: 400;
         }
       `}</style>

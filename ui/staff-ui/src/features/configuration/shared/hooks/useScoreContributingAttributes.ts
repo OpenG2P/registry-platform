@@ -22,6 +22,7 @@ export function useScoreContributingAttributes(
                 pageSize,
             }),
         },
+        enabled: !!scoreDefinitionId,
     });
 
     const contributingAttributes = [

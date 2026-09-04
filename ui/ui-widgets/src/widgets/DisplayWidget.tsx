@@ -52,7 +52,7 @@ export const DisplayWidget = ({ config }: DisplayWidgetProps) => {
   if (!label || label.trim() === '') {
     return (
       <div
-        className="DisplayFieldWidget mb-3 min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap text-base text-gray-700"
+        className="DisplayFieldWidget mb-3 min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap text-base owt-text"
         title={String(displayValue ?? '')}
       >
         {displayValue}
@@ -62,11 +62,11 @@ export const DisplayWidget = ({ config }: DisplayWidgetProps) => {
 
   return (
     <div className="mb-[10px] DisplayFieldWidget flex flex-col sm:flex-row sm:items-start">
-      <div className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+      <div className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
         {label}:
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
+        <div className="text-base owt-text font-medium" title={String(displayValue ?? '')}>
           {displayValue}
         </div>
       </div>

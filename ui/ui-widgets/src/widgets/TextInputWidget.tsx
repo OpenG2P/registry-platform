@@ -4,6 +4,7 @@ import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
+import { owtFieldInputClass } from '../theme';
 import { filterByCharacterType, applyCaseControl, applyMask, removeMask } from '../utils/textInput';
 
 interface TextInputWidgetProps {
@@ -158,12 +159,12 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     return (
       <div className="mb-[10px] TextDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
-          <div className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+          <div className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
             {label}:
           </div>
         )}
         <div className="flex-1">
-          <div className="text-base text-gray-900 font-medium" title={String(displayValue ?? '')}>
+          <div className="text-base owt-text font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
         </div>
@@ -175,7 +176,7 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
-          className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          className="text-base font-medium owt-text md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
           label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
@@ -196,26 +197,26 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
                   ? 'numeric'
                   : undefined
               }
-              className={`w-full sm:w-[180px] max-w-full h-[30px] px-3 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                (touched && error.length > 0) || (widgetConfig['widget-required'] && (value === null || value === undefined || value === ''))
-                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                  : 'border-gray-300'
-              } ${!isEnabled || widgetConfig['widget-readonly'] ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+              className={owtFieldInputClass({
+                error: (touched && error.length > 0) || (widgetConfig['widget-required'] && (value === null || value === undefined || value === '')),
+                disabled: !isEnabled || widgetConfig['widget-readonly'],
+                className: 'w-full sm:w-[180px] max-w-full h-[30px] px-3 owt-shadow-sm',
+              })}
               style={{ borderRadius: '10px' }}
               title={tSchema(t, widgetConfig['widget-data-tooltip'])}
             />
             {formatConfig?.showCharCounter && (
               <span className={`text-xs ml-2 flex-shrink-0 ${
                 characterCount > maxLength || characterCount < minLength
-                  ? 'text-red-500'
-                  : 'text-gray-500'
+                  ? 'owt-field-error'
+                  : 'owt-field-help'
               }`}>
                 {characterCount}{maxLength ? ` / ${maxLength}` : ''}
               </span>
             )}
           </div>
           {touched && error.length > 0 && (
-            <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
           )}
         </div>
       </div>

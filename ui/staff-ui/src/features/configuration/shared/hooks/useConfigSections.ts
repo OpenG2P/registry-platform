@@ -16,7 +16,8 @@ export function useConfigSections(tabId: string, page: number = 1, pageSize: num
                 current_page: page,
                 page_size: pageSize
             })
-        }
+        },
+        enabled: !!tabId,
     });
 
     // Acending Order

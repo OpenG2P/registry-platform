@@ -11,6 +11,7 @@ export function useIntakeFormTabById(tabId: string) {
                 tab_id: tabId
             })
         },
+        enabled: !!tabId,
     });
 
     return {

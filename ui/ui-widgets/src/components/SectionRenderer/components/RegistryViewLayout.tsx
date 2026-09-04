@@ -68,15 +68,15 @@ export const RegistryViewLayout = ({
                 letterSpacing: '0.5px',
                 backgroundColor:
                   changeRequestType === 'new'
-                    ? 'var(--owt-color-success, #16A34A)'
-                    : 'var(--owt-color-error-light, #FEE2E2)',
+                    ? 'var(--owt-color-success)'
+                    : 'var(--owt-color-error-light)',
                 color:
                   changeRequestType === 'new'
-                    ? 'var(--owt-color-bg, #FFFFFF)'
-                    : 'var(--owt-color-error, #B91C1C)',
+                    ? 'var(--owt-color-bg)'
+                    : 'var(--owt-color-error)',
                 whiteSpace: 'nowrap',
                 boxShadow:
-                  changeRequestType === 'new' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : 'none',
+                  changeRequestType === 'new' ? '0 2px 4px color-mix(in srgb, var(--owt-color-success) 30%, transparent)' : 'none',
               }}
             >
               {changeRequestType === 'new' ? 'New' : 'Old'}
@@ -101,14 +101,17 @@ export const RegistryViewLayout = ({
           wrapInContainer={false}
         />
         {mode === 'RegistryView' && !effectiveHideEditButton && (
-          <hr
-            className="w-full"
+          <div
+            className="section-divider"
+            role="separator"
             style={{
+              flex: '0 0 100%',
+              width: '100%',
+              maxWidth: '100%',
               height: '1px',
               marginTop: !isEditMode ? '10px' : 0,
               marginBottom: '14px',
-              border: 'none',
-              backgroundColor: 'var(--owt-color-border, #C4C4C4)',
+              backgroundColor: 'var(--owt-color-border)',
             }}
           />
         )}
@@ -123,7 +126,7 @@ export const RegistryViewLayout = ({
               style={{
                 fontFamily: 'Roboto, sans-serif',
                 fontSize: '16px',
-                color: 'var(--owt-color-text-muted, #727474)',
+                color: 'var(--owt-color-text-muted)',
               }}
             >
               {t?.('common.editDetails') || 'Edit Details'}

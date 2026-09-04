@@ -19,12 +19,78 @@ import {
   SectionsContainer,
   useWidgetTheme,
 } from '../src';
-import { defaultTheme } from '../src/theme';
 import type { WidgetTheme } from '../src/theme';
 import type { SectionChanges } from '../src/components/SectionRenderer';
 import type { SectionMode } from '../src/components/SectionsContainer';
 import { themeSections, THEME_REGISTER_ID } from './shared/exampleSchemas';
 import { themeSampleData } from './shared/exampleData';
+
+type EditorTheme = {
+  colors: Required<NonNullable<WidgetTheme['colors']>>;
+  section: Required<NonNullable<WidgetTheme['section']>>;
+  panel: Required<NonNullable<WidgetTheme['panel']>>;
+  button: Required<NonNullable<WidgetTheme['button']>>;
+  widget: Required<NonNullable<WidgetTheme['widget']>>;
+};
+
+const FALLBACK_THEME: EditorTheme = {
+  colors: {
+    primary: '#EABB13',
+    primaryDark: '#ED7C22',
+    primaryLight: '#F3F1F4',
+    primaryAccent: '#ED7C22',
+    border: '#A1A1A1',
+    borderLight: '#E1E1E1',
+    background: '#FFFFFF',
+    backgroundAlt: '#F3F1F4',
+    text: '#000000',
+    textMuted: '#A1A1A1',
+    success: '#28A745',
+    successDark: '#28A745',
+    successLight: '#F3F1F4',
+    error: '#DC3545',
+    errorLight: '#F3F1F4',
+    warning: '#FFC107',
+    info: '#007BFF',
+  },
+  section: {
+    borderRadius: '8px',
+    borderColor: '#E1E1E1',
+    backgroundColor: '#FFFFFF',
+    titleColor: '#000000',
+    dividerColor: '#EABB13',
+  },
+  panel: {
+    dividerColor: '#A1A1A1',
+    backgroundColor: 'transparent',
+  },
+  button: {
+    primaryBg: '#FFFFFF',
+    primaryColor: '#000000',
+    primaryBorder: '#ED7C22',
+    secondaryBg: '#FFFFFF',
+    secondaryColor: '#000000',
+    secondaryBorder: '#A1A1A1',
+    borderRadius: '6px',
+  },
+  widget: {
+    labelColor: '#000000',
+    inputBorderColor: '#A1A1A1',
+    inputFocusBorderColor: '#EABB13',
+    inputBackground: '#FFFFFF',
+    errorColor: '#DC3545',
+    helpTextColor: '#A1A1A1',
+    tableHeaderBg: '#F3F1F4',
+    tableHeaderColor: '#A1A1A1',
+    tableBodyBg: '#FFFFFF',
+    tableBorderColor: '#A1A1A1',
+    tableRowDividerColor: '#E1E1E1',
+    tableEditingRowBg: '#F3F1F4',
+    tableDeletedRowBg: '#F3F1F4',
+    tableEmptyTextColor: '#A1A1A1',
+    tableBorderRadius: '15px',
+  },
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Theme presets
@@ -122,6 +188,7 @@ const sampleData = themeSampleData(THEME_REGISTER_ID);
 
 const ActiveThemeInfo = () => {
   const theme = useWidgetTheme();
+  const colors = theme?.colors;
   return (
     <div
       style={{
@@ -129,21 +196,17 @@ const ActiveThemeInfo = () => {
         borderRadius: '8px',
         fontSize: '13px',
         fontFamily: 'monospace',
-        backgroundColor: theme.colors.primaryLight,
-        border: `1px solid ${theme.colors.primary}`,
-        color: theme.colors.text,
+        backgroundColor: 'var(--owt-color-primary-light)',
+        border: '1px solid var(--owt-color-primary)',
+        color: 'var(--owt-color-text)',
         lineHeight: 1.6,
       }}
     >
-      <strong>Resolved theme tokens (via useWidgetTheme)</strong>
+      <strong>Theme overrides (via useWidgetTheme)</strong>
       <br />
-      primary: {theme.colors.primary} &nbsp;|&nbsp;
-      primaryDark: {theme.colors.primaryDark} &nbsp;|&nbsp;
-      primaryLight: {theme.colors.primaryLight}
-      <br />
-      section.dividerColor: {theme.section.dividerColor} &nbsp;|&nbsp;
-      button.primaryBorder: {theme.button.primaryBorder} &nbsp;|&nbsp;
-      widget.inputFocusBorderColor: {theme.widget.inputFocusBorderColor}
+      {theme
+        ? `primary: ${colors?.primary ?? '(fallback)'} | primaryDark: ${colors?.primaryDark ?? '(fallback)'}`
+        : 'No theme prop — CSS hex fallbacks are in use.'}
     </div>
   );
 };
@@ -247,7 +310,7 @@ const sectionHeaderStyle: React.CSSProperties = {
   borderBottom: '1px solid #E4E4E4',
 };
 
-type ResolvedTheme = typeof defaultTheme;
+type ResolvedTheme = EditorTheme;
 
 interface ThemeEditorProps {
   value: ResolvedTheme;
@@ -452,7 +515,7 @@ export const ThemeExample = () => {
   const store = useMemo(() => createWidgetStore(), []);
   const [activeTheme, setActiveTheme] = useState<string>('default');
   const [mode, setMode] = useState<SectionMode>('RegistryView');
-  const [customTheme, setCustomTheme] = useState<ResolvedTheme>({ ...defaultTheme });
+  const [customTheme, setCustomTheme] = useState<ResolvedTheme>({ ...FALLBACK_THEME });
 
   const effectiveTheme: WidgetTheme = activeTheme === 'custom' ? customTheme : (themes[activeTheme]?.theme ?? {});
   const description =
@@ -470,11 +533,11 @@ export const ThemeExample = () => {
     if (key !== 'custom' && themes[key]) {
       const preset = themes[key].theme;
       setCustomTheme({
-        colors: { ...defaultTheme.colors, ...preset.colors },
-        section: { ...defaultTheme.section, ...preset.section },
-        panel: { ...defaultTheme.panel, ...preset.panel },
-        button: { ...defaultTheme.button, ...preset.button },
-        widget: { ...defaultTheme.widget, ...preset.widget },
+        colors: { ...FALLBACK_THEME.colors, ...preset.colors },
+        section: { ...FALLBACK_THEME.section, ...preset.section },
+        panel: { ...FALLBACK_THEME.panel, ...preset.panel },
+        button: { ...FALLBACK_THEME.button, ...preset.button },
+        widget: { ...FALLBACK_THEME.widget, ...preset.widget },
       });
     }
   }, []);
@@ -483,7 +546,7 @@ export const ThemeExample = () => {
     ...Object.entries(themes).map(([key, { label, theme }]) => ({
       key,
       label,
-      swatch: theme.colors?.primary || '#F5BB1A',
+      swatch: theme.colors?.primary || '#EABB13',
     })),
     { key: 'custom', label: 'Custom', swatch: customTheme.colors.primary },
   ];

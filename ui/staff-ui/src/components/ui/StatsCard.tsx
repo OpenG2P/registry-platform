@@ -30,6 +30,7 @@ const StatsCard = ({
     const t = useTranslations();
     const { data, loading, error } = useFetch<any>({
         url: stats_endpoint,
+        enabled: !!stats_endpoint,
     });
 
     const { title, rows } = useMemo((): { title: string; rows: StatsRow[] } => {

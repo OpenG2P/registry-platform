@@ -77,7 +77,7 @@ export const IntakeFormExample = () => {
             gap: '12px',
             marginTop: '32px',
             paddingTop: '24px',
-            borderTop: '1px solid rgba(0, 0, 0, 0.05)',
+            borderTop: '1px solid var(--owt-color-border-light)',
           }}>
             <button
               type="button"
@@ -85,8 +85,8 @@ export const IntakeFormExample = () => {
               style={{
                 padding: '10px 32px',
                 borderRadius: '9999px',
-                background: '#E1E1E1',
-                color: '#717171',
+                background: 'var(--owt-color-border-light)',
+                color: 'var(--owt-color-text-muted)',
                 fontWeight: 700,
                 fontSize: '14px',
                 border: 'none',
@@ -102,13 +102,13 @@ export const IntakeFormExample = () => {
               style={{
                 padding: '10px 32px',
                 borderRadius: '9999px',
-                background: formHandle && !isSubmitting ? '#000' : '#9ca3af',
-                color: '#fff',
+                background: formHandle && !isSubmitting ? 'var(--owt-color-text)' : 'var(--owt-color-text-muted)',
+                color: 'var(--owt-color-bg)',
                 fontWeight: 700,
                 fontSize: '14px',
                 border: 'none',
                 cursor: formHandle && !isSubmitting ? 'pointer' : 'not-allowed',
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                boxShadow: '0 1px 2px var(--owt-color-shadow)',
               }}
             >
               {isSubmitting ? 'Submitting...' : 'Submit'}

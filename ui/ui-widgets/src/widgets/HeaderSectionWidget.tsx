@@ -30,9 +30,9 @@ interface HeaderSectionWidgetProps {
 }
 
 const DEFAULT_STATUS_COLORS: Record<string, string> = {
-  active: '#16A34A',
-  inactive: '#D97706',
-  archived: '#6B7280',
+  active: 'var(--owt-color-success)',
+  inactive: 'var(--owt-color-warning)',
+  archived: 'var(--owt-color-text-muted)',
 };
 
 const DEFAULT_LABELS: Record<string, string> = {
@@ -288,7 +288,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
 
   const format = (widgetConfig['widget-data-format'] || {}) as Record<string, any>;
   const imageSize = format.imageSize || 120;
-  const nameColor = format.nameColor || 'var(--owt-color-primary-dark, #F07B1A)';
+  const nameColor = format.nameColor || 'var(--owt-color-primary-dark)';
   const statusColors: Record<string, string> = {
     ...DEFAULT_STATUS_COLORS,
     ...(format.statusColors || {}),
@@ -313,7 +313,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   }, [statusValue, statusOptions]);
 
   const statusColor =
-    statusColors[String(statusValue).toLowerCase()] || 'var(--owt-color-text-muted, #6B7280)';
+    statusColors[String(statusValue).toLowerCase()] || 'var(--owt-color-text-muted)';
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -390,8 +390,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-score-ring {
           --ring-size: 54px;
           --ring-thickness: 7px;
-          --ring-color: var(--owt-color-primary-dark, #F07B1A);
-          --ring-track: rgba(2, 6, 23, 0.10);
+          --ring-color: var(--owt-color-primary-dark);
+          --ring-track: var(--owt-color-border-light);
           width: var(--ring-size);
           height: var(--ring-size);
           border-radius: 50%;
@@ -408,7 +408,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           position: absolute;
           inset: var(--ring-thickness);
           border-radius: 50%;
-          background: var(--owt-color-bg, #FFFFFF);
+          background: var(--owt-color-bg);
         }
 
         .${cls} .hdr-score-value {
@@ -419,7 +419,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           justify-content: center;
           font-size: 20px;
           font-weight: 700;
-          color: var(--owt-color-text, #011627);
+          color: var(--owt-color-text);
           font-family: Roboto, sans-serif;
         }
 
@@ -428,8 +428,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           height: ${imageSize}px;
           border-radius: 8px;
           object-fit: cover;
-          background-color: var(--owt-color-border-light, #e5e7eb);
-          border: 2px solid var(--owt-color-border, #d1d5db);
+          background-color: var(--owt-color-border-light);
+          border: 2px solid var(--owt-color-border);
           flex-shrink: 0;
         }
 
@@ -437,8 +437,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           width: ${imageSize}px;
           height: ${imageSize}px;
           border-radius: 8px;
-          background-color: var(--owt-color-border-light, #e5e7eb);
-          border: 2px solid var(--owt-color-border, #d1d5db);
+          background-color: var(--owt-color-border-light);
+          border: 2px solid var(--owt-color-border);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -464,7 +464,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           position: absolute;
           inset: 0;
           border-radius: 8px;
-          background: rgba(0, 0, 0, 0.55);
+          background: var(--owt-color-overlay);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -485,8 +485,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           padding: 5px 14px;
           border: none;
           border-radius: 4px;
-          background: rgba(255, 255, 255, 0.92);
-          color: #374151;
+          background: var(--owt-color-bg);
+          color: var(--owt-color-text);
           font-size: 0.7rem;
           font-weight: 500;
           cursor: pointer;
@@ -496,11 +496,11 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         }
 
         .${cls} .hdr-avatar-action:hover {
-          background: #fff;
+          background: var(--owt-color-bg);
         }
 
         .${cls} .hdr-avatar-action--delete {
-          color: #DC2626;
+          color: var(--owt-color-error);
         }
 
         .${cls} .hdr-info {
@@ -529,7 +529,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-field-label {
           width: 50%;
           flex: 0 0 50%;
-          color: rgba(0, 0, 0, 0.5);
+          color: var(--owt-color-text-muted);
           font-weight: 400;
           white-space: nowrap;
           overflow: hidden;
@@ -540,7 +540,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-field-value {
           width: 50%;
           flex: 0 0 50%;
-          color: var(--owt-color-text, #111827);
+          color: var(--owt-color-text);
           font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
@@ -553,7 +553,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           border-radius: 4px;
           font-size: 0.75rem;
           font-weight: 600;
-          color: #fff;
+          color: var(--owt-color-bg);
           max-width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -570,7 +570,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-meta-label {
           width: 50%;
           flex: 0 0 50%;
-          color: rgba(0, 0, 0, 0.5);
+          color: var(--owt-color-text-muted);
           font-weight: 400;
           white-space: nowrap;
           overflow: hidden;
@@ -581,7 +581,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-meta-value {
           width: 50%;
           flex: 0 0 50%;
-          color: var(--owt-color-text, #111827);
+          color: var(--owt-color-text);
           font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
@@ -591,45 +591,45 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-select {
           height: 32px;
           padding: 0 8px;
-          border: 1px solid var(--owt-widget-input-border, #d1d5db);
+          border: 1px solid var(--owt-widget-input-border);
           border-radius: 6px;
           font-size: 0.875rem;
           font-family: Roboto, sans-serif;
-          background: var(--owt-widget-input-bg, #fff);
+          background: var(--owt-widget-input-bg);
           min-width: 140px;
-          color: var(--owt-btn-primary-color, #374151);
+          color: var(--owt-btn-primary-color);
         }
         .${cls} .hdr-select:focus {
           outline: none;
-          border-color: var(--owt-widget-input-focus-border, #F07B1A);
-          box-shadow: 0 0 0 2px rgba(237, 124, 34, 0.15);
+          border-color: var(--owt-widget-input-focus-border);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--owt-color-primary-accent) 15%, transparent);
         }
 
         .${cls} .hdr-input {
           height: 32px;
           padding: 0 8px;
-          border: 1px solid var(--owt-widget-input-border, #d1d5db);
+          border: 1px solid var(--owt-widget-input-border);
           border-radius: 6px;
           font-size: 0.875rem;
           font-family: Roboto, sans-serif;
-          background: var(--owt-widget-input-bg, #fff);
+          background: var(--owt-widget-input-bg);
           min-width: 140px;
-          color: var(--owt-btn-primary-color, #374151);
+          color: var(--owt-btn-primary-color);
         }
         .${cls} .hdr-input:focus {
           outline: none;
-          border-color: var(--owt-widget-input-focus-border, #F07B1A);
-          box-shadow: 0 0 0 2px rgba(237, 124, 34, 0.15);
+          border-color: var(--owt-widget-input-focus-border);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--owt-color-primary-accent) 15%, transparent);
         }
 
         .${cls} .hdr-input--error {
-          border-color: var(--owt-color-danger, #DC2626);
-          box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+          border-color: var(--owt-color-danger);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--owt-color-error) 12%, transparent);
         }
 
         .${cls} .hdr-error-text {
           margin-left: calc(0px);
-          color: var(--owt-color-danger, #DC2626);
+          color: var(--owt-color-danger);
           font-size: 0.75rem;
           line-height: 1.2;
           font-weight: 500;

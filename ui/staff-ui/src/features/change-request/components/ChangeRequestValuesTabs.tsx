@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import {
-    WidgetProvider,
     SectionRenderer,
 } from "@openg2p/registry-widgets";
-import { dataSourceRequestHandler } from "@/shared/services";
+import { RegistryWidgetProvider } from "@/shared/widgets";
 import { useDeduplication } from "@/features/change-request/hooks";
 import DeduplicationCard from "./DeduplicationCard";
 
@@ -68,11 +67,9 @@ export function ChangeRequestValuesTabs({
 
             {activeTab === "change_request_values" && newSectionData && sectionUISchema && (
                 <div className="flex flex-col gap-4">
-                    <WidgetProvider
+                    <RegistryWidgetProvider
                         store={widgetStoreNew}
                         schemaData={newSectionData}
-                        t={t}
-                        dataSourceRequestHandler={dataSourceRequestHandler}
                         hostContext={hostContext}
                     >
                         <SectionRenderer
@@ -81,13 +78,11 @@ export function ChangeRequestValuesTabs({
                             mode="CRView"
                             changeRequestType="new"
                         />
-                    </WidgetProvider>
+                    </RegistryWidgetProvider>
 
-                    <WidgetProvider
+                    <RegistryWidgetProvider
                         store={widgetStoreOld}
                         schemaData={oldSectionData}
-                        t={t}
-                        dataSourceRequestHandler={dataSourceRequestHandler}
                         hostContext={hostContext}
                     >
                         <SectionRenderer
@@ -96,7 +91,7 @@ export function ChangeRequestValuesTabs({
                             mode="CRView"
                             changeRequestType="old"
                         />
-                    </WidgetProvider>
+                    </RegistryWidgetProvider>
                 </div>
             )}
 

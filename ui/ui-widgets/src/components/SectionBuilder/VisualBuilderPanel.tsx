@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { SectionConfig, PanelConfig, BaseWidgetConfig } from '../../types';
 import { SectionTree, TreeNode } from './SectionTree';
 import { PropertyEditor } from './PropertyEditor';
+import { SearchableSelect } from './SearchableSelect';
 import { maximizeIcon, minimizeIcon } from '../../assets';
+import { WIDGET_TYPES } from './schemas';
+import { useWidgetContext } from '../WidgetProvider';
 
 interface VisualBuilderPanelProps {
   section: SectionConfig;
@@ -10,17 +13,19 @@ interface VisualBuilderPanelProps {
   onSelectNode: (node: TreeNode | null) => void;
   onSectionChange: (section: SectionConfig) => void;
   onAddPanel: (parentId: string, parentType: 'section' | 'panel' | 'widget') => void;
-  onAddWidget: (parentId: string) => void;
+  onAddWidget: (parentId: string, widgetType?: string) => void;
   onDeleteNode: (node: TreeNode) => void;
   onDuplicateNode: (node: TreeNode) => void;
-  onSave?: (section: SectionConfig) => void;
+  onMoveNode?: (args: {
+    kind: 'panel' | 'widget';
+    parentPanelId: string | null;
+    activeId: string;
+    overId: string;
+  }) => void;
   isMaximized?: boolean;
   onToggleMaximize?: () => void;
 }
 
-/**
- * Visual Builder Panel - Right side of Section Builder
- */
 export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
   section,
   selectedNode,
@@ -30,77 +35,16 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
   onAddWidget,
   onDeleteNode,
   onDuplicateNode,
-  onSave,
+  onMoveNode,
   isMaximized = false,
   onToggleMaximize,
 }) => {
-  // Validate section before saving
-  const validateSection = (sectionToValidate: SectionConfig): { isValid: boolean; errors: string[] } => {
-    const errors: string[] = [];
-
-    if (!sectionToValidate['section-id']) {
-      errors.push('Section ID is required');
-    }
-
-    if (!sectionToValidate.panels || sectionToValidate.panels.length === 0) {
-      errors.push('Section must have at least one panel');
-    }
-
-    // Validate panels
-    const validatePanels = (panels: PanelConfig[]): void => {
-      panels.forEach((panel, index) => {
-        if (!panel['panel-id']) {
-          errors.push(`Panel at index ${index} is missing panel-id`);
-        }
-        if (panel.panels) {
-          validatePanels(panel.panels);
-        }
-        if (panel.widgets) {
-          panel.widgets.forEach((widget, widgetIndex) => {
-            if (!widget['widget-id']) {
-              errors.push(`Widget at panel ${panel['panel-id'] || index}, index ${widgetIndex} is missing widget-id`);
-            }
-            if (!widget.widget) {
-              errors.push(`Widget ${widget['widget-id'] || widgetIndex} is missing widget type`);
-            }
-          });
-        }
-      });
-    };
-
-    if (sectionToValidate.panels) {
-      validatePanels(sectionToValidate.panels);
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
-  };
-
-  const handleSave = () => {
-    const validation = validateSection(section);
-    if (!validation.isValid) {
-      console.error('Section validation failed:', validation.errors);
-      alert(`Cannot save section. Please fix the following errors:\n\n${validation.errors.join('\n')}`);
-      return;
-    }
-
-    if (onSave) {
-      try {
-        onSave(section);
-      } catch (error) {
-        console.error('Error saving section:', error);
-        alert('An error occurred while saving the section. Please check the console for details.');
-      }
-    }
-  };
+  const { t } = useWidgetContext();
+  const [paletteWidgetType, setPaletteWidgetType] = useState<string>(WIDGET_TYPES[0]);
 
   const handleNodeChange = (node: TreeNode, updates: Partial<SectionConfig | PanelConfig | BaseWidgetConfig>) => {
-    // Create a deep copy of the section
     const updatedSection = JSON.parse(JSON.stringify(section));
 
-    // Find and update the node in the section structure
     const updateInSection = (current: any, targetId: string, targetType: string): boolean => {
       if (targetType === 'section' && current['section-id'] === targetId) {
         Object.assign(current, updates);
@@ -149,21 +93,18 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
         onAddPanel(selectedNode.id, selectedNode.type);
       }
     } else {
-      // Add to root section
       onAddPanel(section['section-id'], 'section');
     }
   };
 
-  const handleAddWidget = () => {
+  const handleAddWidget = (widgetType = 'text') => {
     if (selectedNode) {
       if (selectedNode.type === 'panel') {
-        onAddWidget(selectedNode.id);
+        onAddWidget(selectedNode.id, widgetType);
       } else if (selectedNode.type === 'section') {
-        // Find first panel or create one
         if (section.panels && section.panels.length > 0) {
-          onAddWidget(section.panels[0]['panel-id']);
+          onAddWidget(section.panels[0]['panel-id'], widgetType);
         } else {
-          // Create a panel first, then add widget
           const newPanel: PanelConfig = {
             'panel-id': `panel-${Date.now()}`,
             'panel-orientation': 'vertical',
@@ -174,13 +115,12 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
             panels: [...(section.panels || []), newPanel],
           };
           onSectionChange(updatedSection);
-          onAddWidget(newPanel['panel-id']);
+          onAddWidget(newPanel['panel-id'], widgetType);
         }
       }
     } else {
-      // Add to first panel or create one
       if (section.panels && section.panels.length > 0) {
-        onAddWidget(section.panels[0]['panel-id']);
+        onAddWidget(section.panels[0]['panel-id'], widgetType);
       }
     }
   };
@@ -190,78 +130,57 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
+        flex: '1 1 0%',
         width: '100%',
         minHeight: 0,
-        paddingBottom: '10px',
-        borderRight: '0px',
       }}
     >
       <div
         style={{
-          padding: '20px 20px 20px 20px',
-
-          background: '#ffffff',
-
+          padding: '20px',
+          background: 'var(--owt-color-bg, #FFFFFF)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexShrink: 0,
         }}
       >
-        <div style={{ fontWeight: 600, fontSize: '16px', color: '#2c3e50', paddingTop: '5px' }}>
-          Visual Builder
+        <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--owt-color-text, #011627)', paddingTop: '5px' }}>
+          {t?.('sectionBuilder.visualBuilder') || 'Visual Builder'}
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             onClick={handleAddPanel}
             style={{
               padding: '8px 16px',
-              border: 'none',
+              border: '1px solid var(--owt-color-border, #C4C4C4)',
               borderRadius: '10px',
-              background: '#2196f3',
-              color: 'white',
+              background: 'var(--owt-btn-primary-bg, #FFFFFF)',
+              color: 'var(--owt-btn-primary-color, #011627)',
               fontWeight: 600,
               cursor: 'pointer',
               fontSize: '12px',
               whiteSpace: 'nowrap',
             }}
           >
-            + Add Panel
+            {t?.('sectionBuilder.addPanel') || '+ Add Panel'}
           </button>
           <button
-            onClick={handleAddWidget}
+            onClick={() => handleAddWidget()}
             style={{
               padding: '8px 16px',
-              border: 'none',
+              border: '1px solid var(--owt-color-border, #C4C4C4)',
               borderRadius: '10px',
-              background: '#4caf50',
-              color: 'white',
+              background: 'var(--owt-btn-primary-bg, #FFFFFF)',
+              color: 'var(--owt-btn-primary-color, #011627)',
               fontWeight: 600,
               cursor: 'pointer',
               fontSize: '12px',
               whiteSpace: 'nowrap',
             }}
           >
-            + Add Widget
+            {t?.('sectionBuilder.addWidget') || '+ Add Widget'}
           </button>
-          {onSave && (
-            <button
-              onClick={handleSave}
-              style={{
-                padding: '8px 16px',
-                border: 'none',
-                borderRadius: '10px',
-                background: '#000000',
-                color: 'white',
-                fontWeight: 600,
-                cursor: 'pointer',
-                fontSize: '12px',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Save
-            </button>
-          )}
           {onToggleMaximize && (
             <button
               onClick={onToggleMaximize}
@@ -270,7 +189,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 background: 'transparent',
-                color: '#666',
+                color: 'var(--owt-color-text-muted, #727474)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -278,12 +197,12 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
                 width: '32px',
                 height: '32px',
               }}
-              title={isMaximized ? 'Minimize' : 'Maximize'}
+              title={isMaximized ? (t?.('sectionBuilder.minimize') || 'Minimize') : (t?.('sectionBuilder.maximize') || 'Maximize')}
             >
               {isMaximized ? (
-                <img src={minimizeIcon} alt="Minimize" width="16" height="16" />
+                <img src={minimizeIcon} alt={t?.('sectionBuilder.minimize') || 'Minimize'} width="16" height="16" />
               ) : (
-                <img src={maximizeIcon} alt="Maximize" width="16" height="16" />
+                <img src={maximizeIcon} alt={t?.('sectionBuilder.maximize') || 'Maximize'} width="16" height="16" />
               )}
             </button>
           )}
@@ -291,43 +210,95 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
       </div>
       <div
         style={{
-          flex: 1,
+          flex: '1 1 0%',
           display: 'flex',
           overflow: 'hidden',
-          border: '1px solid #ddd',
+          border: '1px solid var(--owt-color-border, #C4C4C4)',
           borderRadius: '10px',
-          minHeight: 0, // Important for flex children to respect overflow
+          minHeight: 0,
         }}
       >
-        {/* Tree View */}
         <div
           style={{
+            flex: '1 1 0%',
             width: '45%',
-            borderRight: '1px solid #ddd',
+            borderRight: '1px solid var(--owt-color-border, #C4C4C4)',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: 0, // Important for flex children to respect overflow
+            minHeight: 0,
             overflow: 'hidden',
           }}
         >
-          <SectionTree
-            section={section}
-            selectedNode={selectedNode}
-            onSelectNode={onSelectNode}
-            onAddPanel={onAddPanel}
-            onAddWidget={onAddWidget}
-            onDeleteNode={onDeleteNode}
-            onDuplicateNode={onDuplicateNode}
-          />
+          <div
+            style={{
+              padding: '12px 15px',
+              borderBottom: '1px solid var(--owt-color-border-light, #E4E4E4)',
+              background: 'var(--owt-color-bg, #FFFFFF)',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--owt-color-text, #011627)', marginBottom: '8px' }}>
+              {t?.('sectionBuilder.widgetPalette') || 'Widget Palette'}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <SearchableSelect
+                  options={WIDGET_TYPES}
+                  value={paletteWidgetType}
+                  onChange={setPaletteWidgetType}
+                  placeholder={t?.('sectionBuilder.searchWidgetType') || 'Search widget type...'}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedNode?.type === 'panel') {
+                    onAddWidget(selectedNode.id, paletteWidgetType);
+                  } else {
+                    handleAddWidget(paletteWidgetType);
+                  }
+                }}
+                style={{
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: 'var(--owt-color-text, #011627)',
+                  color: 'var(--owt-color-bg, #FFFFFF)',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t?.('sectionBuilder.add') || 'Add'}
+              </button>
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--owt-color-text-muted, #727474)' }}>
+              {t?.('sectionBuilder.paletteTip') ||
+                'Tip: select a panel first to control where widgets land.'}
+            </div>
+          </div>
+          <div style={{ flex: '1 1 0%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <SectionTree
+              section={section}
+              selectedNode={selectedNode}
+              onSelectNode={onSelectNode}
+              onAddPanel={onAddPanel}
+              onAddWidget={onAddWidget}
+              onDeleteNode={onDeleteNode}
+              onDuplicateNode={onDuplicateNode}
+              onMoveNode={onMoveNode}
+            />
+          </div>
         </div>
 
-        {/* Properties Panel */}
         <div
           style={{
+            flex: '1 1 0%',
             width: '55%',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: 0, // Important for flex children to respect overflow
+            minHeight: 0,
             overflow: 'hidden',
           }}
         >

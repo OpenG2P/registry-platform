@@ -4,6 +4,7 @@ import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
+import { owtFieldInputClass } from '../theme';
 import { filterByCharacterType, applyCaseControl } from '../utils/textInput';
 
 interface TextAreaWidgetProps {
@@ -81,7 +82,7 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
       <div className="mb-[10px] TextAreaDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
           <div
-            className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
+            className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
             style={{ fontFamily: 'Roboto, sans-serif' }}
             title={label}
           >
@@ -91,7 +92,7 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
         <div className="flex-1">
           <div
             title={String(displayValue || '')}
-            className="text-base text-gray-900 font-medium overflow-y-auto whitespace-pre-wrap break-words"
+            className="text-base owt-text font-medium overflow-y-auto whitespace-pre-wrap break-words"
             style={{
               fontFamily: 'Roboto, sans-serif',
               height: '56px',
@@ -114,7 +115,7 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
-          className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          className="text-base font-medium owt-text md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
           label={label}
           required={isRequired}
         />
@@ -128,11 +129,11 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
               onBlur={onBlur}
               disabled={!isEnabled}
               placeholder={placeholder}
-              className={`w-full px-3 py-2 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                hasError
-                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                  : 'border-gray-300'
-              } ${!isEnabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
+              className={owtFieldInputClass({
+                error: hasError,
+                disabled: !isEnabled,
+                className: 'w-full px-3 py-2 owt-shadow-sm',
+              })}
               style={{
                 borderRadius: '10px',
                 fontFamily: 'Roboto, sans-serif',
@@ -147,8 +148,8 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
                 className="absolute bottom-2 right-2 text-xs px-1 rounded"
                 style={{
                   fontFamily: 'Roboto, sans-serif',
-                  color: maxLength && currentLength > maxLength ? 'var(--owt-widget-error-color, #EF4444)' : 'var(--owt-widget-helptext-color, #6B7280)',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  color: maxLength && currentLength > maxLength ? 'var(--owt-widget-error-color)' : 'var(--owt-widget-helptext-color)',
+                  backgroundColor: 'var(--owt-color-bg)',
                 }}
               >
                 {charCounterText}
@@ -156,7 +157,7 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
             )}
           </div>
           {hasError && (
-            <p className="text-red-500 text-sm mt-1">{errorMessage}</p>
+            <p className="owt-field-error text-sm mt-1">{errorMessage}</p>
           )}
         </div>
       </div>

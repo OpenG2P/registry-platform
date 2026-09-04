@@ -22,6 +22,7 @@ interface RegisterTabConfigViewProps {
 	page?: number;
 	pageSize?: number;
 	onDataLoaded?: (totalItems: number, currentCount: number) => void;
+	embedded?: boolean;
 }
 
 export default function RegisterTabConfigView({
@@ -30,6 +31,7 @@ export default function RegisterTabConfigView({
 	page = 1,
 	pageSize = 10,
 	onDataLoaded,
+	embedded = false,
 }: RegisterTabConfigViewProps) {
 	const t = useTranslations();
 	const router = useRouter();
@@ -97,6 +99,7 @@ export default function RegisterTabConfigView({
 				data={tabs}
 				loading={loading}
 				rowKey={(item) => item.tab_id}
+				embedded={embedded}
 				onRowClick={(item) =>
 					router.push(`/configuration/registers/${registerId}/tabs/${item.tab_id}`)
 				}

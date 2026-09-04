@@ -99,11 +99,16 @@ export const EditSectionPortal = ({
           top: 0;
           bottom: 5px;
           width: 1px;
-          background-color: var(--owt-color-primary, #F5BB1A);
+          background-color: var(--owt-color-primary);
+        }
+        #${editGridId} > .section-divider {
+          flex: 0 0 100%;
+          width: 100%;
+          max-width: 100%;
         }
       `}</style>
       <div
-        className={`section ${sectionClassId} ${sectionClassId}-edit px-4 sm:px-6 lg:px-8`}
+        className={`openg2p-widget-theme-root section ${sectionClassId} ${sectionClassId}-edit px-4 sm:px-6 lg:px-8`}
         data-section-id={`${sectionId}-edit`}
         style={{
           ...portalCSSVariables,
@@ -135,32 +140,40 @@ export const EditSectionPortal = ({
               `panel-wrapper ${index === total - 1 ? 'last-panel-wrapper' : ''}`
             }
           />
-          <hr
-            className="w-full"
-            style={{
-              height: '1px',
-              backgroundColor: 'var(--owt-section-divider-color, #F5BB1A)',
-              border: 'none',
-              margin: '25px 0 0 0',
-            }}
-          />
           {hasSupportingDocuments && (
-            <SupportingDocuments
-              sectionId={sectionId}
-              documents={supportingDocuments}
-              mode={mode}
-              expanded={isDocumentsExpanded}
-              onToggleExpanded={() => setIsDocumentsExpanded(!isDocumentsExpanded)}
-              collapsible
-            />
+            <>
+              <div
+                className="section-divider"
+                role="separator"
+                style={{
+                  flex: '0 0 100%',
+                  width: '100%',
+                  maxWidth: '100%',
+                  height: '1px',
+                  backgroundColor: 'var(--owt-color-primary)',
+                  margin: '25px 0 0 0',
+                }}
+              />
+              <SupportingDocuments
+                sectionId={sectionId}
+                documents={supportingDocuments}
+                mode={mode}
+                expanded={isDocumentsExpanded}
+                onToggleExpanded={() => setIsDocumentsExpanded(!isDocumentsExpanded)}
+                collapsible
+              />
+            </>
           )}
-          <hr
-            className="w-full"
+          <div
+            className="section-divider"
+            role="separator"
             style={{
+              flex: '0 0 100%',
+              width: '100%',
+              maxWidth: '100%',
               height: '1px',
-              backgroundColor: 'var(--owt-section-divider-color, #F5BB1A)',
-              border: 'none',
-              marginTop: hasSupportingDocuments ? '20px' : 0,
+              backgroundColor: 'var(--owt-color-primary)',
+              marginTop: hasSupportingDocuments ? '20px' : '25px',
               marginBottom: '20px',
             }}
           />

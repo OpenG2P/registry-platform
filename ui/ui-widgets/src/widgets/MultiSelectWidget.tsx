@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
+import { owtFieldInputClass } from '../theme';
+import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 
 type DropdownPosition = {
   top?: number;
@@ -34,6 +36,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
   } = useBaseWidget({ config });
 
   const { t } = useWidgetContext();
+  const themeRoot = useOwtThemeRootProps();
 
   const [isOpen, setIsOpen] = useState(false);
   const [isListPopupOpen, setIsListPopupOpen] = useState(false);
@@ -271,7 +274,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
         {visibleLabels.map((label, index) => (
           <span
             key={`${selectedValues[index]}-${label}`}
-            className="inline-flex max-w-full items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs text-blue-800"
+            className="inline-flex max-w-full items-center gap-1 rounded-md owt-chip px-2 py-0.5 text-xs"
             title={label}
           >
             <span className="truncate">{label}</span>
@@ -279,7 +282,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
               <button
                 type="button"
                 onClick={() => handleToggle(selectedValues[index], false)}
-                className="shrink-0 text-blue-600 hover:text-blue-900 focus:outline-none"
+                className="shrink-0 owt-link focus:outline-none"
                 aria-label={t?.('common.removeItem', {
                   label,
                   defaultValue: `Remove ${label}`,
@@ -295,7 +298,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             ref={moreButtonRef}
             type="button"
             onClick={() => setIsListPopupOpen((prev) => !prev)}
-            className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium focus:outline-none owt-chip"
           >
             {t?.('common.moreSelected', {
               count: overflowCount,
@@ -311,8 +314,9 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
     isListPopupOpen && listPopupPosition && mounted ? (
       <div
         ref={listPopupRef}
-        className="fixed z-[201] bg-white border border-gray-300 shadow-lg"
+        className={`${themeRoot.className} fixed z-[201] owt-shadow-lg`}
         style={{
+          ...themeRoot.style,
           ...(listPopupPosition.placement === 'bottom'
             ? { top: listPopupPosition.top }
             : { bottom: listPopupPosition.bottom }),
@@ -323,11 +327,13 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           borderRadius: '10px',
           display: 'flex',
           flexDirection: 'column',
+          backgroundColor: 'var(--owt-color-bg)',
+          border: '1px solid var(--owt-color-border)',
         }}
       >
         <div
-          className="px-3 py-2 text-xs font-semibold text-gray-500 shrink-0"
-          style={{ borderBottom: '1px solid #e5e7eb' }}
+          className="px-3 py-2 text-xs font-semibold owt-text-muted shrink-0"
+          style={{ borderBottom: '1px solid var(--owt-color-border-light)' }}
         >
           {t?.('common.allSelected', {
             count: selectedLabels.length,
@@ -338,7 +344,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           {selectedLabels.map((label, index) => (
             <div
               key={`${selectedValues[index]}-${label}`}
-              className="px-3 py-1.5 text-sm text-gray-700"
+              className="px-3 py-1.5 text-sm owt-text"
               title={label}
             >
               {label}
@@ -355,13 +361,13 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
       <div className="mb-[10px] MultiSelectDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {fieldLabel && (
           <WidgetFieldLabel
-            className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
+            className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
             label={fieldLabel}
           />
         )}
         <div className="flex-1 min-w-0">
           {selectedLabels.length === 0 ? (
-            <div className="text-base text-gray-900 font-medium">-</div>
+            <div className="text-base owt-text font-medium">-</div>
           ) : (
             renderSelectedLabels({ readonly: true })
           )}
@@ -381,8 +387,9 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
     isOpen && dropdownPosition && mounted ? (
       <div
         ref={dropdownRef}
-        className="fixed z-[200] bg-white border border-gray-300 shadow-lg"
+        className={`${themeRoot.className} fixed z-[200] owt-shadow-lg`}
         style={{
+          ...themeRoot.style,
           ...(dropdownPosition.placement === 'bottom'
             ? { top: dropdownPosition.top }
             : { bottom: dropdownPosition.bottom }),
@@ -393,23 +400,27 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           borderRadius: '10px',
           display: 'flex',
           flexDirection: 'column',
+          backgroundColor: 'var(--owt-color-bg)',
+          border: '1px solid var(--owt-color-border)',
         }}
       >
-        <div className="px-3 pt-2 pb-1 shrink-0" style={{ borderBottom: '1px solid #e5e7eb' }}>
+        <div className="px-3 pt-2 pb-1 shrink-0" style={{ borderBottom: '1px solid var(--owt-color-border-light)' }}>
           <input
             ref={searchInputRef}
             type="text"
             placeholder={t?.('common.searchPlaceholder', { defaultValue: 'Search...' })}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-[28px] px-2 text-sm border border-gray-300 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            className={owtFieldInputClass({
+              className: 'w-full h-[28px] px-2 text-sm',
+            })}
             style={{ borderRadius: '6px' }}
           />
         </div>
 
         <div
           className="flex items-center justify-between px-3 py-1 shrink-0"
-          style={{ borderBottom: '1px solid #e5e7eb' }}
+          style={{ borderBottom: '1px solid var(--owt-color-border-light)' }}
         >
           <button
             type="button"
@@ -417,7 +428,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
               const filteredVals = new Set(filteredOptions.map((o) => o.value));
               onChange(selectedValues.filter((v: any) => !filteredVals.has(v)));
             } : handleSelectAll}
-            className="text-xs font-medium text-blue-600 hover:text-blue-800 focus:outline-none"
+            className="text-xs font-medium owt-link focus:outline-none"
           >
             {allFilteredSelected
               ? t?.('common.deselectAll', { defaultValue: 'Deselect All' })
@@ -427,7 +438,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             <button
               type="button"
               onClick={handleClearAll}
-              className="text-xs font-medium text-red-500 hover:text-red-700 focus:outline-none"
+              className="text-xs font-medium owt-field-error focus:outline-none"
             >
               {t?.('common.clearAll', { defaultValue: 'Clear All' })}
             </button>
@@ -439,11 +450,11 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           style={{ maxHeight: `${Math.max(80, optionsMaxHeight)}px` }}
         >
           {loading ? (
-            <p className="text-sm text-gray-500 px-3 py-2">
+            <p className="text-sm owt-text-muted px-3 py-2">
               {t?.('common.loading')}
             </p>
           ) : filteredOptions.length === 0 ? (
-            <p className="text-sm text-gray-400 px-3 py-2">
+            <p className="text-sm owt-text-muted px-3 py-2">
               {t?.('common.noOptionsFound', { defaultValue: 'No options found' })}
             </p>
           ) : (
@@ -452,17 +463,17 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
               return (
                 <label
                   key={option.value}
-                  className={`flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-blue-50 ${
-                    isChecked ? 'bg-blue-50/60' : ''
+                  className={`flex items-center gap-2 px-3 py-1 cursor-pointer owt-highlight-hover ${
+                    isChecked ? 'owt-highlight' : ''
                   }`}
                 >
                   <input
                     type="checkbox"
                     checked={isChecked}
                     onChange={(e) => handleToggle(option.value, e.target.checked)}
-                    className="h-4 w-4 shrink-0 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="h-4 w-4 shrink-0 owt-field-check rounded"
                   />
-                  <span className="text-sm text-gray-700 leading-normal select-none">
+                  <span className="text-sm owt-text leading-normal select-none">
                     {option.label}
                   </span>
                 </label>
@@ -477,7 +488,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-start">
         <WidgetFieldLabel
-          className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          className="text-base font-medium owt-text md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
           label={widgetConfig['widget-label'] ?? ''}
           required={isRequired}
         />
@@ -493,12 +504,13 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
               if (!isOpen) onBlur();
             }}
             disabled={disabled}
-            className={`w-full sm:w-[280px] max-w-full h-[30px] px-3 border shadow-sm text-left flex items-center justify-between gap-2 ${
-              (touched && error.length > 0) ||
-              (widgetConfig['widget-required'] && selectedValues.length === 0)
-                ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-                : 'border-gray-300'
-            } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white cursor-pointer'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={owtFieldInputClass({
+              error:
+                (touched && error.length > 0) ||
+                (widgetConfig['widget-required'] && selectedValues.length === 0),
+              disabled,
+              className: 'w-full sm:w-[280px] max-w-full h-[30px] px-3 owt-shadow-sm text-left flex items-center justify-between gap-2 cursor-pointer',
+            })}
             style={{ borderRadius: '10px' }}
             title={
               selectedValues.length > 0
@@ -508,7 +520,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
           >
             <span
               className={`truncate text-sm ${
-                selectedValues.length === 0 ? 'text-gray-400' : 'text-gray-900'
+                selectedValues.length === 0 ? 'owt-text-muted' : 'owt-text'
               }`}
             >
               {selectedLabels.length === 0
@@ -519,7 +531,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
                   })}
             </span>
             <svg
-              className={`w-4 h-4 flex-shrink-0 text-gray-500 transition-transform ${
+              className={`w-4 h-4 flex-shrink-0 owt-text-muted transition-transform ${
                 isOpen ? 'rotate-180' : ''
               }`}
               fill="none"
@@ -541,10 +553,10 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             : null}
 
           {touched && error.length > 0 && (
-            <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
           )}
           {loading && (
-            <p className="text-sm text-gray-500 mt-1">{t?.('common.loadingOptions')}</p>
+            <p className="text-sm owt-text-muted mt-1">{t?.('common.loadingOptions')}</p>
           )}
         </div>
       </div>
