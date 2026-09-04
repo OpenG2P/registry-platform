@@ -227,6 +227,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # Full history so the plan can diff widget source against the
+          # commit that last set package.json to the published stable.
+          fetch-depth: 0
           # Bot PAT so a pin commit retriggers build-publish (GITHUB_TOKEN
           # pushes do not start new workflows). Required on release lines.
           token: ${{ secrets.OPENG2P_BOT_GITHUB_PAT }}
@@ -303,13 +306,43 @@ jobs:
             fi
           fi
 
+          # package.json left at an already-published stable (e.g. 1.1.7)
+          # while src moved on (BuilderNotifyType, onNotify, …). Diff against
+          # the commit that introduced that version and cut the next patch.
+          bump_patch() {
+            node -e "const [a,b,c]=process.argv[1].split('.').map(Number); console.log([a,b,c+1].join('.'))" "$1"
+          }
+          widget_src_changed_since_version() {
+            local ver="$1"
+            local commit
+            commit=$(git log -1 --format=%H -S "\"version\": \"${ver}\"" -- ui/ui-widgets/package.json || true)
+            [ -n "$commit" ] || return 1
+            ! git diff --quiet "$commit" HEAD -- ui/ui-widgets \
+              ':!ui/ui-widgets/package.json' ':!ui/ui-widgets/package-lock.json'
+          }
+          if [ "$EVENT_NAME" != "workflow_dispatch" ] && on_npm "$VERSION"; then
+            if widget_src_changed_since_version "$VERSION"; then
+              VERSION=$(bump_patch "$VERSION")
+              while on_npm "$VERSION"; do
+                VERSION=$(bump_patch "$VERSION")
+              done
+              PUBLISH=true
+              PIN_NEEDED=true
+            fi
+          fi
+
           # A release tag only retags the already-built staff-ui image. If that
           # image was built with a -dev pin, publishing npm here cannot fix it.
           if [ "$REF_TYPE" = "tag" ]; then
+            LINE="${REF_NAME%.*}"
             if is_dev "$PIN"; then
-              LINE="${REF_NAME%.*}"
               echo "::error::staff-ui still pins $PIN. A release tag promotes the already-built image; it does not rebuild."
               echo "::error::Push branch '$LINE' first, wait for this workflow to publish the stable widget and pin staff-ui, then tag THAT commit."
+              exit 1
+            fi
+            if [ "$PUBLISH" = true ]; then
+              echo "::error::ui-widgets has unpublished source changes (would be $VERSION) but this tag still pins $PIN."
+              echo "::error::Push branch '$LINE' first so the widget is published and staff-ui is pinned, then tag THAT commit."
               exit 1
             fi
             PIN_NEEDED=false
