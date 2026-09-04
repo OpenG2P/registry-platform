@@ -186,29 +186,44 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
-          # setup-node's registry-url writes always-auth into the user npmrc.
-          # Trusted publishing does not set NODE_AUTH_TOKEN, so a later
-          # `npm install` of the public package 404s as ETARGET even when
-          # the version is already on the registry.
-          npm config delete always-auth 2>/dev/null || true
-          npm config delete '//registry.npmjs.org/:_authToken' 2>/dev/null || true
-          unset NODE_AUTH_TOKEN || true
+          # Do not `npm install` the just-published prerelease from the
+          # registry: setup-node's npmrc + lockfile resolution yields ETARGET
+          # even when the version is already on npm. Pin from the local pack
+          # (same tarball we published) so staff-ui/package.json stays an
+          # exact registry version and Docker `npm ci` can fetch it later.
+          (cd ui/ui-widgets && npm pack --json > /tmp/widgets-pack.json)
+          PACK_FILE=$(node -p "const d=require('/tmp/widgets-pack.json'); (Array.isArray(d)?d[0]:d).filename")
+          PACK_INTEGRITY=$(node -p "const d=require('/tmp/widgets-pack.json'); (Array.isArray(d)?d[0]:d).integrity")
+          rm -f "ui/ui-widgets/${PACK_FILE}"
 
-          installed=false
-          for i in $(seq 1 12); do
-            if npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" \
-                 --prefix ui/staff-ui --save-exact \
-                 --registry https://registry.npmjs.org/; then
-              installed=true
-              break
-            fi
-            echo "waiting for npm to propagate @openg2p/registry-widgets@${WIDGET_VERSION} (attempt $i/12)…"
-            sleep 15
-          done
-          if [ "$installed" != true ]; then
-            echo "::error::npm install of @openg2p/registry-widgets@${WIDGET_VERSION} failed after retries (package may be published but not installable from this runner)."
-            exit 1
-          fi
+          WIDGET_VERSION="$WIDGET_VERSION" PACK_INTEGRITY="$PACK_INTEGRITY" node <<'EOF'
+          const fs = require('fs');
+          const version = process.env.WIDGET_VERSION;
+          const integrity = process.env.PACK_INTEGRITY;
+          const resolved = `https://registry.npmjs.org/@openg2p/registry-widgets/-/registry-widgets-${version}.tgz`;
+          const widgetPkg = JSON.parse(fs.readFileSync('ui/ui-widgets/package.json', 'utf8'));
+
+          const pkgPath = 'ui/staff-ui/package.json';
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          pkg.dependencies['@openg2p/registry-widgets'] = version;
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+
+          const lockPath = 'ui/staff-ui/package-lock.json';
+          const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+          lock.packages[''].dependencies['@openg2p/registry-widgets'] = version;
+          const entry = lock.packages['node_modules/@openg2p/registry-widgets'];
+          if (!entry) {
+            console.error('::error::staff-ui lockfile has no node_modules/@openg2p/registry-widgets entry');
+            process.exit(1);
+          }
+          entry.version = version;
+          entry.resolved = resolved;
+          entry.integrity = integrity;
+          if (widgetPkg.dependencies) entry.dependencies = widgetPkg.dependencies;
+          if (widgetPkg.peerDependencies) entry.peerDependencies = widgetPkg.peerDependencies;
+          fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
+          console.log(`pinned staff-ui → @openg2p/registry-widgets@${version}`);
+          EOF
 
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
             ui/staff-ui/package.json ui/staff-ui/package-lock.json
@@ -297,25 +312,39 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
-          npm config delete always-auth 2>/dev/null || true
-          npm config delete '//registry.npmjs.org/:_authToken' 2>/dev/null || true
-          unset NODE_AUTH_TOKEN || true
+          (cd ui/ui-widgets && npm pack --json > /tmp/widgets-pack.json)
+          PACK_FILE=$(node -p "const d=require('/tmp/widgets-pack.json'); (Array.isArray(d)?d[0]:d).filename")
+          PACK_INTEGRITY=$(node -p "const d=require('/tmp/widgets-pack.json'); (Array.isArray(d)?d[0]:d).integrity")
+          rm -f "ui/ui-widgets/${PACK_FILE}"
 
-          installed=false
-          for i in $(seq 1 12); do
-            if npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" \
-                 --prefix ui/staff-ui --save-exact \
-                 --registry https://registry.npmjs.org/; then
-              installed=true
-              break
-            fi
-            echo "waiting for npm to propagate @openg2p/registry-widgets@${WIDGET_VERSION} (attempt $i/12)…"
-            sleep 15
-          done
-          if [ "$installed" != true ]; then
-            echo "::error::npm install of @openg2p/registry-widgets@${WIDGET_VERSION} failed after retries."
-            exit 1
-          fi
+          WIDGET_VERSION="$WIDGET_VERSION" PACK_INTEGRITY="$PACK_INTEGRITY" node <<'EOF'
+          const fs = require('fs');
+          const version = process.env.WIDGET_VERSION;
+          const integrity = process.env.PACK_INTEGRITY;
+          const resolved = `https://registry.npmjs.org/@openg2p/registry-widgets/-/registry-widgets-${version}.tgz`;
+          const widgetPkg = JSON.parse(fs.readFileSync('ui/ui-widgets/package.json', 'utf8'));
+
+          const pkgPath = 'ui/staff-ui/package.json';
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+          pkg.dependencies['@openg2p/registry-widgets'] = version;
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+
+          const lockPath = 'ui/staff-ui/package-lock.json';
+          const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+          lock.packages[''].dependencies['@openg2p/registry-widgets'] = version;
+          const entry = lock.packages['node_modules/@openg2p/registry-widgets'];
+          if (!entry) {
+            console.error('::error::staff-ui lockfile has no node_modules/@openg2p/registry-widgets entry');
+            process.exit(1);
+          }
+          entry.version = version;
+          entry.resolved = resolved;
+          entry.integrity = integrity;
+          if (widgetPkg.dependencies) entry.dependencies = widgetPkg.dependencies;
+          if (widgetPkg.peerDependencies) entry.peerDependencies = widgetPkg.peerDependencies;
+          fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n');
+          console.log(`pinned staff-ui → @openg2p/registry-widgets@${version}`);
+          EOF
 
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
             ui/staff-ui/package.json ui/staff-ui/package-lock.json
