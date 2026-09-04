@@ -3,12 +3,10 @@ name: Build & Publish
 # Thin caller: all versioning/build/publish logic lives in
 # openg2p/openg2p-packaging@v1. This file declares only what THIS repo contains.
 #
-# On a release line (branch N.N) or release tag (N.N.N), staff-ui must be
-# built against a *stable* @openg2p/registry-widgets pin — never a -dev
-# prerelease. npm-publish-ui-widgets.yml cuts that stable and pins staff-ui
-# first; this workflow waits for it. If the pin commit lands on a new SHA,
-# this run skips images so the follow-up run (triggered by the bot PAT)
-# publishes staff-ui from the pinned commit.
+# build-publish does NOT npm-publish widgets. On a release line (N.N / RC),
+# npm-publish-ui-widgets.yml publishes --tag dev and pins staff-ui first;
+# this workflow waits so the staff-ui image is built from that pin. A -dev
+# pin is expected for RC and develop. Frozen latest is a manual workflow.
 
 on:
   push:
@@ -27,16 +25,12 @@ on:
 
 jobs:
   await-widgets:
-    # Tags retag already-built images; release-line pushes actually build
-    # staff-ui. Both must see a stable widget pin. Feature branches and
-    # develop keep using whatever pin is in the tree (-dev is expected).
-    # Job-level `if` cannot use regex (`matches` is not a GitHub Actions
-    # function); `contains('.')` is a coarse filter, exact N.N / N.N.N
-    # is enforced in the shell step below.
+    # Wait only on RC branches so a --tag dev widget pin lands before the
+    # staff-ui image builds. Tags retag that RC image; develop uses [skip ci]
+    # on the widget pin. Job-level `if` cannot use regex.
     if: >-
-      github.ref_type == 'tag' ||
-      (github.ref_type == 'branch' && contains(github.ref_name, '.') &&
-       github.ref != 'refs/heads/develop')
+      github.ref_type == 'branch' && contains(github.ref_name, '.') &&
+      github.ref != 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -59,11 +53,9 @@ jobs:
           is_release=false
           if [ "$REF_TYPE" = "branch" ] && [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+$ ]]; then
             is_release=true
-          elif [ "$REF_TYPE" = "tag" ] && [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            is_release=true
           fi
           if [ "$is_release" != true ]; then
-            echo "Not a release line/tag ($REF_TYPE $REF_NAME); skipping widget wait."
+            echo "Not a release line ($REF_TYPE $REF_NAME); skipping widget wait."
             echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -116,12 +108,7 @@ jobs:
           fi
 
           PIN=$(node -p "require('./ui/staff-ui/package.json').dependencies['@openg2p/registry-widgets']")
-          if [[ "$PIN" == *-dev.* ]]; then
-            echo "::error::staff-ui still pins $PIN. A release must pin a stable @openg2p/registry-widgets version before staff-ui is published."
-            exit 1
-          fi
-
-          echo "staff-ui pin=$PIN"
+          echo "staff-ui pin=$PIN (dev prerelease is expected on RC)"
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
   build-publish:

@@ -2,21 +2,14 @@ name: NPM Publish UI Widget
 
 # Publishes @openg2p/registry-widgets via npm trusted publishing (OIDC).
 #
-# Dev (automatic): push to develop → next-patch-after-latest prerelease
-#   (e.g. latest 1.1.7 → 1.1.8-dev.N) → publish --tag next
-#   → sync staff-ui → commit (ui-widgets + staff-ui)
+# Automatic (any commit on develop or a release line N.N / RC):
+#   next-patch-after-latest prerelease (e.g. latest 1.1.7 → 1.1.8-dev.N)
+#   → npm publish --tag dev
+#   → pin staff-ui to that exact prerelease
+#   Never publishes dist-tag latest.
 #
-# Release (automatic): push to a release line (N.N, e.g. 1.2) or a release
-#   tag (N.N.N). If widgets changed (local or staff-ui pin is -dev, or a
-#   stable version is not yet on npm), publish that stable to dist-tag
-#   latest (1.1.8-dev.N → 1.1.8) and pin staff-ui BEFORE the staff-ui
-#   image is built. The pin commit is pushed with the bot PAT so
-#   build-publish retriggers on the pinned commit. Tags never rebuild
-#   images (packaging retags the RC), so a tag whose staff-ui pin is
-#   still -dev fails — push the release line and wait for the pin first.
-#
-# Release (manual): Run workflow → enter version (e.g. 1.1.8) → publish
-#   latest → sync staff-ui → commit
+# Release (manual only): Run workflow → enter version (e.g. 1.1.8)
+#   → npm publish (dist-tag latest) → pin staff-ui
 #
 # npm trusted publisher (one per package):
 #   Repository: OpenG2P/registry-platform
@@ -26,18 +19,19 @@ on:
     branches:
       - develop
       - '*.*'
-    tags:
-      - '*.*.*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (semver, e.g. 1.1.8)'
+        description: 'Release version (semver, e.g. 1.1.8) — publishes dist-tag latest'
         required: true
         type: string
 
 jobs:
   publish-dev:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    # develop + RC (N.N). Exact N.N vs noise like ci/foo.bar is gated below.
+    if: >-
+      github.event_name == 'push' && github.ref_type == 'branch' &&
+      (github.ref == 'refs/heads/develop' || contains(github.ref_name, '.'))
     runs-on: ubuntu-latest
     concurrency:
       group: npm-publish-ui-widgets-dev
@@ -53,18 +47,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # PAT on release lines so the pin commit retriggers build-publish.
+          # GITHUB_TOKEN on develop (commit uses [skip ci]).
+          token: ${{ github.ref == 'refs/heads/develop' && github.token || secrets.OPENG2P_BOT_GITHUB_PAT }}
 
-      - name: Skip if ui-widgets did not change
+      - name: Skip if not a widget-changing develop/RC push
         id: gate
         working-directory: ${{ github.workspace }}
         env:
           BEFORE: ${{ github.event.before }}
           SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
+          if [ "$REF_NAME" != "develop" ] && ! [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "Not develop or a release line ($REF_NAME); skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
             if git diff --quiet "$BEFORE" "$SHA" -- ui/ui-widgets .github/workflows/npm-publish-ui-widgets.yml; then
-              echo "No ui-widgets changes on this develop push; skipping."
+              echo "No ui-widgets changes on this push; skipping."
               echo "skip=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -93,13 +95,8 @@ jobs:
       - name: Set dev prerelease version
         if: steps.gate.outputs.skip != 'true'
         # Always version on the *next patch after npm `latest`*, not the
-        # already-released line. Seeding from dist-tags.next is wrong once a
-        # stable is cut: next often still points at 1.1.7-dev.N while latest is
-        # 1.1.7, so `npm version prerelease` keeps publishing 1.1.7-dev.(N+1)
-        # instead of 1.1.8-dev.0.
-        #
-        # If latest is 1.1.7, publish 1.1.8-dev.N where N is one past the
-        # highest already-published 1.1.8-dev.* (self-heals 403s / drift).
+        # already-released line. If latest is 1.1.7, publish 1.1.8-dev.N
+        # where N is one past the highest already-published 1.1.8-dev.*.
         run: |
           node <<'EOF'
           const { execSync } = require('child_process');
@@ -173,21 +170,20 @@ jobs:
         if: steps.gate.outputs.skip != 'true'
         run: npm run build
 
-      - name: Publish to npm (dist-tag next)
+      - name: Publish to npm (dist-tag dev)
         if: steps.gate.outputs.skip != 'true'
-        run: npm publish --tag next --access public
+        run: npm publish --tag dev --access public
 
       - name: Commit version and sync staff-ui
         if: steps.gate.outputs.skip != 'true'
         working-directory: ${{ github.workspace }}
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
-          # The version was just published; npm's registry can lag several
-          # seconds before it is installable — retry until it propagates so this
-          # sync (and the commit-back below) doesn't fail on a race.
           for i in $(seq 1 12); do
             npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui && break
             echo "waiting for npm to propagate @openg2p/registry-widgets@${WIDGET_VERSION} (attempt $i/12)…"
@@ -199,20 +195,18 @@ jobs:
           git add ui/ui-widgets/package.json ui/ui-widgets/package-lock.json \
             ui/staff-ui/package.json ui/staff-ui/package-lock.json
           if ! git diff --staged --quiet; then
-            git commit -m "chore(ui-widgets): version for npm next publish, sync staff-ui @${WIDGET_VERSION} [skip ci]"
+            if [ "$REF_NAME" = "develop" ]; then
+              git commit -m "chore(ui-widgets): version for npm dev publish, sync staff-ui @${WIDGET_VERSION} [skip ci]"
+            else
+              git commit -m "chore(ui-widgets): version for npm dev publish, sync staff-ui @${WIDGET_VERSION}"
+            fi
           fi
 
-          git push
+          git push origin "HEAD:${REF_NAME}"
 
   publish-release:
-    # Release line N.N, release tag N.N.N, or a manual version.
-    # Job-level `if` cannot use regex (`matches` is not a GitHub Actions
-    # function); exact N.N / N.N.N is enforced in the plan step.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.ref_type == 'tag' ||
-      (github.event_name == 'push' && github.ref_type == 'branch' &&
-       contains(github.ref_name, '.') && github.ref != 'refs/heads/develop')
+    # Frozen latest only — never on develop / RC / tag pushes.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: npm-publish-ui-widgets-release
@@ -224,187 +218,59 @@ jobs:
       id-token: write
       contents: write
     steps:
+      - name: Validate version
+        working-directory: ${{ github.workspace }}
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version '$VERSION'. Use semver without prefix (e.g. 1.1.8)."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Full history so the plan can diff widget source against the
-          # commit that last set package.json to the published stable.
-          fetch-depth: 0
-          # Bot PAT so a pin commit retriggers build-publish (GITHUB_TOKEN
-          # pushes do not start new workflows). Required on release lines.
           token: ${{ secrets.OPENG2P_BOT_GITHUB_PAT }}
 
-      - name: Decide whether to publish and/or pin staff-ui
-        id: plan
-        working-directory: ${{ github.workspace }}
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          REF_TYPE: ${{ github.ref_type }}
-          REF_NAME: ${{ github.ref_name }}
-          INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          NAME=@openg2p/registry-widgets
-          LOCAL=$(node -p "require('./ui/ui-widgets/package.json').version")
-          PIN=$(node -p "require('./ui/staff-ui/package.json').dependencies['@openg2p/registry-widgets']")
-          strip_dev() { printf '%s\n' "${1%-dev.*}"; }
-          is_dev() { [[ "$1" == *-dev.* ]]; }
-          on_npm() { npm view "$NAME@$1" version >/dev/null 2>&1; }
-
-          PUBLISH=false
-          PIN_NEEDED=false
-
-          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
-            is_release=false
-            if [ "$REF_TYPE" = "branch" ] && [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+$ ]]; then
-              is_release=true
-            elif [ "$REF_TYPE" = "tag" ] && [[ "$REF_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              is_release=true
-            fi
-            if [ "$is_release" != true ]; then
-              echo "Not a release line/tag ($REF_TYPE $REF_NAME); skipping."
-              echo "version=" >> "$GITHUB_OUTPUT"
-              echo "publish=false" >> "$GITHUB_OUTPUT"
-              echo "pin=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            VERSION="$INPUT_VERSION"
-            if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::Invalid version '$VERSION'. Use semver without prefix (e.g. 1.1.8)."
-              exit 1
-            fi
-            if on_npm "$VERSION"; then
-              echo "::error::Version $VERSION is already published on npm."
-              exit 1
-            fi
-            PUBLISH=true
-            PIN_NEEDED=true
-          else
-            VERSION=$(strip_dev "$LOCAL")
-            if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::error::Cannot derive a stable version from local '$LOCAL'."
-              exit 1
-            fi
-
-            if is_dev "$LOCAL" || is_dev "$PIN"; then
-              if ! on_npm "$VERSION"; then
-                PUBLISH=true
-              fi
-              if [ "$PIN" != "$VERSION" ]; then
-                PIN_NEEDED=true
-              fi
-            elif ! on_npm "$VERSION"; then
-              PUBLISH=true
-              if [ "$PIN" != "$VERSION" ]; then
-                PIN_NEEDED=true
-              fi
-            elif [ "$PIN" != "$VERSION" ]; then
-              PIN_NEEDED=true
-            fi
-          fi
-
-          # package.json left at an already-published stable (e.g. 1.1.7)
-          # while src moved on (BuilderNotifyType, onNotify, …). Diff against
-          # the commit that introduced that version and cut the next patch.
-          bump_patch() {
-            node -e "const [a,b,c]=process.argv[1].split('.').map(Number); console.log([a,b,c+1].join('.'))" "$1"
-          }
-          widget_src_changed_since_version() {
-            local ver="$1"
-            local commit
-            commit=$(git log -1 --format=%H -S "\"version\": \"${ver}\"" -- ui/ui-widgets/package.json || true)
-            [ -n "$commit" ] || return 1
-            ! git diff --quiet "$commit" HEAD -- ui/ui-widgets \
-              ':!ui/ui-widgets/package.json' ':!ui/ui-widgets/package-lock.json'
-          }
-          if [ "$EVENT_NAME" != "workflow_dispatch" ] && on_npm "$VERSION"; then
-            if widget_src_changed_since_version "$VERSION"; then
-              VERSION=$(bump_patch "$VERSION")
-              while on_npm "$VERSION"; do
-                VERSION=$(bump_patch "$VERSION")
-              done
-              PUBLISH=true
-              PIN_NEEDED=true
-            fi
-          fi
-
-          # A release tag only retags the already-built staff-ui image. If that
-          # image was built with a -dev pin, publishing npm here cannot fix it.
-          if [ "$REF_TYPE" = "tag" ]; then
-            LINE="${REF_NAME%.*}"
-            if is_dev "$PIN"; then
-              echo "::error::staff-ui still pins $PIN. A release tag promotes the already-built image; it does not rebuild."
-              echo "::error::Push branch '$LINE' first, wait for this workflow to publish the stable widget and pin staff-ui, then tag THAT commit."
-              exit 1
-            fi
-            if [ "$PUBLISH" = true ]; then
-              echo "::error::ui-widgets has unpublished source changes (would be $VERSION) but this tag still pins $PIN."
-              echo "::error::Push branch '$LINE' first so the widget is published and staff-ui is pinned, then tag THAT commit."
-              exit 1
-            fi
-            PIN_NEEDED=false
-          fi
-
-          echo "local=$LOCAL pin=$PIN → version=$VERSION publish=$PUBLISH pin_staff=$PIN_NEEDED"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
-          echo "pin=$PIN_NEEDED" >> "$GITHUB_OUTPUT"
-
       - name: Setup Node.js
-        if: steps.plan.outputs.publish == 'true' || steps.plan.outputs.pin == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Ensure npm supports trusted publishing
-        if: steps.plan.outputs.publish == 'true'
         run: npm install -g npm@11.5.1
 
       - name: Install dependencies
-        if: steps.plan.outputs.publish == 'true'
         run: npm ci
 
       - name: Type check
-        if: steps.plan.outputs.publish == 'true'
         run: npm run type-check
 
       - name: Set release version
-        if: steps.plan.outputs.publish == 'true'
-        run: npm version "${{ steps.plan.outputs.version }}" --no-git-tag-version --allow-same-version
+        run: npm version "${{ inputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Verify version is not already published
-        if: steps.plan.outputs.publish == 'true'
         run: |
-          if npm view "@openg2p/registry-widgets@${{ steps.plan.outputs.version }}" version 2>/dev/null; then
-            echo "Version ${{ steps.plan.outputs.version }} is already published on npm."
+          if npm view "@openg2p/registry-widgets@${{ inputs.version }}" version 2>/dev/null; then
+            echo "Version ${{ inputs.version }} is already published on npm."
             exit 1
           fi
 
       - name: Build
-        if: steps.plan.outputs.publish == 'true'
         run: npm run build
 
       - name: Publish to npm (latest)
-        if: steps.plan.outputs.publish == 'true'
         run: npm publish --access public
 
-      - name: Pin staff-ui and push
-        if: steps.plan.outputs.pin == 'true'
+      - name: Commit version and sync staff-ui
         working-directory: ${{ github.workspace }}
-        env:
-          WIDGET_VERSION: ${{ steps.plan.outputs.version }}
-          BRANCH: ${{ github.ref_name }}
         run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          WIDGET_VERSION=$(node -p "require('./ui/ui-widgets/package.json').version")
 
-          # The version was just published (or already was); npm's registry can
-          # lag several seconds before it is installable.
           for i in $(seq 1 12); do
             npm install "@openg2p/registry-widgets@${WIDGET_VERSION}" --prefix ui/staff-ui && break
             echo "waiting for npm to propagate @openg2p/registry-widgets@${WIDGET_VERSION} (attempt $i/12)…"
@@ -419,4 +285,4 @@ jobs:
             git commit -m "chore(ui-widgets): release v${WIDGET_VERSION}, sync staff-ui"
           fi
 
-          git push origin "HEAD:${BRANCH}"
+          git push
