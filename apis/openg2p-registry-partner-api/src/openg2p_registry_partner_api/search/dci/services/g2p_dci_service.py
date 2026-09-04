@@ -5,9 +5,8 @@ from typing import Optional, List, Dict, Any, Tuple
 
 from openg2p_registry_core.schemas import DeepSearchResultData
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import select, func
 
 from openg2p_registry_core.services import G2PRegisterService
@@ -124,7 +123,7 @@ class G2PDciService(BaseService):
     async def _expression_search(
         self, model_class, filter_conditions: list, current_page: int, page_size: int, sort_by: Optional[str]
     ) -> Tuple[List[DeepSearchResultData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Total count
             count_query = select(func.count()).select_from(
@@ -242,7 +241,7 @@ class G2PDciService(BaseService):
         return query_result, current_page, page_size, sort_by
 
     async def _get_register_id(self, register_mnemonic: str) -> str:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_id: str = (
                 await session.execute(
@@ -253,7 +252,7 @@ class G2PDciService(BaseService):
             return register_id
 
     async def _get_data_model_id(self) -> str:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             data_model_id: str = (
                 await session.execute(
@@ -265,7 +264,7 @@ class G2PDciService(BaseService):
 
     async def _get_template_store_id(self, register_id: str, data_model_id: str) -> tuple[str, object]:
         """Resolve outgoing template document_id → (document_store_id, bucket)."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(
                 select(

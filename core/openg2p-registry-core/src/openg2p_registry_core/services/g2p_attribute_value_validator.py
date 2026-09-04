@@ -1,7 +1,10 @@
 import logging
 from typing import Any, Iterable, Optional
 
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException

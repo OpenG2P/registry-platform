@@ -9,14 +9,26 @@ import pytest
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+# Stub orm_cache module BEFORE any imports
+try:
+    from openg2p_registry_core.helpers.orm_cache import pair_id_key_builder  # noqa: F401
+except ModuleNotFoundError:
+    orm_cache_mod = ModuleType("openg2p_registry_core.helpers.orm_cache")
 
-def _stub_iam_data_policy_helper():
-    try:
-        from iam_core.helpers.data_policy_helper import DataPolicyHelper  # noqa: F401
-        return
-    except ModuleNotFoundError:
-        pass
+    def pair_id_key_builder(*_args, **_kwargs):
+        return "key"
 
+    def single_id_key_builder(*_args, **_kwargs):
+        return "key"
+
+    orm_cache_mod.pair_id_key_builder = pair_id_key_builder
+    orm_cache_mod.single_id_key_builder = single_id_key_builder
+    sys.modules["openg2p_registry_core.helpers.orm_cache"] = orm_cache_mod
+
+# Stub iam_core.helpers.data_policy_helper BEFORE any imports
+try:
+    from iam_core.helpers.data_policy_helper import DataPolicyHelper  # noqa: F401
+except ModuleNotFoundError:
     import iam_core
 
     helpers = sys.modules.get("iam_core.helpers") or ModuleType("iam_core.helpers")
@@ -34,29 +46,68 @@ def _stub_iam_data_policy_helper():
     sys.modules["iam_core.helpers.data_policy_helper"] = helper_mod
     helpers.data_policy_helper = helper_mod
 
+# Stub BaseService with get_component classmethod BEFORE any imports
+fastapi_service = sys.modules.get("openg2p_fastapi_common.service") or ModuleType("openg2p_fastapi_common.service")
+if "openg2p_fastapi_common.service" not in sys.modules:
+    sys.modules["openg2p_fastapi_common.service"] = fastapi_service
 
-_stub_iam_data_policy_helper()
+class BaseService:
+    @classmethod
+    def get_component(cls):
+        return cls()
+
+fastapi_service.BaseService = BaseService
 
 from openg2p_registry_core.helpers.document.minio_client import MinioClient
-from openg2p_registry_core.helpers.register_export import (
-    build_main_export_conditions,
-    build_related_export_conditions,
-    has_explicit_record_status_filter,
-    resolve_register_export_hierarchy,
-)
+from openg2p_registry_core.helpers import register_export as register_export_module
 from openg2p_registry_core.models import (
     DocumentBucket,
     ExportFormatEnum,
     ExportSelectionModeEnum,
     ProcessStatusEnum,
 )
+# Import G2PRegisterDefinition from its source module directly to avoid the
+# openg2p_registry_core.models.__init__ attribute being overwritten by other
+# test modules that call `models.G2PRegisterDefinition = object` at collection time.
+from openg2p_registry_core.models.g2p_register_metadata import G2PRegisterDefinition
 from openg2p_registry_core.schemas import (
     ExportRegisterRecordsRequestPayload,
+)
+from openg2p_registry_core.services import g2p_register_export_service as export_service_module
+from openg2p_registry_core.errors import G2PRegistryException
+
+# Ensure both the helper and service use the real G2PRegisterDefinition model.
+# This must reference the class imported from the source module above so that
+# the correct SQLAlchemy-mapped class is used regardless of what other test
+# files may have done to openg2p_registry_core.models.G2PRegisterDefinition.
+register_export_module.G2PRegisterDefinition = G2PRegisterDefinition
+export_service_module.G2PRegisterDefinition = G2PRegisterDefinition
+
+# Re-import after fixing the model reference
+from openg2p_registry_core.helpers.register_export import (
+    build_main_export_conditions,
+    build_related_export_conditions,
+    has_explicit_record_status_filter,
+    resolve_register_export_hierarchy,
 )
 from openg2p_registry_core.services.g2p_register_export_service import (
     G2PRegisterExportService,
 )
-from openg2p_registry_core.errors import G2PRegistryException
+
+
+@pytest.fixture(autouse=True)
+def _restore_g2p_register_definition():
+    """Re-apply the real G2PRegisterDefinition to both helper modules before every
+    test.  Other test files (e.g. test_g2p_intake_form_link_service) call
+    `_load_*_module()` at module-level during pytest collection, which sets
+    ``openg2p_registry_core.models.G2PRegisterDefinition = object`` on the real
+    module.  If register_export or g2p_register_export_service were imported *after*
+    that contamination their own ``G2PRegisterDefinition`` binding could also be
+    ``object``.  Stamping the real class here guarantees a clean state for each test
+    in this file."""
+    register_export_module.G2PRegisterDefinition = G2PRegisterDefinition
+    export_service_module.G2PRegisterDefinition = G2PRegisterDefinition
+    yield
 
 
 def test_selected_records_export_payload_is_valid():

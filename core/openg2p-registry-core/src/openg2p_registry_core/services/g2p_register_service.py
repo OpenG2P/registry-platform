@@ -6,14 +6,12 @@ from fastapi_cache.decorator import cache
 
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.schemas import G2PPaginationRequest
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import dbengine, get_async_session_maker
 
 from openg2p_registry_core.schemas import ChangeRequestRequestPayload
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func, insert, select, inspect, Date as SQLDate, and_, or_, update
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
 from .g2p_completion_score_service import G2PCompletionScoreService
 
@@ -67,7 +65,8 @@ _config = Settings.get_config(strict=False)
 class G2PRegisterService(BaseService):
 
     async def get_register_summary_data(self, data_policies: list[dict] | None = None) -> list[RegisterSummaryData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        """Dashboard summary; short TTL shared across users with the same data policies."""
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_summary_data_list: list[RegisterSummaryData] = await self._fetch_register_summary_data(
                 session, data_policies=data_policies
@@ -77,27 +76,27 @@ class G2PRegisterService(BaseService):
 
     async def get_all_registers(self, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None) -> tuple[list[AllRegistersRegisterData], int]:
         """Get all registers with pagination, master_register_mnemonic, and has_data fields"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             all_registers_list, total_items = await self._fetch_all_registers(session, current_page, page_size, sort_by, filter_by)
             return all_registers_list, total_items
 
     async def get_dashboard_registers(self) -> list[RegisterData]:
         """Get all registers for dashboard display (clone of get_all_registers)"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             dashboard_registers_list: list[RegisterData] = await self._fetch_dashboard_registers(session)
             return dashboard_registers_list
 
     async def get_child_registers(self, register_id: str) -> list[ChildRegisterData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
             child_registers_list: list[ChildRegisterData] = await self._fetch_child_registers(register_id, session)
             return child_registers_list
 
     async def get_master_register(self, register_id: str) -> RegisterData | None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
             master_register_data: RegisterData | None = await self._fetch_master_register(register_definition, session)
@@ -131,7 +130,7 @@ class G2PRegisterService(BaseService):
         ``used_for_new_intake_form`` is accepted for API compatibility but ignored;
         that column no longer exists on g2p_register_ui_tabs.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
             register_tabs_list, total_count = await self._fetch_register_tabs_paginated(
@@ -162,7 +161,7 @@ class G2PRegisterService(BaseService):
             intake_form_description,
             intake_form_auto_approve,
         )
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
             register_tab_data: RegisterUITabData = await self._create_register_tab(
@@ -194,7 +193,7 @@ class G2PRegisterService(BaseService):
         return self._build_register_ui_tab_data(new_tab)
 
     async def delete_register_tab(self, tab_id: str) -> RegisterUITabData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_tab_data: RegisterUITabData = await self._delete_register_tab(tab_id, session)
             return register_tab_data
@@ -247,7 +246,7 @@ class G2PRegisterService(BaseService):
             intake_form_description,
             intake_form_auto_approve,
         )
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             tab: G2PRegisterUITab | None = await session.get(G2PRegisterUITab, tab_id)
             if not tab:
@@ -290,7 +289,7 @@ class G2PRegisterService(BaseService):
         # auto_approval / cr_auto_approve_for_intake_form / is_primary_section are no longer
         # stored on g2p_register_sections; kept on the signature for API compatibility.
         _ = (auto_approval, cr_auto_approve_for_intake_form, is_primary_section)
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
             await self._validate_register_tab(register_id, tab_id, session)
@@ -363,7 +362,7 @@ class G2PRegisterService(BaseService):
         return section_data
 
     async def delete_register_section(self, section_id: str) -> RegisterSectionData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section_data: RegisterSectionData = await self._delete_register_section(section_id, session)
             return section_data
@@ -411,7 +410,7 @@ class G2PRegisterService(BaseService):
         # auto_approval / cr_auto_approve_for_intake_form / is_primary_section ignored —
         # columns removed from g2p_register_sections.
         _ = (auto_approval, cr_auto_approve_for_intake_form, is_primary_section)
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section_data: RegisterSectionData = await self._update_register_section(
                 section_id, section_mnemonic, section_description,
@@ -474,7 +473,7 @@ class G2PRegisterService(BaseService):
         section_id: str,
         section_ui_schema: dict = None
     ) -> RegisterSectionData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section_data: RegisterSectionData = await self._update_register_section_ui_schema(
                 register_id, section_id, section_ui_schema, session
@@ -501,7 +500,7 @@ class G2PRegisterService(BaseService):
         return section_data
 
     async def search_in_a_register(self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
             search_results_list, total_items = await self._search_in_register(register_id, search_text, current_page, page_size, sort_by, filter_by, session, data_policies)
@@ -510,7 +509,7 @@ class G2PRegisterService(BaseService):
     async def deep_search_in_a_register(
         self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None
     ) -> tuple[list[DeepSearchResultData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
             deep_search_results_list, total_items = await self._deep_search_in_register(register_id, search_text, current_page, page_size, sort_by, filter_by, session)
@@ -1192,8 +1191,8 @@ class G2PRegisterService(BaseService):
 
 
     async def get_number_of_versions(self, register_id: str, internal_record_id: str, tab_id: str) -> NumberOfVersionsData:
-        """Count unique staff change requests and intake submissions for a tab."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        """Get the number of versions (unique change requests) for a given register, internal_record_id and tab_id across all sections"""
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             register_definition: G2PRegisterDefinition = (
@@ -1321,7 +1320,7 @@ class G2PRegisterService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> RecordHistoryListData:
         """Get the history records for a given register, internal_record_id and tab_id"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             register_definition: G2PRegisterDefinition = (
@@ -1423,7 +1422,7 @@ class G2PRegisterService(BaseService):
 
     async def get_version_dates(self, register_id: str, internal_record_id: str, tab_id: str) -> VersionDatesData:
         """Get unique truncated dates from history records for a given register, internal_record_id and tab_id"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             register_definition: G2PRegisterDefinition = (
@@ -1511,7 +1510,7 @@ class G2PRegisterService(BaseService):
 
     async def get_versions_for_a_date(self, register_id: str, internal_record_id: str, tab_id: str, truncated_created_date: str) -> list[VersionsForDateData]:
         """Get changes from history records for a given register, internal_record_id, tab_id and specific date, grouped by section"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             register_definition: G2PRegisterDefinition = (
@@ -1639,7 +1638,7 @@ class G2PRegisterService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> RecordData:
         """Get a single register record by internal_record_id"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
 
             # Validate register exists
@@ -1731,7 +1730,7 @@ class G2PRegisterService(BaseService):
         """
         Get deduplication results for a change request against register records with pagination.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Get total count
             count_result = await session.execute(select(func.count()).select_from(DeduplicationRegisterResult).where(
@@ -1768,7 +1767,7 @@ class G2PRegisterService(BaseService):
         """
         Get deduplication results for a change request against other change requests with pagination.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Get total count
             count_result = await session.execute(select(func.count()).select_from(DeduplicationChangerequestResult).where(
@@ -1806,7 +1805,7 @@ class G2PRegisterService(BaseService):
         Get register schema configuration for a given register_id.
         Returns deduplication, search result, and filter schema configurations.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             await self.validate_register_definition(register_id, session)
@@ -1831,7 +1830,7 @@ class G2PRegisterService(BaseService):
         Optional `current_page`, `page_size`: page slice when pagination is set
         When `pagination` is omitted, all fields are returned and number_of_pages is 1 if any items exist.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_definition: G2PRegisterDefinition = await self.validate_register_definition(
                 register_id, session
@@ -1860,7 +1859,7 @@ class G2PRegisterService(BaseService):
         Get register sections for a given register_id.
         Returns a list of section UI schema configurations from g2p_register_sections table.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             await self.validate_register_definition(register_id, session)
@@ -1881,7 +1880,7 @@ class G2PRegisterService(BaseService):
         Returns a tuple of (sections list, total_count) from g2p_register_sections table
         filtered by both register_id and tab_id.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             await self.validate_register_definition(register_id, session)
@@ -1897,7 +1896,7 @@ class G2PRegisterService(BaseService):
         Get a single register section by register_id and section_id.
         Returns the section UI schema configuration from g2p_register_sections table.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             await self.validate_register_definition(register_id, session)
@@ -1911,7 +1910,7 @@ class G2PRegisterService(BaseService):
         Get the UI schema for a register section by section_id.
         Returns only the section_id and section_ui_schema fields.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section = await session.get(G2PRegisterSection, section_id)
             if not section:
@@ -2338,7 +2337,7 @@ class G2PRegisterService(BaseService):
         """
         Create a new register definition and a null register schema record.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Check if register_mnemonic already exists
             existing_register = await session.execute(
@@ -2432,7 +2431,7 @@ class G2PRegisterService(BaseService):
         If the register has data (in register table or change_request table),
         only register_mnemonic and register_description can be edited.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
@@ -2561,7 +2560,7 @@ class G2PRegisterService(BaseService):
         """
         Delete a register definition if it has no data in register table or change_request table.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
@@ -2613,7 +2612,7 @@ class G2PRegisterService(BaseService):
         Update an existing register schema configuration for a given register_id.
         Raises an error if schema does not exist for the register.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             await self.validate_register_definition(register_id, session)
@@ -2655,7 +2654,7 @@ class G2PRegisterService(BaseService):
         Update the dedup_is_enabled flag for a register.
         This is stored in the register definition, not the schema.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate and get register definition
             result = await session.execute(
@@ -2683,7 +2682,7 @@ class G2PRegisterService(BaseService):
         Update the dedup_threshold_score for a register.
         This is stored in the register definition, not the schema.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate and get register definition
             result = await session.execute(
@@ -2710,7 +2709,7 @@ class G2PRegisterService(BaseService):
         """
         Update the deduplicate_schema for a register.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             await self.validate_register_definition(register_id, session)
@@ -2744,7 +2743,7 @@ class G2PRegisterService(BaseService):
         """
         Update the search_result_schema for a register.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate register exists
             await self.validate_register_definition(register_id, session)
@@ -2778,7 +2777,7 @@ class G2PRegisterService(BaseService):
         (is_primary_section column was removed from g2p_register_sections). Prefer core
         sections when multiple match.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(
                 select(G2PRegisterSection).where(
@@ -2802,7 +2801,7 @@ class G2PRegisterService(BaseService):
         registry_language_id: str = None
     ) -> RegistryConfigurationData:
         """Create a new registry configuration"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             if registry_theme_id:
                 theme_result = await session.execute(
@@ -2859,7 +2858,7 @@ class G2PRegisterService(BaseService):
 
     async def get_registry_configuration(self) -> RegistryConfigurationData:
         """Get the registry configuration"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             stmt = select(G2PRegistryConfiguration)
             result = await session.execute(stmt)
@@ -2890,7 +2889,7 @@ class G2PRegisterService(BaseService):
         registry_language_id: str = None
     ) -> RegistryConfigurationData:
         """Update the registry configuration"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             if registry_theme_id:
                 theme_result = await session.execute(
@@ -2961,7 +2960,7 @@ class G2PRegisterService(BaseService):
         )
 
     async def get_all_themes(self) -> list[RegistryThemeData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(select(G2PRegistryTheme))
             themes = result.scalars().all()
@@ -2980,7 +2979,7 @@ class G2PRegisterService(BaseService):
         theme_mnemonic: str,
         theme_values: list[ThemeAttributeValueInput]
     ) -> ThemeOperationData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             existing = await session.execute(
                 select(G2PRegistryTheme).where(G2PRegistryTheme.theme_mnemonic == theme_mnemonic)
@@ -3015,7 +3014,7 @@ class G2PRegisterService(BaseService):
             return theme_operation_data
 
     async def remove_theme(self, theme_id: str) -> ThemeOperationData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(
                 select(G2PRegistryTheme).where(G2PRegistryTheme.theme_id == theme_id)
@@ -3048,7 +3047,7 @@ class G2PRegisterService(BaseService):
         theme_id: str,
         theme_attribute_values: list[ThemeAttributeValueInput]
     ) -> ThemeOperationData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(
                 select(G2PRegistryTheme).where(G2PRegistryTheme.theme_id == theme_id)
@@ -3098,7 +3097,7 @@ class G2PRegisterService(BaseService):
         return attribute_value
 
     async def get_theme_values(self, theme_id: str) -> list[RegistryThemeValueData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             theme_result = await session.execute(
                 select(G2PRegistryTheme).where(G2PRegistryTheme.theme_id == theme_id)
@@ -3125,7 +3124,7 @@ class G2PRegisterService(BaseService):
             return registry_theme_value_data_list
 
     async def get_all_languages(self) -> list[RegistryLanguageData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(select(G2PRegistryLanguage))
             languages = result.scalars().all()
@@ -3144,7 +3143,7 @@ class G2PRegisterService(BaseService):
             return registry_list_language_data
 
     async def get_language(self, language_id: str) -> RegistryLanguageData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             result = await session.execute(
@@ -3179,7 +3178,7 @@ class G2PRegisterService(BaseService):
         core_translation: dict = None,
         domain_translation: dict = None,
     ) -> RegistryLanguageData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             existing_registry_language = await session.execute(
                 select(G2PRegistryLanguage).where(G2PRegistryLanguage.language_code == language_code)
@@ -3237,7 +3236,7 @@ class G2PRegisterService(BaseService):
         core_translation: dict = None,
         domain_translation: dict = None,
     ) -> RegistryLanguageData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(
                 select(G2PRegistryLanguage).where(G2PRegistryLanguage.language_id == language_id)
@@ -3301,7 +3300,7 @@ class G2PRegisterService(BaseService):
             )
 
     async def remove_language(self, language_id: str) -> RegistryLanguageData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(
                 select(G2PRegistryLanguage).where(G2PRegistryLanguage.language_id == language_id)
@@ -3328,7 +3327,7 @@ class G2PRegisterService(BaseService):
 
     async def get_total_pending_change_requests(self) -> int:
         """Get the total number of pending change requests across all registers"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             stmt = select(func.count()).select_from(G2PRegisterChangeRequest).where(
                 G2PRegisterChangeRequest.approval_status == ApprovalStatusEnum.PENDING.value
@@ -3339,7 +3338,7 @@ class G2PRegisterService(BaseService):
 
     async def get_earliest_pending_change_request(self) -> EarliestPendingChangeRequestData:
         """Get the earliest pending change request based on created_at"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             stmt = select(G2PRegisterChangeRequest).where(
                 G2PRegisterChangeRequest.approval_status == ApprovalStatusEnum.PENDING.value

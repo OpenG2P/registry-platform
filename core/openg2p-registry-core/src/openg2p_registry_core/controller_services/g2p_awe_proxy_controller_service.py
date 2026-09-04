@@ -1,11 +1,9 @@
 import logging
 from typing import Any
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..helpers import AWEClientError, AweHelper
 from ..helpers.awe_status_summary import parse_awe_request_status_summary
@@ -218,7 +216,7 @@ class G2PAweProxyControllerService(BaseService):
         artifact_id: str,
     ) -> tuple[str | None, str | None, str | None]:
         """Return ``(approval_status, awe_request_status_summary, awe_request_id)``."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             if artifact_type == REGISTRY_CHANGE_REQUEST_ARTIFACT:
                 row = (

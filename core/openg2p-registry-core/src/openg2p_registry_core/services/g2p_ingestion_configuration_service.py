@@ -4,10 +4,10 @@ from typing import Optional
 import httpx
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
 from openg2p_registry_core.models.g2p_intake_form_metadata import G2PIntakeFormDefinition
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from ..models import (
@@ -50,7 +50,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, pattern_payload: IncomingModelKeyPathPayload
     ) -> IncomingModelKeyPathData:
         """Create a new incoming key path"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._check_incoming_key_path_id_exists(
                 session, pattern_payload.key_path_id
@@ -80,7 +80,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, current_page: int, page_size: int
     ) -> tuple[list[IncomingModelKeyPathListData], int, int]:
         """Get paginated incoming key paths with data_model_mnemonic."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             offset = (current_page - 1) * page_size
             total_items_result = await session.execute(
@@ -117,7 +117,7 @@ class G2PIngestionConfigurationService(BaseService):
 
     async def get_incoming_key_path(self, key_path_id: str) -> IncomingModelKeyPathData:
         """Get incoming key path by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_incoming_key_path(session, key_path_id)
             return IncomingModelKeyPathData.model_validate(pattern_obj)
@@ -126,7 +126,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, key_path_id: str, pattern_payload: IncomingModelKeyPathUpdatePayload
     ) -> IncomingModelKeyPathData:
         """Update incoming key path - only updates provided fields"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_incoming_key_path(session, key_path_id)
 
@@ -153,7 +153,7 @@ class G2PIngestionConfigurationService(BaseService):
 
     async def delete_incoming_key_path(self, key_path_id: str) -> IncomingModelKeyPathData:
         """Delete incoming key path and return deleted data."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_incoming_key_path(session, key_path_id)
             deleted_pattern_data = IncomingModelKeyPathData.model_validate(pattern_obj)
@@ -278,7 +278,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, pattern_payload: IncomingModelSemanticPatternPayload
     ) -> IncomingModelSemanticPatternData:
         """Create a new semantic pattern"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_data_model_id_exists(session, pattern_payload.data_model_id)
             await self._validate_register_id_exists(session, pattern_payload.register_id)
@@ -308,7 +308,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, semantic_pattern_id: str
     ) -> IncomingModelSemanticPatternData:
         """Get semantic pattern by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_semantic_pattern(session, semantic_pattern_id)
             return await self._build_semantic_pattern_data_with_mnemonics(session, pattern_obj)
@@ -317,7 +317,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, current_page: int, page_size: int
     ) -> tuple[list[IncomingModelSemanticPatternData], int, int]:
         """Get paginated semantic patterns."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             offset = (current_page - 1) * page_size
             total_items_result = await session.execute(
@@ -344,7 +344,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, semantic_pattern_id: str, pattern_payload: IncomingModelSemanticPatternUpdatePayload
     ) -> IncomingModelSemanticPatternData:
         """Update semantic pattern - only updates provided fields"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_semantic_pattern(session, semantic_pattern_id)
 
@@ -371,7 +371,7 @@ class G2PIngestionConfigurationService(BaseService):
 
     async def delete_semantic_pattern(self, semantic_pattern_id: str) -> IncomingModelSemanticPatternData:
         """Delete semantic pattern by ID and return deleted data."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_semantic_pattern(session, semantic_pattern_id)
             deleted_pattern_data = await self._build_semantic_pattern_data_with_mnemonics(
@@ -438,7 +438,7 @@ class G2PIngestionConfigurationService(BaseService):
     async def create_register_semantic_pattern(
         self, pattern_payload: IncomingModelRegisterSemanticPatternPayload
     ) -> IncomingModelRegisterSemanticPatternData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_data_model_id_exists(session, pattern_payload.data_model_id)
             await self._validate_register_id_exists(session, pattern_payload.register_id)
@@ -456,7 +456,7 @@ class G2PIngestionConfigurationService(BaseService):
     async def get_register_semantic_pattern(
         self, register_semantic_pattern_id: str
     ) -> IncomingModelRegisterSemanticPatternData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_register_semantic_pattern(session, register_semantic_pattern_id)
             return await self._build_register_semantic_pattern_data(session, pattern_obj)
@@ -464,7 +464,7 @@ class G2PIngestionConfigurationService(BaseService):
     async def get_all_register_semantic_patterns(
         self, current_page: int, page_size: int
     ) -> tuple[list[IncomingModelRegisterSemanticPatternData], int, int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             offset = (current_page - 1) * page_size
             total_items_result = await session.execute(
@@ -487,7 +487,7 @@ class G2PIngestionConfigurationService(BaseService):
     async def update_register_semantic_pattern(
         self, pattern_payload: IncomingModelRegisterSemanticPatternUpdatePayload
     ) -> IncomingModelRegisterSemanticPatternData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_register_semantic_pattern(
                 session, pattern_payload.register_semantic_pattern_id
@@ -503,7 +503,7 @@ class G2PIngestionConfigurationService(BaseService):
     async def delete_register_semantic_pattern(
         self, register_semantic_pattern_id: str
     ) -> IncomingModelRegisterSemanticPatternData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             pattern_obj = await self._get_register_semantic_pattern(session, register_semantic_pattern_id)
             deleted = await self._build_register_semantic_pattern_data(session, pattern_obj)
@@ -548,7 +548,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, template_payload: IncomingTemplatePayload
     ) -> IncomingTemplateData:
         """Create a new template (stores pre-uploaded template_document_id)."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_id_exists(session, template_payload.register_id)
             await self._validate_data_model_id_exists(session, template_payload.data_model_id)
@@ -570,7 +570,7 @@ class G2PIngestionConfigurationService(BaseService):
 
     async def get_template(self, template_id: str) -> IncomingTemplateData:
         """Get template by ID"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             template_obj: IncomingTemplate = await self._get_incoming_template(session, template_id)
             return await self._build_template_data_with_mnemonics(session, template_obj)
@@ -579,7 +579,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, current_page: int, page_size: int
     ) -> tuple[list[IncomingTemplateData], int, int]:
         """Get paginated templates."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             offset = (current_page - 1) * page_size
             total_items_result = await session.execute(
@@ -607,7 +607,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, template_update_payload: IncomingTemplateUpdatePayload
     ) -> IncomingTemplateData:
         """Update template - only updates provided fields"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             template_obj: IncomingTemplate = await self._get_incoming_template(
                 session, template_update_payload.template_id
@@ -635,7 +635,7 @@ class G2PIngestionConfigurationService(BaseService):
 
     async def delete_template(self, template_id: str) -> IncomingTemplateData:
         """Delete template by ID and return deleted data."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             template_obj: IncomingTemplate = await self._get_incoming_template(session, template_id)
             deleted_template_data = await self._build_template_data_with_mnemonics(
@@ -729,7 +729,7 @@ class G2PIngestionConfigurationService(BaseService):
             )
 
         # Only store the activity log if the call was successful
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             activity_log = SubscriptionActivityLog(
                 is_unsubscribe=subscription_activity_log_payload.is_unsubscribe,
@@ -750,7 +750,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, partner_id: str
     ) -> list[SubscriptionActivityLogData]:
         """Get all subscription activity logs for a partner"""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(
                 select(SubscriptionActivityLog).where(
@@ -764,7 +764,7 @@ class G2PIngestionConfigurationService(BaseService):
         self, current_page: int, page_size: int
     ) -> tuple[list[SubscriptionActivityLogData], int, int]:
         """Get paginated subscription activity logs."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             offset = (current_page - 1) * page_size
             total_items_result = await session.execute(

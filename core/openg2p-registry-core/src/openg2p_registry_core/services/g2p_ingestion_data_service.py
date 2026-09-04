@@ -1,10 +1,9 @@
 import logging
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
 from sqlalchemy import select, func, and_
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..models import (
     DataModel,
     G2PIntakeFormDefinition,
@@ -27,7 +26,7 @@ _logger = logging.getLogger("g2p-ingestion-data-service")
 class G2PIngestionDataService(BaseService):
     async def get_ingestion_summary_data(self) -> IngestionSummaryData:
         _logger.info("Fetching ingestion summary data through service")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             no_of_messages: int = (
@@ -59,7 +58,7 @@ class G2PIngestionDataService(BaseService):
             self, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None
         ) -> tuple[list[IngestionDataSearchResultData], int]:
         _logger.info("Searching in ingestion data through service")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             search_results, total_items = await self._search_in_ingestion_data(
@@ -69,7 +68,7 @@ class G2PIngestionDataService(BaseService):
     
     async def get_raw_data_payload(self, ingest_id: str) -> IngestionDataPayload:
         _logger.info("Fetching raw payload through service")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             incoming_raw_data_payload = (
@@ -83,7 +82,7 @@ class G2PIngestionDataService(BaseService):
     
     async def get_enriched_and_transformed_data_payload(self, ingest_id: str) -> IngestionDataPayload:
         _logger.info("Fetching enriched and transformed data payload through service")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             incoming_enriched_and_transformed_data_payload: IncomingEnrichedTransformedData | None = (
