@@ -559,6 +559,13 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     if (!rowData) {
       return false;
     }
+    const hasValue = columns.some((col) => {
+      const value = rowData[col['column-key']];
+      return value !== null && value !== undefined && value !== '';
+    });
+    if (!hasValue) {
+      return false;
+    }
     return isTableRowDataValid(rowData, columns, isReadonly, resolveSchemaLabel);
   }, [resolveNewRowData, columns, isReadonly, resolveSchemaLabel]);
 
