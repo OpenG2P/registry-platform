@@ -194,8 +194,8 @@ const RegisterConfigurationPage = () => {
                 onView={() => setIsViewModalOpen(true)}
             />
 
-            <div className=" ml-4 mt-4 px-7.5">
-                <div className="flex justify-between items-center min-h-14">
+            <div className="ml-4 mt-4 px-7.5">
+                <div className="flex justify-between items-end">
                     <div className="relative z-10 shrink-0">
                         <ConfigurationTabs
                             activeTab={activeTab}
@@ -204,7 +204,7 @@ const RegisterConfigurationPage = () => {
                         />
                     </div>
 
-                    <div className="flex items-center shrink-0">
+                    <div className="flex items-center shrink-0 min-h-14">
                         <TopBar
                             embedded
                             breadcrumb={[]}
@@ -254,75 +254,72 @@ const RegisterConfigurationPage = () => {
                 </div>
             </div>
 
+            {activeTab === 'tabs' && (
+                <RegisterTabConfigView
+                    isModalOpen={isTabModalOpen}
+                    onCloseModal={() => setIsTabModalOpen(false)}
+                    page={tabPage}
+                    pageSize={pageSize}
+                    onDataLoaded={(totalItems, currentCount) =>
+                        setPaginationIfChanged(setTabPagination, totalItems, currentCount)
+                    }
+                />
+            )}
 
-            <div className="relative z-[1] mt-0">
-                {activeTab === 'tabs' && (
-                    <RegisterTabConfigView
-                        isModalOpen={isTabModalOpen}
-                        onCloseModal={() => setIsTabModalOpen(false)}
-                        page={tabPage}
-                        pageSize={pageSize}
-                        onDataLoaded={(totalItems, currentCount) =>
-                            setPaginationIfChanged(setTabPagination, totalItems, currentCount)
-                        }
-                    />
-                )}
+            {activeTab === 'sections' && (
+                <RegisterSectionConfigView
+                    isModalOpen={isSectionModalOpen}
+                    onCloseModal={() => setIsSectionModalOpen(false)}
+                    page={sectionPage}
+                    pageSize={pageSize}
+                    onDataLoaded={(totalItems, currentCount) =>
+                        setPaginationIfChanged(setSectionPagination, totalItems, currentCount)
+                    }
+                />
+            )}
 
-                {activeTab === 'sections' && (
-                    <RegisterSectionConfigView
-                        isModalOpen={isSectionModalOpen}
-                        onCloseModal={() => setIsSectionModalOpen(false)}
-                        page={sectionPage}
-                        pageSize={pageSize}
-                        onDataLoaded={(totalItems, currentCount) =>
-                            setPaginationIfChanged(setSectionPagination, totalItems, currentCount)
-                        }
-                    />
-                )}
+            {activeTab === 'scores' && (
+                <RegisterScoreConfigView
+                    isModalOpen={isScoreModalOpen}
+                    onCloseModal={() => setIsScoreModalOpen(false)}
+                    currentPage={scorePage}
+                    pageSize={pageSize}
+                    onDataLoaded={(totalItems, currentCount) =>
+                        setPaginationIfChanged(setScorePagination, totalItems, currentCount)
+                    }
+                />
+            )}
 
-                {activeTab === 'scores' && (
-                    <RegisterScoreConfigView
-                        isModalOpen={isScoreModalOpen}
-                        onCloseModal={() => setIsScoreModalOpen(false)}
-                        currentPage={scorePage}
-                        pageSize={pageSize}
-                        onDataLoaded={(totalItems, currentCount) =>
-                            setPaginationIfChanged(setScorePagination, totalItems, currentCount)
-                        }
-                    />
-                )}
+            {activeTab === 'file-import' && (
+                <RegisterImportFileConfigView
+                    isModalOpen={isFileImportModalOpen}
+                    onCloseModal={() => setIsFileImportModalOpen(false)}
+                    currentPage={fileImportPage}
+                    pageSize={pageSize}
+                    onDataLoaded={(totalItems, currentCount) =>
+                        setPaginationIfChanged(setFileImportPagination, totalItems, currentCount)
+                    }
+                />
+            )}
 
-                {activeTab === 'file-import' && (
-                    <RegisterImportFileConfigView
-                        isModalOpen={isFileImportModalOpen}
-                        onCloseModal={() => setIsFileImportModalOpen(false)}
-                        currentPage={fileImportPage}
-                        pageSize={pageSize}
-                        onDataLoaded={(totalItems, currentCount) =>
-                            setPaginationIfChanged(setFileImportPagination, totalItems, currentCount)
-                        }
-                    />
-                )}
+            {activeTab === 'vc-import' && (
+                <RegisterVcImportView
+                    isModalOpen={isVcImportModalOpen}
+                    onCloseModal={() => setIsVcImportModalOpen(false)}
+                    currentPage={vcImportPage}
+                    pageSize={pageSize}
+                    onDataLoaded={(totalItems, currentCount) =>
+                        setPaginationIfChanged(setVcImportPagination, totalItems, currentCount)
+                    }
+                />
+            )}
 
-                {activeTab === 'vc-import' && (
-                    <RegisterVcImportView
-                        isModalOpen={isVcImportModalOpen}
-                        onCloseModal={() => setIsVcImportModalOpen(false)}
-                        currentPage={vcImportPage}
-                        pageSize={pageSize}
-                        onDataLoaded={(totalItems, currentCount) =>
-                            setPaginationIfChanged(setVcImportPagination, totalItems, currentCount)
-                        }
-                    />
-                )}
-
-                {['filter', 'search', 'deduplication'].includes(activeTab) && (
-                    <RegisterSchemaView
-                        registerId={registerId}
-                        activeTab={activeTab as 'filter' | 'search' | 'deduplication'}
-                    />
-                )}
-            </div>
+            {['filter', 'search', 'deduplication'].includes(activeTab) && (
+                <RegisterSchemaView
+                    registerId={registerId}
+                    activeTab={activeTab as 'filter' | 'search' | 'deduplication'}
+                />
+            )}
 
             {isEditModalOpen && (
                 <EditRegisterModal

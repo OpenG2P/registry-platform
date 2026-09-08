@@ -162,7 +162,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
           className="mb-[10px] FileDisplayWidget flex flex-row items-start w-full"
         >
           <div
-            className="w-1/2 min-w-0 pr-2 text-base owt-text-muted font-medium truncate"
+            className="w-1/2 min-w-0 pr-2 text-base owt-field-label font-medium truncate"
             style={{ fontFamily: 'Roboto, sans-serif' }}
             title={tSchema(t, label)}
           >
@@ -198,7 +198,7 @@ export const DocsWidget = ({ config }: DocsWidgetProps) => {
       <div key={docKey} className="mb-[10px]">
         <div className="flex flex-row items-start w-full">
           <WidgetFieldLabel
-            className="w-1/2 min-w-0 pr-2 text-base font-medium owt-text"
+            className="w-1/2 min-w-0 pr-2 text-base font-medium owt-field-label"
             label={tSchema(t, label)}
             required={isRequired}
           />

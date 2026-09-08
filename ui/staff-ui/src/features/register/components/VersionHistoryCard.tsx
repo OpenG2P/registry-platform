@@ -145,7 +145,7 @@ export default function VersionHistoryCard({
             >
                 <ViewAll
                     href={href}
-                    bgColor="var(--color-secondary-third)"
+                    bgColor="color-mix(in srgb, var(--color-secondary-third) 40%, transparent)"
                     label={t("know_more")}
                 />
             </div>

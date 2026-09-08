@@ -88,7 +88,6 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
 
   const format = widgetConfig['widget-data-format'] || {};
   const imageSize = (format as any).imageSize || 80;
-  const nameColor = (format as any).nameColor || 'var(--owt-color-primary-dark)';
   const showIdLabel = (format as any).showIdLabel !== false;
 
   const widgetClassId = `profile-widget-${config['widget-id']}`;
@@ -150,7 +149,7 @@ export const ProfileWidget = ({ config }: ProfileWidgetProps) => {
         .${widgetClassId} .profile-name {
           font-size: 1.25rem;
           font-weight: 600;
-          color: ${nameColor};
+          color: var(--owt-color-primary-dark);
           line-height: 1.4;
           word-wrap: break-word;
           max-width: 100%;

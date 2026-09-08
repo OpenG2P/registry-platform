@@ -64,7 +64,6 @@ export const RegistryViewLayout = ({
                 borderRadius: '4px',
                 fontSize: '12px',
                 fontWeight: 600,
-                textTransform: 'uppercase',
                 letterSpacing: '0.5px',
                 backgroundColor:
                   changeRequestType === 'new'
@@ -79,7 +78,7 @@ export const RegistryViewLayout = ({
                   changeRequestType === 'new' ? '0 2px 4px color-mix(in srgb, var(--owt-color-success) 30%, transparent)' : 'none',
               }}
             >
-              {changeRequestType === 'new' ? 'New' : 'Old'}
+              {changeRequestType === 'new' ? 'NEW' : 'OLD'}
             </span>
           )}
         </div>
@@ -87,11 +86,6 @@ export const RegistryViewLayout = ({
       <div
         id={gridId}
         className="section-panels"
-        style={
-          mode === 'CRView' || (mode === 'RegistryView' && effectiveHideEditButton)
-            ? { paddingBottom: '30px' }
-            : {}
-        }
       >
         <PanelGrid
           panels={editableSection.panels}
@@ -100,22 +94,22 @@ export const RegistryViewLayout = ({
           onValueChange={onValueChange}
           wrapInContainer={false}
         />
-        {mode === 'RegistryView' && !effectiveHideEditButton && (
-          <div
-            className="section-divider"
-            role="separator"
-            style={{
-              flex: '0 0 100%',
-              width: '100%',
-              maxWidth: '100%',
-              height: '1px',
-              marginTop: !isEditMode ? '10px' : 0,
-              marginBottom: '14px',
-              backgroundColor: 'var(--owt-color-border)',
-            }}
-          />
-        )}
-        {mode === 'RegistryView' && !isEditMode && !effectiveHideEditButton && (
+        <div
+          className="section-divider"
+          role="separator"
+          style={{
+            flex: '0 0 100%',
+            width: '100%',
+            maxWidth: '100%',
+            height: '1px',
+            marginTop: !isEditMode ? '10px' : 0,
+            marginBottom: mode === 'CRView' ? '28px' : '14px',
+            backgroundColor: isEditMode
+              ? 'var(--owt-color-primary-dark)'
+              : 'var(--owt-panel-divider-color)',
+          }}
+        />
+        {mode !== 'CRView' && !isEditMode && !effectiveHideEditButton && (
           <div
             className="registry-edit-details flex justify-start items-center"
             style={{ marginBottom: '20px' }}
@@ -129,7 +123,7 @@ export const RegistryViewLayout = ({
                 color: 'var(--owt-color-text-muted)',
               }}
             >
-              {t?.('common.editDetails') || 'Edit Details'}
+              {tSchema(t, 'common.editDetails')}
               <img src={rightArrowIcon} alt="right-arrow" className="w-3.5 h-3.5 brightness-0 opacity-50" />
             </button>
           </div>

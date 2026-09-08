@@ -414,7 +414,7 @@ export const ParentLookupWidget = ({
       <div className="mb-[10px] flex flex-col sm:flex-row sm:items-start">
         {rawLabel && (
           <div
-            className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
+            className="text-base owt-field-label font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
             style={{ fontFamily: 'Roboto, sans-serif' }}
             title={label}
           >
@@ -449,7 +449,7 @@ export const ParentLookupWidget = ({
         <div className="flex flex-col sm:flex-row sm:items-start">
           {rawLabel && (
             <WidgetFieldLabel
-              className="text-base font-medium owt-text md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+              className="text-base font-medium owt-field-label md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
               label={rawLabel}
               required={isRequired}
             />
@@ -678,8 +678,8 @@ export const ParentLookupWidget = ({
                   type="button"
                   onClick={() => pendingRow && applySelection(pendingRow)}
                   disabled={!pendingRow}
-                  className="px-4 h-9 text-sm font-medium rounded-[10px] text-white disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                  style={{ backgroundColor: 'var(--owt-color-info)' }}
+                  className="px-4 h-9 text-sm font-medium rounded-[10px] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                  style={{ backgroundColor: 'var(--owt-color-info)', color: 'var(--owt-color-bg)' }}
                 >
                   {selectRecordLabel}
                 </button>
