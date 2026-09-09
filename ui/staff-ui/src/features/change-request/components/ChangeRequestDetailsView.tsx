@@ -13,7 +13,6 @@ import {
 import { useTranslations } from "next-intl";
 import {
     useChangeRequest,
-    useChangeRequestDocuments,
     useRegisterSectionsFromCR,
 } from "@/features/change-request/hooks";
 import {
@@ -44,7 +43,6 @@ interface Props {
 export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props) {
     const t = useTranslations();
     const { details, loadingDetails, refetchDetails } = useChangeRequest(changeId);
-    const { documents, loading: loadingDocuments } = useChangeRequestDocuments(changeId);
 
     const approvalArtifactContext = useMemo(() => {
         if (!details?.change_request_id) return null;
@@ -100,7 +98,6 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
             buildSectionDataMap(
                 sectionRegisterId,
                 details?.change_payload,
-                details?.documents || null,
                 isListSection
             ),
         [details?.change_payload, isListSection, sectionRegisterId]
@@ -111,30 +108,28 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
             buildSectionDataMap(
                 sectionRegisterId,
                 details?.current_register_data,
-                details?.documents || null,
                 isListSection
             ),
         [details?.current_register_data, isListSection, sectionRegisterId]
     );
 
     const resolvedBreadcrumb = useMemo(() => {
-        if (!breadcrumb.length) return breadcrumb;
-        const recordName = details?.record_name?.trim() || "";
-        return [
-            ...breadcrumb.slice(0, -1),
-            { ...breadcrumb[breadcrumb.length - 1], label: recordName },
-        ];
+        const recordName = details?.record_name?.trim();
+        if (!recordName) return breadcrumb;
+        return breadcrumb.map((item) =>
+            item.label ? item : { ...item, label: recordName },
+        );
     }, [breadcrumb, details?.record_name]);
 
     return (
         <TabsLayout breadcrumb={resolvedBreadcrumb}>
-            {!details && (loadingDetails || loadingDocuments) ? (
+            {!details && loadingDetails ? (
                 <CRHeaderSkeleton />
             ) : (
                 details && (
                     <ChangeRequestHeader
                         details={details}
-                        documents={documents}
+                        documents={details?.documents || []}
                     />
                 )
             )}

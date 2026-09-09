@@ -20,4 +20,3 @@ export { RegisterLookupWidget } from './RegisterLookupWidget';
 export { ParentLookupWidget } from './ParentLookupWidget';
 export { MultiSelectWidget } from './MultiSelectWidget';
 export { GeoHierarchyWidget } from './GeoHierarchyWidget';
-export { DocsWidget } from './DocsWidget';

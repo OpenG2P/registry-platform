@@ -128,8 +128,10 @@ export const useIntakeFormSectionAction = ({
         if (!activeSection || !registerId) return false;
 
 
-        const files = change?.files ?? [];
-        const { filesToUpload = [],fileLabels } = extractFilesFromSection(files) || {};
+        const { filesToUpload = [], fileLabels } = extractFilesFromSection(
+            change?.section_files,
+            '_direct_file',
+        );
 
         let documentsResponse: UploadedDocument[] = [];
 
@@ -140,10 +142,6 @@ export const useIntakeFormSectionAction = ({
             }
             documentsResponse.push(...uploadResult);
         }
-
-        const existingDocuments = (change?.files || []).filter(file => file && typeof file === 'object' && ('document_id' in file));
-        documentsResponse = [...existingDocuments as UploadedDocument[], ...documentsResponse];
-        console.log("change payload", change?.records);
 
         const savePayload = {
             submission_id: activeSubmissionId || submissionId,
@@ -156,10 +154,10 @@ export const useIntakeFormSectionAction = ({
             section_register_id: activeSection.section_register_id,
             form_id: formId,
             register_id: registerId,
-            documents:documentsResponse.map((document, index) => ({
+            documents: documentsResponse.map((document, index) => ({
                 document_id: document.document_id,
                 label: fileLabels[index] || "unknown_label",
-            }))
+            })),
         };
 
         const saveResult = await executeSave('/api/intake-form/save-intake-form-submission', {

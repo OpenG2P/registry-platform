@@ -6,6 +6,15 @@ import {
   isTableLikeWidget,
 } from '../../../utils/extractTableRecordsFromSnapshot';
 import { SectionChanges } from '../types';
+import {
+  collectAllSectionFilesSync,
+  fingerprintSectionFiles,
+  getProfileImageUrlPaths,
+  getSectionFileBlobPaths,
+  stripSectionFileBlobs,
+} from './sectionFiles';
+import { isSerializedFile } from '../../../utils/fileSerialization';
+import { isStoredDocumentRef } from '../../../utils/storedDocument';
 
 export type SectionRecordsEditAction = 'always' | 'when-register-id';
 export type SectionRecordsWhenEmpty = 'empty-array' | 'single-record' | 'raw-snapshot';
@@ -102,20 +111,7 @@ export const buildSectionRecords = (
   return extractTableRecordsFromSnapshot(snapshot, widgets);
 };
 
-export const collectSectionSupportingFiles = (
-  section: SectionConfig,
-  sourceData: Record<string, unknown>,
-): unknown[] => {
-  const files: unknown[] = [];
-  const supportingDocuments = section['section-supporting-documents'] || [];
-  supportingDocuments.forEach((doc) => {
-    const path = doc['document-data-path'];
-    if (path) {
-      files.push(getValueByPath(sourceData, path));
-    }
-  });
-  return files;
-};
+export { getProfileImageUrlPaths } from './sectionFiles';
 
 /** Save flow: records for change detection and onSectionSave payloads. */
 export const trackSectionChanges = (
@@ -129,7 +125,7 @@ export const trackSectionChanges = (
     whenEmpty: 'empty-array',
   });
 
-/** Dirty-state baseline: records + supporting-document files. */
+/** Dirty-state baseline: records + all section files. */
 export const buildSectionSnapshot = (
   section: SectionConfig,
   sourceData: Record<string, unknown>,
@@ -149,9 +145,11 @@ export const buildSectionSnapshot = (
           whenEmpty: 'raw-snapshot',
         });
 
-  const files = hasSupportingDocuments
-    ? collectSectionSupportingFiles(section, sourceData)
-    : [];
+  const files = fingerprintSectionFiles(
+    collectAllSectionFilesSync(section, sourceData, {
+      includeSupportingDocuments: hasSupportingDocuments,
+    }),
+  );
 
   return { records, files };
 };
@@ -160,23 +158,58 @@ export const buildSectionSnapshot = (
 export function buildSectionChanges(
   section: SectionConfig,
   storeValues: Record<string, unknown>,
-  options?: { dbSectionId?: string; sectionRegisterId?: string },
+  options?: {
+    dbSectionId?: string;
+    sectionRegisterId?: string;
+    includeSupportingDocuments?: boolean;
+  },
 ): SectionChanges {
   const sectionWidgets = collectWidgets(section.panels);
-  const { sectionRegisterId } = options || {};
+  const { sectionRegisterId, includeSupportingDocuments = true } = options || {};
+  const fileOptions = { includeSupportingDocuments };
 
-  const records = buildSectionRecords(sectionWidgets, storeValues, {
-    sectionRegisterId,
-    editAction: 'when-register-id',
-    whenEmpty: 'single-record',
-  });
+  const records = stripSectionFileBlobs(
+    buildSectionRecords(sectionWidgets, storeValues, {
+      sectionRegisterId,
+      editAction: 'when-register-id',
+      whenEmpty: 'single-record',
+    }),
+    getSectionFileBlobPaths(section, fileOptions),
+  );
 
-  const files = collectSectionSupportingFiles(section, storeValues);
+  // Fresh uploads (serialized) + unchanged stored document refs.
+  const sectionFiles = collectAllSectionFilesSync(section, storeValues, fileOptions)
+    .filter(
+      (raw) => isSerializedFile(raw.value) || isStoredDocumentRef(raw.value),
+    )
+    .map(({ value, tag, label, field, document_key }) => {
+      if (isStoredDocumentRef(value)) {
+        return {
+          label: value.label,
+          document_id: value.document_id,
+          presigned_url: value.presigned_url,
+          ...(value.source_filename
+            ? { source_filename: value.source_filename }
+            : {}),
+          tag,
+          ...(field ? { field } : {}),
+          ...(document_key ? { document_key } : {}),
+        };
+      }
+
+      return {
+        ...value,
+        tag,
+        ...(label ? { label } : {}),
+        ...(field ? { field } : {}),
+        ...(document_key ? { document_key } : {}),
+      };
+    });
 
   return {
     section_id: options?.dbSectionId ?? section['section-id'],
     section_register_id: sectionRegisterId,
     records,
-    files: files.length > 0 ? files : undefined,
+    ...(sectionFiles.length > 0 ? { section_files: sectionFiles } : {}),
   };
 }

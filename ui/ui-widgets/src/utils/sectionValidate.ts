@@ -7,7 +7,7 @@ import {
 } from '../types';
 import { shouldShowWidget, shouldEnableWidget, shouldRequireWidget } from './conditions';
 import { getValueByPath, getWidgetValue } from './pathUtils';
-import { validateDocsWidget, validateWidget } from './validation';
+import { validateWidget } from './validation';
 import { isTableLikeWidget } from './extractTableRecordsFromSnapshot';
 
 const isColumnRequired = (
@@ -115,12 +115,14 @@ export const collectWidgets = (panels: PanelConfig[]): BaseWidgetConfig[] => {
 /**
  * @param skipRequired - Skip required checks for per-section Save/Next navigation;
  *   format and range validation still run.
+ * @param includeSupportingDocuments - When false (e.g. IntakeForm), skip supporting-doc checks.
  */
 export const sectionValidate = (
   section: SectionConfig,
   currentSchemaData: Record<string, any>,
   dispatch: WidgetDispatch,
   skipRequired: boolean = false,
+  includeSupportingDocuments: boolean = true,
 ): boolean => {
   const allWidgets = collectWidgets(section.panels);
 
@@ -168,14 +170,12 @@ export const sectionValidate = (
       widget['widget-required'] ?? false,
     );
 
-    const errors = widget.widget === 'docs'
-      ? validateDocsWidget(value, widget['documents'], skipRequired)
-      : validateWidget(
-          value,
-          widget['widget-data-validation'],
-          isRequired,
-          skipRequired,
-        );
+    const errors = validateWidget(
+      value,
+      widget['widget-data-validation'],
+      isRequired,
+      skipRequired,
+    );
 
     if (errors.length > 0) {
       isValid = false;
@@ -187,28 +187,30 @@ export const sectionValidate = (
     }
   }
 
-  section['section-supporting-documents']?.forEach((doc, index) => {
-    const widgetId = `supporting-doc-${section['section-id']}-${index}`;
+  if (includeSupportingDocuments) {
+    section['section-supporting-documents']?.forEach((doc, index) => {
+      const widgetId = `supporting-doc-${section['section-id']}-${index}`;
 
-    if (!skipRequired && doc['document-required']) {
-      const file = getValueByPath(
-        currentSchemaData,
-        doc['document-data-path']
-      );
+      if (!skipRequired && doc['document-required']) {
+        const file = getValueByPath(
+          currentSchemaData,
+          doc['document-data-path']
+        );
 
-      if (!file) {
-        isValid = false;
-        dispatch(setTouched({ widgetId, touched: true }));
-        dispatch(setError({
-          widgetId,
-          errors: ['This document is required'],
-        }));
-      } else {
-        dispatch(setTouched({ widgetId, touched: false }));
-        dispatch(setError({ widgetId, errors: [] }));
+        if (!file) {
+          isValid = false;
+          dispatch(setTouched({ widgetId, touched: true }));
+          dispatch(setError({
+            widgetId,
+            errors: ['This document is required'],
+          }));
+        } else {
+          dispatch(setTouched({ widgetId, touched: false }));
+          dispatch(setError({ widgetId, errors: [] }));
+        }
       }
-    }
-  });
+    });
+  }
 
   return isValid;
 };

@@ -10,13 +10,15 @@ interface Props {
     registerId: string;
     internalRecordId: string;
     activeTabId?: string;
+    recordName?: string | null;
 }
 
 export default function VersionHistoryCard({
     type,
     registerId,
     internalRecordId,
-    activeTabId
+    activeTabId,
+    recordName
 }: Props) {
     const locale = useLocale();
     const t = useTranslations();
@@ -72,6 +74,7 @@ export default function VersionHistoryCard({
 
     const params = new URLSearchParams();
     if (activeTabId) params.set("tab", activeTabId);
+    if (recordName?.trim()) params.set("record_name", recordName.trim());
 
     const href = `/${locale}/register/${type}/${internalRecordId}/version-history${params.toString() ? `?${params.toString()}` : ""
         }`;

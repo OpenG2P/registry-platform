@@ -30,7 +30,6 @@ export const createDocumentWidgetConfig = (
     'widget-readonly': mode === 'IntakeForm' && isDraft === false,
     'widget-data-options': {
       accept,
-      multiple: false,
       maxSize: doc['document-max-size'],
     },
   };

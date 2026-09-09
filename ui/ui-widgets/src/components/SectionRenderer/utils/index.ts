@@ -14,6 +14,19 @@ export { makePanelsEditable, buildEditableSection } from './makePanelsEditable';
 export { createDocumentWidgetConfig } from './documentWidgetConfig';
 export { trackSectionChanges, buildSectionSnapshot, buildSectionChanges, buildSectionRecords } from './sectionSnapshot';
 export type { BuildSectionRecordsOptions, SectionRecordsEditAction, SectionRecordsWhenEmpty } from './sectionSnapshot';
+export {
+  SECTION_FILE_TAG,
+  collectAllSectionFiles,
+  collectAllSectionFilesSync,
+  getProfileImageUrlPaths,
+  isFreshSectionFileEntry,
+} from './sectionFiles';
+export type {
+  SectionFileEntry,
+  SectionFileStoredEntry,
+  SectionFileTag,
+  SectionFileUploadEntry,
+} from './sectionFiles';
 export { diffSectionChangeRecords } from './diffSectionChangeRecords';
 export { revertSectionValues } from './revertSectionValues';
 export { executeSectionSave } from './executeSectionSave';
