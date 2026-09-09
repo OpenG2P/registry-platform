@@ -67,7 +67,7 @@ export default function IssueFlow() {
     setBusy(true);
     setError("");
     try {
-      const found = await api.lookup(nationalId.trim());
+      const found = await api.lookup(nationalId.trim(), vcType || undefined);
       setBeneficiary(found);
       setStage(found.eligible ? "authenticate" : "lookup");
       if (!found.eligible) setError(found.reason ?? "This record cannot be issued a credential.");
@@ -83,7 +83,10 @@ export default function IssueFlow() {
     setBusy(true);
     setError("");
     try {
-      const started = await api.startAuthentication(beneficiary.internal_record_id);
+      const started = await api.startAuthentication(
+        beneficiary.internal_record_id,
+        vcType || undefined,
+      );
       setAuthId(started.authentication_id);
 
       // The beneficiary authenticates at the identity provider, not here. A
@@ -177,6 +180,27 @@ export default function IssueFlow() {
     <div className="card-stack">
       <section className="card">
         <h2>1 · Find the beneficiary</h2>
+        {/* The credential is chosen HERE, not at the issue step: each definition
+            names the registry view the beneficiary is looked up through, so the
+            choice has to be made before the lookup runs. Locked once a record is
+            resolved -- changing it then would leave a record found in one view
+            about to be issued against another. */}
+        {vcTypes.length > 1 && (
+          <label>
+            Credential
+            <select
+              value={vcType}
+              onChange={(e) => setVcType(e.target.value)}
+              disabled={busy || stage !== "lookup"}
+            >
+              {vcTypes.map((t) => (
+                <option key={t.config_id} value={t.config_id}>
+                  {t.display_name ?? t.config_id}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <form onSubmit={onLookup} className="row">
           <input
             aria-label="National ID"
@@ -221,18 +245,6 @@ export default function IssueFlow() {
 
       <section className="card" aria-disabled={stage !== "issue" && stage !== "done"}>
         <h2>3 · Issue and print</h2>
-        {vcTypes.length > 1 && (
-          <label>
-            Credential
-            <select value={vcType} onChange={(e) => setVcType(e.target.value)} disabled={busy}>
-              {vcTypes.map((t) => (
-                <option key={t.config_id} value={t.config_id}>
-                  {t.display_name ?? t.config_id}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
         <button onClick={onIssue} disabled={busy || stage !== "issue"}>
           Download credential
         </button>

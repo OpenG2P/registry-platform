@@ -98,11 +98,15 @@ export interface AuthStatus {
 export const api = {
   vcTypes: () => post<{ vc_types: VcType[] }>("get_vc_types", {}),
 
-  lookup: (national_id: string) =>
-    post<Beneficiary>("lookup_beneficiary", { national_id }),
+  // vc_type is sent on BOTH of these, not just on issue: the definition supplies
+  // the registry view the record is resolved through, so a deployment whose
+  // credential types read different views would otherwise look the beneficiary up
+  // in the wrong one — silently, because the agent's choice was never sent.
+  lookup: (national_id: string, vc_type?: string) =>
+    post<Beneficiary>("lookup_beneficiary", { national_id, vc_type }),
 
-  startAuthentication: (internal_record_id: string) =>
-    post<StartedAuth>("start_authentication", { internal_record_id }),
+  startAuthentication: (internal_record_id: string, vc_type?: string) =>
+    post<StartedAuth>("start_authentication", { internal_record_id, vc_type }),
 
   authenticationStatus: (internal_record_id: string, authentication_id?: string) =>
     post<AuthStatus>("authentication_status", {

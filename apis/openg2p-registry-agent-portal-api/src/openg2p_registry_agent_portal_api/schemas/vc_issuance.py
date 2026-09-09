@@ -19,6 +19,13 @@ class LookupBeneficiaryPayload(BaseModel):
 
     national_id: str
     register_id: Optional[str] = None
+    # Which credential definition this call is for. Lookup and authentication
+    # resolve the record through the definition's VIEW, so a deployment whose
+    # types read different views needs this -- without it both steps silently
+    # use the first definition while the agent believes they used the one they
+    # chose. Optional: unset means the only (or first) definition, which is
+    # correct whenever all types share a view.
+    vc_type: Optional[str] = None
 
 
 class LookupBeneficiaryRequestBody(G2PRequestBody):
@@ -50,6 +57,13 @@ class LookupBeneficiaryResponse(G2PResponse):
 class StartAuthenticationPayload(BaseModel):
     internal_record_id: str
     register_id: Optional[str] = None
+    # Which credential definition this call is for. Lookup and authentication
+    # resolve the record through the definition's VIEW, so a deployment whose
+    # types read different views needs this -- without it both steps silently
+    # use the first definition while the agent believes they used the one they
+    # chose. Optional: unset means the only (or first) definition, which is
+    # correct whenever all types share a view.
+    vc_type: Optional[str] = None
     provider_id: Optional[str] = None
 
 

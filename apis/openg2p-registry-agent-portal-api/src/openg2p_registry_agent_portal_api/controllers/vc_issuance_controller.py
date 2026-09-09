@@ -153,11 +153,20 @@ class VcIssuanceController(BaseController):
         # let someone retrace what was done without becoming a second copy of
         # the registry's identifiers.
         set_audit(request, action="lookup_beneficiary", resource_type="registry_record")
-        vc = _config.get_vc_definition()
+        # The CHOSEN type, not the first one. The definition supplies the view and
+        # record-id column this lookup runs against, so defaulting here would query
+        # the wrong view whenever a deployment configures types with different
+        # views -- and would do it silently, resolving either nothing or the wrong
+        # record.
+        vc = _config.get_vc_definition(payload.vc_type)
         if vc is None:
             return self.helper.error(
                 LookupBeneficiaryResponse, LookupBeneficiaryResponseBody,
-                "G2P-VC-501", "No credential definitions are configured.", lookup_request,
+                "G2P-VC-501",
+                f"Unknown credential type {payload.vc_type!r}."
+                if payload.vc_type
+                else "No credential definitions are configured.",
+                lookup_request,
             )
         try:
             row, reason = await self.registry_lookup_service.resolve_by_national_id(
@@ -171,7 +180,8 @@ class VcIssuanceController(BaseController):
         set_audit(
             request,
             resource_id=str(row[vc.record_id_column]),
-            detail={"eligible": reason is None, "reason": reason},
+            detail={"eligible": reason is None, "reason": reason,
+                    "vc_type": vc.config_id},
         )
         result = LookupBeneficiaryResultPayload(
             internal_record_id=str(row[vc.record_id_column]),
@@ -213,7 +223,16 @@ class VcIssuanceController(BaseController):
             # works off the view so the Registry Platform can own it for every
             # registry. Without this the authentication completes and is then
             # rejected at the binding check as having no foundational_id.
-            vc = _config.get_vc_definition()
+            vc = _config.get_vc_definition(payload.vc_type)
+            if vc is None:
+                return self.helper.error(
+                    StartAuthenticationResponse, StartAuthenticationResponseBody,
+                    "G2P-VC-501",
+                    f"Unknown credential type {payload.vc_type!r}."
+                    if payload.vc_type
+                    else "No credential definitions are configured.",
+                    auth_request,
+                )
             row = await self.registry_lookup_service.get_record(
                 payload.internal_record_id, vc
             )
