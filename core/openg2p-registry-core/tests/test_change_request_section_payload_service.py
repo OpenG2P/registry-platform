@@ -554,7 +554,7 @@ async def test_document_only_section_requires_explicit_row_documents(service):
 
 
 @pytest.mark.asyncio
-async def test_section_document_labels_must_match_configured_keys(service):
+async def test_section_document_labels_are_not_checked_against_schema(service):
     service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
     section = _section(
         _schema(
@@ -566,28 +566,31 @@ async def test_section_document_labels_must_match_configured_keys(service):
         )
     )
 
-    with pytest.raises(G2PRegistryException, match="not configured"):
-        await service.validate(
-            [
-                ChangePayload(
-                    edit_action="UPDATE",
-                    internal_record_id="record-1",
-                    documents=[
-                        DocumentAttachment(
-                            document_id="document-1",
-                            label="attachment_two",
-                        )
-                    ],
-                )
-            ],
-            section,
-            _definition(),
-            AsyncMock(),
-        )
+    sanitized = await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                documents=[
+                    DocumentAttachment(
+                        document_id="document-1",
+                        label="Birth Certificate",
+                    )
+                ],
+            )
+        ],
+        section,
+        _definition(),
+        AsyncMock(),
+    )
+
+    assert sanitized[0].documents[0].label == "Birth Certificate"
 
 
 @pytest.mark.asyncio
-async def test_required_section_document_label_cannot_be_cleared(service):
+async def test_document_only_section_allows_explicit_empty_when_slots_are_required(
+    service,
+):
     service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
     section = _section(
         _schema(
@@ -604,19 +607,20 @@ async def test_required_section_document_label_cannot_be_cleared(service):
         )
     )
 
-    with pytest.raises(G2PRegistryException, match="required documents are missing"):
-        await service.validate(
-            [
-                ChangePayload(
-                    edit_action="UPDATE",
-                    internal_record_id="record-1",
-                    documents=[],
-                )
-            ],
-            section,
-            _definition(),
-            AsyncMock(),
-        )
+    sanitized = await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                documents=[],
+            )
+        ],
+        section,
+        _definition(),
+        AsyncMock(),
+    )
+
+    assert sanitized[0].documents == []
 
 
 @pytest.mark.asyncio
@@ -761,7 +765,7 @@ def _file_widget(
 
 
 @pytest.mark.asyncio
-async def test_file_widget_document_only_section_uses_path_fields_as_labels(
+async def test_file_widget_document_only_section_accepts_nested_documents(
     service,
 ):
     service._resolve_orm_fields = AsyncMock(
@@ -831,11 +835,11 @@ async def test_file_widget_document_only_section_uses_path_fields_as_labels(
                 documents=[
                     DocumentAttachment(
                         document_id="document-1",
-                        label="national_id",
+                        label="National ID",
                     ),
                     DocumentAttachment(
                         document_id="document-2",
-                        label="birth_certificate",
+                        label="Birth Certificate",
                     ),
                 ],
             )
@@ -849,14 +853,16 @@ async def test_file_widget_document_only_section_uses_path_fields_as_labels(
         "internal_record_id": "record-1",
         "edit_action": "UPDATE",
         "documents": [
-            {"document_id": "document-1", "label": "national_id"},
-            {"document_id": "document-2", "label": "birth_certificate"},
+            {"document_id": "document-1", "label": "National ID"},
+            {"document_id": "document-2", "label": "Birth Certificate"},
         ],
     }
 
 
 @pytest.mark.asyncio
-async def test_file_widget_required_slots_cannot_be_cleared(service):
+async def test_file_widget_allows_empty_documents_even_when_widgets_are_required(
+    service,
+):
     service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
     section = _section(
         _schema(
@@ -865,25 +871,24 @@ async def test_file_widget_required_slots_cannot_be_cleared(service):
         )
     )
 
-    with pytest.raises(G2PRegistryException, match="required documents are missing"):
-        await service.validate(
-            [
-                ChangePayload(
-                    edit_action="UPDATE",
-                    internal_record_id="record-1",
-                    documents=[],
-                )
-            ],
-            section,
-            _definition(),
-            AsyncMock(),
-        )
+    sanitized = await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                documents=[],
+            )
+        ],
+        section,
+        _definition(),
+        AsyncMock(),
+    )
+
+    assert sanitized[0].documents == []
 
 
 @pytest.mark.asyncio
-async def test_file_widget_rejects_supporting_document_labels_as_section_slots(
-    service,
-):
+async def test_file_widget_accepts_display_labels(service):
     service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
     section = _section(
         {
@@ -894,24 +899,25 @@ async def test_file_widget_rejects_supporting_document_labels_as_section_slots(
         }
     )
 
-    with pytest.raises(G2PRegistryException, match="not configured"):
-        await service.validate(
-            [
-                ChangePayload(
-                    edit_action="UPDATE",
-                    internal_record_id="record-1",
-                    documents=[
-                        DocumentAttachment(
-                            document_id="document-1",
-                            label="cert1",
-                        )
-                    ],
-                )
-            ],
-            section,
-            _definition(),
-            AsyncMock(),
-        )
+    sanitized = await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                documents=[
+                    DocumentAttachment(
+                        document_id="document-1",
+                        label="National ID",
+                    )
+                ],
+            )
+        ],
+        section,
+        _definition(),
+        AsyncMock(),
+    )
+
+    assert sanitized[0].documents[0].label == "National ID"
 
 
 @pytest.mark.asyncio
