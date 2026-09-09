@@ -99,7 +99,6 @@ class G2PChangeRequestSectionPayloadService(BaseService):
         await self._validate_section_documents(
             sanitized_payloads,
             section,
-            schema,
             session,
             require_document_intent=not allowed_fields,
         )
@@ -176,16 +175,10 @@ class G2PChangeRequestSectionPayloadService(BaseService):
         self,
         change_payloads: list[ChangePayload],
         section: G2PRegisterSection,
-        schema: dict[str, Any],
         session: AsyncSession,
         *,
         require_document_intent: bool,
     ) -> None:
-        slots = self._editable_document_slots(schema.get("panels", []))
-        allowed_labels = set(slots)
-        required_labels = {
-            label for label, is_required in slots.items() if is_required
-        }
         document_ids: list[str] = []
 
         for row_index, change_payload in enumerate(change_payloads):
@@ -216,38 +209,15 @@ class G2PChangeRequestSectionPayloadService(BaseService):
                 )
 
             ids = [document.document_id for document in documents]
-            labels = [document.label for document in documents]
             duplicate_ids = sorted(
                 document_id
                 for document_id in set(ids)
                 if ids.count(document_id) > 1
             )
-            duplicate_labels = sorted(
-                label for label in set(labels) if labels.count(label) > 1
-            )
             if duplicate_ids:
                 self._raise_request_validation_error(
                     f"row {row_index}: duplicate document IDs: "
                     f"{', '.join(duplicate_ids)}"
-                )
-            if duplicate_labels:
-                self._raise_request_validation_error(
-                    f"row {row_index}: duplicate document labels: "
-                    f"{', '.join(duplicate_labels)}"
-                )
-
-            unknown_labels = sorted(set(labels) - allowed_labels)
-            if unknown_labels:
-                self._raise_request_validation_error(
-                    f"row {row_index}: document labels are not configured for "
-                    f"section '{section.section_id}': {', '.join(unknown_labels)}"
-                )
-
-            missing_required = sorted(required_labels - set(labels))
-            if missing_required:
-                self._raise_request_validation_error(
-                    f"row {row_index}: required documents are missing: "
-                    f"{', '.join(missing_required)}"
                 )
             if getattr(section, "documents_required", False) and not documents:
                 self._raise_request_validation_error(
@@ -264,49 +234,6 @@ class G2PChangeRequestSectionPayloadService(BaseService):
                 session,
                 document_ids,
             )
-
-    def _editable_document_slots(self, nodes: Any) -> dict[str, bool]:
-        slots: dict[str, bool] = {}
-        if isinstance(nodes, list):
-            for node in nodes:
-                slots.update(self._editable_document_slots(node))
-            return slots
-        if not isinstance(nodes, dict) or nodes.get("widget-readonly") is True:
-            return slots
-
-        widget_name = nodes.get("widget")
-        if widget_name == "file":
-            label = self._file_widget_slot_label(nodes)
-            if label:
-                slots[label] = bool(nodes.get("widget-required", False))
-        elif widget_name in _DOCUMENT_WIDGETS:
-            documents = nodes.get("documents")
-            if isinstance(documents, list):
-                for document in documents:
-                    if not isinstance(document, dict):
-                        continue
-                    document_key = document.get("document-key")
-                    if isinstance(document_key, str) and document_key:
-                        slots[document_key] = bool(
-                            document.get("document-required", False)
-                        )
-
-        for child_key in ("panels", "widgets", "widget-item"):
-            if child_key in nodes:
-                slots.update(self._editable_document_slots(nodes[child_key]))
-        return slots
-
-    def _file_widget_slot_label(self, widget: dict[str, Any]) -> str | None:
-        path = widget.get("widget-data-path")
-        if isinstance(path, str):
-            field = path.rsplit(".", 1)[-1].strip()
-            if field:
-                return field
-        widget_id = widget.get("widget-id")
-        if isinstance(widget_id, str) and widget_id.strip():
-            return widget_id.strip()
-        return None
-
 
     def is_document_only_schema(self, schema: dict[str, Any]) -> bool:
         panels = schema.get("panels", [])
