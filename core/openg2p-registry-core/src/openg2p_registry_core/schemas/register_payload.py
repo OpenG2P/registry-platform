@@ -324,6 +324,10 @@ class RegisterRelationEnum(str, Enum):
 class ChangePayload(BaseChangePayload):
     internal_record_id: Optional[str] = None
     edit_action: str = ChangeActionEnum.ADD.value
+    # Desired live section-document set for this row.
+    # Omitted/None = no-op; [] = clear; list = exact desired set.
+    documents: Optional[List[DocumentAttachment]] = None
+
     class Config:
         from_attributes: bool = True
         extra = "allow"  # Allow extra fields to be preserved and accessible
@@ -339,7 +343,7 @@ class ChangeRequestRequestPayload(RegisterPayload):
     section_register_id: Optional[str] = None
     internal_record_id: Optional[str] = None
     change_payload: Optional[List[ChangePayload]] = None
-    # Already-uploaded catalog documents with display labels
+    # Supporting evidence displayed on the change-request header only.
     documents: Optional[List[DocumentAttachment]] = None
     # For approve/reject operations
     change_request_id: Optional[str] = None
