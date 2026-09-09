@@ -13,7 +13,7 @@ from openg2p_fastapi_common.context import dbengine, get_async_session_maker
 from openg2p_registry_core.schemas import ChangeRequestRequestPayload
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, insert, select, inspect, Date as SQLDate, and_, or_, update
+from sqlalchemy import func, insert, select, inspect, Date as SQLDate, and_, or_, update, literal_column
 from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
 from .g2p_completion_score_service import G2PCompletionScoreService
 
@@ -1273,7 +1273,14 @@ class G2PRegisterService(BaseService):
         return search_results_list, total_items
 
     def _apply_register_record_sort(self, query, implementation_class, sort_by: str | None):
-        """Sort register records; newest first when no sort is specified."""
+        """Sort register records.
+
+        Default is heap order (ctid), not last_approved_at. A btree ORDER BY after a
+        GIN search_text ILIKE match forces Postgres to fetch every hit, sort, then
+        LIMIT — so LIMIT 10 still heap-scans thousands of rows. ctid matches bitmap
+        heap-scan order, so LIMIT can stop after page_size heap fetches. Callers that
+        pass sort_by still get an explicit column sort.
+        """
         if sort_by:
             column_name = sort_by.lstrip('-')
             descending = sort_by.startswith('-')
@@ -1281,7 +1288,7 @@ class G2PRegisterService(BaseService):
             if sort_column is not None:
                 return query.order_by(sort_column.desc() if descending else sort_column.asc())
             _logger.warning(f"Sort column {sort_by} not found, using default order")
-        return query.order_by(implementation_class.last_approved_at.desc())
+        return query.order_by(literal_column("ctid"))
 
     def _has_explicit_record_status_filter(self, filter_by: dict | str | None) -> bool:
         """Return True when filter_by explicitly includes record_status."""

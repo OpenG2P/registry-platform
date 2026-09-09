@@ -1,3 +1,4 @@
+# TO-DO remove it
 import logging
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -30,6 +31,12 @@ def _async_engine_kwargs(datasource: str) -> dict:
         kwargs["pool_recycle"] = _config.db_pool_recycle
         kwargs["pool_size"] = _config.db_pool_size
         kwargs["max_overflow"] = _config.db_pool_max_overflow
+
+        if datasource.startswith("postgresql+asyncpg"):
+            kwargs["connect_args"] = {
+                "statement_cache_size": 0,
+                "prepared_statement_name_func": lambda: None,
+            }
     return kwargs
 
 

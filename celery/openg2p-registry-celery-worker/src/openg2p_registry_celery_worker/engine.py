@@ -9,12 +9,21 @@ _config = Settings.get_config()
 def _pool_kwargs(datasource: str) -> dict:
     if not datasource or datasource.startswith("sqlite"):
         return {}
-    return {
+
+    kwargs = {
         "pool_pre_ping": _config.db_pool_pre_ping,
         "pool_recycle": _config.db_pool_recycle,
         "pool_size": _config.db_pool_size,
         "max_overflow": _config.db_pool_max_overflow,
     }
+
+    if datasource.startswith("postgresql+asyncpg"):
+        kwargs["connect_args"] = {
+            "statement_cache_size": 0,
+            "prepared_statement_name_func": lambda: None,
+        }
+
+    return kwargs
 
 
 class Engine:
