@@ -31,9 +31,7 @@ class G2PChangeRequestSectionPayloadService(BaseService):
         section: G2PRegisterSection,
         section_register_definition: G2PRegisterDefinition,
         session: AsyncSession,
-        *,
-        has_documents: bool = False,
-    ) -> None:
+    ) -> list[ChangePayload]:
         schema = section.section_ui_schema
         if not isinstance(schema, dict):
             self._raise_configuration_error(
@@ -58,28 +56,28 @@ class G2PChangeRequestSectionPayloadService(BaseService):
             section.section_register_id,
             orm_fields,
         )
+        has_document_widget = self.has_editable_document_widget(schema)
         if not allowed_fields:
             if not self.is_document_only_schema(schema):
                 self._raise_configuration_error(
                     section.section_id,
                     "section_ui_schema has no editable persisted fields",
                 )
-            if not has_documents:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
-                    message=(
-                        f"Document-only section '{section.section_id}' requires "
-                        "at least one document"
-                    ),
-                )
 
         allowed_payload_fields = set(allowed_fields)
         allowed_payload_fields.update(_ALWAYS_ALLOWED_CONTROL_FIELDS)
+        if has_document_widget:
+            allowed_payload_fields.add("documents")
 
+        sanitized_payloads = self._strip_non_orm_fields(
+            change_payloads,
+            orm_fields,
+        )
         violations: list[tuple[int, list[str]]] = []
-        for row_index, change_payload in enumerate(change_payloads):
+        for row_index, change_payload in enumerate(sanitized_payloads):
             unknown_fields = sorted(
-                set(change_payload.model_dump()) - allowed_payload_fields
+                set(change_payload.model_dump(exclude_unset=True))
+                - allowed_payload_fields
             )
             if unknown_fields:
                 violations.append((row_index, unknown_fields))
@@ -96,6 +94,64 @@ class G2PChangeRequestSectionPayloadService(BaseService):
                     f"'{section.section_id}': {details}"
                 ),
             )
+
+        await self._validate_section_documents(
+            sanitized_payloads,
+            section,
+            schema,
+            session,
+            require_document_intent=not allowed_fields,
+        )
+        meaningful_payloads: list[ChangePayload] = []
+        for row_index, change_payload in enumerate(sanitized_payloads):
+            action = change_payload.edit_action
+            if action == "NO_CHANGE":
+                continue
+
+            fields_set = getattr(change_payload, "model_fields_set", set())
+            has_domain_change = bool(fields_set & allowed_fields)
+            has_document_change = (
+                "documents" in fields_set
+                and change_payload.documents is not None
+            )
+            if (
+                action != "DELETE"
+                and not has_domain_change
+                and not has_document_change
+            ):
+                self._raise_request_validation_error(
+                    f"Change payload row {row_index} contains no editable "
+                    "fields or document changes after removing non-ORM fields"
+                )
+            meaningful_payloads.append(change_payload)
+
+        if not meaningful_payloads:
+            self._raise_request_validation_error(
+                "Change payload contains no meaningful changes"
+            )
+        return meaningful_payloads
+
+    def _strip_non_orm_fields(
+        self,
+        change_payloads: list[ChangePayload],
+        orm_fields: set[str],
+    ) -> list[ChangePayload]:
+        preserved_fields = set(orm_fields)
+        preserved_fields.update(_ALWAYS_ALLOWED_CONTROL_FIELDS)
+        preserved_fields.add("documents")
+
+        return [
+            ChangePayload.model_validate(
+                {
+                    key: value
+                    for key, value in change_payload.model_dump(
+                        exclude_unset=True
+                    ).items()
+                    if key in preserved_fields
+                }
+            )
+            for change_payload in change_payloads
+        ]
 
     def resolve_allowed_fields(
         self,
@@ -114,6 +170,126 @@ class G2PChangeRequestSectionPayloadService(BaseService):
 
     def has_editable_document_widget(self, schema: dict[str, Any]) -> bool:
         return self._contains_editable_document_widget(schema.get("panels", []))
+
+    async def _validate_section_documents(
+        self,
+        change_payloads: list[ChangePayload],
+        section: G2PRegisterSection,
+        schema: dict[str, Any],
+        session: AsyncSession,
+        *,
+        require_document_intent: bool,
+    ) -> None:
+        slots = self._editable_document_slots(schema.get("panels", []))
+        allowed_labels = set(slots)
+        required_labels = {
+            label for label, is_required in slots.items() if is_required
+        }
+        document_ids: list[str] = []
+
+        for row_index, change_payload in enumerate(change_payloads):
+            fields_set = getattr(change_payload, "model_fields_set", set())
+            action = change_payload.edit_action
+            if (
+                require_document_intent
+                and action not in {"DELETE", "NO_CHANGE"}
+                and (
+                    "documents" not in fields_set
+                    or change_payload.documents is None
+                )
+            ):
+                self._raise_request_validation_error(
+                    f"Document-only section '{section.section_id}' row "
+                    f"{row_index} requires an explicit row-level documents list"
+                )
+            if "documents" not in fields_set:
+                continue
+
+            documents = change_payload.documents
+            if documents is None:
+                continue
+
+            if action in {"DELETE", "NO_CHANGE"}:
+                self._raise_request_validation_error(
+                    f"row {row_index}: documents are not allowed for {action}"
+                )
+
+            ids = [document.document_id for document in documents]
+            labels = [document.label for document in documents]
+            duplicate_ids = sorted(
+                document_id
+                for document_id in set(ids)
+                if ids.count(document_id) > 1
+            )
+            duplicate_labels = sorted(
+                label for label in set(labels) if labels.count(label) > 1
+            )
+            if duplicate_ids:
+                self._raise_request_validation_error(
+                    f"row {row_index}: duplicate document IDs: "
+                    f"{', '.join(duplicate_ids)}"
+                )
+            if duplicate_labels:
+                self._raise_request_validation_error(
+                    f"row {row_index}: duplicate document labels: "
+                    f"{', '.join(duplicate_labels)}"
+                )
+
+            unknown_labels = sorted(set(labels) - allowed_labels)
+            if unknown_labels:
+                self._raise_request_validation_error(
+                    f"row {row_index}: document labels are not configured for "
+                    f"section '{section.section_id}': {', '.join(unknown_labels)}"
+                )
+
+            missing_required = sorted(required_labels - set(labels))
+            if missing_required:
+                self._raise_request_validation_error(
+                    f"row {row_index}: required documents are missing: "
+                    f"{', '.join(missing_required)}"
+                )
+            if getattr(section, "documents_required", False) and not documents:
+                self._raise_request_validation_error(
+                    f"row {row_index}: section '{section.section_id}' requires "
+                    "at least one document"
+                )
+
+            document_ids.extend(ids)
+
+        if document_ids:
+            from .g2p_document_service import G2PDocumentService
+
+            await G2PDocumentService.get_component().validate_documents_exist(
+                session,
+                document_ids,
+            )
+
+    def _editable_document_slots(self, nodes: Any) -> dict[str, bool]:
+        slots: dict[str, bool] = {}
+        if isinstance(nodes, list):
+            for node in nodes:
+                slots.update(self._editable_document_slots(node))
+            return slots
+        if not isinstance(nodes, dict) or nodes.get("widget-readonly") is True:
+            return slots
+
+        if nodes.get("widget") in _DOCUMENT_WIDGETS:
+            documents = nodes.get("documents")
+            if isinstance(documents, list):
+                for document in documents:
+                    if not isinstance(document, dict):
+                        continue
+                    document_key = document.get("document-key")
+                    if isinstance(document_key, str) and document_key:
+                        slots[document_key] = bool(
+                            document.get("document-required", False)
+                        )
+
+        for child_key in ("panels", "widgets", "widget-item"):
+            if child_key in nodes:
+                slots.update(self._editable_document_slots(nodes[child_key]))
+        return slots
+
 
     def is_document_only_schema(self, schema: dict[str, Any]) -> bool:
         panels = schema.get("panels", [])
@@ -332,4 +508,10 @@ class G2PChangeRequestSectionPayloadService(BaseService):
         raise G2PRegistryException(
             code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
             message=f"Invalid section payload configuration for section '{section_id}': {detail}",
+        )
+
+    def _raise_request_validation_error(self, message: str) -> NoReturn:
+        raise G2PRegistryException(
+            code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+            message=message,
         )

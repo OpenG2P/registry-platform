@@ -9,6 +9,7 @@ from sqlalchemy import Date as SQLDate, inspect, select
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload, G2PRegisterDefinition, RegisterPurposeEnum
 from ..schemas.change_request import ChangeActionEnum, ChangePayload
+from .change_request_payload_utils import domain_fields_from_change_payload
 
 _logger = logging.getLogger("g2p-register-history-service")
 
@@ -62,7 +63,9 @@ class G2PRegisterHistoryService(BaseService):
         history_class,
         session,
     ) -> None:
-        history_schema_instance = history_schema_class(**(change_payload or {}))
+        history_schema_instance = history_schema_class(
+            **domain_fields_from_change_payload(change_payload)
+        )
         history_dict = {k: v for k, v in history_schema_instance.dict().items() if v is not None}
         history_dict["history_record_id"] = str(uuid.uuid4())
         history_dict["internal_record_id"] = change_payload.get("internal_record_id")

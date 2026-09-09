@@ -77,6 +77,21 @@ def _load_history_service_module():
     service_mod.BaseService = BaseService
     fastapi_common.service = service_mod
 
+    services = _ensure_pkg("openg2p_registry_core.services")
+    services.__path__ = [str(_CORE_SRC / "services")]  # type: ignore[attr-defined]
+    payload_utils = _ensure_pkg(
+        "openg2p_registry_core.services.change_request_payload_utils"
+    )
+
+    def domain_fields_from_change_payload(payload):
+        result = dict(payload or {})
+        result.pop("documents", None)
+        return result
+
+    payload_utils.domain_fields_from_change_payload = (
+        domain_fields_from_change_payload
+    )
+
     spec = importlib.util.spec_from_file_location(
         "openg2p_registry_core.services.g2p_register_history_service",
         _HISTORY_SERVICE_PATH,

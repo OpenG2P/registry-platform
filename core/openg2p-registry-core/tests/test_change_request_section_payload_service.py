@@ -22,9 +22,15 @@ _WORKER_SERVICE_PATH = _CORE_SRC / "services" / "g2p_change_request_worker_servi
 _CORE_SERVICE_PATH = _CORE_SRC / "services" / "g2p_change_request_core_service.py"
 
 
+class DocumentAttachment(BaseModel):
+    document_id: str
+    label: str
+
+
 class ChangePayload(BaseModel):
     internal_record_id: str | None = None
     edit_action: str = "ADD"
+    documents: list[DocumentAttachment] | None = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -65,6 +71,7 @@ def service_module():
     created_modules = [
         package_name,
         f"{package_name}.services",
+        f"{package_name}.services.g2p_document_service",
         f"{package_name}.errors",
         f"{package_name}.models",
         f"{package_name}.schemas",
@@ -76,6 +83,18 @@ def service_module():
 
     _package(package_name)
     _package(f"{package_name}.services")
+    document_service_module = _package(
+        f"{package_name}.services.g2p_document_service"
+    )
+
+    class G2PDocumentService:
+        validator = AsyncMock()
+
+        @classmethod
+        def get_component(cls):
+            return SimpleNamespace(validate_documents_exist=cls.validator)
+
+    document_service_module.G2PDocumentService = G2PDocumentService
 
     errors = _package(f"{package_name}.errors")
     errors.G2PRegistryErrorCodes = G2PRegistryErrorCodes
@@ -131,6 +150,7 @@ def _section(schema: object, section_id: str = "section-1"):
         section_id=section_id,
         section_register_id="register-1",
         section_ui_schema=schema,
+        documents_required=False,
     )
 
 
@@ -244,7 +264,9 @@ def test_resolves_normal_nested_object_table_and_dialog_fields(service):
 
 @pytest.mark.asyncio
 async def test_rejects_unknown_fields_with_aggregated_deterministic_details(service):
-    service._resolve_orm_fields = AsyncMock(return_value={"first_name"})
+    service._resolve_orm_fields = AsyncMock(
+        return_value={"first_name", "zebra", "alpha"}
+    )
     payloads = [
         ChangePayload(edit_action="UPDATE", first_name="Ada", zebra=1),
         ChangePayload(edit_action="UPDATE", alpha=1),
@@ -265,6 +287,63 @@ async def test_rejects_unknown_fields_with_aggregated_deterministic_details(serv
         "Change payload contains fields not allowed by section 'section-1': "
         "row 0: zebra; row 1: alpha"
     )
+
+
+@pytest.mark.asyncio
+async def test_strips_non_orm_fields_from_valid_rows(service):
+    service._resolve_orm_fields = AsyncMock(return_value={"first_name"})
+
+    sanitized = await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                first_name="Ada",
+                actual_score=40.0,
+                ideal_score=100.0,
+                completion_score_required=True,
+            )
+        ],
+        _section(
+            _schema(
+                {
+                    "widget": "text",
+                    "widget-data-path": "register-1.first_name",
+                }
+            )
+        ),
+        _definition(),
+        AsyncMock(),
+    )
+    assert sanitized[0].model_dump(exclude_unset=True) == {
+        "edit_action": "UPDATE",
+        "first_name": "Ada",
+    }
+
+
+@pytest.mark.asyncio
+async def test_rejects_update_that_is_empty_after_non_orm_strip(service):
+    service._resolve_orm_fields = AsyncMock(return_value={"first_name"})
+
+    with pytest.raises(G2PRegistryException, match="no editable fields"):
+        await service.validate(
+            [
+                ChangePayload(
+                    edit_action="UPDATE",
+                    actual_score=40.0,
+                    ideal_score=100.0,
+                )
+            ],
+            _section(
+                _schema(
+                    {
+                        "widget": "text",
+                        "widget-data-path": "register-1.first_name",
+                    }
+                )
+            ),
+            _definition(),
+            AsyncMock(),
+        )
 
 
 @pytest.mark.asyncio
@@ -340,13 +419,13 @@ async def test_lookup_update_allows_schema_bound_parent_link(service):
 
 
 @pytest.mark.asyncio
-async def test_control_only_delete_and_no_change_rows_are_allowed(service):
+async def test_delete_is_meaningful_and_no_change_row_is_removed(service):
     service._resolve_orm_fields = AsyncMock(return_value={"name"})
     section = _section(
         _schema({"widget": "text", "widget-data-path": "register-1.name"})
     )
 
-    await service.validate(
+    sanitized = await service.validate(
         [
             ChangePayload(edit_action="DELETE", internal_record_id="record-1"),
             ChangePayload(edit_action="NO_CHANGE", internal_record_id="record-2"),
@@ -355,10 +434,36 @@ async def test_control_only_delete_and_no_change_rows_are_allowed(service):
         _definition("TABLE"),
         AsyncMock(),
     )
+    assert [payload.edit_action for payload in sanitized] == ["DELETE"]
 
 
 @pytest.mark.asyncio
-async def test_document_only_section_allows_control_payload_when_documents_are_present(
+async def test_rejects_payload_containing_only_no_change_rows(service):
+    service._resolve_orm_fields = AsyncMock(return_value={"commodity"})
+
+    with pytest.raises(G2PRegistryException, match="no meaningful changes"):
+        await service.validate(
+            [
+                ChangePayload(
+                    edit_action="NO_CHANGE",
+                    internal_record_id="record-1",
+                )
+            ],
+            _section(
+                _schema(
+                    {
+                        "widget": "table",
+                        "widget-data-columns": [{"column-key": "commodity"}],
+                    }
+                )
+            ),
+            _definition("TABLE"),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_document_only_section_allows_populated_row_documents(
     service,
 ):
     service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
@@ -368,21 +473,64 @@ async def test_document_only_section_allows_control_payload_when_documents_are_p
                 "widget": "docs",
                 "widget-type": "input",
                 "widget-data-path": "register-1.documents",
+                "documents": [
+                    {
+                        "document-key": "attachment_one",
+                        "document-required": False,
+                    }
+                ],
             }
         )
     )
 
     await service.validate(
-        [ChangePayload(edit_action="UPDATE", internal_record_id="record-1")],
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                documents=[
+                    DocumentAttachment(
+                        document_id="document-1",
+                        label="attachment_one",
+                    )
+                ],
+            )
+        ],
         section,
         _definition(),
         AsyncMock(),
-        has_documents=True,
     )
 
 
 @pytest.mark.asyncio
-async def test_document_only_section_requires_at_least_one_top_level_document(service):
+async def test_document_only_section_allows_explicit_empty_row_documents(service):
+    service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
+    section = _section(
+        _schema(
+            {
+                "widget": "docs",
+                "widget-data-path": "register-1.documents",
+                "documents": [],
+            }
+        )
+    )
+
+    await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                documents=[],
+            )
+        ],
+        section,
+        _definition(),
+        AsyncMock(),
+    )
+
+
+@pytest.mark.asyncio
+async def test_document_only_section_requires_explicit_row_documents(service):
     service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
     section = _section(
         _schema(
@@ -393,7 +541,10 @@ async def test_document_only_section_requires_at_least_one_top_level_document(se
         )
     )
 
-    with pytest.raises(G2PRegistryException, match="requires at least one document"):
+    with pytest.raises(
+        G2PRegistryException,
+        match="requires an explicit row-level documents list",
+    ):
         await service.validate(
             [ChangePayload(edit_action="UPDATE", internal_record_id="record-1")],
             section,
@@ -403,7 +554,113 @@ async def test_document_only_section_requires_at_least_one_top_level_document(se
 
 
 @pytest.mark.asyncio
-async def test_document_only_section_still_rejects_data_fields(service):
+async def test_section_document_labels_must_match_configured_keys(service):
+    service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
+    section = _section(
+        _schema(
+            {
+                "widget": "docs",
+                "widget-data-path": "register-1.documents",
+                "documents": [{"document-key": "attachment_one"}],
+            }
+        )
+    )
+
+    with pytest.raises(G2PRegistryException, match="not configured"):
+        await service.validate(
+            [
+                ChangePayload(
+                    edit_action="UPDATE",
+                    internal_record_id="record-1",
+                    documents=[
+                        DocumentAttachment(
+                            document_id="document-1",
+                            label="attachment_two",
+                        )
+                    ],
+                )
+            ],
+            section,
+            _definition(),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_required_section_document_label_cannot_be_cleared(service):
+    service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
+    section = _section(
+        _schema(
+            {
+                "widget": "docs",
+                "widget-data-path": "register-1.documents",
+                "documents": [
+                    {
+                        "document-key": "attachment_one",
+                        "document-required": True,
+                    }
+                ],
+            }
+        )
+    )
+
+    with pytest.raises(G2PRegistryException, match="required documents are missing"):
+        await service.validate(
+            [
+                ChangePayload(
+                    edit_action="UPDATE",
+                    internal_record_id="record-1",
+                    documents=[],
+                )
+            ],
+            section,
+            _definition(),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_section_document_ids_and_labels_must_be_unique(service):
+    service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
+    section = _section(
+        _schema(
+            {
+                "widget": "docs",
+                "widget-data-path": "register-1.documents",
+                "documents": [
+                    {"document-key": "attachment_one"},
+                    {"document-key": "attachment_two"},
+                ],
+            }
+        )
+    )
+
+    with pytest.raises(G2PRegistryException, match="duplicate document IDs"):
+        await service.validate(
+            [
+                ChangePayload(
+                    edit_action="UPDATE",
+                    internal_record_id="record-1",
+                    documents=[
+                        DocumentAttachment(
+                            document_id="document-1",
+                            label="attachment_one",
+                        ),
+                        DocumentAttachment(
+                            document_id="document-1",
+                            label="attachment_two",
+                        ),
+                    ],
+                )
+            ],
+            section,
+            _definition(),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_document_only_section_strips_non_orm_fields(service):
     service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
     section = _section(
         _schema(
@@ -414,20 +671,24 @@ async def test_document_only_section_still_rejects_data_fields(service):
         )
     )
 
-    with pytest.raises(G2PRegistryException, match="unexpected_field"):
-        await service.validate(
-            [
-                ChangePayload(
-                    edit_action="UPDATE",
-                    internal_record_id="record-1",
-                    unexpected_field="value",
-                )
-            ],
-            section,
-            _definition(),
-            AsyncMock(),
-            has_documents=True,
-        )
+    sanitized = await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                documents=[],
+                unexpected_field="value",
+            )
+        ],
+        section,
+        _definition(),
+        AsyncMock(),
+    )
+    assert sanitized[0].model_dump(exclude_unset=True) == {
+        "internal_record_id": "record-1",
+        "edit_action": "UPDATE",
+        "documents": [],
+    }
 
 
 @pytest.mark.asyncio
@@ -452,7 +713,6 @@ async def test_readonly_document_widget_does_not_enable_document_only_section(se
             section,
             _definition(),
             AsyncMock(),
-            has_documents=True,
         )
 
 
@@ -481,7 +741,6 @@ async def test_document_widget_does_not_hide_stale_editable_data_binding(service
             section,
             _definition(),
             AsyncMock(),
-            has_documents=True,
         )
 
 
@@ -503,10 +762,10 @@ def test_allowlists_remain_specific_to_sections_sharing_a_register(service):
 
 
 @pytest.mark.asyncio
-async def test_literal_dotted_payload_key_is_rejected(service):
+async def test_literal_dotted_non_orm_key_is_stripped_then_rejected_as_empty(service):
     service._resolve_orm_fields = AsyncMock(return_value={"phone_numbers"})
 
-    with pytest.raises(G2PRegistryException, match=r"phone_numbers\.0\.number"):
+    with pytest.raises(G2PRegistryException, match="no editable fields"):
         await service.validate(
             [
                 ChangePayload.model_validate(
@@ -750,7 +1009,7 @@ def test_all_create_paths_inherit_shared_section_validation():
     assert "validate_change_request_creation" in register_create_calls
     assert "validate_change_request_creation" in worker_create_calls
     assert "create_change_request" in core_create_calls
-    assert "has_documents" in _call_keywords(
+    assert "has_documents" not in _call_keywords(
         _REGISTER_CR_SERVICE_PATH,
         "G2PRegisterChangeRequestService",
         "validate_change_request_creation",
