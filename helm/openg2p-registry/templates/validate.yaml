@@ -6,3 +6,4 @@ of failing mid-install with a cryptic Kubernetes "label-value too long" error.
 See _validate.tpl for the validation logic.
 */ -}}
 {{- include "openg2p-registry.validateReleaseName" . -}}
+{{- include "openg2p-registry.validateVcDefinitions" . -}}

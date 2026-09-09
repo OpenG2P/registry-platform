@@ -38,3 +38,40 @@ stay within budget but requires a release name <= 30 chars.
 {{- fail $msg -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Duplicate credential-type guard.
+
+Each entry in `agentPortalApi.vcDefinitions` is keyed by `config_id`, and that id
+is used three ways: the register Job pushes one `credential_config` per entry to
+Certify, the API resolves a definition by matching it, and the Agent Portal shows
+it in the type selector.
+
+Two entries sharing a `config_id` break all three quietly:
+
+  * the register Job POSTs both, the second overwriting the first in Certify, so
+    the surviving credential_config is whichever the Job happened to send last;
+  * the API's lookup returns the FIRST match, so the other definition becomes
+    unreachable -- its view, claim columns and SVG are simply never used;
+  * the selector shows two entries the agent cannot tell apart, and picking
+    either issues the same credential.
+
+Nothing errors. The registry just issues the wrong credential for one of the
+types, which is why this is worth failing the install over: there is no
+legitimate reason for two definitions to share an id.
+*/}}
+
+{{- define "openg2p-registry.validateVcDefinitions" -}}
+{{- $defs := .Values.agentPortalApi.vcDefinitions | default list -}}
+{{- $seen := dict -}}
+{{- range $defs -}}
+  {{- $id := .config_id | default "" -}}
+  {{- if eq $id "" -}}
+    {{- fail "\n\nERROR: an entry in agentPortalApi.vcDefinitions has no config_id.\n\nEvery credential definition needs one: it is the id registered with Certify\nand the value the Agent Portal sends as vc_type.\n" -}}
+  {{- end -}}
+  {{- if hasKey $seen $id -}}
+    {{- fail (printf "\n\nERROR: agentPortalApi.vcDefinitions contains more than one entry with config_id %q.\n\nCredential ids must be unique. Duplicates do not error at runtime -- they\nsilently collide: the register Job overwrites one credential_config in Certify\nwith the other, the API only ever resolves the first, and the agent is offered\ntwo choices that issue the same credential.\n\nGive each definition its own config_id (and its own Certify credential_config).\n" $id) -}}
+  {{- end -}}
+  {{- $_ := set $seen $id true -}}
+{{- end -}}
+{{- end -}}
