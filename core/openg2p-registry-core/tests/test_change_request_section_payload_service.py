@@ -744,6 +744,214 @@ async def test_document_widget_does_not_hide_stale_editable_data_binding(service
         )
 
 
+def _file_widget(
+    widget_id: str,
+    *,
+    required: bool = False,
+    register_id: str = "register-1",
+) -> dict:
+    return {
+        "widget": "file",
+        "widget-id": widget_id,
+        "widget-type": "input",
+        "widget-required": required,
+        "widget-data-path": f"{register_id}.{widget_id}",
+        "widget-data-options": {"accept": ".pdf", "maxSize": 5242880},
+    }
+
+
+@pytest.mark.asyncio
+async def test_file_widget_document_only_section_uses_path_fields_as_labels(
+    service,
+):
+    service._resolve_orm_fields = AsyncMock(
+        return_value={"internal_record_id", "national_id"}
+    )
+    schema = {
+        "panels": [
+            {
+                "panel-id": "panel-1",
+                "widgets": [
+                    _file_widget("national_id", required=True),
+                    _file_widget("birth_certificate", required=True),
+                ],
+            },
+            {
+                "panel-id": "panel-2",
+                "widgets": [
+                    _file_widget("proof_of_address"),
+                    _file_widget("passport"),
+                ],
+            },
+        ],
+        "section-supporting-documents": [
+            {
+                "document-label": "cert1",
+                "document-required": True,
+                "document-data-path": (
+                    "a0000000-0000-4000-8000-000000000001.birth_certificate"
+                ),
+            }
+        ],
+    }
+    section = _section(schema)
+    assert service.resolve_allowed_fields(
+        schema, "register-1", {"internal_record_id", "national_id"}
+    ) == set()
+
+    with pytest.raises(G2PRegistryException, match="row 0: national_id"):
+        await service.validate(
+            [
+                ChangePayload(
+                    edit_action="UPDATE",
+                    internal_record_id="record-1",
+                    documents=[
+                        DocumentAttachment(
+                            document_id="document-1",
+                            label="national_id",
+                        ),
+                        DocumentAttachment(
+                            document_id="document-2",
+                            label="birth_certificate",
+                        ),
+                    ],
+                    national_id="not-a-domain-field",
+                )
+            ],
+            section,
+            _definition(),
+            AsyncMock(),
+        )
+
+    sanitized = await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                documents=[
+                    DocumentAttachment(
+                        document_id="document-1",
+                        label="national_id",
+                    ),
+                    DocumentAttachment(
+                        document_id="document-2",
+                        label="birth_certificate",
+                    ),
+                ],
+            )
+        ],
+        section,
+        _definition(),
+        AsyncMock(),
+    )
+
+    assert sanitized[0].model_dump(exclude_unset=True) == {
+        "internal_record_id": "record-1",
+        "edit_action": "UPDATE",
+        "documents": [
+            {"document_id": "document-1", "label": "national_id"},
+            {"document_id": "document-2", "label": "birth_certificate"},
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_file_widget_required_slots_cannot_be_cleared(service):
+    service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
+    section = _section(
+        _schema(
+            _file_widget("national_id", required=True),
+            _file_widget("proof_of_address"),
+        )
+    )
+
+    with pytest.raises(G2PRegistryException, match="required documents are missing"):
+        await service.validate(
+            [
+                ChangePayload(
+                    edit_action="UPDATE",
+                    internal_record_id="record-1",
+                    documents=[],
+                )
+            ],
+            section,
+            _definition(),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_file_widget_rejects_supporting_document_labels_as_section_slots(
+    service,
+):
+    service._resolve_orm_fields = AsyncMock(return_value={"internal_record_id"})
+    section = _section(
+        {
+            **_schema(_file_widget("national_id")),
+            "section-supporting-documents": [
+                {"document-label": "cert1", "document-required": True}
+            ],
+        }
+    )
+
+    with pytest.raises(G2PRegistryException, match="not configured"):
+        await service.validate(
+            [
+                ChangePayload(
+                    edit_action="UPDATE",
+                    internal_record_id="record-1",
+                    documents=[
+                        DocumentAttachment(
+                            document_id="document-1",
+                            label="cert1",
+                        )
+                    ],
+                )
+            ],
+            section,
+            _definition(),
+            AsyncMock(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_file_widget_mixed_section_keeps_orm_fields_and_documents(service):
+    service._resolve_orm_fields = AsyncMock(
+        return_value={"internal_record_id", "first_name"}
+    )
+    section = _section(
+        _schema(
+            {"widget": "text", "widget-data-path": "register-1.first_name"},
+            _file_widget("national_id"),
+        )
+    )
+
+    sanitized = await service.validate(
+        [
+            ChangePayload(
+                edit_action="UPDATE",
+                internal_record_id="record-1",
+                first_name="Ada",
+                documents=[
+                    DocumentAttachment(
+                        document_id="document-1",
+                        label="national_id",
+                    )
+                ],
+            )
+        ],
+        section,
+        _definition(),
+        AsyncMock(),
+    )
+
+    dumped = sanitized[0].model_dump(exclude_unset=True)
+    assert dumped["first_name"] == "Ada"
+    assert dumped["documents"] == [
+        {"document_id": "document-1", "label": "national_id"}
+    ]
+
+
 def test_allowlists_remain_specific_to_sections_sharing_a_register(service):
     orm_fields = {"first_name", "latitude"}
     personal_schema = _schema(

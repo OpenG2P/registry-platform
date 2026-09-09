@@ -19,7 +19,8 @@ _ALWAYS_ALLOWED_CONTROL_FIELDS = frozenset(
     {"edit_action", "internal_record_id", "link_internal_record_id"}
 )
 _TABLE_WIDGETS = frozenset({"table", "dialog-table"})
-_DOCUMENT_WIDGETS = frozenset({"docs", "documents"})
+# `file` is the current upload widget. `docs`/`documents` remain for older schemas.
+_DOCUMENT_WIDGETS = frozenset({"file", "docs", "documents"})
 
 
 class G2PChangeRequestSectionPayloadService(BaseService):
@@ -273,7 +274,12 @@ class G2PChangeRequestSectionPayloadService(BaseService):
         if not isinstance(nodes, dict) or nodes.get("widget-readonly") is True:
             return slots
 
-        if nodes.get("widget") in _DOCUMENT_WIDGETS:
+        widget_name = nodes.get("widget")
+        if widget_name == "file":
+            label = self._file_widget_slot_label(nodes)
+            if label:
+                slots[label] = bool(nodes.get("widget-required", False))
+        elif widget_name in _DOCUMENT_WIDGETS:
             documents = nodes.get("documents")
             if isinstance(documents, list):
                 for document in documents:
@@ -289,6 +295,17 @@ class G2PChangeRequestSectionPayloadService(BaseService):
             if child_key in nodes:
                 slots.update(self._editable_document_slots(nodes[child_key]))
         return slots
+
+    def _file_widget_slot_label(self, widget: dict[str, Any]) -> str | None:
+        path = widget.get("widget-data-path")
+        if isinstance(path, str):
+            field = path.rsplit(".", 1)[-1].strip()
+            if field:
+                return field
+        widget_id = widget.get("widget-id")
+        if isinstance(widget_id, str) and widget_id.strip():
+            return widget_id.strip()
+        return None
 
 
     def is_document_only_schema(self, schema: dict[str, Any]) -> bool:
@@ -399,6 +416,17 @@ class G2PChangeRequestSectionPayloadService(BaseService):
             return
 
         widget_name = widget.get("widget")
+        if widget_name in _DOCUMENT_WIDGETS:
+            for child_key in ("widgets", "widget-item"):
+                if child_key in widget:
+                    self._walk_schema_nodes(
+                        widget[child_key],
+                        section_register_id,
+                        orm_fields,
+                        allowed_fields,
+                    )
+            return
+
         widget_type = widget.get("widget-type")
         columns = widget.get("widget-data-columns")
         is_table_widget = (

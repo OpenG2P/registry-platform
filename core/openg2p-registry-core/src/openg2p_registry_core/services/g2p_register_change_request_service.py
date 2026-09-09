@@ -2290,7 +2290,10 @@ class G2PRegisterChangeRequestService(BaseService):
     ) -> None:
         """Reconcile row-level section docs; top-level CR docs are supporting only."""
         payload = await self._get_change_request_payload(change_request.change_request_id, session)
-        document_service = G2PSectionDocumentReconcileService.get_component()
+        document_service = (
+            G2PSectionDocumentReconcileService.get_component()
+            or G2PSectionDocumentReconcileService()
+        )
         rows_to_reconcile: list[tuple[str, list[DocumentAttachment]]] = []
         referenced_document_ids: list[str] = []
 
