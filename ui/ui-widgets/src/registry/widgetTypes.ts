@@ -23,7 +23,6 @@ export const WIDGET_TYPES = [
   'parent-lookup',
   'multi-select',
   'geo-hierarchy',
-  'docs',
 ] as const;
 
 export type WidgetType = (typeof WIDGET_TYPES)[number];
@@ -36,7 +35,6 @@ export function getWidgetCategory(widget: string): 'input' | 'layout' | 'table' 
     case 'profile':
     case 'header-section':
     case 'scores-display':
-    case 'docs':
       return 'layout';
     default:
       return 'input';

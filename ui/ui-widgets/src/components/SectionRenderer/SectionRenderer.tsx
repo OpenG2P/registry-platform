@@ -78,7 +78,8 @@ export const SectionRenderer = ({
   );
 
   const supportingDocuments = section['section-supporting-documents'] || [];
-  const hasSupportingDocuments = supportingDocuments.length > 0;
+  const hasSupportingDocuments =
+    mode !== 'IntakeForm' && supportingDocuments.length > 0;
 
   const { isExpanded, handleAccordionToggle } = useIntakeFormAccordion(
     mode,

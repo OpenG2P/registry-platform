@@ -53,15 +53,6 @@ export interface GeoHierarchyDataSource {
 
 export type DataSource = StaticDataSource | ApiDataSource | SchemaDataSource;
 
-/** Configuration for a single upload slot inside a `docs` widget. */
-export interface DocsWidgetDocumentConfig {
-  'document-key': string;
-  'document-label': string;
-  'document-required'?: boolean;
-  'document-accept': string;
-  'document-max-size': number;
-}
-
 export interface GeoHierarchyLayout {
   distribution?: 'fixed';
   /** Explicit levels-per-column counts, e.g. [3, 3] for a 6-level hierarchy in 2 columns. */
@@ -286,8 +277,6 @@ export interface BaseWidgetConfig {
   'widget-data-add-label'?: string;
   'widget-data-collapsed'?: boolean;
   'widget-column-span'?: number;
-  'widget-total-docs'?: number;
-  documents?: DocsWidgetDocumentConfig[];
   _comment?: string;
   [key: string]: any;
 }

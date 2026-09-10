@@ -29,6 +29,7 @@ export interface RegisterRecordsApiResponse {
 export interface RegisterFlattenedRecord {
     internal_record_id: string;
     functional_record_id: string;
+    record_name?: string | null;
     [key: string]: unknown;
 }
 

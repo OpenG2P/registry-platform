@@ -9,6 +9,7 @@ interface Props {
     internalRecordId: string;
     type: string;
     activeTabId?: string;
+    recordName?: string | null;
     count?: number;
     onCountLoaded?: (count: number) => void;
 }
@@ -18,6 +19,7 @@ export default function RegisterChangeRequestCard({
     registerId,
     internalRecordId,
     activeTabId,
+    recordName,
     count: externalCount,
     onCountLoaded,
 }: Props) {
@@ -53,6 +55,7 @@ export default function RegisterChangeRequestCard({
 
     const params = new URLSearchParams();
     if (activeTabId) params.set("tab", activeTabId);
+    if (recordName?.trim()) params.set("record_name", recordName.trim());
 
     const href = `/${locale}/register/${type}/${internalRecordId}/change-request${params.toString() ? `?${params.toString()}` : ""
         }`;

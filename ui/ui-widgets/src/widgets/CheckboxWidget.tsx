@@ -40,7 +40,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
       return (
         <div className="mb-[10px] CheckboxDisplayWidget flex flex-col sm:flex-row sm:items-start">
           {label && (
-            <div className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+            <div className="text-base owt-field-label font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
               {label}:
             </div>
           )}
@@ -58,7 +58,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
       <div className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-baseline">
           <WidgetFieldLabel
-            className="text-base font-medium leading-normal owt-text md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+            className="text-base font-medium leading-normal owt-field-label md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
             label={tSchema(t, widgetConfig['widget-label'])}
             required={isRequired}
           />
@@ -150,7 +150,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     return (
       <div className="mb-3 CheckboxDisplayWidget flex flex-col sm:flex-row sm:items-start">
         {label && (
-          <div className="text-sm owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" title={label}>
+          <div className="text-sm owt-field-label font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" title={label}>
             {label}:
           </div>
         )}
@@ -168,7 +168,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     <div className="mb-[10px]">
       <div className="flex flex-col sm:flex-row sm:items-baseline">
         <WidgetFieldLabel
-          className="text-base font-medium leading-normal owt-text md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
+          className="text-base font-medium leading-normal owt-field-label md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0 sm:pt-0.5"
           label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />

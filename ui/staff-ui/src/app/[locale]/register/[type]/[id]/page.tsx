@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import {
     TabsLayout,
 } from '@/components/shared';
@@ -18,6 +19,8 @@ import { VersionHistoryCard } from '@/features/register/components';
 
 export default function RegisterDetailPage() {
     const t = useTranslations();
+    const searchParams = useSearchParams();
+    const recordName = searchParams.get('record_name')?.trim();
 
     // state to update the count of pending change requests 
     const [changeRequestCount, setChangeRequestCount] = useState<number | undefined>(undefined);
@@ -30,13 +33,27 @@ export default function RegisterDetailPage() {
         activeTabIndex,
         setActiveTabByIndex,
         activeTabId,
-        breadcrumb,
         orderedTabSections,
         sectionDataMap,
         handleSectionSave,
         canRenderContent,
         currentRegister
     } = useRegisterDetail(() => setChangeRequestCount(prevCount => (prevCount ?? 0) + 1));
+
+    const breadcrumb = [
+        ...(currentRegister && registerType
+            ? [{
+                label: t(currentRegister.register_subject) ?? currentRegister.register_subject,
+                href: `/register/${registerType}`,
+            }]
+            : []),
+        ...(recordName && registerType && internalRecordId
+            ? [{
+                label: recordName,
+                href: `/register/${registerType}/${internalRecordId}`,
+            }]
+            : []),
+    ];
 
     const isLoading = !internalRecordId || !canRenderContent;
     const isNotFound = !internalRecordId;
@@ -103,6 +120,7 @@ export default function RegisterDetailPage() {
                                     registerId={currentRegister.register_id}
                                     internalRecordId={internalRecordId}
                                     activeTabId={activeTabId}
+                                    recordName={recordName}
                                     count={changeRequestCount}
                                     onCountLoaded={setChangeRequestCount}
                                 />
@@ -111,6 +129,7 @@ export default function RegisterDetailPage() {
                                     registerId={currentRegister.register_id}
                                     internalRecordId={internalRecordId}
                                     activeTabId={activeTabId}
+                                    recordName={recordName}
                                 />
                             </>
                         )}

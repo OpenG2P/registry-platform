@@ -243,7 +243,7 @@ export default function RegisterTypePage() {
             renderCard={(record, index) => (
                 <CompactCard
                     key={record.internal_record_id}
-                    href={`/register/${registerType}/${record.internal_record_id}`}
+                    href={`/register/${registerType}/${record.internal_record_id}${record.record_name?.trim() ? `?record_name=${encodeURIComponent(record.record_name.trim())}` : ''}`}
                     imageUrl={record.record_image_url}
                     imageAlt={record.record_name}
                     title={record.record_name}
@@ -267,9 +267,12 @@ export default function RegisterTypePage() {
             columns={columns}
             sortBy={sortBy}
             onSortChange={handleSort}
-            onRowClick={(record) =>
-                router.push(`/register/${registerType}/${record.internal_record_id}`)
-            }
+            onRowClick={(record) => {
+                const query = record.record_name?.trim()
+                    ? `?record_name=${encodeURIComponent(record.record_name.trim())}`
+                    : '';
+                router.push(`/register/${registerType}/${record.internal_record_id}${query}`);
+            }}
             moreMenuItems={[...intakeMenuItems, ...exportMenuItems]}
             selectable={canExport}
             selectedIds={selection.selectedIds}

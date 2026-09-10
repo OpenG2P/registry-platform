@@ -62,7 +62,7 @@ export const DisplayWidget = ({ config }: DisplayWidgetProps) => {
 
   return (
     <div className="mb-[10px] DisplayFieldWidget flex flex-col sm:flex-row sm:items-start">
-      <div className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+      <div className="text-base owt-field-label font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
         {label}:
       </div>
       <div className="flex-1 min-w-0">

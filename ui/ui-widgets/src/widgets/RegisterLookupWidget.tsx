@@ -104,6 +104,7 @@ const RecordDisplayPanel = ({
           min-width: 0 !important;
           overflow: hidden !important;
         }
+        .register-lookup-record-panel .DisplayFieldWidget > .text-base.owt-field-label,
         .register-lookup-record-panel .DisplayFieldWidget > .text-base.owt-text-muted {
           width: 50% !important;
           min-width: 50% !important;
@@ -691,8 +692,8 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                 type="button"
                 onClick={() => pendingRow && applySelection(pendingRow)}
                 disabled={!pendingRow}
-                className="px-4 h-9 text-sm font-medium rounded-[10px] text-white disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                style={{ backgroundColor: 'var(--owt-color-info)' }}
+                className="px-4 h-9 text-sm font-medium rounded-[10px] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                style={{ backgroundColor: 'var(--owt-color-info)', color: 'var(--owt-color-bg)' }}
               >
                 {selectRecordLabel}
               </button>

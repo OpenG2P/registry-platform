@@ -438,7 +438,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: 'var(--owt-color-overlay)',
             zIndex: 9998,
           }}
           onClick={toggleMaximize}
@@ -452,7 +452,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
           height: isMaximized ? '100vh' : undefined,
           width: isMaximized ? '100vw' : '100%',
           minHeight: 0,
-          background: 'var(--owt-color-bg, #FFFFFF)',
+          background: 'var(--owt-color-bg)',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           overflow: 'hidden',
           border: 'none',
@@ -465,19 +465,19 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
         <div
           style={{
             padding: '12px 16px',
-            borderBottom: '1px solid var(--owt-color-border-light, #E4E4E4)',
+            borderBottom: '1px solid var(--owt-color-border-light)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'var(--owt-color-bg, #FFFFFF)',
+            background: 'var(--owt-color-bg)',
             flexShrink: 0,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--owt-color-text, #011627)' }}>
+            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--owt-color-text)' }}>
               {t?.('sectionBuilder.title') || 'Section Builder'}
             </div>
-            <div style={{ display: 'flex', gap: '6px', background: 'var(--owt-color-bg-alt, #F6F6F6)', padding: '4px', borderRadius: '9999px' }}>
+            <div style={{ display: 'flex', gap: '6px', background: 'var(--owt-color-bg-alt)', padding: '4px', borderRadius: '9999px' }}>
               <button
                 type="button"
                 onClick={switchToGraphical}
@@ -486,8 +486,8 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
                   borderRadius: '9999px',
                   border: 'none',
                   cursor: 'pointer',
-                  background: mode === 'graphical' ? 'var(--owt-color-text, #011627)' : 'transparent',
-                  color: mode === 'graphical' ? 'var(--owt-color-bg, #FFFFFF)' : 'var(--owt-color-text, #011627)',
+                  background: mode === 'graphical' ? 'var(--owt-color-text)' : 'transparent',
+                  color: mode === 'graphical' ? 'var(--owt-color-bg)' : 'var(--owt-color-text)',
                   fontSize: '12px',
                   fontWeight: 700,
                 }}
@@ -502,8 +502,8 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
                   borderRadius: '9999px',
                   border: 'none',
                   cursor: 'pointer',
-                  background: mode === 'raw' ? 'var(--owt-color-text, #011627)' : 'transparent',
-                  color: mode === 'raw' ? 'var(--owt-color-bg, #FFFFFF)' : 'var(--owt-color-text, #011627)',
+                  background: mode === 'raw' ? 'var(--owt-color-text)' : 'transparent',
+                  color: mode === 'raw' ? 'var(--owt-color-bg)' : 'var(--owt-color-text)',
                   fontSize: '12px',
                   fontWeight: 700,
                 }}
@@ -520,8 +520,8 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
                 padding: '8px 12px',
                 borderRadius: '10px',
                 border: 'none',
-                background: 'var(--owt-color-primary-accent, #EE7C22)',
-                color: 'var(--owt-color-bg, #FFFFFF)',
+                background: 'var(--owt-color-primary-accent)',
+                color: 'var(--owt-color-bg)',
                 cursor: 'pointer',
                 fontSize: '12px',
                 fontWeight: 700,
@@ -536,12 +536,12 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
               style={{
                 padding: '8px 12px',
                 borderRadius: '10px',
-                border: '1px solid var(--owt-color-border, #C4C4C4)',
-                background: 'var(--owt-color-bg, #FFFFFF)',
+                border: '1px solid var(--owt-color-border)',
+                background: 'var(--owt-color-bg)',
                 cursor: 'pointer',
                 fontSize: '12px',
                 fontWeight: 700,
-                color: 'var(--owt-color-text, #011627)',
+                color: 'var(--owt-color-text)',
               }}
             >
               {t?.('sectionBuilder.reset') || 'Reset'}
@@ -570,8 +570,8 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
                   padding: '8px 12px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: 'var(--owt-color-text, #011627)',
-                  color: 'var(--owt-color-bg, #FFFFFF)',
+                  background: 'var(--owt-color-text)',
+                  color: 'var(--owt-color-bg)',
                   cursor: 'pointer',
                   fontSize: '12px',
                   fontWeight: 700,
@@ -627,7 +627,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: 'var(--owt-color-overlay)',
             zIndex: 10000,
             display: 'flex',
             alignItems: 'center',
@@ -638,7 +638,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
         >
           <div
             style={{
-              background: 'var(--owt-color-bg, #FFFFFF)',
+              background: 'var(--owt-color-bg)',
               borderRadius: '8px',
               width: '100%',
               minWidth: '700px',
@@ -647,21 +647,21 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
               maxHeight: '90vh',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 4px 20px var(--owt-color-shadow)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
               style={{
                 padding: '15px 20px',
-                borderBottom: '1px solid var(--owt-color-border-light, #E4E4E4)',
+                borderBottom: '1px solid var(--owt-color-border-light)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: 'var(--owt-color-bg-alt, #F6F6F6)',
+                background: 'var(--owt-color-bg-alt)',
               }}
             >
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--owt-color-text, #011627)' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--owt-color-text)' }}>
                 {t?.('sectionBuilder.previewTitle') || 'Preview'}
               </h2>
               <button
@@ -673,7 +673,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
                   cursor: 'pointer',
                   fontSize: '18px',
                   padding: '5px 10px',
-                  color: 'var(--owt-color-text-muted, #727474)',
+                  color: 'var(--owt-color-text-muted)',
                 }}
                 aria-label={t?.('sectionBuilder.closePreview') || 'Close preview'}
               >

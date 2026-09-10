@@ -20,7 +20,7 @@ export const WidgetFieldLabel = ({
 
   return (
     <label
-      className={`flex items-baseline min-w-0 max-w-full ${className}`}
+      className={`flex items-baseline min-w-0 max-w-full owt-field-label ${className}`}
       style={{ fontFamily: 'Roboto, sans-serif' }}
       title={tooltip}
     >

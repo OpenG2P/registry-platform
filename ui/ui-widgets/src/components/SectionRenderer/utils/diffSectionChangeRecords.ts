@@ -54,11 +54,12 @@ const diffFormRecord = (
   baselineRecords: unknown[],
   currentRecords: unknown[],
   internalRecordId?: string,
+  hasFileChanges = false,
 ): unknown[] => {
   const baseline = toRowList(baselineRecords)[0] ?? {};
   const current = toRowList(currentRecords)[0] ?? {};
   const changedFields = pickChangedFields(baseline, current);
-  if (Object.keys(changedFields).length === 0) return [];
+  if (Object.keys(changedFields).length === 0 && !hasFileChanges) return [];
 
   const payload: RowRecord = {
     ...pickAllSectionFields(baseline, current),
@@ -154,9 +155,19 @@ const diffTableRows = (
 export function diffSectionChangeRecords(
   baselineRecords: unknown[],
   currentRecords: unknown[],
-  { isTable, internalRecordId, tableColumnKeys }: { isTable: boolean; internalRecordId?: string; tableColumnKeys?: string[] },
+  {
+    isTable,
+    internalRecordId,
+    tableColumnKeys,
+    hasFileChanges,
+  }: {
+    isTable: boolean;
+    internalRecordId?: string;
+    tableColumnKeys?: string[];
+    hasFileChanges?: boolean;
+  },
 ): unknown[] {
   return isTable
     ? diffTableRows(baselineRecords, currentRecords, tableColumnKeys)
-    : diffFormRecord(baselineRecords, currentRecords, internalRecordId);
+    : diffFormRecord(baselineRecords, currentRecords, internalRecordId, hasFileChanges);
 }

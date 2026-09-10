@@ -116,7 +116,9 @@ export const PanelRenderer = ({
                     top: 0,
                     bottom: '5px',
                     width: '1px',
-                    backgroundColor: isEditMode ? 'var(--owt-color-primary)' : 'var(--owt-panel-divider-color)',
+                    backgroundColor: isEditMode
+                      ? 'var(--owt-color-primary-dark)'
+                      : 'var(--owt-panel-divider-color)',
                   }}
                 />
               )}
