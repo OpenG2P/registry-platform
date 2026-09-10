@@ -1,6 +1,7 @@
 import importlib
 import logging
 import uuid
+from copy import deepcopy
 from datetime import datetime
 
 from fastapi_cache.decorator import cache
@@ -23,9 +24,7 @@ from ..models import (
     G2PRegisterChangeRequestDocument,
     G2PRegisterChangeRequestPayload,
     G2PRegisterDefinition,
-    G2PRegisterDocumentHistory,
     G2PRegisterSection,
-    G2PRegisterSectionDocument,
     G2PRegisterUITab,
     G2PRegisterVerification,
     RegisterPurposeEnum,
@@ -41,6 +40,7 @@ from ..schemas import (
     ChangeRequestSummaryData,
     CrossRegisterChangeRequestData,
     ChangeActionEnum,
+    DocumentAttachment,
     NumberOfCrossRegisterChangesData,
     NumberOfPendingChangeRequestsData,
     VerificationData,
@@ -57,6 +57,13 @@ from .g2p_register_history_service import G2PRegisterHistoryService
 from .g2p_register_service import G2PRegisterService
 from .g2p_change_request_section_payload_service import (
     G2PChangeRequestSectionPayloadService,
+)
+from .change_request_payload_utils import (
+    change_payload_to_storage_dict,
+    domain_fields_from_change_payload,
+)
+from .g2p_section_document_reconcile_service import (
+    G2PSectionDocumentReconcileService,
 )
 from ..interfaces import G2PRegisterDomainFactory
 
@@ -154,24 +161,17 @@ class G2PRegisterChangeRequestService(BaseService):
             if hasattr(g2p_register_change_request, '_payload'):
                 session.add(g2p_register_change_request._payload)
 
-            # Attach already-uploaded documents (validated against the catalog)
-            if change_request_request_payload.documents:
-                from .g2p_document_service import G2PDocumentService
-                document_service = G2PDocumentService.get_component()
-                await document_service.validate_documents_exist(
-                    session,
-                    [doc.document_id for doc in change_request_request_payload.documents],
-                )
-                for doc in change_request_request_payload.documents:
-                    session.add(G2PRegisterChangeRequestDocument(
-                        change_request_id=g2p_register_change_request.change_request_id,
-                        document_id=doc.document_id,
-                        section_id=change_request_request_payload.section_id,
-                        label=doc.label,
-                    ))
+            await self._attach_supporting_documents(
+                change_request_request_payload,
+                g2p_register_change_request,
+                session,
+            )
 
             serialized_payloads: list[dict] = (
-                [item.model_dump() for item in change_request_request_payload.change_payload]
+                [
+                    domain_fields_from_change_payload(item)
+                    for item in change_request_request_payload.change_payload
+                ]
                 if change_request_request_payload.change_payload
                 else []
             )
@@ -406,7 +406,9 @@ class G2PRegisterChangeRequestService(BaseService):
             if action == ChangeActionEnum.NO_CHANGE.value:
                 continue
             change_payload["internal_record_id"] = change_request.internal_record_id
-            schema_instance = schema_class(**(change_payload or {}))
+            schema_instance = schema_class(
+                **domain_fields_from_change_payload(change_payload)
+            )
             self._update_existing_record(existing, schema_instance.dict(), change_payload, register_class)
             self._set_if_column(existing, "last_approved_at", change_request.approved_at)
             self._set_if_column(existing, "last_approved_by", change_request.approved_by or "system")
@@ -429,7 +431,9 @@ class G2PRegisterChangeRequestService(BaseService):
                 if not change_payload.get("link_internal_record_id"):
                     raise self._invalid_request("link_internal_record_id is required for table ADD change payloads.")
                 change_payload["internal_record_id"] = change_payload.get("internal_record_id") or str(uuid.uuid4())
-                schema_instance = schema_class(**(change_payload or {}))
+                schema_instance = schema_class(
+                    **domain_fields_from_change_payload(change_payload)
+                )
                 record_data = self._build_record_data(schema_instance.dict(), change_payload, table_class)
                 self._set_data_if_column(record_data, table_class, "created_by", change_request.created_by)
                 self._set_data_if_column(record_data, table_class, "created_at", change_request.created_at)
@@ -450,7 +454,9 @@ class G2PRegisterChangeRequestService(BaseService):
                 )
 
             if action == ChangeActionEnum.UPDATE.value:
-                schema_instance = schema_class(**(change_payload or {}))
+                schema_instance = schema_class(
+                    **domain_fields_from_change_payload(change_payload)
+                )
                 self._update_existing_record(existing, schema_instance.dict(), change_payload, table_class)
                 self._set_if_column(existing, "last_approved_at", change_request.approved_at)
                 self._set_if_column(existing, "last_approved_by", change_request.approved_by or "system")
@@ -542,7 +548,9 @@ class G2PRegisterChangeRequestService(BaseService):
             _logger.info(f"No change action for change request '{change_request.change_request_id}', skipping register update.")
             return change_request.internal_record_id
 
-        register_schema_instance = schema_class(**(change_payload or {}))
+        register_schema_instance = schema_class(
+            **domain_fields_from_change_payload(change_payload)
+        )
 
         existing = (
             await session.execute(
@@ -609,7 +617,9 @@ class G2PRegisterChangeRequestService(BaseService):
                 _logger.info(f"No change action for change request '{change_request.change_request_id}', skipping register update.")
                 continue
 
-            register_schema_instance = schema_class(**(change_payload or {}))
+            register_schema_instance = schema_class(
+                **domain_fields_from_change_payload(change_payload)
+            )
 
             existing = (
                 await session.execute(
@@ -689,7 +699,9 @@ class G2PRegisterChangeRequestService(BaseService):
                 _logger.info(f"No change action for change request '{change_request.change_request_id}', skipping register update.")
                 continue
 
-            register_schema_instance = schema_class(**(change_payload or {}))
+            register_schema_instance = schema_class(
+                **domain_fields_from_change_payload(change_payload)
+            )
         
             existing = (
                 await session.execute(
@@ -970,7 +982,9 @@ class G2PRegisterChangeRequestService(BaseService):
             return
 
         # Serialize change request payload to register schema for validation
-        register_schema_instance = schema_class(**(change_payload or {}))
+        register_schema_instance = schema_class(
+            **domain_fields_from_change_payload(change_payload)
+        )
         
         existing = (
             await session.execute(
@@ -1099,13 +1113,15 @@ class G2PRegisterChangeRequestService(BaseService):
                 if action == ChangeActionEnum.ADD.value and not getattr(change_payload, "link_internal_record_id", None):
                     raise self._invalid_request(f"link_internal_record_id is required for table {action} payloads.")
 
-        await G2PChangeRequestSectionPayloadService.get_component().validate(
-            change_payloads,
-            section,
-            section_register_definition,
-            session,
-            has_documents=bool(payload.documents),
+        payload.change_payload = (
+            await G2PChangeRequestSectionPayloadService.get_component().validate(
+                change_payloads,
+                section,
+                section_register_definition,
+                session,
+            )
         )
+        await self._validate_supporting_documents(payload, session)
 
         pending_count = (
             await session.execute(
@@ -1119,6 +1135,47 @@ class G2PRegisterChangeRequestService(BaseService):
         if pending_count > 0:
             raise self._invalid_request(
                 "A pending change request already exists for this record and section"
+            )
+
+    async def _validate_supporting_documents(
+        self,
+        payload: ChangeRequestRequestPayload,
+        session: AsyncSession,
+    ) -> None:
+        documents = payload.documents or []
+        document_ids = [document.document_id for document in documents]
+        duplicate_ids = sorted(
+            document_id
+            for document_id in set(document_ids)
+            if document_ids.count(document_id) > 1
+        )
+        if duplicate_ids:
+            raise self._invalid_request(
+                "Duplicate supporting document IDs: "
+                + ", ".join(duplicate_ids)
+            )
+        if document_ids:
+            from .g2p_document_service import G2PDocumentService
+
+            await G2PDocumentService.get_component().validate_documents_exist(
+                session,
+                document_ids,
+            )
+
+    async def _attach_supporting_documents(
+        self,
+        payload: ChangeRequestRequestPayload,
+        change_request: G2PRegisterChangeRequest,
+        session: AsyncSession,
+    ) -> None:
+        for document in payload.documents or []:
+            session.add(
+                G2PRegisterChangeRequestDocument(
+                    change_request_id=change_request.change_request_id,
+                    document_id=document.document_id,
+                    section_id=payload.section_id,
+                    label=document.label,
+                )
             )
 
     async def _get_change_request_payload(self, change_request_id: str, session) -> G2PRegisterChangeRequestPayload:
@@ -1414,14 +1471,25 @@ class G2PRegisterChangeRequestService(BaseService):
         change_request_id = str(uuid.uuid4())
         internal_record_id: str = change_request_request_payload.internal_record_id
 
-        serialized_payloads: list[dict] = [item.model_dump() for item in change_request_request_payload.change_payload] if change_request_request_payload.change_payload else []
+        serialized_payloads: list[dict] = (
+            [
+                change_payload_to_storage_dict(item)
+                for item in change_request_request_payload.change_payload
+            ]
+            if change_request_request_payload.change_payload
+            else []
+        )
+        domain_payloads = [
+            domain_fields_from_change_payload(item)
+            for item in serialized_payloads
+        ]
 
         register_domain_service: G2PRegisterDomainService | None = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)
 
         display_payloads = await self._payloads_for_display_metadata(
             session,
             change_request_request_payload.section_register_id,
-            serialized_payloads,
+            domain_payloads,
         )
 
         constructed_record_name = self._construct_record_name_for_change_request(register_domain_service, display_payloads)
@@ -1878,7 +1946,11 @@ class G2PRegisterChangeRequestService(BaseService):
         approved_at_str = str(change_request.approved_at.isoformat()) if change_request.approved_at and hasattr(change_request.approved_at, 'isoformat') else None
 
         # Get change_payload from the payload object
-        change_payloads: list[ChangePayload] = change_request_payload.change_payload if change_request_payload else None
+        change_payloads: list[dict] = (
+            deepcopy(change_request_payload.change_payload)
+            if change_request_payload
+            else []
+        )
 
         # Fetch existing register data (old values) for current_register_data
         current_register_data = None
@@ -2007,6 +2079,55 @@ class G2PRegisterChangeRequestService(BaseService):
         from .g2p_document_service import G2PDocumentService
 
         document_service = G2PDocumentService.get_component()
+        for change_payload in change_payloads:
+            if (
+                "documents" in change_payload
+                and change_payload["documents"] is not None
+            ):
+                change_payload["documents"] = [
+                    document.model_dump()
+                    for document in await document_service.hydrate_document_attachments(
+                        session,
+                        change_payload["documents"],
+                        section_id=change_request.section_id,
+                    )
+                ]
+
+        if change_request.approval_status == ApprovalStatusEnum.APPROVED.value:
+            for current_record in current_register_data_list:
+                record_id = current_record.get("internal_record_id")
+                if not record_id or not change_request.approved_at:
+                    current_record["documents"] = []
+                    continue
+                current_record["documents"] = [
+                    document.model_dump()
+                    for document in await document_service.get_section_documents_as_of(
+                        session,
+                        internal_record_id=record_id,
+                        section_id=change_request.section_id,
+                        before=change_request.approved_at,
+                    )
+                ]
+        else:
+            current_record_ids = [
+                record.get("internal_record_id")
+                for record in current_register_data_list
+                if record.get("internal_record_id")
+            ]
+            current_documents_map = await document_service.get_section_documents_map(
+                session,
+                current_record_ids,
+                section_id=change_request.section_id,
+            )
+            for current_record in current_register_data_list:
+                current_record["documents"] = [
+                    document.model_dump()
+                    for document in current_documents_map.get(
+                        current_record.get("internal_record_id"),
+                        [],
+                    )
+                ]
+
         records = [*(change_payloads or []), *current_register_data_list]
         record_image_urls = await document_service.get_document_urls(
             session,
@@ -2165,89 +2286,60 @@ class G2PRegisterChangeRequestService(BaseService):
         self,
         change_request: G2PRegisterChangeRequest,
         section: G2PRegisterSection,
-        session
+        session: AsyncSession,
     ) -> None:
-        """
-        Promote change-request documents to live section documents.
-
-        Key live docs by the section register row ID(s) from change_payload
-        (e.g. household / child), not the subject CR.internal_record_id
-        (e.g. individual), so get_tab_records can resolve them.
-        """
-        docs_result = await session.execute(
-            select(G2PRegisterChangeRequestDocument).where(
-                G2PRegisterChangeRequestDocument.change_request_id == change_request.change_request_id
-            )
-        )
-        change_request_documents = docs_result.scalars().all()
-
-        if not change_request_documents:
-            _logger.info(f"No documents to process for change request {change_request.change_request_id}")
-            return
-
+        """Reconcile row-level section docs; top-level CR docs are supporting only."""
         payload = await self._get_change_request_payload(change_request.change_request_id, session)
-        skip_actions = {
-            ChangeActionEnum.DELETE.value,
-            ChangeActionEnum.NO_CHANGE.value,
-        }
-        target_record_ids: list[str] = []
-        for change_payload in payload.change_payload or []:
+        document_service = (
+            G2PSectionDocumentReconcileService.get_component()
+            or G2PSectionDocumentReconcileService()
+        )
+        rows_to_reconcile: list[tuple[str, list[DocumentAttachment]]] = []
+        referenced_document_ids: list[str] = []
+
+        for row_index, change_payload in enumerate(payload.change_payload or []):
             action = change_payload.get("edit_action", ChangeActionEnum.ADD.value)
-            if action in skip_actions:
+            if action == ChangeActionEnum.NO_CHANGE.value:
                 continue
+
             record_id = change_payload.get("internal_record_id")
-            if record_id and record_id not in target_record_ids:
-                target_record_ids.append(record_id)
-
-        if not target_record_ids:
-            target_record_ids = [change_request.internal_record_id]
-
-        section_id = section.section_id
-        for cr_doc in change_request_documents:
-            doc_section_id = cr_doc.section_id or section_id
-            for record_id in target_record_ids:
-                session.add(
-                    G2PRegisterDocumentHistory(
-                        internal_record_id=record_id,
-                        section_id=doc_section_id,
-                        document_id=cr_doc.document_id,
-                        label=cr_doc.label,
-                        change_request_id=change_request.change_request_id,
-                        change_request_source=change_request.change_request_source,
-                        created_by=change_request.created_by,
-                        created_at=change_request.created_at,
-                        approved_by=change_request.approved_by or "system",
-                        approved_at=change_request.approved_at or datetime.now(),
-                    )
+            if not record_id and section.section_register_id == section.register_id:
+                record_id = change_request.internal_record_id
+            if not record_id:
+                raise self._invalid_request(
+                    f"internal_record_id is required to process documents in row {row_index}"
                 )
 
-                existing_doc = (
-                    await session.execute(
-                        select(G2PRegisterSectionDocument).where(
-                            (G2PRegisterSectionDocument.internal_record_id == record_id)
-                            & (G2PRegisterSectionDocument.document_id == cr_doc.document_id)
-                        )
-                    )
-                ).scalar()
+            if action == ChangeActionEnum.DELETE.value:
+                desired_documents: list[DocumentAttachment] = []
+            elif "documents" not in change_payload or change_payload["documents"] is None:
+                continue
+            else:
+                desired_documents = [
+                    DocumentAttachment.model_validate(document)
+                    for document in change_payload["documents"]
+                ]
+                referenced_document_ids.extend(
+                    document.document_id for document in desired_documents
+                )
+            rows_to_reconcile.append((record_id, desired_documents))
 
-                if existing_doc:
-                    existing_doc.section_id = doc_section_id
-                    existing_doc.label = cr_doc.label
-                    _logger.info(
-                        f"Document {cr_doc.document_id} already linked to record {record_id}"
-                    )
-                else:
-                    session.add(
-                        G2PRegisterSectionDocument(
-                            internal_record_id=record_id,
-                            document_id=cr_doc.document_id,
-                            section_id=doc_section_id,
-                            label=cr_doc.label,
-                        )
-                    )
-                    _logger.info(
-                        f"Linked document {cr_doc.document_id} to record {record_id}"
-                    )
+        if referenced_document_ids:
+            from .g2p_document_service import G2PDocumentService
+
+            await G2PDocumentService.get_component().validate_documents_exist(
+                session,
+                referenced_document_ids,
+            )
+
+        for record_id, desired_documents in rows_to_reconcile:
+            await document_service.reconcile(
+                change_request=change_request,
+                section_id=section.section_id,
+                internal_record_id=record_id,
+                desired_documents=desired_documents,
+                session=session,
+            )
     # =============================================================================
     # Registry Configuration Methods
     # =============================================================================
@@ -2255,7 +2347,7 @@ class G2PRegisterChangeRequestService(BaseService):
     @staticmethod
     def _records_from_change_request_payload(payload: ChangeRequestRequestPayload) -> list[dict]:
         return [
-            item.model_dump() if hasattr(item, "model_dump") else dict(item)
+            domain_fields_from_change_payload(item)
             for item in (payload.change_payload or [])
         ]
 

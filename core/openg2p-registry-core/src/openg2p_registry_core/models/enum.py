@@ -147,3 +147,8 @@ class DocumentBucket(StrEnum):
     DOCUMENTS = "documents"
     DATA_IMPORT_FILES = "data_import_files"
     EXPORT_FILES = "export-files"
+
+
+class DocumentHistoryEventTypeEnum(StrEnum):
+    ADD = "ADD"
+    REMOVE = "REMOVE"

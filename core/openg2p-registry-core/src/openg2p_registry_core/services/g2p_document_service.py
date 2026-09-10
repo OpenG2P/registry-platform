@@ -1,5 +1,6 @@
 import io
 import logging
+from datetime import datetime
 from typing import Iterable, List, Optional
 
 from fastapi import UploadFile
@@ -9,7 +10,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..models.enum import DocumentBucket
+from ..models.enum import DocumentBucket, DocumentHistoryEventTypeEnum
 from ..helpers.document import get_document_handler
 from ..helpers.file_validation import validate_file_bytes
 from ..helpers.file_validation_profiles import get_upload_validation_profile
@@ -24,6 +25,7 @@ from ..models import (
 from ..schemas import (
     ChangeRequestDocumentsData,
     DeleteDocumentsData,
+    DocumentAttachment,
     DocumentData,
     DocumentsData,
     IntakeFormDocumentsData,
@@ -273,13 +275,16 @@ class G2PDocumentService(BaseService):
         )
 
     async def get_section_documents_map(
-        self, session: AsyncSession, internal_record_ids: Iterable[str]
+        self,
+        session: AsyncSession,
+        internal_record_ids: Iterable[str],
+        section_id: str | None = None,
     ) -> dict[str, list[DocumentData]]:
         """Batch map internal_record_id -> List[DocumentData]."""
         internal_record_ids = [r for r in set(internal_record_ids or []) if r]
         if not internal_record_ids:
             return {}
-        result = await session.execute(
+        query = (
             select(
                 G2PRegisterSectionDocument.internal_record_id,
                 G2PRegistryDocument,
@@ -297,6 +302,11 @@ class G2PDocumentService(BaseService):
                 )
             )
         )
+        if section_id is not None:
+            query = query.where(
+                G2PRegisterSectionDocument.section_id == section_id
+            )
+        result = await session.execute(query)
         documents_map: dict[str, list[DocumentData]] = {
             record_id: [] for record_id in internal_record_ids
         }
@@ -307,6 +317,84 @@ class G2PDocumentService(BaseService):
                 )
             )
         return documents_map
+
+    async def hydrate_document_attachments(
+        self,
+        session: AsyncSession,
+        documents: Iterable[DocumentAttachment | dict],
+        *,
+        section_id: str | None = None,
+    ) -> list[DocumentData]:
+        attachments = [
+            document
+            if isinstance(document, DocumentAttachment)
+            else DocumentAttachment.model_validate(document)
+            for document in documents or []
+        ]
+        if not attachments:
+            return []
+        rows = await self._get_document_rows(
+            session,
+            [document.document_id for document in attachments],
+        )
+        rows_by_id = {row.document_id: row for row in rows}
+        return [
+            self._to_document_data(
+                rows_by_id[document.document_id],
+                with_url=True,
+                section_id=section_id,
+                label=document.label,
+            )
+            for document in attachments
+        ]
+
+    async def get_section_documents_as_of(
+        self,
+        session: AsyncSession,
+        *,
+        internal_record_id: str,
+        section_id: str,
+        before: datetime,
+    ) -> list[DocumentData]:
+        """Reconstruct the section-document set immediately before a version."""
+        events = (
+            await session.execute(
+                select(G2PRegisterDocumentHistory)
+                .where(
+                    G2PRegisterDocumentHistory.internal_record_id
+                    == internal_record_id,
+                    G2PRegisterDocumentHistory.section_id == section_id,
+                    G2PRegisterDocumentHistory.approved_at < before,
+                )
+                .order_by(
+                    G2PRegisterDocumentHistory.approved_at,
+                    G2PRegisterDocumentHistory.change_request_id,
+                )
+            )
+        ).scalars().all()
+
+        grouped_events: dict[tuple[datetime, str | None], list] = {}
+        for event in events:
+            key = (event.approved_at, event.change_request_id)
+            grouped_events.setdefault(key, []).append(event)
+
+        active: dict[str, str] = {}
+        for group in grouped_events.values():
+            for event in group:
+                if event.event_type == DocumentHistoryEventTypeEnum.REMOVE.value:
+                    active.pop(event.document_id, None)
+            for event in group:
+                if event.event_type == DocumentHistoryEventTypeEnum.ADD.value:
+                    active[event.document_id] = event.label
+
+        return await self.hydrate_document_attachments(
+            session,
+            [
+                DocumentAttachment(document_id=document_id, label=label)
+                for document_id, label in active.items()
+            ],
+            section_id=section_id,
+        )
 
     # =========================================================================
     # Helpers for other services

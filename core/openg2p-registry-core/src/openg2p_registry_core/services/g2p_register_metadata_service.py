@@ -474,7 +474,7 @@ class G2PRegisterMetadataService(BaseService):
             return result.scalar() or 0
 
     async def _count_tabs(self, register_id: str | None) -> int:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             count_query = select(func.count()).select_from(G2PRegisterUITab)
             if register_id is not None:
