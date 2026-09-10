@@ -94,24 +94,48 @@ class AweHelper(BaseService):
         self._base_url: str = normalize_awe_base_url(config.awe_base_url)
         self._timeout: float = config.awe_http_timeout_seconds
         self._verify_ssl: bool = config.auth_verify_ssl
+        self._http: Optional[httpx.AsyncClient] = None
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _client(self, token: str, extra_headers: Optional[Dict[str, str]] = None) -> httpx.AsyncClient:
+    def _shared_client(self) -> httpx.AsyncClient:
+        """Reuse one client so TLS context and keep-alive are not rebuilt per call."""
+        if self._http is None or self._http.is_closed:
+            self._http = httpx.AsyncClient(
+                base_url=self._base_url,
+                timeout=self._timeout,
+                verify=self._verify_ssl,
+                headers={"Accept": "application/json"},
+            )
+        return self._http
+
+    def _request_headers(
+        self, token: str, extra_headers: Optional[Dict[str, str]] = None
+    ) -> Dict[str, str]:
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-            "Accept": "application/json",
         }
         if extra_headers:
             headers.update(extra_headers)
-        return httpx.AsyncClient(
-            base_url=self._base_url,
-            headers=headers,
-            timeout=self._timeout,
-            verify=self._verify_ssl,
+        return headers
+
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        token: str,
+        extra_headers: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        return await self._shared_client().request(
+            method,
+            path,
+            headers=self._request_headers(token, extra_headers),
+            **kwargs,
         )
 
     @staticmethod
@@ -192,8 +216,9 @@ class AweHelper(BaseService):
         if idempotency_key:
             extra["Idempotency-Key"] = idempotency_key
 
-        async with self._client(token, extra) as client:
-            response = await client.post("/v1/awe/requests", json=payload)
+        response = await self._request(
+            "POST", "/v1/awe/requests", token=token, extra_headers=extra, json=payload
+        )
 
         self._raise_for_awe_error(response)
         result = response.json()
@@ -215,8 +240,9 @@ class AweHelper(BaseService):
         if status is not None:
             params["status"] = status
 
-        async with self._client(token) as client:
-            response = await client.get("/v1/awe/tasks/stats", params=params)
+        response = await self._request(
+            "GET", "/v1/awe/tasks/stats", token=token, params=params
+        )
 
         self._raise_for_awe_error(response)
         return response.json()
@@ -391,8 +417,12 @@ class AweHelper(BaseService):
         if attachments_ref is not None:
             payload["attachments_ref"] = attachments_ref
 
-        async with self._client(token) as client:
-            response = await client.post(f"/v1/awe/tasks/{task_id}/decision", json=payload)
+        response = await self._request(
+            "POST",
+            f"/v1/awe/tasks/{task_id}/decision",
+            token=token,
+            json=payload,
+        )
 
         self._raise_for_awe_error(response)
         result = response.json()
@@ -435,10 +465,12 @@ class AweHelper(BaseService):
         if actor is not None:
             payload["actor"] = actor
 
-        async with self._client(token) as client:
-            response = await client.post(
-                f"/v1/awe/requests/{request_id}/cancel", json=payload
-            )
+        response = await self._request(
+            "POST",
+            f"/v1/awe/requests/{request_id}/cancel",
+            token=token,
+            json=payload,
+        )
 
         self._raise_for_awe_error(response)
         result = response.json()
@@ -472,8 +504,9 @@ class AweHelper(BaseService):
         Raises:
             AWEClientError: If AWE returns a non-2xx response.
         """
-        async with self._client(token) as client:
-            response = await client.get(f"/v1/awe/requests/{request_id}/events")
+        response = await self._request(
+            "GET", f"/v1/awe/requests/{request_id}/events", token=token
+        )
 
         self._raise_for_awe_error(response)
         result = response.json()
@@ -501,8 +534,9 @@ class AweHelper(BaseService):
         Raises:
             AWEClientError: If AWE returns a non-2xx response.
         """
-        async with self._client(token) as client:
-            response = await client.get(f"/v1/awe/requests/{request_id}")
+        response = await self._request(
+            "GET", f"/v1/awe/requests/{request_id}", token=token
+        )
 
         self._raise_for_awe_error(response)
         result = response.json()
@@ -542,8 +576,9 @@ class AweHelper(BaseService):
         if status is not None:
             params["status"] = status
 
-        async with self._client(token) as client:
-            response = await client.get("/v1/awe/requests", params=params)
+        response = await self._request(
+            "GET", "/v1/awe/requests", token=token, params=params
+        )
 
         self._raise_for_awe_error(response)
         result = response.json()
@@ -568,8 +603,9 @@ class AweHelper(BaseService):
             AWEClientError: If AWE returns a non-2xx response (e.g. 409 if
                             the task is not in ``open`` state).
         """
-        async with self._client(token) as client:
-            response = await client.post(f"/v1/awe/tasks/{task_id}/claim")
+        response = await self._request(
+            "POST", f"/v1/awe/tasks/{task_id}/claim", token=token
+        )
 
         self._raise_for_awe_error(response)
         result = response.json()
@@ -634,8 +670,9 @@ class AweHelper(BaseService):
         if search_text is not None:
             params["search_text"] = search_text
 
-        async with self._client(token) as client:
-            response = await client.get("/v1/awe/tasks", params=params)
+        response = await self._request(
+            "GET", "/v1/awe/tasks", token=token, params=params
+        )
 
         self._raise_for_awe_error(response)
         result = self._normalize_paged_tasks(

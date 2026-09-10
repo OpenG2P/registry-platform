@@ -1,4 +1,5 @@
 import importlib
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -16,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..helpers.orm_cache import data_policies_key_builder, dict_to_orm, orm_row_to_dict, single_id_key_builder
+from .filter_builder import FilterBuilder
 from ..models import (
     ApprovalStatusEnum,
     ChangeRequestSourceEnum,
@@ -1535,14 +1537,36 @@ class G2PRegisterChangeRequestService(BaseService):
         data_policies: list[dict] | None = None,
     ) -> tuple[list[ChangeRequestSearchResultData], int]:
         """Helper method to search in change requests with pagination"""
-        search_query = f"%{search_text}%"
-
-        search_conditions = [G2PRegisterChangeRequestPayload.search_text.ilike(search_query)]
+        search_conditions = []
+        if search_text:
+            search_conditions.append(
+                G2PRegisterChangeRequestPayload.search_text.ilike(f"%{search_text}%")
+            )
         policy_condition = await self._build_change_request_search_policy_condition(
             data_policies, session
         )
         if policy_condition is not None:
             search_conditions.append(policy_condition)
+
+        # Same pattern as register search (record_status=ACTIVE): default PENDING
+        # unless the caller filters approval_status explicitly.
+        if not self._has_explicit_approval_status_filter(filter_by):
+            search_conditions.append(
+                G2PRegisterChangeRequest.approval_status == ApprovalStatusEnum.PENDING.value
+            )
+
+        if filter_by:
+            try:
+                search_conditions.extend(
+                    FilterBuilder(self._change_request_search_filter_schema()).build_conditions(
+                        filter_by, G2PRegisterChangeRequest
+                    )
+                )
+            except ValueError as validation_error:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                    message=str(validation_error),
+                ) from validation_error
 
         # Build base query
         base_query = select(G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload).join(
@@ -1631,6 +1655,34 @@ class G2PRegisterChangeRequestService(BaseService):
             search_results_list.append(change_request_search_result)
 
         return search_results_list, total_items
+
+    @staticmethod
+    def _change_request_search_filter_schema() -> list[dict]:
+        return [
+            {
+                "field_name": "approval_status",
+                "display_label": "Approval Status",
+                "filter_type": "text",
+                "allowed_operators": ["eq", "in"],
+            },
+            {
+                "field_name": "register_id",
+                "display_label": "Register",
+                "filter_type": "text",
+                "allowed_operators": ["eq"],
+            },
+        ]
+
+    @staticmethod
+    def _has_explicit_approval_status_filter(filter_by: dict | str | None) -> bool:
+        if not filter_by:
+            return False
+        if isinstance(filter_by, str):
+            try:
+                filter_by = json.loads(filter_by)
+            except json.JSONDecodeError:
+                return False
+        return isinstance(filter_by, dict) and "approval_status" in filter_by
 
     async def get_number_of_pending_change_requests(self, subject_register_id: str, subject_record_id: str, tab_id: str) -> NumberOfPendingChangeRequestsData:
         """Get the number of pending change requests for a given register, internal_record_id and tab_id"""
