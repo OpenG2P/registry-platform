@@ -1,4 +1,5 @@
 import importlib
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -345,6 +346,60 @@ class G2PIntakeFormDataService(BaseService):
     async def _get_filter_schema(self, register_id: str, session) -> list[dict]:
         register_schema = await session.get(G2PRegisterSchema, register_id)
         return register_schema.filter_schema if register_schema and register_schema.filter_schema else []
+
+    _INTAKE_SUBMISSION_FILTER_FIELDS = frozenset(
+        {"approval_status", "draft_status", "form_id", "submission_source"}
+    )
+
+    @staticmethod
+    def _intake_submission_filter_schema() -> list[dict]:
+        return [
+            {
+                "field_name": field_name,
+                "display_label": field_name,
+                "filter_type": "text",
+                "allowed_operators": ["eq", "in"],
+            }
+            for field_name in (
+                "approval_status",
+                "draft_status",
+                "form_id",
+                "submission_source",
+            )
+        ]
+
+    @classmethod
+    def _parse_filter_by(cls, filter_by: dict | str | None) -> dict:
+        if not filter_by:
+            return {}
+        if isinstance(filter_by, str):
+            try:
+                parsed = json.loads(filter_by)
+            except json.JSONDecodeError:
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        return filter_by if isinstance(filter_by, dict) else {}
+
+    @classmethod
+    def _split_intake_search_filter_by(
+        cls, filter_by: dict | str | None
+    ) -> tuple[dict, dict]:
+        parsed = cls._parse_filter_by(filter_by)
+        submission_filter_by = {
+            key: value
+            for key, value in parsed.items()
+            if key in cls._INTAKE_SUBMISSION_FILTER_FIELDS
+        }
+        row_filter_by = {
+            key: value
+            for key, value in parsed.items()
+            if key not in cls._INTAKE_SUBMISSION_FILTER_FIELDS
+        }
+        return submission_filter_by, row_filter_by
+
+    @classmethod
+    def _has_explicit_filter_key(cls, filter_by: dict | str | None, key: str) -> bool:
+        return key in cls._parse_filter_by(filter_by)
 
     async def _count_submissions(self, base_filters: list, session) -> int:
         query = select(func.count()).select_from(G2PIntakeFormSubmission).where(*base_filters)
@@ -793,10 +848,11 @@ class G2PIntakeFormDataService(BaseService):
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             intake_class = await self._resolve_intake_form_class(register_id, session)
+            submission_filter_by, row_filter_by = self._split_intake_search_filter_by(filter_by)
             match_subquery = await self._build_intake_match_subquery(
                 register_id,
                 search_text,
-                filter_by,
+                row_filter_by,
                 intake_class,
                 session,
                 data_policies,
@@ -804,6 +860,23 @@ class G2PIntakeFormDataService(BaseService):
             base_filters = [G2PIntakeFormSubmission.register_id == register_id]
             if match_subquery is not None:
                 base_filters.append(G2PIntakeFormSubmission.submission_id.in_(match_subquery))
+            if not self._has_explicit_filter_key(filter_by, "draft_status"):
+                base_filters.append(
+                    G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value
+                )
+            if not self._has_explicit_filter_key(filter_by, "approval_status"):
+                base_filters.append(
+                    G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value
+                )
+            if submission_filter_by:
+                try:
+                    base_filters.extend(
+                        FilterBuilder(self._intake_submission_filter_schema()).build_conditions(
+                            submission_filter_by, G2PIntakeFormSubmission
+                        )
+                    )
+                except ValueError as validation_error:
+                    self._invalid_request(str(validation_error))
 
             total_items = await self._count_submissions(base_filters, session)
             submissions = await self._get_submissions_page(
