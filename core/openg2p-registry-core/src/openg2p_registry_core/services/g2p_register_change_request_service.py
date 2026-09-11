@@ -1538,9 +1538,10 @@ class G2PRegisterChangeRequestService(BaseService):
     ) -> tuple[list[ChangeRequestSearchResultData], int]:
         """Helper method to search in change requests with pagination"""
         search_conditions = []
-        if search_text:
+        search_needle = (search_text or "").strip()
+        if search_needle:
             search_conditions.append(
-                G2PRegisterChangeRequestPayload.search_text.ilike(f"%{search_text}%")
+                G2PRegisterChangeRequestPayload.search_text.ilike(f"%{search_needle}%")
             )
         policy_condition = await self._build_change_request_search_policy_condition(
             data_policies, session
@@ -1568,39 +1569,46 @@ class G2PRegisterChangeRequestService(BaseService):
                     message=str(validation_error),
                 ) from validation_error
 
-        # Build base query
-        base_query = select(G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload).join(
-            G2PRegisterChangeRequestPayload,
-            G2PRegisterChangeRequest.change_request_id == G2PRegisterChangeRequestPayload.change_request_id
-        ).where(*search_conditions)
+        # Typed search: no ORDER BY so LIMIT can stop after page_size hits
+        # (ORDER BY ctid forces Sort of every match).
+        join_on = (
+            G2PRegisterChangeRequest.change_request_id
+            == G2PRegisterChangeRequestPayload.change_request_id
+        )
+        base_query = (
+            select(G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload)
+            .join(G2PRegisterChangeRequestPayload, join_on)
+            .where(*search_conditions)
+        )
 
-        # Apply sorting
-        if sort_by:
-            if ":" in sort_by:
-                sort_field, sort_dir = sort_by.split(":")
+        if not search_needle:
+            if sort_by:
+                if ":" in sort_by:
+                    sort_field, sort_dir = sort_by.split(":")
+                else:
+                    sort_field, sort_dir = sort_by, "desc"
+
+                if hasattr(G2PRegisterChangeRequest, sort_field):
+                    sort_column = getattr(G2PRegisterChangeRequest, sort_field)
+                elif hasattr(G2PRegisterChangeRequestPayload, sort_field):
+                    sort_column = getattr(G2PRegisterChangeRequestPayload, sort_field)
+                else:
+                    sort_column = G2PRegisterChangeRequest.created_at
+
+                if sort_dir.lower() == "desc":
+                    base_query = base_query.order_by(sort_column.desc())
+                else:
+                    base_query = base_query.order_by(sort_column.asc())
             else:
-                sort_field, sort_dir = sort_by, "desc"
+                base_query = base_query.order_by(G2PRegisterChangeRequest.created_at.desc())
 
-            if hasattr(G2PRegisterChangeRequest, sort_field):
-                sort_column = getattr(G2PRegisterChangeRequest, sort_field)
-            elif hasattr(G2PRegisterChangeRequestPayload, sort_field):
-                sort_column = getattr(G2PRegisterChangeRequestPayload, sort_field)
-            else:
-                sort_column = G2PRegisterChangeRequest.created_at
-
-            if sort_dir.lower() == "desc":
-                base_query = base_query.order_by(sort_column.desc())
-            else:
-                base_query = base_query.order_by(sort_column.asc())
-        else:
-            base_query = base_query.order_by(G2PRegisterChangeRequest.created_at.desc())
-
-        # Get total count
-        count_result = await session.execute(select(func.count()).select_from(G2PRegisterChangeRequest).join(
-            G2PRegisterChangeRequestPayload,
-            G2PRegisterChangeRequest.change_request_id == G2PRegisterChangeRequestPayload.change_request_id
-        ).where(*search_conditions))
-        total_items = count_result.scalar() or 0
+        count_stmt = (
+            select(func.count())
+            .select_from(G2PRegisterChangeRequest)
+            .join(G2PRegisterChangeRequestPayload, join_on)
+            .where(*search_conditions)
+        )
+        total_items = (await session.execute(count_stmt)).scalar() or 0
 
         # Apply pagination
         offset = (current_page - 1) * page_size
