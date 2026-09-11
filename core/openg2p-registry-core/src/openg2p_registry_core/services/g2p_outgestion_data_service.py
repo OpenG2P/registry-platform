@@ -84,7 +84,12 @@ class G2POutgestionDataService(BaseService):
         master_data_session,
         sort_by: str = None,
     ) -> tuple[list[OutgestionDataSearchResultData], int]:
-        search_query = f"%{search_text}%"
+        search_needle = (search_text or "").strip()
+        search_filter = (
+            OutgoingRawDataPayload.raw_data_text.ilike(f"%{search_needle}%")
+            if search_needle
+            else None
+        )
 
         base_query = (
             select(OutgoingRawData.outgest_id)
@@ -92,8 +97,9 @@ class G2POutgestionDataService(BaseService):
                 OutgoingRawDataPayload,
                 OutgoingRawData.payload_id == OutgoingRawDataPayload.payload_id,
             )
-            .where(OutgoingRawDataPayload.raw_data_text.ilike(search_query))
         )
+        if search_filter is not None:
+            base_query = base_query.where(search_filter)
 
         if sort_by:
             if ":" in sort_by:
@@ -115,11 +121,9 @@ class G2POutgestionDataService(BaseService):
         else:
             base_query = base_query.order_by(OutgoingRawData.created_at.desc())
 
-        count_stmt = (
-            select(func.count())
-            .select_from(OutgoingRawDataPayload)
-            .where(OutgoingRawDataPayload.raw_data_text.ilike(search_query))
-        )
+        count_stmt = select(func.count()).select_from(OutgoingRawDataPayload)
+        if search_filter is not None:
+            count_stmt = count_stmt.where(search_filter)
 
         total_items = (await session.execute(count_stmt)).scalar() or 0
 

@@ -98,13 +98,19 @@ class G2PIngestionDataService(BaseService):
     
     async def _search_in_ingestion_data(self, search_text: str, current_page: int, page_size: int, filter_by: dict, session, master_data_session, sort_by: str = None) -> tuple[list[IngestionDataSearchResultData], int]:
         """Helper method to search in ingestion data with pagination"""
-        search_query = f"%{search_text}%"
+        search_needle = (search_text or "").strip()
+        search_filter = (
+            IncomingRawDataPayload.raw_data_text.ilike(f"%{search_needle}%")
+            if search_needle
+            else None
+        )
 
         base_query = (
             select(IncomingRawDataPayload.ingest_id)
             .join(IncomingRawData, IncomingRawData.ingest_id == IncomingRawDataPayload.ingest_id)
-            .where(IncomingRawDataPayload.raw_data_text.ilike(search_query))
         )
+        if search_filter is not None:
+            base_query = base_query.where(search_filter)
 
         if sort_by:
             if ":" in sort_by:
@@ -126,11 +132,9 @@ class G2PIngestionDataService(BaseService):
         else:
             base_query = base_query.order_by(IncomingRawData.receipt_date_time.desc())
 
-        count_stmt = (
-            select(func.count())
-            .select_from(IncomingRawDataPayload)
-            .where(IncomingRawDataPayload.raw_data_text.ilike(search_query))
-        )
+        count_stmt = select(func.count()).select_from(IncomingRawDataPayload)
+        if search_filter is not None:
+            count_stmt = count_stmt.where(search_filter)
 
         total_items = (await session.execute(count_stmt)).scalar() or 0
 

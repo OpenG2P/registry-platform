@@ -338,9 +338,11 @@ class G2PIntakeFormMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[IntakeFormUITabData], int]:
+        tabs, total_items = await self._get_cached_all_tabs(form_id)
         if current_page is None or page_size is None:
-            return await self._get_cached_all_tabs(form_id)
-        return await self._assemble_all_tabs(form_id, current_page, page_size)
+            return tabs, total_items
+        offset = (current_page - 1) * page_size
+        return tabs[offset : offset + page_size], total_items
 
     @cache(
         expire=_config.cache_expires_in_seconds,
@@ -450,9 +452,11 @@ class G2PIntakeFormMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[IntakeFormUITabSectionData], int]:
+        sections, total_items = await self._get_cached_all_sections(tab_id)
         if current_page is None or page_size is None:
-            return await self._get_cached_all_sections(tab_id)
-        return await self._assemble_all_sections(tab_id, current_page, page_size)
+            return sections, total_items
+        offset = (current_page - 1) * page_size
+        return sections[offset : offset + page_size], total_items
 
     @cache(
         expire=_config.cache_expires_in_seconds,
