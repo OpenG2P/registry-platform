@@ -19,7 +19,7 @@ import {
 import { setValue, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 import { validateWidget } from '../utils/validation';
-import { isAllowedKey } from '../utils/numberInput';
+import { isAllowedKey, parseNumber, applyDecimalPrecision } from '../utils/numberInput';
 
 type ResolveSchemaLabelFn = (value: string | undefined | null) => string;
 
@@ -245,6 +245,12 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
   const allowSigned = min !== undefined ? min < 0 : formatConfig?.allowSigned !== false;
   const formatForKeys = { ...formatConfig, allowSigned };
 
+  // What the user is typing, kept verbatim while the cell has focus. Parsing
+  // on every keystroke and echoing the parsed number back made decimals
+  // impossible to type: "200." parsed to 200 and re-rendered as "200", so the
+  // point never survived (the spinner arrows still produced decimals, which is
+  // how the bug was noticed). The committed numeric value is still pushed up
+  // on every valid change; only the display waits for blur.
   const committedDisplay = value !== null && value !== undefined ? String(value) : '';
   const [draft, setDraft] = useState<string | null>(null);
   const displayValue = draft !== null ? draft : committedDisplay;
@@ -259,6 +265,9 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
     return true;
   };
 
+  // "-", ".", "-.": a sign or separator with no digit yet.
+  const isPartialNumber = (text: string) => /^-?[.,]?$/.test(text);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     if (inputValue === '') {
@@ -266,32 +275,29 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
       onValueChange('');
       return;
     }
-    if (inputValue === '-' && allowSigned) {
-      setDraft('-');
+    setDraft(inputValue);
+    if (isPartialNumber(inputValue)) {
+      // "-", "." or "-." : nothing to commit yet
       return;
     }
-    const numValue = parseFloat(inputValue);
-    if (isNaN(numValue)) {
+    const numValue = parseNumber(inputValue, formatConfig);
+    if (numValue === null) {
       return;
     }
     if (!isWithinBounds(numValue)) {
-      if (min !== undefined && numValue < min && numValue >= 0) {
-        setDraft(inputValue);
-      }
       return;
     }
-    setDraft(null);
-    onValueChange(numValue);
+    onValueChange(applyDecimalPrecision(numValue, formatConfig));
   };
 
   const handleBlur = () => {
     if (draft === null) {
       return;
     }
-    const numValue = parseFloat(draft);
+    const numValue = parseNumber(draft, formatConfig);
     setDraft(null);
-    if (!isNaN(numValue) && isWithinBounds(numValue)) {
-      onValueChange(numValue);
+    if (numValue !== null && isWithinBounds(numValue)) {
+      onValueChange(applyDecimalPrecision(numValue, formatConfig));
     }
   };
 
@@ -304,16 +310,14 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
   return (
     <div className="table-cell-field w-full">
       <input
-        type="number"
+        type="text"
+        inputMode="decimal"
         value={displayValue}
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         disabled={isReadonly}
         placeholder={placeholder}
-        min={min}
-        max={max}
-        step={formatConfig?.decimalPlaces ? Math.pow(0.1, formatConfig.decimalPlaces) : undefined}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none text-right ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}

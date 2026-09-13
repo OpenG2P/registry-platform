@@ -28,7 +28,6 @@ from ....config import Settings
 
 _logger = logging.getLogger("g2p-dci-service")
 _config = Settings.get_config()
-_engine = dbengine.get()
 
 class G2PDciService(BaseService):
     def __init__(self, **kwargs):
