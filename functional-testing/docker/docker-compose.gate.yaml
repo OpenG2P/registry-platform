@@ -133,7 +133,7 @@ services:
       retries: 15
 
   minio-init:
-    image: minio/mc
+    image: pgsty/mc:RELEASE.2026-08-04T00-00-00Z
     entrypoint: >
       sh -c "
         until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 2; done;
