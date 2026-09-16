@@ -83,6 +83,35 @@ export async function loginViaKeycloak(page: Page, username: string, password: s
   await expect(page.locator("body")).not.toContainText(/AUTH_GENERIC_ERROR|G2P-AUT-403|G2P-AUT-401/i);
 }
 
+export async function logoutOfStaffUi(page: Page) {
+  const uiBase = process.env.FUNC_UI_BASE;
+  if (!uiBase) {
+    throw new Error("FUNC_UI_BASE is required for UI logout");
+  }
+  await page.goto(`${uiBase.replace(/\/$/, "")}/api/logout`, { waitUntil: "domcontentloaded" });
+}
+
+export async function reloginViaKeycloak(page: Page, username: string, password: string) {
+  await page.context().clearCookies();
+  await logoutOfStaffUi(page).catch(() => undefined);
+  await loginViaKeycloak(page, username, password);
+}
+
+export function aweStageUser(
+  stage: 1 | 2
+): { username: string; password: string } {
+  if (stage === 1) {
+    return {
+      username: process.env.FUNC_AWE_STAGE1_USERNAME || "alex.carter",
+      password: process.env.FUNC_AWE_STAGE1_PASSWORD || "alex.carter-pass",
+    };
+  }
+  return {
+    username: process.env.FUNC_AWE_STAGE2_USERNAME || "nina.patel",
+    password: process.env.FUNC_AWE_STAGE2_PASSWORD || "nina.patel-pass",
+  };
+}
+
 export async function searchInTopBar(page: Page, text: string) {
   const input = page.locator('input[placeholder*="earch" i], input[type="text"]').first();
   await expect(input).toBeVisible({ timeout: 30_000 });

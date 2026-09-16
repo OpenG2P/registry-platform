@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -11,6 +11,8 @@ class IntakeResult:
     submission_id: str
     identity_value: str
     fields: dict[str, Any]
+    # supporting_key → list of expected child-row field dicts
+    supporting: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
     # UI / older callers expect Individual name attributes
     @property
@@ -32,6 +34,7 @@ class ProvisionedRecord:
     identity_value: str
     fields: dict[str, Any]
     submission_id: str
+    supporting: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
     @property
     def first_name(self) -> str:
@@ -53,6 +56,9 @@ class ChangeRequestResult:
     new_value: str
     section_id: str
     field_name: str
+    supporting_key: str | None = None
+    raw_new_value: Any = None
+    child_internal_record_id: str | None = None
 
     @property
     def first_name(self) -> str:

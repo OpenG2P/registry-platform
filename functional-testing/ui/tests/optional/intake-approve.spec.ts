@@ -4,7 +4,8 @@ import { searchIntakeAndOpen } from "../../pages/intake";
 import { apiApproveIntake } from "../../helpers/api-bridge";
 
 test.describe("intake approve", () => {
-  // Prefer UI Approve when visible; otherwise helpers/api-bridge (API approve).
+  // Consumes fx.pending_intake (workers: 1). Prefer UI Approve; else api-bridge.
+  // Re-provision before expecting this entity to still be PENDING.
   test("pending submission shows approvals panel; status updates after approve", async ({
     page,
   }) => {

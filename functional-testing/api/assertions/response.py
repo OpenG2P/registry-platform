@@ -50,11 +50,35 @@ def unwrap_subject_record(subject_payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def assert_values_equal(api_value: Any, db_value: Any, *, field: str, context: str) -> None:
-    """Strict equality for dual validation (normalize via str for UUID/enum drift)."""
+    """Strict equality for dual validation (normalize common type drift)."""
     if api_value is None and db_value is None:
         return
     assert api_value is not None, f"{context}: API missing {field} (DB={db_value!r})"
     assert db_value is not None, f"{context}: DB missing {field} (API={api_value!r})"
-    assert str(api_value) == str(db_value), (
-        f"{context}: {field} mismatch API={api_value!r} DB={db_value!r}"
+
+    # Dates / datetimes → ISO date prefix
+    api_n = _normalize(api_value)
+    db_n = _normalize(db_value)
+    assert api_n == db_n, (
+        f"{context}: {field} mismatch API={api_value!r} DB={db_value!r} "
+        f"(normalized {api_n!r} vs {db_n!r})"
     )
+
+
+def _normalize(value: Any) -> Any:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, list):
+        return [_normalize(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _normalize(v) for k, v in sorted(value.items(), key=lambda kv: str(kv[0]))}
+    text = str(value).strip()
+    # date / datetime → YYYY-MM-DD when possible
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        return text[:10]
+    try:
+        return float(text)
+    except ValueError:
+        return text

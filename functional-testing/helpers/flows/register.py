@@ -76,3 +76,32 @@ def get_subject_record(
         return payload["record"]
     assert isinstance(payload, dict), "get_subject_record payload must be dict"
     return payload
+
+
+def get_section_records_from_tab(
+    staff: StaffClient,
+    profile: RegisterProfile,
+    subject_internal_record_id: str,
+    *,
+    tab_id: str,
+    section_register_id: str,
+) -> list[dict[str, Any]]:
+    """Return records[] for a child/subject section_register_id from get_tab_records."""
+    body = staff.post_json(
+        "/register-data/get_tab_records",
+        {
+            "subject_register_id": profile.register_id,
+            "subject_record_id": subject_internal_record_id,
+            "tab_id": tab_id,
+        },
+    )
+    assert_ok(body, f"get_tab_records:{tab_id}")
+    groups = response_payload(body)
+    if not isinstance(groups, list):
+        return []
+    for group in groups:
+        if group.get("section_register_id") != section_register_id:
+            continue
+        records = group.get("records") or []
+        return [r for r in records if isinstance(r, dict)]
+    return []

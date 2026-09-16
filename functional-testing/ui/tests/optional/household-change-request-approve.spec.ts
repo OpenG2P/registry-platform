@@ -4,18 +4,18 @@ import { searchChangeRequestAndOpen } from "../../pages/change-request";
 import { apiApproveChangeRequest } from "../../helpers/api-bridge";
 import { searchAndOpenRecord } from "../../pages/register";
 
-test.describe("change request approve", () => {
-  // Prefer UI Approve when visible; otherwise helpers/api-bridge (API approve).
-  test("pending CR detail visible; status updates after approve; register reflects change", async ({
+test.describe("change request approve [household]", () => {
+  // Consumes fx.household.pending_cr (workers: 1). Prefer UI Approve; else api-bridge.
+  test("pending household CR visible; status updates after approve; register reflects change", async ({
     page,
   }) => {
     const fx = loadFixture();
-    const { change_request_id, first_name, new_middle_name, section_id } = fx.pending_cr;
-    const { internal_record_id } = fx.individual;
+    const { register_mnemonic, subject, pending_cr } = fx.household;
+    const { change_request_id, search_text, new_value, section_id } = pending_cr;
 
-    await searchChangeRequestAndOpen(page, first_name, change_request_id);
+    await searchChangeRequestAndOpen(page, search_text, change_request_id);
     await expect(page.locator("body")).toContainText(
-      new RegExp(`${first_name}|${new_middle_name}|PENDING|pending`, "i")
+      new RegExp(`${search_text}|${new_value}|PENDING|pending`, "i")
     );
 
     const approveBtn = page.getByRole("button", { name: /approve/i }).first();
@@ -31,8 +31,9 @@ test.describe("change request approve", () => {
     });
     await expect(page.locator("body")).toContainText(/approved|APPROVED/i, { timeout: 60_000 });
 
-    await searchAndOpenRecord(page, first_name, internal_record_id);
-    await expect(page.getByText(new_middle_name, { exact: false }).first()).toBeVisible({
+    // After approve, head name is new_value — search with that.
+    await searchAndOpenRecord(page, new_value, subject.internal_record_id, register_mnemonic);
+    await expect(page.getByText(new_value, { exact: false }).first()).toBeVisible({
       timeout: 60_000,
     });
   });

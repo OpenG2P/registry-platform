@@ -5,17 +5,21 @@ from __future__ import annotations
 import pytest
 
 from assertions import db as db_assert
-from assertions.dual import assert_api_db_subject_match, fetch_subject_db
+from assertions.dual import (
+    assert_api_db_subject_match,
+    assert_subject_history_for_cr,
+    fetch_subject_db,
+)
 from assertions.response import assert_success, assert_values_equal
 from profile_params import with_register_profiles
 from helpers.config import Config
 from helpers.http import StaffClient
 from helpers.profiles import RegisterProfile
 from helpers.provision import (
+    approve_two_stage_awe,
     create_field_cr,
     get_subject_record,
     provision_record,
-    verify_and_approve_cr,
 )
 
 
@@ -40,7 +44,13 @@ def test_cr_approve_applies_field(
         step=step,
     )
 
-    verify_and_approve_cr(staff, created.change_request_id, step=step)
+    approve_two_stage_awe(
+        cfg,
+        artifact_type="registry.change_request",
+        artifact_id=created.change_request_id,
+        search_text=subject.identity_value,
+        step=step,
+    )
 
     step(f"poll subject until {profile.cr_field} updates")
 
@@ -98,6 +108,17 @@ def test_cr_approve_applies_field(
         profile,
         subject.internal_record_id,
         expected_fields=expected,
+        context=f"cr_approve:{profile.key}",
+    )
+
+    step("validate subject history row for approved CR")
+    assert_subject_history_for_cr(
+        cfg.registry_dsn,
+        profile,
+        change_request_id=created.change_request_id,
+        subject_internal_record_id=subject.internal_record_id,
+        field_name=profile.cr_field,
+        expected_new_value=created.new_value,
         context=f"cr_approve:{profile.key}",
     )
 

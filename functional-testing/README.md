@@ -1,15 +1,27 @@
 # registry-platform functional testing (API + UI)
 
-Functional test suite for the registry-platform staff portal against the
-**reference extension** (Individual and Household registers).
+Functional test suite for the registry-platform against the **reference
+extension** (Individual and Household registers).
 
-- **API tests** (pytest): intake create/approve, register browse, change-request
-  create/approve — parametrized for **Individual + Household**, with mandatory
-  **response + DB** validation. See [`api/README.md`](api/README.md).
-- **UI tests** (Playwright E2E): same lifecycle in the browser (API-seeded
-  fixtures; Individual today). See [`ui/README.md`](ui/README.md).
+- **API tests** (pytest): correctness of staff (then partner) APIs — **API
+  response + DB** dual-assert. See [`api/README.md`](api/README.md) and
+  [`documentation/`](documentation/) (`01`–`04`: plan, catalogue, matrix, seed).
+- **UI tests** (Playwright E2E): staff portal critical paths (**U0** Individual +
+  **U-C** Household on compose gate). See [`ui/README.md`](ui/README.md) and
+  [`documentation/`](documentation/) (`05`–`07`: UI plan, journeys, coverage).
+
+### API coverage model
+
+| Tier | Role | Gate |
+|---|---|---|
+| **0** | Workflow smoke (intake → register → CR) | **PR compose gate (current)** |
+| **1–2** | Staff endpoint suites | Expand after docs (not all on PR yet) |
+| **3** | Partner ingest + DCI | After Staff complete |
+
+Performance testing is separate — **no shared methods** with this tree.
 
 Extension-specific API tests (e.g. farmer payloads) live in each extension repo.
+
 
 ## Quick start (Docker Compose gate)
 
@@ -39,9 +51,13 @@ GitHub Actions: `.github/workflows/functional-gate.yml`.
 # Stack up (or FUNC_SKIP_STACK=1 against a running gate stack)
 pip install -r functional-testing/requirements.txt
 
-# API
+# API (Tier-0 workflows)
 cd functional-testing
-PYTHONPATH=. pytest -c api/pytest.ini api/scenarios -v
+PYTHONPATH=. pytest -c api/pytest.ini api/workflows -v
+# Staff Tier-1 / Tier-2 (opt-in; needs seed)
+PYTHONPATH=. pytest -c api/pytest.ini api/staff -m tier1 -v
+PYTHONPATH=. pytest -c api/pytest.ini api/staff -m tier2 -v
+PYTHONPATH=. pytest -c api/pytest.ini api/partner -m tier3 -v
 
 # UI
 cd functional-testing/ui
@@ -52,20 +68,24 @@ npm ci && npx playwright install chromium && npx playwright test
 
 ```
 functional-testing/
+├── documentation/       # API 01–04 + UI 05–07 (plan, catalogue, matrix, seed)
+├── fixtures/seed/       # deterministic SQL + seed_manifest.json
 ├── api/                 # pytest API suite — see api/README.md
-│   ├── scenarios/       # lifecycle scenarios × Individual + Household
+│   ├── workflows/       # Tier-0 PR gate × Individual + Household
+│   ├── staff/           # Tier-1/2 endpoint suites (opt-in markers)
+│   ├── partner/         # Tier-3 Partner ingest + DCI (opt-in)
 │   ├── assertions/      # response + DB + dual validators
 │   ├── profile_params.py
 │   ├── conftest.py
 │   └── pytest.ini
 ├── helpers/             # shared by API tests + UI fixture scripts
-│   ├── config.py, profiles.py, auth.py, http.py
+│   ├── config.py, profiles.py, auth.py, http.py, seed_manifest.py
 │   ├── payloads/        # section builders (individual / household)
 │   ├── flows/           # intake, register, change_request
 │   ├── models.py, util.py
 │   └── provision.py     # façade re-exports for UI scripts
 ├── docker/              # Compose gate
-├── scripts/             # Keycloak seed
+├── scripts/             # Keycloak seed + load_functional_seed.py
 ├── ui/                  # Playwright UI E2E — see ui/README.md
 │   ├── helpers/         # fixture, auth, api-bridge
 │   ├── pages/           # register / intake / change-request

@@ -33,4 +33,14 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     \c postgres
     CREATE USER registry_idgenerator_user WITH PASSWORD '$POSTGRES_PASSWORD';
     CREATE DATABASE registry_idgenerator OWNER registry_idgenerator_user;
+
+    -- Partner Management
+    \c postgres
+    CREATE USER partner_management_user WITH PASSWORD '$POSTGRES_PASSWORD';
+    CREATE DATABASE partner_management OWNER partner_management_user;
+
+    -- Consent Manager
+    \c postgres
+    CREATE USER consent_manager_user WITH PASSWORD '$POSTGRES_PASSWORD';
+    CREATE DATABASE consent_manager OWNER consent_manager_user;
 EOSQL

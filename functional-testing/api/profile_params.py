@@ -6,7 +6,7 @@ import pytest
 
 from helpers.profiles import ALL_PROFILES, profile_id
 
-# Apply to any scenario that should run for both Individual and Household.
+# Apply to any Tier-0 workflow that should run for both Individual and Household.
 with_register_profiles = pytest.mark.parametrize(
     "profile",
     list(ALL_PROFILES),

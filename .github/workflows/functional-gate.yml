@@ -26,6 +26,10 @@ jobs:
           node-version: '20'
 
       - name: Run functional gate
+        env:
+          FUNC_RUN_STAFF_TIER1: "1"
+          FUNC_RUN_STAFF_TIER2: "1"
+          FUNC_RUN_PARTNER_TIER3: "1"
         run: ./functional-testing/docker/run-compose-gate.sh
 
       - name: Upload test artifacts

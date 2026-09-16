@@ -38,6 +38,12 @@ class StaffClient:
     def login(cls, cfg: Config) -> "StaffClient":
         return cls(cfg, TokenCache(cfg))
 
+    @classmethod
+    def login_as(cls, cfg: Config, username: str, password: str) -> "StaffClient":
+        """Authenticate as a specific Keycloak user for AWE stage tests."""
+        user_cfg = cfg.with_oidc_user(username, password)
+        return cls(user_cfg, TokenCache(user_cfg))
+
     def close(self) -> None:
         self._client.close()
 
@@ -85,9 +91,11 @@ class StaffClient:
 
         header = body.get("response_header") or {}
         if header.get("response_status") == "ERROR":
+            req_id = header.get("request_id") or ""
             raise StaffApiError(
                 f"{path} -> ERROR {header.get('response_error_code')}: "
                 f"{header.get('response_error_message')}"
+                + (f" (request_id={req_id})" if req_id else "")
             )
         return body
 

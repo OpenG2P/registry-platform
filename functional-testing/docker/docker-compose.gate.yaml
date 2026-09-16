@@ -5,7 +5,8 @@
 # pull from Docker Hub.
 #
 # Starts: Postgres, Keycloak, Redis, MinIO, IAM, Master Data API, AWE,
-#         staff-api, staff-ui, celery worker + beat, db-seed, id-generator.
+#         Partner Management 1.0.3 + Consent Manager 1.0.2,
+#         staff-api, partner-api, staff-ui, celery worker + beat, db-seed, id-generator.
 #
 # Usage:
 #   docker compose -f functional-testing/docker/docker-compose.gate.yaml up -d --wait
@@ -51,7 +52,11 @@ x-staff-api-env: &staff-api-env
   REGISTRY_STAFF_PORTAL_API_AUDIT_ENABLED: "false"
   REGISTRY_STAFF_PORTAL_API_EXPORT_QUEUE_VISIBILITY_DAYS: "30"
   REGISTRY_STAFF_PORTAL_API_EXPORT_BATCH_SIZE: "100"
-  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET: ""
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_API_URL: http://pm-staff-api:8000
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_TOKEN_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/token
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_ID: partner-management
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET: "func-gate-pm-admin-secret"
   # Keep gate pool footprint small — many services share one Postgres.
   REGISTRY_STAFF_PORTAL_API_DB_POOL_SIZE: "2"
   REGISTRY_STAFF_PORTAL_API_DB_POOL_MAX_OVERFLOW: "2"
@@ -227,6 +232,149 @@ services:
       retries: 30
       start_period: 15s
 
+  # ── Partner Management (1.0.3) + Consent Manager (1.0.2) ───────────────────
+  # CM 1.0.3 ships fastapi-common 1.2.1 without openg2p_fastapi_common.utils
+  # while still importing utils.crypto.build_crypto_helper — pin 1.0.2 until fixed.
+
+  pm-partner-api:
+    image: openg2p/partner-management-partner-api:1.0.3
+    environment:
+      PARTNER_MANAGER_HOST: "0.0.0.0"
+      PARTNER_MANAGER_PORT: "8000"
+      PARTNER_MANAGER_NO_OF_WORKERS: "1"
+      PARTNER_MANAGER_DB_DRIVER: postgresql+asyncpg
+      PARTNER_MANAGER_DB_HOSTNAME: postgres
+      PARTNER_MANAGER_DB_PORT: "5432"
+      PARTNER_MANAGER_DB_DBNAME: partner_management
+      PARTNER_MANAGER_DB_USERNAME: partner_management_user
+      PARTNER_MANAGER_DB_PASSWORD: *pg-password
+      PARTNER_MANAGER_DB_POOL_SIZE: "2"
+      PARTNER_MANAGER_DB_POOL_MAX_OVERFLOW: "2"
+      PARTNER_MANAGER_CRYPTO_ALLOWED_ALGORITHMS: '["RS256","ES256","EdDSA"]'
+      COMMON_AUTH_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    ports:
+      - "18090:8000"
+
+  pm-staff-api:
+    image: openg2p/partner-management-staff-portal-api:1.0.3
+    environment:
+      PARTNER_MANAGER_HOST: "0.0.0.0"
+      PARTNER_MANAGER_PORT: "8000"
+      PARTNER_MANAGER_NO_OF_WORKERS: "1"
+      PARTNER_MANAGER_DB_DRIVER: postgresql+asyncpg
+      PARTNER_MANAGER_DB_HOSTNAME: postgres
+      PARTNER_MANAGER_DB_PORT: "5432"
+      PARTNER_MANAGER_DB_DBNAME: partner_management
+      PARTNER_MANAGER_DB_USERNAME: partner_management_user
+      PARTNER_MANAGER_DB_PASSWORD: *pg-password
+      PARTNER_MANAGER_DB_POOL_SIZE: "2"
+      PARTNER_MANAGER_DB_POOL_MAX_OVERFLOW: "2"
+      PARTNER_MANAGER_CRYPTO_ALLOWED_ALGORITHMS: '["RS256","ES256","EdDSA"]'
+      PARTNER_MANAGER_AUTH_ADMIN_ROLE: partner_manager
+      PARTNER_MANAGER_AUTH_ADMIN_CLIENT_ID: partner-management
+      PARTNER_MANAGER_AUDIT_ENABLED: "false"
+      # Prefer PARTNER_MANAGER_AUTH_* lists: COMMON_AUTH_* absorb passes raw strings
+      # and pydantic-settings will not JSON-decode them into list[str].
+      PARTNER_MANAGER_AUTH_ENABLED: "true"
+      PARTNER_MANAGER_AUTH_DEFAULT_ISSUERS: '["http://keycloak:8080/realms/staff"]'
+      PARTNER_MANAGER_AUTH_DEFAULT_JWKS_URLS: '["http://keycloak:8080/realms/staff/protocol/openid-connect/certs"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      pm-partner-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    ports:
+      - "18091:8000"
+
+  consent-manager-api:
+    image: openg2p/consent-manager-api:1.0.2
+    environment:
+      CONSENT_MANAGER_APP_HOST: "0.0.0.0"
+      CONSENT_MANAGER_APP_PORT: "8000"
+      CONSENT_MANAGER_NO_OF_WORKERS: "1"
+      CONSENT_MANAGER_API_AUDIENCE: staff
+      CONSENT_MANAGER_DB_DRIVER: postgresql+asyncpg
+      CONSENT_MANAGER_DB_HOSTNAME: postgres
+      CONSENT_MANAGER_DB_PORT: "5432"
+      CONSENT_MANAGER_DB_DBNAME: consent_manager
+      CONSENT_MANAGER_DB_USERNAME: consent_manager_user
+      CONSENT_MANAGER_DB_PASSWORD: *pg-password
+      CONSENT_MANAGER_DB_POOL_SIZE: "2"
+      CONSENT_MANAGER_DB_POOL_MAX_OVERFLOW: "2"
+      CONSENT_MANAGER_AUTH_ENABLED: "true"
+      CONSENT_MANAGER_AUTH_ISSUER: http://keycloak:8080/realms/staff
+      CONSENT_MANAGER_AUTH_JWKS_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/certs
+      CONSENT_MANAGER_AUTH_ADMIN_ROLE: CONSENT_MANAGER_ADMIN
+      CONSENT_MANAGER_AUTH_APPROVER_ROLE: CONSENT_MANAGER_APPROVER
+      CONSENT_MANAGER_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+      CONSENT_MANAGER_AWE_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      pm-partner-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    ports:
+      - "18092:8000"
+
+  consent-manager-partner-api:
+    image: openg2p/consent-manager-api:1.0.2
+    environment:
+      CONSENT_MANAGER_APP_HOST: "0.0.0.0"
+      CONSENT_MANAGER_APP_PORT: "8000"
+      CONSENT_MANAGER_NO_OF_WORKERS: "1"
+      CONSENT_MANAGER_API_AUDIENCE: partner
+      CONSENT_MANAGER_DB_DRIVER: postgresql+asyncpg
+      CONSENT_MANAGER_DB_HOSTNAME: postgres
+      CONSENT_MANAGER_DB_PORT: "5432"
+      CONSENT_MANAGER_DB_DBNAME: consent_manager
+      CONSENT_MANAGER_DB_USERNAME: consent_manager_user
+      CONSENT_MANAGER_DB_PASSWORD: *pg-password
+      CONSENT_MANAGER_DB_POOL_SIZE: "2"
+      CONSENT_MANAGER_DB_POOL_MAX_OVERFLOW: "2"
+      CONSENT_MANAGER_AUTH_ENABLED: "false"
+      CONSENT_MANAGER_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+      CONSENT_MANAGER_AWE_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pm-partner-api:
+        condition: service_healthy
+      consent-manager-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    ports:
+      - "18093:8000"
+
   id-generator:
     image: openg2p/openg2p-id-generator:1.1.2
     environment:
@@ -299,10 +447,16 @@ services:
       REGISTRY_PARTNER_API_MINIO_SECRET_KEY: *minio-root-password
       REGISTRY_PARTNER_API_MINIO_READ_ACCESS_KEY: *minio-root-user
       REGISTRY_PARTNER_API_MINIO_READ_SECRET_KEY: *minio-root-password
-      REGISTRY_PARTNER_API_SIGNATURE_VALIDATION_ENABLED: "false"
-      REGISTRY_PARTNER_API_CONSENT_ENFORCEMENT_ENABLED: "false"
-      REGISTRY_PARTNER_API_PARTNER_MGMT_API_URL: ""
-      REGISTRY_PARTNER_API_CONSENT_MANAGER_URL: ""
+      REGISTRY_PARTNER_API_SIGNATURE_VALIDATION_ENABLED: "true"
+      REGISTRY_PARTNER_API_CONSENT_ENFORCEMENT_ENABLED: "true"
+      REGISTRY_PARTNER_API_CRYPTO_BACKEND: partner-mgmt
+      REGISTRY_PARTNER_API_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+      REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_API_URL: http://pm-staff-api:8000
+      REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_TOKEN_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/token
+      REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_ID: partner-management
+      REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET: func-gate-pm-admin-secret
+      REGISTRY_PARTNER_API_CONSENT_MANAGER_URL: http://consent-manager-partner-api:8000
+      REGISTRY_PARTNER_API_CONSENT_MANAGER_TIMEOUT: "10"
       REGISTRY_PARTNER_API_DB_POOL_SIZE: "2"
       REGISTRY_PARTNER_API_DB_POOL_MAX_OVERFLOW: "2"
       REGISTRY_PARTNER_API_MASTER_DATA_DB_POOL_SIZE: "2"
@@ -313,12 +467,18 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      pm-partner-api:
+        condition: service_healthy
+      consent-manager-partner-api:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
       interval: 10s
       timeout: 5s
       retries: 60
       start_period: 30s
+    ports:
+      - "18083:8000"
 
   celery-worker:
     build:
@@ -351,9 +511,11 @@ services:
       REGISTRY_CELERY_WORKERS_MINIO_READ_SECRET_KEY: *minio-root-password
       REGISTRY_CELERY_WORKERS_FUNCTIONAL_ID_GENERATION_URL: http://id-generator:8000/v1
       REGISTRY_CELERY_WORKERS_ID_GENERATION_ALLOCATION_PATH: "/idgenerator/{id_type}/id"
-      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_API_URL: ""
-      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_API_URL: ""
-      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_SECRET: ""
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_API_URL: http://pm-staff-api:8000
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_TOKEN_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/token
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_ID: partner-management
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_SECRET: func-gate-pm-admin-secret
       REGISTRY_CELERY_WORKERS_DB_POOL_SIZE: "2"
       REGISTRY_CELERY_WORKERS_DB_POOL_MAX_OVERFLOW: "2"
       REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_POOL_SIZE: "2"

@@ -23,6 +23,10 @@ FUNC_ROLES = [
 ]
 AWE_ADMIN_CLIENT = os.environ.get("FUNC_AWE_ADMIN_CLIENT_ID", "awe-admin-portal")
 AWE_ADMIN_ROLE = os.environ.get("FUNC_AWE_ADMIN_ROLE", "AWE_ADMIN")
+AWE_STAGE1_USERNAME = os.environ.get("FUNC_AWE_STAGE1_USERNAME", "alex.carter")
+AWE_STAGE1_PASSWORD = os.environ.get("FUNC_AWE_STAGE1_PASSWORD", "alex.carter-pass")
+AWE_STAGE2_USERNAME = os.environ.get("FUNC_AWE_STAGE2_USERNAME", "nina.patel")
+AWE_STAGE2_PASSWORD = os.environ.get("FUNC_AWE_STAGE2_PASSWORD", "nina.patel-pass")
 
 
 def _env(name: str, default: str = "") -> str:
@@ -101,6 +105,9 @@ def _ensure_user(cfg: dict, h: dict[str, str], username: str) -> str:
     user_id = _find_user(cfg, h, username)
     if user_id:
         return user_id
+    first_name, _, last_name = username.replace(".", " ").title().partition(" ")
+    first_name = first_name or "Functional"
+    last_name = last_name or "Tester"
     r = httpx.post(
         f"{_realm_url(cfg)}/users",
         headers=h,
@@ -108,8 +115,8 @@ def _ensure_user(cfg: dict, h: dict[str, str], username: str) -> str:
             "username": username,
             "enabled": True,
             "emailVerified": True,
-            "firstName": "Functional",
-            "lastName": "Tester",
+            "firstName": first_name,
+            "lastName": last_name,
             "email": f"{username}@functional.invalid",
             "requiredActions": [],
         },
@@ -167,7 +174,7 @@ def _grant_client_roles(
     ).raise_for_status()
 
 
-def ensure_user(cfg: dict) -> str:
+def ensure_user(cfg: dict, username: str, password: str, *, grant_awe_admin: bool = True) -> str:
     token = _admin_token(cfg)
     h = _headers(token)
 
@@ -178,17 +185,17 @@ def ensure_user(cfg: dict) -> str:
         )
     dag = _ensure_direct_access_grants(cfg, h, client)
 
-    user_id = _ensure_user(cfg, h, cfg["username"])
-    _set_password(cfg, h, user_id, cfg["password"])
+    user_id = _ensure_user(cfg, h, username)
+    _set_password(cfg, h, user_id, password)
     _grant_client_roles(cfg, h, user_id, client, cfg["roles"])
 
     awe_client = _find_client(cfg, h, AWE_ADMIN_CLIENT)
     awe_status = "skipped"
-    if awe_client:
+    if grant_awe_admin and awe_client:
         _grant_client_roles(cfg, h, user_id, awe_client, [AWE_ADMIN_ROLE])
         awe_status = f"{AWE_ADMIN_ROLE}@{AWE_ADMIN_CLIENT}"
 
-    return f"user={cfg['username']} roles={cfg['roles']} awe_admin={awe_status} directAccessGrants={dag}"
+    return f"user={username} roles={cfg['roles']} awe_admin={awe_status} directAccessGrants={dag}"
 
 
 def main() -> int:
@@ -196,8 +203,6 @@ def main() -> int:
         "keycloak_base": _env("FUNC_KEYCLOAK_BASE"),
         "realm": _env("FUNC_KEYCLOAK_REALM", "staff"),
         "client_id": _env("FUNC_OIDC_CLIENT_ID"),
-        "username": FUNC_USERNAME,
-        "password": FUNC_PASSWORD,
         "roles": FUNC_ROLES,
         "admin_user": _env("FUNC_KEYCLOAK_ADMIN_USER", "admin"),
         "admin_password": _env("FUNC_KEYCLOAK_ADMIN_PASSWORD"),
@@ -207,11 +212,16 @@ def main() -> int:
         print("[keycloak_seed] missing FUNC_KEYCLOAK_BASE / admin password / client id — skip")
         return 0
     try:
-        status = ensure_user(cfg)
+        statuses = [
+            ensure_user(cfg, FUNC_USERNAME, FUNC_PASSWORD),
+            ensure_user(cfg, AWE_STAGE1_USERNAME, AWE_STAGE1_PASSWORD, grant_awe_admin=False),
+            ensure_user(cfg, AWE_STAGE2_USERNAME, AWE_STAGE2_PASSWORD, grant_awe_admin=False),
+        ]
     except Exception as exc:  # noqa: BLE001
-        print(f"[keycloak_seed] FAILED to provision '{FUNC_USERNAME}': {exc}", file=sys.stderr)
+        print(f"[keycloak_seed] FAILED to provision users: {exc}", file=sys.stderr)
         return 1
-    print(f"[keycloak_seed] {status}")
+    for status in statuses:
+        print(f"[keycloak_seed] {status}")
     return 0
 
 

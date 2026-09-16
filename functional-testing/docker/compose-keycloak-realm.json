@@ -47,6 +47,30 @@
       "serviceAccountsEnabled": true,
       "standardFlowEnabled": false,
       "protocol": "openid-connect"
+    },
+    {
+      "clientId": "partner-management",
+      "name": "Partner Management Admin",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "func-gate-pm-admin-secret",
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "consent-manager",
+      "name": "Consent Manager Admin",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "func-gate-cm-admin-secret",
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
     }
   ],
   "roles": {
@@ -60,6 +84,13 @@
       ],
       "awe-admin-portal": [
         { "name": "AWE_ADMIN", "composite": false }
+      ],
+      "partner-management": [
+        { "name": "partner_manager", "composite": false }
+      ],
+      "consent-manager": [
+        { "name": "CONSENT_MANAGER_ADMIN", "composite": false },
+        { "name": "CONSENT_MANAGER_APPROVER", "composite": false }
       ]
     }
   },

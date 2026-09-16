@@ -31,6 +31,8 @@ export default defineConfig({
     {
       name: "chromium",
       dependencies: ["setup"],
+      // Hybrid approve/reject + AWE UI-only live under tests/optional/ (not gate).
+      testIgnore: [/\/optional\//],
       use: {
         ...devices["Desktop Chrome"],
         storageState: path.join(__dirname, ".auth/user.json"),

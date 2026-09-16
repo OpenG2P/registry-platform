@@ -5,16 +5,20 @@ from __future__ import annotations
 import pytest
 
 from assertions import db as db_assert
-from assertions.dual import assert_api_db_subject_match, assert_intake_api_db
+from assertions.dual import (
+    assert_api_db_subject_match,
+    assert_intake_api_db,
+    assert_supporting_api_db,
+)
 from assertions.response import assert_status_fields, assert_success
 from profile_params import with_register_profiles
 from helpers.config import Config
 from helpers.http import StaffClient
 from helpers.profiles import RegisterProfile
 from helpers.provision import (
+    approve_two_stage_awe,
     create_and_finalize_intake,
     search_register_by_text,
-    verify_and_approve_intake,
 )
 
 
@@ -44,15 +48,36 @@ def test_intake_verify_approve_and_register(
     )
     assert_success(search, "search_in_intake_form_submissions")
 
-    verify_and_approve_intake(staff, created.submission_id, step=step)
+    approve_two_stage_awe(
+        cfg,
+        artifact_type="registry.intake_form",
+        artifact_id=created.submission_id,
+        search_text=created.identity_value,
+        step=step,
+    )
 
-    step("validate API + DB: submission APPROVED")
-    approved = assert_success(
-        staff.post_json(
-            "/intake-form-data/get_intake_form_submission",
-            {"submission_id": created.submission_id},
-        ),
-        "get after approve",
+    step("poll API + DB until submission APPROVED (AWE webhook is async)")
+
+    def _approved_submission():
+        payload = assert_success(
+            staff.post_json(
+                "/intake-form-data/get_intake_form_submission",
+                {"submission_id": created.submission_id},
+            ),
+            "get after approve",
+        )
+        if (
+            isinstance(payload, dict)
+            and str(payload.get("approval_status") or "").upper() == "APPROVED"
+        ):
+            return payload
+        return None
+
+    approved = db_assert.wait_until(
+        _approved_submission,
+        timeout_s=90.0,
+        interval_s=3.0,
+        description=f"submission {created.submission_id} APPROVED after AWE",
     )
     assert isinstance(approved, dict)
     assert_status_fields(
@@ -108,6 +133,17 @@ def test_intake_verify_approve_and_register(
         expected_fields=created.fields,
         context=f"intake_approve:{profile.key}",
     )
+
+    if created.supporting:
+        step(f"strict API ↔ DB supporting tables: {sorted(created.supporting)}")
+        assert_supporting_api_db(
+            staff,
+            cfg.registry_dsn,
+            profile,
+            internal_id,
+            created.supporting,
+            context=f"intake_approve:{profile.key}",
+        )
 
     step(
         f"intake_approve OK [{profile.key}] submission_id={created.submission_id} "
