@@ -200,14 +200,17 @@ export const isAllowedKey = (
     const decimalSeparator = format?.decimalSeparator || '.';
     if (key === decimalSeparator || key === '.') {
       const hasDecimal = currentValue.includes(decimalSeparator) || currentValue.includes('.');
-      const selectionStart = event?.currentTarget?.selectionStart || 0;
+      // selectionStart is null on inputs without a caret API (e.g. type="number");
+      // treat that as "caret at the end" instead of "at the start", which
+      // rejected every decimal point.
+      const selectionStart = event?.currentTarget?.selectionStart ?? currentValue.length;
       return !hasDecimal && selectionStart > 0;
     }
   }
 
   if (format?.allowSigned !== false) {
     if (key === '-' || key === '−') {
-      const selectionStart = event?.currentTarget?.selectionStart || 0;
+      const selectionStart = event?.currentTarget?.selectionStart ?? 0;
       return selectionStart === 0 && !currentValue.includes('-');
     }
   }

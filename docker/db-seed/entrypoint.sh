@@ -98,9 +98,14 @@ run_callback_secret() {
   AWE_CALLBACK_SECRET_ID="${AWE_CALLBACK_SECRET_ID:-registry}"
   echo "[db-seed]   -> callback_secret (AWE DB, from template) id=${AWE_CALLBACK_SECRET_ID} caller_service=${AWE_CALLBACK_CALLER_SERVICE}"
   export AWE_CALLBACK_HMAC_SECRET AWE_CALLBACK_SECRET_ID AWE_CALLBACK_CALLER_SERVICE
-  PGHOST="${AWE_PGHOST}" PGPORT="${AWE_PGPORT:-5432}" PGDATABASE="${AWE_PGDATABASE}" \
-    PGUSER="${AWE_PGUSER}" PGPASSWORD="${AWE_PGPASSWORD}" \
-    envsubst '${AWE_CALLBACK_HMAC_SECRET} ${AWE_CALLBACK_SECRET_ID} ${AWE_CALLBACK_CALLER_SERVICE}' < "$tpl" | psql -v ON_ERROR_STOP=0 -f -
+  # The PG* overrides must sit on psql, the LAST command of the pipeline. Put on
+  # envsubst they only scope that command, and psql inherits the registry PG*
+  # values: the callback_secret row then lands in the registry DB and AWE
+  # rejects every webhook signature.
+  envsubst '${AWE_CALLBACK_HMAC_SECRET} ${AWE_CALLBACK_SECRET_ID} ${AWE_CALLBACK_CALLER_SERVICE}' < "$tpl" \
+    | PGHOST="${AWE_PGHOST}" PGPORT="${AWE_PGPORT:-5432}" PGDATABASE="${AWE_PGDATABASE}" \
+      PGUSER="${AWE_PGUSER}" PGPASSWORD="${AWE_PGPASSWORD}" \
+      psql -v ON_ERROR_STOP=0 -f -
 }
 
 echo "============================================="

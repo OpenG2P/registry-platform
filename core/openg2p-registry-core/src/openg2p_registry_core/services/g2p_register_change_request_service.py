@@ -1492,7 +1492,13 @@ class G2PRegisterChangeRequestService(BaseService):
             domain_payloads,
         )
 
-        constructed_record_name = self._construct_record_name_for_change_request(register_domain_service, display_payloads)
+        constructed_record_name = await self._resolve_change_request_record_name(
+            session,
+            change_request_request_payload.register_id,
+            change_request_request_payload.section_register_id,
+            internal_record_id,
+            self._construct_record_name_for_change_request(register_domain_service, display_payloads),
+        )
 
         constructed_search_text = self._construct_search_text_for_change_request(
             register_domain_service,
@@ -2388,6 +2394,39 @@ class G2PRegisterChangeRequestService(BaseService):
                 f"Unable to resolve domain service for register mnemonic '{register_mnemonic}': {error}"
             )
             return None
+
+    async def _resolve_change_request_record_name(
+        self,
+        session: AsyncSession | None,
+        register_id: str | None,
+        section_register_id: str | None,
+        internal_record_id: str | None,
+        section_record_name: str | None,
+    ) -> str | None:
+        """Pick the record_name a change request is listed under.
+
+        A request on a supporting (child) section inherits the subject
+        register's record_name (e.g. the farmer), because a name derived from
+        the child row is unstable and often empty (DELETE-only payloads carry
+        no naming fields). Same-register sections keep the payload-derived
+        name and only fall back to the live record's name when the payload
+        cannot produce one.
+        """
+        is_child_section = bool(
+            register_id and section_register_id and section_register_id != register_id
+        )
+        if section_record_name and not is_child_section:
+            return section_record_name
+        if not session or not register_id or not internal_record_id:
+            return section_record_name
+        try:
+            _, register_class, _ = await self._get_register_class_and_schema(register_id, session)
+            subject = await self._get_existing_record(register_class, internal_record_id, session)
+        except Exception as error:
+            _logger.warning("Could not load the subject record for change request record_name: %s", error)
+            return section_record_name
+        subject_name = getattr(subject, "record_name", None) if subject is not None else None
+        return subject_name or section_record_name
 
     def _construct_record_name_for_change_request(
         self,
