@@ -128,7 +128,7 @@ export default function SubmissionHeader({ submission, documents = [] }: Props) 
                         <>
                             {visibleDocs.map((doc) => (
                                 <DocumentRow
-                                    key={doc.document_id || doc.document_store_id || doc.label}
+                                    key={doc.document_id || doc.label}
                                     doc={doc}
                                 />
                             ))}
