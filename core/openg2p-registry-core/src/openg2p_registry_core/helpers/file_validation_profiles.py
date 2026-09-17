@@ -45,11 +45,11 @@ def get_upload_validation_profile(
     Build a bucket-specific upload profile from registry-core Settings.
 
     Returns ``None`` when the bucket does not require upload validation
-    (currently ``data_import_files``).
+    (currently ``import-files``).
     """
     from ..models.enum import DocumentBucket
 
-    if bucket == DocumentBucket.DATA_IMPORT_FILES:
+    if bucket == DocumentBucket.IMPORT_FILES:
         return None
 
     if bucket == DocumentBucket.TEMPLATES:
