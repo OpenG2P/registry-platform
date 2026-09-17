@@ -145,7 +145,7 @@ class DocumentBucket(StrEnum):
     DEFAULT = "default"
     TEMPLATES = "templates"
     DOCUMENTS = "documents"
-    DATA_IMPORT_FILES = "data_import_files"
+    IMPORT_FILES = "import-files"
     EXPORT_FILES = "export-files"
 
 

@@ -20,7 +20,7 @@ export default function ImportModal({
 
     const { execute } = useFetch();
 
-    const { uploadFile } = useFileUpload('data_import_files');
+    const { uploadFile } = useFileUpload('import-files');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
