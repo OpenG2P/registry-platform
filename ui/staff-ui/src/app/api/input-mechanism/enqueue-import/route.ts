@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
                 search_text: body.search_text ?? '',
             },
             request_payload: {
-                document_store_id: body.document_store_id,
+                document_id: body.document_id,
                 data_model_id: body.data_model_id,
                 register_id: body.register_id,
                 intake_form_id: body.intake_form_id,
