@@ -13,6 +13,12 @@ export interface RuntimeConfig {
     registry_language_id: string;
     branding?: Branding;
     language_config?: LanguageConfig;
+    notificationProvider?: string;
+    notificationApplicationIdentifier?: string;
+    notificationBackendUrl?: string;
+    notificationWebsocketUrl?: string;
+    subscriberId?: string;
+    subscriberHash?: string;
 }
 
 

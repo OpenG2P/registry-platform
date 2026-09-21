@@ -2,6 +2,7 @@ import "server-only";
 import { getBackendConfig } from "./backend-config";
 import { createBackendRequest } from "./backend-request";
 import { getServerEnv } from "./env-config";
+import { getNotificationHmac } from "./notification-hmac";
 import { requireAuthFromCookies } from "./requireAuth";
 
 import { Branding, ClientSafeConfigShape, LanguageConfig } from "./client-safe-config.types";
@@ -20,6 +21,10 @@ class ClientSafeConfig {
             registry_theme_id: "",
             registry_language_id: "",
             branding: {},
+            notificationProvider: env.notificationProvider,
+            notificationApplicationIdentifier: env.notificationApplicationIdentifier,
+            notificationBackendUrl: env.notificationBackendUrl,
+            notificationWebsocketUrl: env.notificationWebsocketUrl,
         };
     }
 
@@ -159,8 +164,18 @@ class ClientSafeConfig {
         return this.config;
     }
 
-    getAll(): ClientSafeConfigShape {
-        return this.config;
+    async getAll(): Promise<ClientSafeConfigShape> {
+        const env = getServerEnv();
+        const notificationHmac = await getNotificationHmac();
+        return {
+            ...this.config,
+            notificationProvider: env.notificationProvider,
+            notificationApplicationIdentifier: env.notificationApplicationIdentifier,
+            notificationBackendUrl: env.notificationBackendUrl,
+            notificationWebsocketUrl: env.notificationWebsocketUrl,
+            subscriberId: notificationHmac.subscriberId,
+            subscriberHash: notificationHmac.subscriberHash,
+        };
     }
 
     setMany(values: Partial<ClientSafeConfigShape>) {

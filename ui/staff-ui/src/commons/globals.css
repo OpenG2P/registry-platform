@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @config "../../tailwind.config.mjs";
 @source "../../node_modules/@openg2p/registry-widgets/dist";
+@source "../../node_modules/@openg2p/notification/dist";
 
 @layer base {
     :root {
