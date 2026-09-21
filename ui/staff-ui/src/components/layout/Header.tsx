@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-import { ProfileDropdown, NotificationDropdown, HeaderMoreMenu } from '@/components/layout';
+import { ProfileDropdown, NotificationInbox, HeaderMoreMenu } from '@/components/layout';
 import { useRuntimeConfig } from "@/context/RuntimeConfigContext";
 import { useLogoDimensions } from '@/shared/hooks';
 
@@ -61,7 +61,7 @@ export default function Header() {
 
                 {/* Desktop Navigation */}
                 <div className="flex items-center gap-4">
-                    <NotificationDropdown />
+                    <NotificationInbox />
                     <ProfileDropdown />
                     <HeaderMoreMenu />
 
