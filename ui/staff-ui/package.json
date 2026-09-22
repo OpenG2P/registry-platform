@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@novu/js": "^3.11.0",
+    "@novu/js": "^3.18.0",
     "@openg2p/registry-widgets": "1.1.6",
     "@reduxjs/toolkit": "^2.11.2",
     "@sd-jwt/crypto-browser": "^0.15.0",
