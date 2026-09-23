@@ -255,9 +255,11 @@ def test_resolves_normal_nested_object_table_and_dialog_fields(service):
         "phone_numbers",
         "geo_lowest_level_value_id",
         "geo_code_hierarchy_json",
+        "created_by",
         "source_of_income",
         "record_image_document_id",
         "commodity",
+        "audit_note",
         "relationship_type",
     }
 
