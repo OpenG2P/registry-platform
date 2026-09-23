@@ -313,7 +313,8 @@ global:
   # demo staff users below (keycloak-init), not an AWE resource. Kept here.
   aweApproverUserPassword: 'pass'
   # Password for the demo `agent` user in the Keycloak `agent` realm.
-  agentUserPassword: 'pass'
+  # Demo credential — change it for anything but a trial environment.
+  agentUserPassword: 'agent'
   # Helm release that hosts the shared AWE — its Service is <aweReleaseName>-awe.
   # Used by db-seed to wait for the AWE API before seeding the callback secret.
   aweReleaseName: commons-services
