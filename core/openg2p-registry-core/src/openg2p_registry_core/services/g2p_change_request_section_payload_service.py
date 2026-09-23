@@ -339,8 +339,6 @@ class G2PChangeRequestSectionPayloadService(BaseService):
         orm_fields: set[str],
         allowed_fields: set[str],
     ) -> None:
-        if widget.get("widget-readonly") is True:
-            return
 
         widget_name = widget.get("widget")
         if widget_name in _DOCUMENT_WIDGETS:
@@ -367,7 +365,6 @@ class G2PChangeRequestSectionPayloadService(BaseService):
                 for column in columns:
                     if (
                         not isinstance(column, dict)
-                        or column.get("widget-readonly") is True
                     ):
                         continue
                     column_key = column.get("column-key")
