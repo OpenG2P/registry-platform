@@ -18,19 +18,42 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        with:          python-version: "3.12"
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
-      - name: Run functional gate
+      - name: Set up services
         env:
+          FUNC_SKIP_API: "1"
+          FUNC_SKIP_UI: "1"
+          FUNC_SKIP_TEARDOWN: "1"
+        run: ./functional-testing/docker/run-compose-gate.sh
+
+      - name: Run API tests
+        env:
+          FUNC_SKIP_STACK: "1"
+          FUNC_SKIP_UI: "1"
+          FUNC_SKIP_TEARDOWN: "1"
           FUNC_RUN_STAFF_TIER1: "1"
           FUNC_RUN_STAFF_TIER2: "1"
           FUNC_RUN_PARTNER_TIER3: "1"
         run: ./functional-testing/docker/run-compose-gate.sh
+
+      - name: Run UI tests
+        env:
+          FUNC_SKIP_STACK: "1"
+          FUNC_SKIP_API: "1"
+          FUNC_SKIP_TEARDOWN: "1"
+        run: ./functional-testing/docker/run-compose-gate.sh
+
+      - name: Tear down stack
+        if: always()
+        run: >
+          docker compose -p func-gate-rp
+          -f functional-testing/docker/docker-compose.gate.yaml
+          down -v --remove-orphans
 
       - name: Upload test artifacts
         if: always()
