@@ -122,29 +122,19 @@ services:
 
   minio:
     image: openg2p/minio:2023.12.23-debian-11-r2
-    command: server /data --console-address ":9001"
+    # Bitnami image: do not override command (exec "server" → exit 127).
     environment:
       MINIO_ROOT_USER: *minio-root-user
       MINIO_ROOT_PASSWORD: *minio-root-password
+      MINIO_BROWSER: "on"
+      MINIO_CONSOLE_PORT_NUMBER: "9001"
+      # Create gate buckets at startup (replaces former minio-init sidecar).
+      MINIO_DEFAULT_BUCKETS: documents,templates,images
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
       timeout: 3s
       retries: 15
-
-  minio-init:
-    image: pgsty/mc:RELEASE.2026-08-04T00-00-00Z
-    entrypoint: >
-      sh -c "
-        until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 2; done;
-        mc mb --ignore-existing local/documents;
-        mc mb --ignore-existing local/templates;
-        mc mb --ignore-existing local/images;
-        exit 0;
-      "
-    depends_on:
-      minio:
-        condition: service_healthy
 
   # ── Commons platform services ──────────────────────────────────────────────
 
@@ -620,8 +610,8 @@ services:
         condition: service_healthy
       awe:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
 
   staff-ui:
     build:

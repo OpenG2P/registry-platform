@@ -59,7 +59,7 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
   fi
 
   docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d \
-    postgres keycloak redis minio minio-init \
+    postgres keycloak redis minio \
     iam-staff-portal-api master-data-api awe id-generator \
     pm-partner-api pm-staff-api consent-manager-api consent-manager-partner-api
 
