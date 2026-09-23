@@ -48,16 +48,6 @@ const validateTableLikeWidget = (
     return false;
   }
 
-  const hasRequiredColumns = columns.some((col) => isColumnRequired(col, skipRequired));
-  if (!skipRequired && hasRequiredColumns && activeRows.length === 0) {
-    dispatch(setTouched({ widgetId, touched: true }));
-    dispatch(setError({
-      widgetId,
-      errors: ['Add at least one record and fill all required fields'],
-    }));
-    return false;
-  }
-
   activeRows.forEach((row, rowIndex) => {
     columns.forEach((col) => {
       if (col['widget-readonly']) return;
