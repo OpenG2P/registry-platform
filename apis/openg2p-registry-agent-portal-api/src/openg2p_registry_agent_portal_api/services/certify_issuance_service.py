@@ -59,6 +59,50 @@ class CertifyIssuanceService(BaseService):
                 client, base, access_token, c_nonce, credential_types
             )
 
+    async def create_wallet_offer(
+        self, claims: dict[str, Any], config_id: str
+    ) -> dict[str, Any]:
+        """Push the claims and return the OFFER, without redeeming it.
+
+        This is the whole of Phase 2 on our side. Paper issuance runs all four
+        OpenID4VCI steps here and hands back a credential; a wallet download runs
+        only the first, and the citizen's wallet performs the token exchange and
+        credential request itself.
+
+        Stopping here is what makes it a real wallet credential: the proof-of-
+        possession JWT is signed by a key the WALLET holds, so `credentialSubject.id`
+        is the wallet's own DID rather than the throwaway one we mint for paper.
+        We never see the credential, and we never hold the holder key.
+        """
+        base = _config.certify_base_url.rstrip("/")
+        async with httpx.AsyncClient(timeout=_config.certify_http_timeout) as client:
+            resp = await client.post(
+                f"{base}/pre-authorized-data",
+                json={
+                    "credential_configuration_id": config_id,
+                    "claims": claims,
+                    "expires_in": _config.wallet_offer_expires_in,
+                    "tx_code": _config.certify_tx_code,
+                },
+            )
+            self._raise_for_status(resp, "PRE_AUTHORIZED_DATA_FAILED")
+            offer_uri = resp.json()["credential_offer_uri"]
+
+        return {
+            # What the wallet consumes. Rendered as a QR for the citizen to scan;
+            # also usable as a deep link on the same device.
+            "credential_offer_uri": offer_uri,
+            "offer_id": self._offer_id_from(offer_uri),
+            # The citizen types this into the wallet. Read it out -- do not print
+            # it beside the QR, or the pairing it provides is worthless.
+            "tx_code": _config.certify_tx_code,
+            "expires_in": _config.wallet_offer_expires_in,
+        }
+
+    @staticmethod
+    def _offer_id_from(offer_uri: str) -> str:
+        return urllib.parse.unquote(offer_uri).rstrip("/").split("/")[-1]
+
     async def _create_offer(
         self, client: httpx.AsyncClient, base: str, claims: dict[str, Any], config_id: str
     ) -> str:
@@ -73,7 +117,7 @@ class CertifyIssuanceService(BaseService):
         )
         self._raise_for_status(resp, "PRE_AUTHORIZED_DATA_FAILED")
         offer_uri = resp.json()["credential_offer_uri"]
-        return urllib.parse.unquote(offer_uri).rstrip("/").split("/")[-1]
+        return self._offer_id_from(offer_uri)
 
     async def _read_offer(
         self, client: httpx.AsyncClient, base: str, offer_id: str

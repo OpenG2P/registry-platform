@@ -300,6 +300,17 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.agentPassword | quote }}
 - name: SANITY_VC_NATIONAL_ID
   value: {{ .Values.sanity.vcNationalId | quote }}
+{{- if .Values.agentPortalApi.walletIssuance.enabled }}
+{{- /*
+  The wallet test plays the part of the wallet, so it talks to Certify DIRECTLY
+  rather than through the Agent Portal API. Only set when wallet issuance is on;
+  without it that test skips instead of failing.
+*/}}
+- name: SANITY_CERTIFY_BASE_URL
+  value: {{ include "common.tplvalues.render" (dict "value" .Values.global.certifyBaseUrl "context" $) | quote }}
+- name: SANITY_CERTIFY_AUDIENCE
+  value: {{ include "common.tplvalues.render" (dict "value" .Values.global.certifyAudience "context" $) | quote }}
+{{- end }}
 {{- end }}
 # Registry staff-portal-api — the change-request e2e logs in as REAL demo users
 # via the password grant. The registry's Keycloak client is a browser OIDC

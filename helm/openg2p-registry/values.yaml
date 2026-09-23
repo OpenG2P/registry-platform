@@ -862,6 +862,26 @@ agentPortalApi:
     # chart installed as a subchart of commons-services.
     serviceUrl: 'http://commons-services-inji-verify-service/v1/verify'
 
+  # Phase 2 — deliver the credential into the citizen's own wallet.
+  #
+  # Independent of vcIssuance, and both may be on: the same beneficiary
+  # authentication can end in a printed card, a wallet download, or both. An
+  # install that wants only paper leaves this off and no wallet route is mounted.
+  #
+  # It is the SAME Certify and the same push as paper -- the OpenID4VCI
+  # issuer-initiated pre-authorized-code flow. We stop at the offer and the
+  # citizen's wallet redeems it, so the credential is bound to a key the wallet
+  # holds. No second Certify instance and no data-provider plugin are involved.
+  #
+  # Requires vcIssuance.enabled: the wallet route lives on the issuance
+  # controller, which is only mounted when issuance is on.
+  walletIssuance:
+    enabled: false
+    # How long the offer stays redeemable. Short on purpose -- it is handed over
+    # in person, so minutes are enough, and a long-lived offer QR left on a screen
+    # is a credential anyone can claim.
+    offerExpiresInSeconds: 300
+
   vcIssuance:
     enabled: false
     # How long a completed beneficiary authentication may authorise an issuance,
@@ -1062,6 +1082,8 @@ agentPortalApi:
     # Verification is switched separately from issuance: a deployment may want
     # agents to CHECK a card without being able to create one.
     REGISTRY_AGENT_PORTAL_API_VC_VERIFICATION_ENABLED: '{{ .Values.vcVerification.enabled }}'
+    REGISTRY_AGENT_PORTAL_API_WALLET_ISSUANCE_ENABLED: '{{ .Values.walletIssuance.enabled }}'
+    REGISTRY_AGENT_PORTAL_API_WALLET_OFFER_EXPIRES_IN: '{{ .Values.walletIssuance.offerExpiresInSeconds }}'
     # Inji Verify's verify-service, in-cluster. The browser never reaches it:
     # the UI posts to this API, which calls it here — the same shape as every
     # other backend call the portal makes.

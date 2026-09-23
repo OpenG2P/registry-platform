@@ -171,3 +171,39 @@ class VcTypesResponseBody(G2PResponseBody):
 
 class VcTypesResponse(G2PResponse):
     response_body: VcTypesResponseBody
+
+
+# ── 5. Wallet offer (Phase 2) ─────────────────────────────────────────────────
+class WalletOfferPayload(BaseModel):
+    """Same gate as paper issuance: an authenticated beneficiary, a chosen type."""
+
+    internal_record_id: str
+    authentication_id: Optional[str] = None
+    vc_type: Optional[str] = None
+
+
+class WalletOfferRequestBody(G2PRequestBody):
+    request_payload: WalletOfferPayload
+
+
+class WalletOfferRequest(G2PRequest):
+    request_body: WalletOfferRequestBody
+
+
+class WalletOfferResultPayload(BaseModel):
+    # What the wallet scans or follows.
+    credential_offer_uri: str
+    offer_id: str
+    # Read aloud to the citizen, never printed next to the QR -- it is the only
+    # thing tying the offer to the person in front of the agent.
+    tx_code: str
+    expires_in: int
+    vc_type: str
+
+
+class WalletOfferResponseBody(G2PResponseBody):
+    response_payload: Optional[WalletOfferResultPayload] = None
+
+
+class WalletOfferResponse(G2PResponse):
+    response_body: Optional[WalletOfferResponseBody] = None

@@ -35,4 +35,10 @@ from .vc_issuance import (
     VcTypesResponse,
     VcTypesResponseBody,
     VcTypesResultPayload,
+    WalletOfferPayload,
+    WalletOfferRequest,
+    WalletOfferRequestBody,
+    WalletOfferResponse,
+    WalletOfferResponseBody,
+    WalletOfferResultPayload,
 )

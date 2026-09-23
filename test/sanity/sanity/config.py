@@ -135,6 +135,14 @@ class Config:
     vc_national_id: str = "TEST_SANITY_VC_0001"
     vc_type: str = ""
 
+    # Certify, reached DIRECTLY. The wallet test needs this because it plays the
+    # part of the wallet: the redeem/proof/fetch exchange goes wallet -> Certify,
+    # never through the Agent Portal API. Unset simply skips that test rather than
+    # failing an install that has not exposed Certify.
+    certify_base_url: str = ""
+    # What Certify expects as the proof JWT audience. Defaults to its base URL.
+    certify_audience: str = ""
+
     # ── Databases (see sanity/db.py for why each is needed) ──────────────────
     registry_dsn: Optional[dict] = None
     awe_dsn: Optional[dict] = None
@@ -204,6 +212,8 @@ class Config:
             agent_realm=os.environ.get("SANITY_AGENT_REALM") or "agent",
             vc_national_id=os.environ.get("SANITY_VC_NATIONAL_ID") or "TEST_SANITY_VC_0001",
             vc_type=os.environ.get("SANITY_VC_TYPE", ""),
+            certify_base_url=os.environ.get("SANITY_CERTIFY_BASE_URL", ""),
+            certify_audience=os.environ.get("SANITY_CERTIFY_AUDIENCE", ""),
             registry_dsn=_dsn(
                 os.environ.get("SANITY_REGISTRY_PGHOST"), os.environ.get("SANITY_REGISTRY_PGPORT"),
                 os.environ.get("SANITY_REGISTRY_PGDATABASE"), os.environ.get("SANITY_REGISTRY_PGUSER"),

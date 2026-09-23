@@ -67,6 +67,23 @@ class Settings(ExtSettings):
     # surface at all.
     vc_verification_enabled: bool = False
 
+    # ── Phase 2: download into the citizen's own wallet ───────────────────────
+    # Independent of paper issuance. Both may run at once: the same beneficiary
+    # authentication can end in a printed card, a wallet download, or both.
+    #
+    # The difference is only WHERE the OpenID4VCI flow stops. Paper runs all four
+    # Certify steps server-side and renders a PDF. Wallet stops after the offer
+    # and hands it to the citizen's wallet, which redeems the pre-authorized code
+    # and fetches the credential itself -- so the credential is delivered to a key
+    # the wallet holds, not to us.
+    #
+    # Deliberately NOT a second Certify instance or a data-provider plugin: this
+    # is the issuer-initiated pre-authorized-code flow OpenID4VCI defines for
+    # exactly this case, and it reuses the push path paper already uses. A
+    # wallet-INITIATED download (citizen at home, no agent) is a later step and
+    # does need the pull plugin.
+    wallet_issuance_enabled: bool = False
+
     # Registry Database
     db_username: str = "postgres"
     db_password: str = "password"
@@ -137,6 +154,11 @@ class Settings(ExtSettings):
     certify_http_timeout: int = 30
     certify_offer_expires_in: int = 600
     certify_tx_code: str = "1234"
+    # Shown to the agent to read out to the citizen, who types it into the wallet
+    # before the credential is released. It is the only thing binding the offer QR
+    # to the person standing there -- without it, anyone who photographs the
+    # screen can claim the credential.
+    wallet_offer_expires_in: int = 300
     certify_credential_format: str = "ldp_vc"
     certify_credential_context: List[str] = ["https://www.w3.org/2018/credentials/v1"]
     # Must match the audience Certify is configured to accept on the proof JWT.

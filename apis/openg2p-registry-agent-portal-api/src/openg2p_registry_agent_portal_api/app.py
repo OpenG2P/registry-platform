@@ -39,7 +39,14 @@ class Initializer(BaseInitializer):
         # deployment that has not opted in exposes no issuance surface at all.
         if _config.vc_issuance_enabled:
             VcIssuanceController().post_init()
-            _logger.info("VC issuance is ENABLED; agent portal issuance routes mounted.")
+            # Say which delivery channels are live. Paper and wallet are separate
+            # switches on the same controller, and "issuance is enabled" alone
+            # does not tell an operator whether a wallet download is possible.
+            _logger.info(
+                "VC issuance is ENABLED; agent portal issuance routes mounted "
+                "(paper: yes, wallet: %s).",
+                "yes" if _config.wallet_issuance_enabled else "no",
+            )
         else:
             _logger.info(
                 "VC issuance is DISABLED (registry_agent_portal_api_vc_issuance_enabled). "

@@ -9,6 +9,10 @@ from ..audit_context import set_audit
 from ..config import Settings
 from ..helpers import RequestResponseHelper
 from ..schemas import (
+    WalletOfferRequest,
+    WalletOfferResponse,
+    WalletOfferResponseBody,
+    WalletOfferResultPayload,
     AuthenticationStatusRequest,
     AuthenticationStatusResponse,
     AuthenticationStatusResponseBody,
@@ -102,6 +106,16 @@ class VcIssuanceController(BaseController):
             responses={200: {"model": AuthenticationStatusResponse}},
             methods=["POST"],
         )
+        # Phase 2. Registered only when the switch is on, so an install that
+        # issues paper alone exposes no wallet surface at all.
+        if _config.wallet_issuance_enabled:
+            self.router.add_api_route(
+                "/wallet_offer",
+                self.wallet_offer,
+                responses={200: {"model": WalletOfferResponse}},
+                methods=["POST"],
+            )
+
         self.router.add_api_route(
             "/issue",
             self.issue,
@@ -425,4 +439,81 @@ class VcIssuanceController(BaseController):
                 "X-Credential-Id": entry.credential_id or "",
                 "X-Vc-Type": vc.config_id,
             },
+        )
+
+    @require_permissions({ISSUE_PERMISSION})
+    async def wallet_offer(self, request: Request, offer_request: WalletOfferRequest):
+        """Hand the citizen's wallet a credential offer.
+
+        Everything up to this point is identical to paper: the same agent, the
+        same beneficiary authentication, the same claims. Only the last step
+        differs -- we stop at the offer instead of redeeming it, and the wallet
+        completes the exchange itself.
+
+        Deliberately shares ISSUE_PERMISSION with paper: it is the same act,
+        issuing a credential to an authenticated beneficiary, and splitting the
+        permission would let someone be authorised for one delivery channel and
+        not the other for no defensible reason.
+        """
+        payload = offer_request.request_body.request_payload
+
+        set_audit(
+            request,
+            action="offer_credential_to_wallet",
+            resource_type="verifiable_credential",
+            resource_id=payload.internal_record_id,
+            detail={"vc_type": payload.vc_type, "channel": "wallet"},
+        )
+
+        def fail(code: str, message: str):
+            set_audit(request, outcome="failure",
+                      detail={"error_code": code, "reason": message})
+            return self.helper.error(
+                WalletOfferResponse, WalletOfferResponseBody, code, message, offer_request
+            )
+
+        vc = _config.get_vc_definition(payload.vc_type)
+        if vc is None:
+            return fail("G2P-VC-501", f"Unknown credential type {payload.vc_type!r}.")
+
+        # The same gate as paper, re-checked here rather than trusted from an
+        # earlier screen: the window may have elapsed while the agent talked the
+        # citizen through installing a wallet.
+        auth, authorised, reason, _ = await self.beneficiary_auth_service.authorisation(
+            internal_record_id=payload.internal_record_id,
+            authentication_id=payload.authentication_id,
+        )
+        if not authorised:
+            return fail("G2P-VC-401", reason or "The beneficiary is not authenticated.")
+
+        try:
+            row = await self.registry_lookup_service.get_record(
+                payload.internal_record_id, vc
+            )
+            claims = self.registry_lookup_service.claims_from_row(row, vc)
+        except RegistryLookupError as error:
+            return fail(error.code, error.message)
+
+        try:
+            offer = await self.certify_issuance_service.create_wallet_offer(
+                claims, vc.config_id
+            )
+        except CertifyIssuanceError as error:
+            return fail(error.code, error.message)
+
+        # No issuance row is written here. Nothing has been issued yet -- the
+        # credential exists only once the wallet redeems the offer, which happens
+        # out of our sight. Recording an issuance now would over-report.
+        set_audit(
+            request,
+            outcome="success",
+            detail={"offer_id": offer["offer_id"], "vc_type": vc.config_id,
+                    "expires_in": offer["expires_in"]},
+        )
+
+        return self.helper.success(
+            WalletOfferResponse,
+            WalletOfferResponseBody,
+            WalletOfferResultPayload(vc_type=vc.config_id, **offer),
+            offer_request,
         )
