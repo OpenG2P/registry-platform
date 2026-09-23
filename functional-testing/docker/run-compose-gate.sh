@@ -27,6 +27,20 @@
 #   FUNC_RUN_STAFF_TIER2=1  also run api/staff -m tier2 after workflows
 #   FUNC_RUN_PARTNER_TIER3=1 also run api/partner -m tier3 after workflows
 #   FUNC_SKIP_PARTNER_CONSENT_SEED=1  skip PM/CM partner+consent seed
+#
+# Staff Tier-2 env-gated extras (off by default; set when running Tier-2):
+#   FUNC_AWE_ENABLED=1              AWE proxy list/stats
+#   FUNC_AWE_WEBHOOK_SECRET=...     HMAC webhook probe
+#                                   (compose gate value: func-gate-hmac-secret-value)
+#   FUNC_REGISTRANT_AUTH=1          authenticate_registrant
+#   FUNC_STAFF_INGEST=1             staff ingest-data probe
+#
+# Example (Tier-2 extras on compose gate):
+#   FUNC_RUN_STAFF_TIER2=1 FUNC_SKIP_UI=1 \
+#   FUNC_AWE_ENABLED=1 \
+#   FUNC_AWE_WEBHOOK_SECRET=func-gate-hmac-secret-value \
+#   FUNC_REGISTRANT_AUTH=1 FUNC_STAFF_INGEST=1 \
+#   ./functional-testing/docker/run-compose-gate.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -229,6 +243,11 @@ export FUNC_PM_CLIENT_ID="partner-management"
 export FUNC_PM_CLIENT_SECRET="func-gate-pm-admin-secret"
 export FUNC_CM_CLIENT_ID="consent-manager"
 export FUNC_CM_CLIENT_SECRET="func-gate-cm-admin-secret"
+# Staff Tier-2 env-gated extras — off unless caller sets them (see header).
+export FUNC_AWE_ENABLED="${FUNC_AWE_ENABLED:-0}"
+export FUNC_AWE_WEBHOOK_SECRET="${FUNC_AWE_WEBHOOK_SECRET:-}"
+export FUNC_REGISTRANT_AUTH="${FUNC_REGISTRANT_AUTH:-0}"
+export FUNC_STAFF_INGEST="${FUNC_STAFF_INGEST:-0}"
 
 echo "[compose-gate] FUNC_STAFF_API_BASE=${FUNC_STAFF_API_BASE}"
 echo "[compose-gate] FUNC_PARTNER_API_BASE=${FUNC_PARTNER_API_BASE}"
@@ -236,6 +255,10 @@ echo "[compose-gate] FUNC_UI_BASE=${FUNC_UI_BASE}"
 echo "[compose-gate] FUNC_KEYCLOAK_BASE=${FUNC_KEYCLOAK_BASE}"
 echo "[compose-gate] FUNC_PM_PARTNER_API_URL=${FUNC_PM_PARTNER_API_URL}"
 echo "[compose-gate] FUNC_CM_STAFF_URL=${FUNC_CM_STAFF_URL}"
+echo "[compose-gate] FUNC_AWE_ENABLED=${FUNC_AWE_ENABLED}"
+echo "[compose-gate] FUNC_AWE_WEBHOOK_SECRET=${FUNC_AWE_WEBHOOK_SECRET:+set}"
+echo "[compose-gate] FUNC_REGISTRANT_AUTH=${FUNC_REGISTRANT_AUTH}"
+echo "[compose-gate] FUNC_STAFF_INGEST=${FUNC_STAFF_INGEST}"
 
 cat >"${ROOT}/functional-testing/.env" <<EOF
 FUNC_STAFF_API_BASE=${FUNC_STAFF_API_BASE}
@@ -258,6 +281,10 @@ FUNC_PM_CLIENT_ID=${FUNC_PM_CLIENT_ID}
 FUNC_PM_CLIENT_SECRET=${FUNC_PM_CLIENT_SECRET}
 FUNC_CM_CLIENT_ID=${FUNC_CM_CLIENT_ID}
 FUNC_CM_CLIENT_SECRET=${FUNC_CM_CLIENT_SECRET}
+FUNC_AWE_ENABLED=${FUNC_AWE_ENABLED}
+FUNC_AWE_WEBHOOK_SECRET=${FUNC_AWE_WEBHOOK_SECRET}
+FUNC_REGISTRANT_AUTH=${FUNC_REGISTRANT_AUTH}
+FUNC_STAFF_INGEST=${FUNC_STAFF_INGEST}
 EOF
 
 # ── Python virtual environment for provisioning scripts ─────────────────────

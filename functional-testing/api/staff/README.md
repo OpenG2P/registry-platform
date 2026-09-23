@@ -40,14 +40,21 @@ Compose gate (optional):
 ```bash
 FUNC_RUN_STAFF_TIER1=1 FUNC_SKIP_UI=1 ./functional-testing/docker/run-compose-gate.sh
 FUNC_RUN_STAFF_TIER2=1 FUNC_SKIP_UI=1 ./functional-testing/docker/run-compose-gate.sh
+
+# Tier-2 env-gated extras (see run-compose-gate.sh header):
+FUNC_RUN_STAFF_TIER2=1 FUNC_SKIP_UI=1 \
+  FUNC_AWE_ENABLED=1 \
+  FUNC_AWE_WEBHOOK_SECRET=func-gate-hmac-secret-value \
+  FUNC_REGISTRANT_AUTH=1 FUNC_STAFF_INGEST=1 \
+  ./functional-testing/docker/run-compose-gate.sh
 ```
 
-Env-gated Tier-2 extras:
+Env-gated Tier-2 extras (off by default):
 
 | Var | Effect |
 |---|---|
 | `FUNC_AWE_ENABLED=1` | AWE proxy list/stats |
-| `FUNC_AWE_WEBHOOK_SECRET` | HMAC webhook probe |
+| `FUNC_AWE_WEBHOOK_SECRET` | HMAC webhook probe (compose: `func-gate-hmac-secret-value`) |
 | `FUNC_REGISTRANT_AUTH=1` | `authenticate_registrant` |
 | `FUNC_STAFF_INGEST=1` | staff `ingest-data` probe |
 
