@@ -194,6 +194,8 @@ class WalletOfferResultPayload(BaseModel):
     # What the wallet scans or follows.
     credential_offer_uri: str
     offer_id: str
+    # The offer rendered for the agent's screen; the browser cannot draw one.
+    qr_png: str
     # Read aloud to the citizen, never printed next to the QR -- it is the only
     # thing tying the offer to the person in front of the agent.
     tx_code: str

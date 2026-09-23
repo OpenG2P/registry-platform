@@ -59,6 +59,42 @@ class CertifyIssuanceService(BaseService):
                 client, base, access_token, c_nonce, credential_types
             )
 
+    @staticmethod
+    def _new_tx_code() -> str:
+        """A fresh transaction code for THIS offer.
+
+        Deliberately not `_config.certify_tx_code`. That value is a single
+        deployment-wide constant, which is harmless for paper -- the API redeems
+        the offer itself and the code never leaves the process -- but for a wallet
+        handover the code IS the security control. A fixed code is worth nothing:
+        anyone who has seen one offer knows it for every citizen thereafter.
+
+        Six digits, numeric, so wallets show a keypad and it can be read aloud
+        without ambiguity. `secrets` rather than `random` because this guards a
+        credential.
+        """
+        return f"{secrets.randbelow(1_000_000):06d}"
+
+    @staticmethod
+    def _qr_png_data_uri(payload: str) -> str:
+        """The offer as a scannable PNG.
+
+        Rendered here rather than in the browser because the agent portal's only
+        QR library (jsqr) reads codes and cannot write them, and the API already
+        carries `qrcode` for the printed card. Error correction M, not L: this is
+        read off a screen at an angle, often a dim one.
+        """
+        import qrcode
+
+        qr = qrcode.QRCode(
+            error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=8, border=2
+        )
+        qr.add_data(payload)
+        qr.make(fit=True)
+        buf = io.BytesIO()
+        qr.make_image(fill_color="black", back_color="white").save(buf, format="PNG")
+        return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
     async def create_wallet_offer(
         self, claims: dict[str, Any], config_id: str
     ) -> dict[str, Any]:
@@ -75,6 +111,7 @@ class CertifyIssuanceService(BaseService):
         We never see the credential, and we never hold the holder key.
         """
         base = _config.certify_base_url.rstrip("/")
+        tx_code = self._new_tx_code()
         async with httpx.AsyncClient(timeout=_config.certify_http_timeout) as client:
             resp = await client.post(
                 f"{base}/pre-authorized-data",
@@ -82,7 +119,7 @@ class CertifyIssuanceService(BaseService):
                     "credential_configuration_id": config_id,
                     "claims": claims,
                     "expires_in": _config.wallet_offer_expires_in,
-                    "tx_code": _config.certify_tx_code,
+                    "tx_code": tx_code,
                 },
             )
             self._raise_for_status(resp, "PRE_AUTHORIZED_DATA_FAILED")
@@ -93,9 +130,12 @@ class CertifyIssuanceService(BaseService):
             # also usable as a deep link on the same device.
             "credential_offer_uri": offer_uri,
             "offer_id": self._offer_id_from(offer_uri),
+            # Rendered for the agent's screen. The citizen scans this.
+            "qr_png": self._qr_png_data_uri(offer_uri),
             # The citizen types this into the wallet. Read it out -- do not print
-            # it beside the QR, or the pairing it provides is worthless.
-            "tx_code": _config.certify_tx_code,
+            # it beside the QR, or the pairing it provides is worthless. Fresh for
+            # every offer.
+            "tx_code": tx_code,
             "expires_in": _config.wallet_offer_expires_in,
         }
 

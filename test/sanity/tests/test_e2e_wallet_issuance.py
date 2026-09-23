@@ -31,7 +31,6 @@ Everything it creates is tagged `TEST_`.
 import base64
 import json
 import time
-import uuid
 
 import httpx
 import pytest
@@ -73,17 +72,16 @@ def _wallet_keypair():
 def _proof_jwt(key, jwk, padding, hashes, audience: str, nonce: str) -> str:
     """The proof-of-possession JWT, signed by the wallet's key.
 
-    `did:jwk` carries the public key inline, so the credential ends up bound to
-    this keypair with nothing pre-registered anywhere.
+    The public key travels inline in the header `jwk`, so the credential is bound
+    to this keypair with nothing pre-registered anywhere -- Certify derives the
+    holder `did:jwk` from it.
+
+    Shape verified against a live Certify: `jwk` ALONE in the header (adding a
+    `kid` beside it is rejected with `invalid_proof`), and `iss` present in the
+    body. Keep it in step with CertifyIssuanceService._make_proof_jwt.
     """
-    did = "did:jwk:" + _b64url(json.dumps(jwk, separators=(",", ":")).encode())
-    header = {"typ": "openid4vci-proof+jwt", "alg": "RS256", "jwk": jwk, "kid": did}
-    body = {
-        "aud": audience,
-        "iat": int(time.time()),
-        "nonce": nonce,
-        "jti": str(uuid.uuid4()),
-    }
+    header = {"alg": "RS256", "typ": "openid4vci-proof+jwt", "jwk": jwk}
+    body = {"aud": audience, "nonce": nonce, "iss": "", "iat": int(time.time())}
     signing_input = f"{_b64url(json.dumps(header).encode())}.{_b64url(json.dumps(body).encode())}"
     signature = key.sign(signing_input.encode(), padding.PKCS1v15(), hashes.SHA256())
     return f"{signing_input}.{_b64url(signature)}"
@@ -188,6 +186,9 @@ def test_wallet_downloads_the_credential(cfg, agent_authed_client, wallet_ready,
     offer = (r.json().get("response_body") or {}).get("response_payload") or {}
     assert offer.get("credential_offer_uri"), offer
     assert offer.get("tx_code"), "no tx_code — the offer would be unbound to the citizen"
+    assert offer.get("qr_png", "").startswith("data:image/png;base64,"), (
+        "no QR returned — the agent has nothing to show the citizen"
+    )
 
     # ---- from here on we ARE the wallet -------------------------------------
     base = cfg.certify_base_url.rstrip("/")
@@ -197,8 +198,27 @@ def test_wallet_downloads_the_credential(cfg, agent_authed_client, wallet_ready,
     with httpx.Client(timeout=30, verify=cfg.verify_tls) as wallet:
         resp = wallet.get(f"{base}/credential-offer-data/{offer_id}")
         assert resp.status_code == 200, f"offer not readable: {resp.text[:300]}"
-        grant = resp.json()["grants"]["urn:ietf:params:oauth:grant-type:pre-authorized_code"]
+        offer_doc = resp.json()
+        grant = offer_doc["grants"]["urn:ietf:params:oauth:grant-type:pre-authorized_code"]
         pre_auth_code = grant["pre-authorized_code"]
+        # The credential type comes from the OFFER, which is what a real wallet
+        # reads it from. Taking it from our own response would be testing our
+        # assumption rather than the protocol.
+        config_ids = offer_doc.get("credential_configuration_ids") or []
+        assert config_ids, f"offer names no credential type: {offer_doc}"
+
+        # Resolve the config against the issuer metadata, exactly as a wallet
+        # does: Certify 0.14 rejects `credential_configuration_id` on the
+        # credential request and wants format + credential_definition. This also
+        # asserts the metadata is complete enough for a real wallet to proceed.
+        meta = wallet.get(f"{base}/.well-known/openid-credential-issuer")
+        assert meta.status_code == 200, "issuer metadata unreachable"
+        supported = meta.json().get("credential_configurations_supported") or {}
+        conf = supported.get(config_ids[0])
+        assert conf and conf.get("credential_definition"), (
+            f"issuer metadata does not describe {config_ids[0]} — no wallet could "
+            f"build a credential request from it"
+        )
 
         step("wallet redeems it for an access token")
         resp = wallet.post(
@@ -220,9 +240,11 @@ def test_wallet_downloads_the_credential(cfg, agent_authed_client, wallet_ready,
             f"{base}/issuance/credential",
             headers={"Authorization": f"Bearer {access_token}"},
             json={
-                "format": "ldp_vc",
-                "credential_definition": {"type": offer.get("credential_types")
-                                          or ["VerifiableCredential"]},
+                "format": conf["format"],
+                "credential_definition": {
+                    "@context": conf["credential_definition"]["@context"],
+                    "type": conf["credential_definition"]["type"],
+                },
                 "proof": {"proof_type": "jwt", "jwt": proof},
             },
         )
@@ -235,8 +257,12 @@ def test_wallet_downloads_the_credential(cfg, agent_authed_client, wallet_ready,
     holder = subject.get("id", "")
     assert holder.startswith("did:jwk:"), f"holder id is not a wallet key: {holder!r}"
 
-    expected = "did:jwk:" + _b64url(json.dumps(jwk, separators=(",", ":")).encode())
-    assert holder == expected, (
+    # Compare the MODULUS, not the did string: key ordering inside the JWK changes
+    # the did:jwk encoding, so a string compare is brittle for no benefit.
+    raw = holder.split("did:jwk:", 1)[1]
+    raw += "=" * (-len(raw) % 4)
+    holder_jwk = json.loads(base64.urlsafe_b64decode(raw))
+    assert holder_jwk.get("n") == jwk["n"], (
         "the credential was bound to a different key than the wallet generated — "
         "holder binding is not working"
     )
@@ -289,3 +315,46 @@ def test_offer_cannot_be_redeemed_twice(cfg, agent_authed_client, wallet_ready, 
         "the pre-authorized code was redeemed twice — a photographed offer QR "
         "could be claimed by someone else"
     )
+
+
+def test_each_offer_gets_its_own_tx_code(cfg, agent_authed_client, wallet_ready, step):
+    """Two offers must not share a transaction code.
+
+    The code is the only thing binding an offer to the person at the counter. A
+    deployment-wide constant would satisfy every other test here while protecting
+    nothing -- anyone who saw one offer would know the code for all of them. This
+    is the test that would have caught that.
+    """
+    if not cfg.registry_dsn:
+        pytest.skip("registry DB not configured")
+
+    r = agent_authed_client.post(
+        f"{VC_PREFIX}/lookup_beneficiary",
+        json=_payload({"national_id": cfg.vc_national_id}),
+    )
+    payload = (r.json().get("response_body") or {}).get("response_payload")
+    if not payload or not payload.get("internal_record_id"):
+        pytest.skip("no record on this install")
+    record_id = payload["internal_record_id"]
+    auth_id = f"TEST_SANITY_WALLET_{record_id}"[:64]
+
+    codes = []
+    for n in range(2):
+        step(f"requesting offer {n + 1}")
+        r = agent_authed_client.post(
+            f"{VC_PREFIX}/wallet_offer",
+            json=_payload({"internal_record_id": record_id, "authentication_id": auth_id}),
+        )
+        if r.status_code != 200:
+            pytest.skip("offers not available; covered by the main wallet test")
+        codes.append(
+            ((r.json().get("response_body") or {}).get("response_payload") or {}).get("tx_code")
+        )
+
+    assert all(codes), f"an offer came back without a tx_code: {codes}"
+    assert codes[0] != codes[1], (
+        f"both offers shared the transaction code {codes[0]!r} — it is a fixed "
+        "value, so it binds an offer to nobody"
+    )
+    for code in codes:
+        assert code.isdigit() and len(code) >= 4, f"weak tx_code: {code!r}"
