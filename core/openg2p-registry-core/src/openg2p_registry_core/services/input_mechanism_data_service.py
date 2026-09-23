@@ -23,7 +23,7 @@ class InputMechanismDataService(BaseService):
     ) -> ImportFileProcessQueue:
         """
         Persist an import file into import_file_process_queue. The document
-        must already be uploaded (DATA_IMPORT_FILES bucket) and catalogued.
+        must already be uploaded (IMPORT_FILES bucket) and catalogued.
         """
         session_maker = get_async_session_maker()
         async with session_maker() as session:

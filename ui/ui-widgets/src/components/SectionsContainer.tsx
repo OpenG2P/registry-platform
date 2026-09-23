@@ -124,12 +124,19 @@ export const SectionsContainer = ({
     return {
       validate: async () => {
         if (modeRef.current !== 'IntakeForm') checkNoUnsavedChanges();
+        const includeSupportingDocuments = modeRef.current !== 'IntakeForm';
         const values = getValues() as Record<string, unknown>;
         let allValid = true;
         let firstInvalidIndex: number | null = null;
         for (let i = 0; i < safeSections.length; i++) {
           const section = safeSections[i];
-          const valid = sectionValidate(section, values, dispatch);
+          const valid = sectionValidate(
+            section,
+            values,
+            dispatch,
+            false,
+            includeSupportingDocuments,
+          );
           if (!valid) {
             if (firstInvalidIndex === null) firstInvalidIndex = i;
             allValid = false;
@@ -143,16 +150,25 @@ export const SectionsContainer = ({
       getFormData: () => getValues(),
       validateAndGetData: async () => {
         if (modeRef.current !== 'IntakeForm') checkNoUnsavedChanges();
+        const includeSupportingDocuments = modeRef.current !== 'IntakeForm';
         const values = getValues() as Record<string, unknown>;
         const results: SectionChanges[] = [];
         let firstInvalidIndex: number | null = null;
         for (let i = 0; i < safeSections.length; i++) {
           const section = safeSections[i];
-          const valid = sectionValidate(section, values, dispatch);
+          const valid = sectionValidate(
+            section,
+            values,
+            dispatch,
+            false,
+            includeSupportingDocuments,
+          );
           if (!valid) {
             if (firstInvalidIndex === null) firstInvalidIndex = i;
           } else {
-            results.push(buildSectionChanges(section, values));
+            results.push(
+              buildSectionChanges(section, values, { includeSupportingDocuments }),
+            );
           }
         }
         if (firstInvalidIndex !== null) {
@@ -164,11 +180,14 @@ export const SectionsContainer = ({
         return results;
       },
       getStructuredData: () => {
+        const includeSupportingDocuments = modeRef.current !== 'IntakeForm';
         const values = getValues() as Record<string, unknown>;
         const results: SectionChanges[] = [];
         for (let i = 0; i < safeSections.length; i++) {
           const section = safeSections[i];
-          results.push(buildSectionChanges(section, values));
+          results.push(
+            buildSectionChanges(section, values, { includeSupportingDocuments }),
+          );
         }
         return results;
       },

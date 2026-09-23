@@ -10,6 +10,9 @@ export function brandingToWidgetTheme(branding?: Branding): WidgetTheme {
   const text = branding?.neutral_color_1;
   const background = branding?.neutral_color_2;
   const toast = branding?.toast_color;
+  const mutedDivider = muted
+    ? `color-mix(in srgb, ${muted} 60%, transparent)`
+    : undefined;
 
   return {
     colors: {
@@ -35,10 +38,10 @@ export function brandingToWidgetTheme(branding?: Branding): WidgetTheme {
       borderColor: borderLight,
       backgroundColor: background,
       titleColor: text,
-      dividerColor: muted,
+      dividerColor: mutedDivider,
     },
     panel: {
-      dividerColor: muted,
+      dividerColor: mutedDivider,
     },
     button: {
       primaryBg: background,

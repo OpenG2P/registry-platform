@@ -31,6 +31,9 @@ from openg2p_registry_core.services.g2p_register_change_request_service import (
 from openg2p_registry_core.services.g2p_change_request_worker_service import (
     G2PChangeRequestWorkerService,
 )
+from openg2p_registry_core.services.g2p_section_document_reconcile_service import (
+    G2PSectionDocumentReconcileService,
+)
 from openg2p_registry_core.interfaces import G2PIdGeneratorFactory, G2PRegisterDomainFactory
 
 class Initializer(BaseInitializer):
@@ -51,6 +54,7 @@ class Initializer(BaseInitializer):
         G2PIntakeFormDataService()
         G2PIntakeFormLinkService()
         G2PRegisterChangeRequestService()
+        G2PSectionDocumentReconcileService()
         G2PChangeRequestWorkerService()
         G2PGeoHierarchyService()
         G2PAttributeValueValidator()

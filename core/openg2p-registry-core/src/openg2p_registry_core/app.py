@@ -130,6 +130,7 @@ from .services import (
     G2PRegisterService,
     G2PRegisterChangeRequestService,
     G2PChangeRequestSectionPayloadService,
+    G2PSectionDocumentReconcileService,
     G2PRegisterVerificationService,
     G2PTemplateService,
     G2PVcConfigurationService,
@@ -180,6 +181,7 @@ class Initializer(BaseInitializer):
         G2PRegisterService()
         G2PRegisterExportService()
         G2PChangeRequestSectionPayloadService()
+        G2PSectionDocumentReconcileService()
         G2PRegisterChangeRequestService()
         G2PRegisterHistoryService()
         G2PRegisterMetadataService()

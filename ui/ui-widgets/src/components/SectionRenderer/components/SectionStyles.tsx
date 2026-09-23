@@ -26,6 +26,8 @@ export const SectionStyles = ({
       height: auto !important;
     }
     .${sectionClassId} label.owt-text,
+    .${sectionClassId} label.owt-field-label,
+    .${sectionClassId} .owt-field-label,
     .${sectionClassId} .text-base.owt-text-muted {
       font-weight: 400 !important;
       color: var(--owt-color-text-muted) !important;

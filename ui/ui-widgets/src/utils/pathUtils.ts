@@ -118,10 +118,16 @@ export const getWidgetValue = (
   }
 
   const result: Record<string, any> = {};
+  let hasDefined = false;
   for (const [key, path] of Object.entries(dataPath)) {
-    result[key] = getValueByPath(values, path);
+    const pathValue = getValueByPath(values, path);
+    result[key] = pathValue;
+    if (pathValue !== undefined) {
+      hasDefined = true;
+    }
   }
-  return result;
+  // Avoid returning `{ label: undefined, ... }` which looks like an empty select option.
+  return hasDefined ? result : undefined;
 };
 
 /**

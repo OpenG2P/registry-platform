@@ -20,7 +20,7 @@ export default function ImportModal({
 
     const { execute } = useFetch();
 
-    const { uploadFile } = useFileUpload();
+    const { uploadFile } = useFileUpload('import-files');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,7 +57,7 @@ export default function ImportModal({
             }
             const uploadedDoc = Array.isArray(uploadResult) ? uploadResult[0] : null;
 
-            if (!uploadedDoc?.document_store_id) {
+            if (!uploadedDoc?.document_id) {
                 toast.error(t('file_upload_failed'));
                 return;
             }
@@ -65,7 +65,7 @@ export default function ImportModal({
             const result = await execute('/api/input-mechanism/enqueue-import', {
                 method: 'POST',
                 body: JSON.stringify({
-                    document_store_id: uploadedDoc.document_store_id,
+                    document_id: uploadedDoc.document_id,
                     data_model_id: importFileConfig.data_model_id,
                     register_id: importFileConfig.register_id,
                     intake_form_id: importFileConfig.form_id,

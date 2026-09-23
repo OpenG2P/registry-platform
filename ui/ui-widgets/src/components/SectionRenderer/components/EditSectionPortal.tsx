@@ -99,7 +99,7 @@ export const EditSectionPortal = ({
           top: 0;
           bottom: 5px;
           width: 1px;
-          background-color: var(--owt-color-primary);
+          background-color: var(--owt-color-primary-dark);
         }
         #${editGridId} > .section-divider {
           flex: 0 0 100%;
@@ -150,7 +150,7 @@ export const EditSectionPortal = ({
                   width: '100%',
                   maxWidth: '100%',
                   height: '1px',
-                  backgroundColor: 'var(--owt-color-primary)',
+                  backgroundColor: 'var(--owt-color-primary-dark)',
                   margin: '25px 0 0 0',
                 }}
               />
@@ -172,7 +172,7 @@ export const EditSectionPortal = ({
               width: '100%',
               maxWidth: '100%',
               height: '1px',
-              backgroundColor: 'var(--owt-color-primary)',
+              backgroundColor: 'var(--owt-color-primary-dark)',
               marginTop: hasSupportingDocuments ? '20px' : '25px',
               marginBottom: '20px',
             }}

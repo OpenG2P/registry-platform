@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useWidgetContext } from '../components/WidgetProvider';
+import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 import { BaseWidgetConfig } from '../types';
 import { WidgetRootState } from '../store';
 import { getValueByPath } from '../utils/pathUtils';
@@ -181,6 +182,7 @@ function unwrapPayload(response: any): any {
 
 export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: IdAuthenticationWidgetProps) => {
   const { dataSourceRequestHandler, schemaData: ctxSchemaData, t } = useWidgetContext();
+  const themeRoot = useOwtThemeRootProps();
   const values = useSelector((state: WidgetRootState) => state.widget.values) as unknown as Record<string, unknown>;
 
   const schemaData = (propSchemaData || ctxSchemaData || {}) as Record<string, unknown>;
@@ -503,7 +505,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           font-size: 14px;
           font-weight: 500;
           color: var(--owt-color-text);
-          background: transparent;
+          background: var(--owt-color-bg);
           border: none;
           border-radius: 0;
           padding: 0;
@@ -517,8 +519,8 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
           padding: 8px 24px;
           line-height: 1.5;
           border-radius: var(--owt-btn-border-radius);
-          border: 1px solid var(--owt-color-primary-accent);
-          background-color: var(--owt-color-primary-accent);
+          border: 1px solid var(--owt-btn-primary-border);
+          background-color: var(--owt-color-primary);
           color: var(--owt-color-bg);
           font-family: Roboto, sans-serif;
           cursor: pointer;
@@ -532,7 +534,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
 
         .${cls} .auth-error {
           font-size: 12px;
-          color: var(--owt-color-danger);
+          color: var(--owt-widget-error-color);
           font-weight: 700;
           line-height: 1.3;
           text-align: left;
@@ -612,7 +614,7 @@ export const IdAuthenticationWidget = ({ config, schemaData: propSchemaData }: I
         }
       `}</style>
 
-      <div className={cls}>
+      <div className={`${cls} ${themeRoot.className}`} style={themeRoot.style}>
         {overlayUrl ? (
           <div
             className="overlay-backdrop"

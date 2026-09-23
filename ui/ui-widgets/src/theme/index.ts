@@ -149,6 +149,9 @@ export const OWT_FIELD_STYLES = `
   .owt-text-muted {
     color: var(--owt-color-text-muted);
   }
+  .owt-field-label {
+    color: var(--owt-color-text-muted);
+  }
   .owt-bg {
     background-color: var(--owt-color-bg);
   }

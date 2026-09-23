@@ -15,6 +15,20 @@ export { WidgetProvider, useWidgetContext } from './components/WidgetProvider';
 export { PanelRenderer } from './components/PanelRenderer';
 export { SectionRenderer } from './components/SectionRenderer';
 export type { SectionChanges, SectionRendererProps } from './components/SectionRenderer';
+export {
+  SECTION_FILE_TAG,
+  isFreshSectionFileEntry,
+} from './components/SectionRenderer/utils/sectionFiles';
+export type {
+  SectionFileEntry,
+  SectionFileStoredEntry,
+  SectionFileTag,
+  SectionFileUploadEntry,
+} from './components/SectionRenderer/utils/sectionFiles';
+export {
+  isStoredDocumentRef,
+} from './utils/storedDocument';
+export type { StoredDocumentRef } from './utils/storedDocument';
 export { SectionsContainer } from './components/SectionsContainer';
 export type { SectionMode, SectionsContainerProps, SectionsFormHandle } from './components/SectionsContainer';
 

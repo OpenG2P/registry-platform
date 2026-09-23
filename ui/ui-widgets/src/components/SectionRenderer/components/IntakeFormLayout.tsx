@@ -142,7 +142,10 @@ export const IntakeFormLayout = ({
                 width: '100%',
                 maxWidth: '100%',
                 height: '1px',
-                backgroundColor: 'var(--owt-color-primary)',
+                backgroundColor:
+                  isDraft !== false
+                    ? 'var(--owt-color-primary-dark)'
+                    : 'var(--owt-panel-divider-color)',
                 margin: '15px 0 0 0',
               }}
             />

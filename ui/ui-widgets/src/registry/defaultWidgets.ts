@@ -22,7 +22,6 @@ import {
   ParentLookupWidget,
   MultiSelectWidget,
   GeoHierarchyWidget,
-  DocsWidget,
 } from '../widgets';
 
 export const registerDefaultWidgets = () => {
@@ -48,7 +47,6 @@ export const registerDefaultWidgets = () => {
   widgetRegistry.register({ widget: 'parent-lookup', component: ParentLookupWidget });
   widgetRegistry.register({ widget: 'multi-select', component: MultiSelectWidget });
   widgetRegistry.register({ widget: 'geo-hierarchy', component: GeoHierarchyWidget });
-  widgetRegistry.register({ widget: 'docs', component: DocsWidget });
 };
 
 registerDefaultWidgets();

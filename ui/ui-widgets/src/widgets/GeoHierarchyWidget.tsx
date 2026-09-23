@@ -53,7 +53,7 @@ function ReadonlyLevelRow({
   return (
     <div className="mb-[10px] SelectDisplayWidget flex flex-col sm:flex-row sm:items-start">
       <div
-        className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
+        className="text-base owt-field-label font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
         style={{ fontFamily: 'Roboto, sans-serif' }}
         title={level.level_mnemonic}
       >
@@ -122,7 +122,7 @@ function renderFormSteps({
         <div key={step.key} className="mb-[10px]">
           <div className="flex flex-col sm:flex-row sm:items-start">
             <WidgetFieldLabel
-              className="text-base font-medium owt-text md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+              className="text-base font-medium owt-field-label md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
               label={label}
               required={isRequired}
             />
@@ -168,7 +168,7 @@ function renderFormSteps({
       <div key={step.key} className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-start">
             <WidgetFieldLabel
-              className="text-base font-medium owt-text md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+              className="text-base font-medium owt-field-label md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
               label={formatLevelLabel(activeLevel.level_mnemonic)}
               required={isRequired}
             />

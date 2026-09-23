@@ -46,7 +46,9 @@ export default function DeduplicationCard({ results, loading, type, t }: Props) 
                 ];
                 if (candidateId) {
                     allMetaItems.push({
-                        label: t(type === "change-request" ? "candidate_change_request_id" : "internal_record_id"),
+                        label: t(
+                            type === "change-request" ? "candidate_change_request_id" : "internal_record_id"
+                        ),
                         value: candidateId,
                     });
                 }
@@ -64,7 +66,7 @@ export default function DeduplicationCard({ results, loading, type, t }: Props) 
                         key={result.dedup_result_id}
                         className={`relative px-4 pt-6 pb-5 transition-all duration-200 ease-in-out sm:px-10 sm:pt-8 sm:pb-6 ${
                             expanded
-                                ? "z-10 rounded-t-[10px] border border-dashed border-primary-second bg-secondary-first"
+                                ? "z-10 rounded-[10px] border border-dashed border-primary-second bg-primary-first/20"
                                 : "z-0 rounded-[10px] border border-gray-200 bg-neutral-second"
                         }`}
                     >
@@ -99,7 +101,7 @@ export default function DeduplicationCard({ results, loading, type, t }: Props) 
                         )}
 
                         {expanded && fields.length > 0 && (
-                            <div className="absolute top-full left-[-1px] right-[-1px] z-20 rounded-b-[10px] border border-t-0 border-dashed border-primary-second bg-secondary-first px-4 pb-6 sm:px-10 sm:pb-8">
+                            <div className="pb-2 sm:pb-4">
                                 <div className="grid grid-cols-1 md:grid-cols-3">
                                     {fields.map(([fieldKey, match], i) => (
                                         <div
@@ -117,7 +119,7 @@ export default function DeduplicationCard({ results, loading, type, t }: Props) 
                                                 <KeyValue
                                                     variant="deduplication"
                                                     label={t("similarity")}
-                                                    value={`${(match.similarity * 100).toFixed(0)}% (${match.match_type})`}
+                                                    value={`${(match.similarity * 100).toFixed(0)}% (${t(match.match_type)})`}
                                                 />
                                             </div>
                                         </div>

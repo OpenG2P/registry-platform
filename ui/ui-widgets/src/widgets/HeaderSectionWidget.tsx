@@ -29,12 +29,6 @@ interface HeaderSectionWidgetProps {
   config: BaseWidgetConfig;
 }
 
-const DEFAULT_STATUS_COLORS: Record<string, string> = {
-  active: 'var(--owt-color-success)',
-  inactive: 'var(--owt-color-warning)',
-  archived: 'var(--owt-color-text-muted)',
-};
-
 const DEFAULT_LABELS: Record<string, string> = {
   functionalId: 'Functional Record ID',
   status: 'Record Status',
@@ -288,11 +282,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
 
   const format = (widgetConfig['widget-data-format'] || {}) as Record<string, any>;
   const imageSize = format.imageSize || 120;
-  const nameColor = format.nameColor || 'var(--owt-color-primary-dark)';
-  const statusColors: Record<string, string> = {
-    ...DEFAULT_STATUS_COLORS,
-    ...(format.statusColors || {}),
-  };
 
   const updateFieldValue = useCallback(
     (fieldKey: string, newValue: any) => {
@@ -311,9 +300,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
     );
     return opt ? opt.label : String(statusValue);
   }, [statusValue, statusOptions]);
-
-  const statusColor =
-    statusColors[String(statusValue).toLowerCase()] || 'var(--owt-color-text-muted)';
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -514,7 +500,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-name {
           font-size: 1.25rem;
           font-weight: 600;
-          color: ${nameColor};
+          color: var(--owt-color-primary-dark);
           line-height: 1.4;
           word-wrap: break-word;
         }
@@ -554,10 +540,23 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           font-size: 0.75rem;
           font-weight: 600;
           color: var(--owt-color-bg);
+          background-color: var(--owt-color-text-muted);
           max-width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .${cls} .hdr-status-badge[data-status="active"] {
+          background-color: var(--owt-color-success);
+        }
+
+        .${cls} .hdr-status-badge[data-status="inactive"] {
+          background-color: var(--owt-color-warning);
+        }
+
+        .${cls} .hdr-status-badge[data-status="archived"] {
+          background-color: var(--owt-color-text-muted);
         }
 
         .${cls} .hdr-meta-row {
@@ -721,7 +720,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
                 statusLabel ? (
                   <span
                     className="hdr-status-badge"
-                    style={{ backgroundColor: statusColor }}
+                    data-status={String(statusValue).toLowerCase()}
                     title={statusLabel}
                   >
                     {statusLabel}

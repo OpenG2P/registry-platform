@@ -9,7 +9,6 @@ from fastapi_cache.decorator import cache
 
 from sqlalchemy import select, inspect as sa_inspect
 from ..config import Settings
-from ..helpers.orm_cache import pair_id_key_builder, single_id_key_builder
 from ..models import G2PRegisterDefinition, G2PRegisterSection, G2PRegisterUITabSection, G2PRegisterSectionCompletionScore, RegisterPurposeEnum
 from ..schemas import RecordData, RegisterTabRecordData, AllowedParentsData, AllowedParentRecordData
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException

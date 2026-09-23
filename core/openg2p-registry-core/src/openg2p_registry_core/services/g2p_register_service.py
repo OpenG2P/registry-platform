@@ -54,6 +54,7 @@ from ..schemas import (
 )
 from .g2p_register_domain_service import G2PRegisterDomainService
 from .g2p_score_compute_service import G2PScoreComputeService
+from .change_request_payload_utils import domain_fields_from_change_payload
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from .filter_builder import FilterBuilder
@@ -518,7 +519,9 @@ class G2PRegisterService(BaseService):
     def _create_history_record(self, change_payload: ChangePayload, change_request: G2PRegisterChangeRequest, history_schema_class, history_class, session) -> None:
         """Helper method to create and add a history record to the session"""
         # Serialize change request payload to history schema
-        history_schema_instance = history_schema_class(**(change_payload or {}))
+        history_schema_instance = history_schema_class(
+            **domain_fields_from_change_payload(change_payload)
+        )
 
         # Build the history dict excluding None values from schema, then add base fields
         history_dict = {k: v for k, v in history_schema_instance.dict().items() if v is not None}

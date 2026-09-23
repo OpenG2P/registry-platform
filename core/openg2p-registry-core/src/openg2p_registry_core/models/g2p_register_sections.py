@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import String, ForeignKey, Boolean, Integer, Text, Float
+from sqlalchemy import String, ForeignKey, Boolean, Index, Integer, Text, Float
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from openg2p_fastapi_common.models import BaseORMModel
@@ -70,3 +70,11 @@ class G2PRegisterSectionDocument(BaseORMModel):
         index=True
     )
     label: Mapped[str] = mapped_column(String, nullable=False)
+
+    __table_args__ = (
+        Index(
+            "ix_g2p_register_section_documents_record_section",
+            "internal_record_id",
+            "section_id",
+        ),
+    )

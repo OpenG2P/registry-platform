@@ -20,12 +20,12 @@ function isListSectionEntry(
 
 function withDocumentsMap(
     records: RegisterFlattenedRecord[],
-    documentsMap: Record<string, string>
+    documentsMap: Record<string, unknown>
 ): RegisterFlattenedRecord[] {
     return withMappedDocuments(records).map((record) => ({
         ...record,
         documents: {
-            ...((record.documents as Record<string, string> | undefined) ?? {}),
+            ...((record.documents as Record<string, unknown> | undefined) ?? {}),
             ...documentsMap,
         },
     }));
@@ -80,8 +80,8 @@ export function buildIntakeSectionsDataMap(
                     ...existing,
                     ...mapped[0],
                     documents: {
-                        ...((existing.documents as Record<string, string> | undefined) ?? {}),
-                        ...((mapped[0].documents as Record<string, string> | undefined) ?? {}),
+                        ...((existing.documents as Record<string, unknown> | undefined) ?? {}),
+                        ...((mapped[0].documents as Record<string, unknown> | undefined) ?? {}),
                     },
                 };
             } else if (!existing) {

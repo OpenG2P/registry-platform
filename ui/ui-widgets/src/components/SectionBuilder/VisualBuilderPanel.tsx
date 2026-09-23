@@ -138,14 +138,14 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
       <div
         style={{
           padding: '20px',
-          background: 'var(--owt-color-bg, #FFFFFF)',
+          background: 'var(--owt-color-bg)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexShrink: 0,
         }}
       >
-        <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--owt-color-text, #011627)', paddingTop: '5px' }}>
+        <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--owt-color-text)', paddingTop: '5px' }}>
           {t?.('sectionBuilder.visualBuilder') || 'Visual Builder'}
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -153,10 +153,10 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
             onClick={handleAddPanel}
             style={{
               padding: '8px 16px',
-              border: '1px solid var(--owt-color-border, #C4C4C4)',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '10px',
-              background: 'var(--owt-btn-primary-bg, #FFFFFF)',
-              color: 'var(--owt-btn-primary-color, #011627)',
+              background: 'var(--owt-btn-primary-bg)',
+              color: 'var(--owt-btn-primary-color)',
               fontWeight: 600,
               cursor: 'pointer',
               fontSize: '12px',
@@ -169,10 +169,10 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
             onClick={() => handleAddWidget()}
             style={{
               padding: '8px 16px',
-              border: '1px solid var(--owt-color-border, #C4C4C4)',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '10px',
-              background: 'var(--owt-btn-primary-bg, #FFFFFF)',
-              color: 'var(--owt-btn-primary-color, #011627)',
+              background: 'var(--owt-btn-primary-bg)',
+              color: 'var(--owt-btn-primary-color)',
               fontWeight: 600,
               cursor: 'pointer',
               fontSize: '12px',
@@ -189,7 +189,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
                 border: 'none',
                 borderRadius: '4px',
                 background: 'transparent',
-                color: 'var(--owt-color-text-muted, #727474)',
+                color: 'var(--owt-color-text-muted)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -213,7 +213,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
           flex: '1 1 0%',
           display: 'flex',
           overflow: 'hidden',
-          border: '1px solid var(--owt-color-border, #C4C4C4)',
+          border: '1px solid var(--owt-color-border)',
           borderRadius: '10px',
           minHeight: 0,
         }}
@@ -222,7 +222,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
           style={{
             flex: '1 1 0%',
             width: '45%',
-            borderRight: '1px solid var(--owt-color-border, #C4C4C4)',
+            borderRight: '1px solid var(--owt-color-border)',
             display: 'flex',
             flexDirection: 'column',
             minHeight: 0,
@@ -232,12 +232,12 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
           <div
             style={{
               padding: '12px 15px',
-              borderBottom: '1px solid var(--owt-color-border-light, #E4E4E4)',
-              background: 'var(--owt-color-bg, #FFFFFF)',
+              borderBottom: '1px solid var(--owt-color-border-light)',
+              background: 'var(--owt-color-bg)',
               flexShrink: 0,
             }}
           >
-            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--owt-color-text, #011627)', marginBottom: '8px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--owt-color-text)', marginBottom: '8px' }}>
               {t?.('sectionBuilder.widgetPalette') || 'Widget Palette'}
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
@@ -262,8 +262,8 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
                   padding: '8px 12px',
                   border: 'none',
                   borderRadius: '6px',
-                  background: 'var(--owt-color-text, #011627)',
-                  color: 'var(--owt-color-bg, #FFFFFF)',
+                  background: 'var(--owt-color-text)',
+                  color: 'var(--owt-color-bg)',
                   cursor: 'pointer',
                   fontSize: '12px',
                   fontWeight: 700,
@@ -273,7 +273,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
                 {t?.('sectionBuilder.add') || 'Add'}
               </button>
             </div>
-            <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--owt-color-text-muted, #727474)' }}>
+            <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--owt-color-text-muted)' }}>
               {t?.('sectionBuilder.paletteTip') ||
                 'Tip: select a panel first to control where widgets land.'}
             </div>

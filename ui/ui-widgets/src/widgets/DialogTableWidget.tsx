@@ -380,6 +380,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
     const cleaned = finalizeDialogRowPayload(payload);
 
     if (dialogMode === 'add') {
+      if (Object.keys(cleaned).length === 0) return;
       const savedRow = { ...cleaned, edit_action: 'ADD' };
       onChange([...rows, savedRow]);
       closeDialog();

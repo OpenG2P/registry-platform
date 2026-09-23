@@ -12,10 +12,7 @@ export async function POST(request: NextRequest) {
         }),
         transformResponse: (responseBody) => {
             const payload = responseBody.response_payload || {};
-            const documents = (payload.documents || []).map((doc: any) => ({
-                ...doc,
-                document_url: doc.presigned_url,
-            }));
+            const documents = payload.documents || [];
             return { documents, change_request_id: payload.change_request_id };
         },
     });

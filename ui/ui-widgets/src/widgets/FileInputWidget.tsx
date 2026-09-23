@@ -1,17 +1,26 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { tSchema } from '../utils/tSchema';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
-import { owtFieldInputClass } from '../theme';
-import { canPreviewInWeb, openFileInNewTab } from '../utils/filePreview';
+import { openFileInNewTab } from '../utils/filePreview';
 import { serializeValue, deserializeValue, isSerializedFile, deserializeFile } from '../utils/fileSerialization';
-import { uploadIcon, fileIcon } from '../assets';
+import { isStoredDocumentRef, StoredDocumentRef } from '../utils/storedDocument';
+import { uploadIcon, attachmentIcon, remove } from '../assets';
 
 interface FileInputWidgetProps {
   config: BaseWidgetConfig;
 }
+
+const getFileName = (file: File | string): string =>
+  file instanceof File ? file.name : file.split('/').pop() || file;
+
+const iconButtonClass =
+  'inline-flex items-center justify-center shrink-0 p-0 border-0 bg-transparent focus:outline-none';
+
+const docControlClass =
+  'w-full h-9 min-w-0 flex items-center rounded-lg px-2.5 box-border';
 
 export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
   const {
@@ -28,248 +37,147 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
   const { t } = useWidgetContext();
 
   const accept = widgetConfig['widget-data-options']?.accept;
-  const multiple = widgetConfig['widget-data-options']?.multiple || false;
   const maxSize = widgetConfig['widget-data-options']?.maxSize;
+  const isReadonly = Boolean(widgetConfig['widget-readonly']);
 
-  const isSupportingDocument = widgetConfig['widget-id']?.startsWith('supporting-doc-') || false;
-
-  const [localFiles, setLocalFiles] = useState<File[] | File | null>(null);
+  const [localFile, setLocalFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const deserializedValue = useMemo(() => {
     if (!value) return null;
     return deserializeValue(value);
   }, [value]);
 
+  const storedDocument: StoredDocumentRef | null = useMemo(() => {
+    if (isStoredDocumentRef(deserializedValue)) return deserializedValue;
+    if (isStoredDocumentRef(value)) return value;
+    return null;
+  }, [deserializedValue, value]);
+
   useEffect(() => {
-    if (deserializedValue) {
-      if (multiple) {
-        if (Array.isArray(deserializedValue)) {
-          const files = deserializedValue.filter((v): v is File => v instanceof File);
-          setLocalFiles(files.length > 0 ? files : null);
-        } else {
-          setLocalFiles(null);
-        }
-      } else {
-        if (deserializedValue instanceof File) {
-          setLocalFiles(deserializedValue);
-        } else {
-          setLocalFiles(null);
-        }
-      }
+    if (deserializedValue instanceof File) {
+      setLocalFile(deserializedValue);
     } else {
-      setLocalFiles(null);
+      setLocalFile(null);
     }
-  }, [deserializedValue, multiple]);
+  }, [deserializedValue]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) {
       onChange(null);
-      setLocalFiles(null);
+      setLocalFile(null);
       return;
     }
 
-    if (maxSize) {
-      for (let i = 0; i < files.length; i++) {
-        if (files[i].size > maxSize) {
-          console.error(`File ${files[i].name} exceeds maximum size of ${maxSize} bytes`);
-          return;
-        }
-      }
+    const file = files[0];
+
+    if (maxSize && file.size > maxSize) {
+      console.error(`File ${file.name} exceeds maximum size of ${maxSize} bytes`);
+      return;
     }
 
-    const fileArray = Array.from(files);
-
-    if (multiple) {
-      setLocalFiles(fileArray);
-    } else {
-      setLocalFiles(fileArray[0]);
-    }
+    setLocalFile(file);
 
     try {
-      const serialized = await serializeValue(multiple ? fileArray : fileArray[0]);
+      const serialized = await serializeValue(file);
       onChange(serialized);
     } catch (error) {
       console.error('Error serializing file:', error);
-      if (multiple) {
-        onChange(fileArray.map(f => ({ name: f.name, size: f.size, type: f.type })));
-      } else {
-        onChange({ name: fileArray[0].name, size: fileArray[0].size, type: fileArray[0].type });
-      }
+      onChange({ name: file.name, size: file.size, type: file.type });
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
-  const getFiles = (): (File | string)[] => {
-    if (localFiles) {
-      if (multiple && Array.isArray(localFiles)) {
-        return localFiles;
-      }
-      if (!multiple && localFiles instanceof File) {
-        return [localFiles];
-      }
+  const handleRemove = () => {
+    onChange(null);
+    setLocalFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
-
-    if (deserializedValue) {
-      if (multiple) {
-        if (Array.isArray(deserializedValue)) {
-          return deserializedValue.filter((v): v is File | string =>
-            v instanceof File || typeof v === 'string'
-          );
-        }
-        return [];
-      }
-
-      if (deserializedValue instanceof File) {
-        return [deserializedValue];
-      }
-      if (typeof deserializedValue === 'string') {
-        return [deserializedValue];
-      }
-      if (deserializedValue && typeof deserializedValue === 'object' && isSerializedFile(deserializedValue)) {
-        try {
-          return [deserializeFile(deserializedValue)];
-        } catch (e) {
-          console.error('Error deserializing file:', e);
-        }
-      }
-    }
-
-    return [];
   };
 
-  const files = getFiles();
-  const displayValue = files.length > 0
-    ? files.map((f) => f instanceof File ? f.name : f.split('/').pop() || f).join(', ')
-    : '';
+  const getFile = (): File | string | null => {
+    if (localFile instanceof File) {
+      return localFile;
+    }
 
-  const handleFileClick = (file: File | string, e?: React.MouseEvent) => {
+    if (deserializedValue instanceof File) {
+      return deserializedValue;
+    }
+    if (typeof deserializedValue === 'string') {
+      return deserializedValue;
+    }
+    if (storedDocument) {
+      return storedDocument.presigned_url;
+    }
+    if (deserializedValue && typeof deserializedValue === 'object' && isSerializedFile(deserializedValue)) {
+      try {
+        return deserializeFile(deserializedValue);
+      } catch (e) {
+        console.error('Error deserializing file:', e);
+      }
+    }
+
+    return null;
+  };
+
+  const file = getFile();
+  const hasFile = !!file || !!storedDocument;
+  const displayFileName = storedDocument
+    ? storedDocument.source_filename || storedDocument.label
+    : file
+      ? getFileName(file)
+      : '';
+  const isEmptyRequired = isRequired && !hasFile;
+  const showValidationError = touched && error.length > 0 && isEmptyRequired;
+  const label = tSchema(t, widgetConfig['widget-label']);
+
+  const handlePreview = (previewFile: File | string, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-
-    if (!file) {
-      return;
-    }
-
-    if (canPreviewInWeb(file)) {
-      openFileInNewTab(file);
-    }
+    if (!previewFile) return;
+    openFileInNewTab(previewFile);
   };
 
-  const renderFileDisplay = () => {
-    if (files.length === 0) {
-      return null;
-    }
-
-    if (files.length === 1) {
-      const file = files[0];
-      const fileName = file instanceof File ? file.name : file.split('/').pop() || file;
-      const canPreview = canPreviewInWeb(file);
-
-      const fileIconElement = (
-        <img
-          src={fileIcon}
-          alt="File icon"
-          style={{
-            width: '15px',
-            height: '18px',
-            aspectRatio: '5/6',
-            marginRight: '8px',
-            flexShrink: 0
-          }}
-        />
-      );
-
-      if (canPreview) {
-        return (
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            {fileIconElement}
-            <button
-              type="button"
-              onClick={(e) => handleFileClick(file, e)}
-              className="text-sm hover:underline focus:outline-none rounded cursor-pointer owt-link"
-              style={{ color: isSupportingDocument ? 'var(--owt-color-text)' : 'var(--owt-color-info)' }}
-              title="Click to preview"
-            >
-              {fileName}
-            </button>
-          </div>
-        );
-      } else {
-        return (
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            {fileIconElement}
-            <span className="text-sm" style={{ color: isSupportingDocument ? 'var(--owt-color-text)' : 'var(--owt-color-text-muted)' }}>
-              {fileName}
-            </span>
-          </div>
-        );
-      }
-    }
-
+  if (isReadonly) {
     return (
-      <div className="flex flex-wrap gap-2">
-          {files.map((file, index) => {
-            const fileName = file instanceof File ? file.name : file.split('/').pop() || file;
-            const canPreview = canPreviewInWeb(file);
-
-            const fileIconElement = (
-              <img
-                src={fileIcon}
-                alt="File icon"
-                style={{
-                  width: '15px',
-                  height: '18px',
-                  aspectRatio: '5/6',
-                  marginRight: '8px',
-                  flexShrink: 0
-                }}
-              />
-            );
-
-            if (canPreview) {
-              return (
-                <div key={index} style={{ display: 'flex', alignItems: 'center' }}>
-                  {fileIconElement}
-                  <button
-                    type="button"
-                    onClick={(e) => handleFileClick(file, e)}
-                    className="text-sm hover:underline focus:outline-none rounded cursor-pointer owt-link"
-                    style={{ color: isSupportingDocument ? 'var(--owt-color-text)' : 'var(--owt-color-info)' }}
-                    title="Click to preview"
-                  >
-                    {fileName}
-                  </button>
-                </div>
-              );
-            } else {
-              return (
-                <div key={index} style={{ display: 'flex', alignItems: 'center' }}>
-                  {fileIconElement}
-                  <span className="text-sm" style={{ color: isSupportingDocument ? 'var(--owt-color-text)' : 'var(--owt-color-text-muted)' }}>
-                    {fileName}
-                  </span>
-                </div>
-              );
-            }
-          })}
-        </div>
-      );
-  };
-
-  if (widgetConfig['widget-readonly']) {
-    const label = tSchema(t, widgetConfig['widget-label']);
-    return (
-      <div className="mb-[10px] FileDisplayWidget flex flex-col sm:flex-row sm:items-start">
+      <div className="mb-[10px] FileDisplayWidget flex flex-row items-start w-full">
         {label && (
-          <div className="text-base owt-text-muted font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0" style={{ fontFamily: 'Roboto, sans-serif' }} title={label}>
+          <div
+            className="w-1/2 min-w-0 pr-2 text-base owt-field-label font-medium truncate"
+            style={{ fontFamily: 'Roboto, sans-serif' }}
+            title={label}
+          >
             {label}:
           </div>
         )}
-        <div className="flex-1" title={String(displayValue || '')}>
-          {displayValue ? renderFileDisplay() : <span className="text-base owt-text font-medium">-</span>}
-          
+        <div className="w-1/2 min-w-0 flex items-center min-h-[1.5rem]">
+          {hasFile && file ? (
+            <>
+              <span
+                className="w-10/12 min-w-0 truncate text-base owt-text font-medium"
+                title={displayFileName}
+              >
+                {displayFileName}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => handlePreview(file, e)}
+                className={`w-2/12 ${iconButtonClass}`}
+                title={displayFileName}
+              >
+                <img src={attachmentIcon} alt={t?.('common.view') ?? 'View'} className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <span className="text-base owt-text font-medium">-</span>
+          )}
         </div>
       </div>
     );
@@ -277,72 +185,82 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
 
   return (
     <div className="mb-[10px]">
-      <div className="flex flex-col sm:flex-row sm:items-start">
+      <div className="flex flex-row items-start w-full">
         <WidgetFieldLabel
-          className="text-base font-medium owt-text md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-          label={tSchema(t, widgetConfig['widget-label'])}
+          className="w-1/2 min-w-0 pr-2 text-base font-medium owt-field-label"
+          label={label}
           required={isRequired}
         />
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:space-x-4">
+        <div className="w-1/2 min-w-0 flex flex-col justify-center min-h-[1.5rem]">
+          {!hasFile && (
             <label
-              className={owtFieldInputClass({
-                disabled: !isEnabled,
-                className: 'cursor-pointer inline-flex items-center justify-between gap-2 owt-shadow-sm text-sm font-medium',
-              })}
+              className={`${docControlClass} cursor-pointer justify-center gap-2 border border-dashed ${
+                !isEnabled ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
               style={{
-                width: '100%',
-                maxWidth: '180px',
-                height: '30px',
-                paddingLeft: '12px',
-                paddingRight: '12px',
-                borderRadius: '10px'
+                borderColor: isEmptyRequired
+                  ? 'var(--owt-widget-error-color)'
+                  : 'var(--owt-color-primary-dark)',
+                backgroundColor: 'var(--owt-color-bg)',
               }}
             >
-              <span style={{
-                color: isSupportingDocument ? 'var(--owt-color-text-muted)' : 'var(--owt-color-text-muted)',
-                fontFamily: 'Roboto',
-                fontSize: '16px',
-                fontStyle: 'normal',
-                fontWeight: 400,
-                lineHeight: '24px',
-                textAlign: 'left'
-              }}>{t?.('common.uploadFile') || 'Upload File'}</span>
-              <img
-                src={uploadIcon}
-                alt="Upload"
-                style={{
-                  width: '18px',
-                  height: '18px',
-                  aspectRatio: '1/1',
-                  display: 'block',
-                  flexShrink: 0
-                }}
-              />
+              <img src={uploadIcon} alt="" className="h-4 w-4 shrink-0" />
+              <span className="text-sm font-medium owt-text">
+                {t?.('common.upload') ?? 'Upload'}
+              </span>
               <input
+                ref={fileInputRef}
                 type="file"
                 accept={accept}
-                multiple={multiple}
-                onChange={handleFileChange}
+                onChange={(e) => void handleFileChange(e)}
                 onBlur={onBlur}
                 disabled={!isEnabled}
                 className="hidden"
               />
             </label>
-            {displayValue && (
-              <div className="flex-1 min-w-0">
-                {renderFileDisplay()}
-              </div>
-            )}
-          </div>
-          {touched && error.length > 0 && (
+          )}
+          {hasFile && file && (
+            <div
+              className={`${docControlClass} gap-2 border owt-border owt-bg`}
+              title={displayFileName}
+            >
+              <button
+                type="button"
+                onClick={(e) => handlePreview(file, e)}
+                className={`${iconButtonClass} min-w-0 flex-1 gap-2 justify-start`}
+                title={displayFileName}
+              >
+                <img
+                  src={attachmentIcon}
+                  alt=""
+                  className="h-4 w-4 shrink-0"
+                />
+                <span className="min-w-0 truncate text-sm font-medium owt-text">
+                  {displayFileName}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={handleRemove}
+                disabled={!isEnabled}
+                className={`inline-flex items-center justify-center shrink-0 h-5 w-5 p-0 border-0 rounded-full owt-bg-alt focus:outline-none ${
+                  !isEnabled ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title={t?.('common.remove') ?? 'Remove'}
+              >
+                <img
+                  src={remove}
+                  alt={t?.('common.remove') ?? 'Remove'}
+                  className="h-2.5 w-2.5"
+                />
+              </button>
+            </div>
+          )}
+          {showValidationError && (
             <p className="owt-field-error text-sm mt-1">{error[0]}</p>
           )}
-          
-          {maxSize && (
-            <p className="hidden sm:block owt-text-muted text-xs mt-1">
-              {t?.('common.maxFileSize', { size: (maxSize / 1024 / 1024).toFixed(2) })}
-            </p>
+          {touched && error.length > 0 && !isEmptyRequired && (
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
           )}
         </div>
       </div>

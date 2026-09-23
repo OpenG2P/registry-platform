@@ -47,7 +47,7 @@ export function DocumentsPopup({ documents, onClose }: Props) {
                 <div className="flex flex-col gap-2 overflow-y-auto pr-1">
                     {documents.map((doc) => (
                         <DocumentRow
-                            key={doc.document_id || doc.document_store_id || doc.label}
+                            key={doc.document_id || doc.label}
                             doc={doc}
                         />
                     ))}

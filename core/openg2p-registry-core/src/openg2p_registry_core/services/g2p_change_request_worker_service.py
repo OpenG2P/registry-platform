@@ -4,7 +4,7 @@ from typing import Optional, Tuple, List
 from openg2p_fastapi_common.service import BaseService
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..models import G2PRegisterChangeRequest, G2PRegisterChangeRequestDocument, G2PRegisterDefinition, G2PRegisterSection
+from ..models import G2PRegisterChangeRequest, G2PRegisterDefinition, G2PRegisterSection
 from ..schemas import ChangeRequestRequestPayload
 from .g2p_register_change_request_service import G2PRegisterChangeRequestService
 
@@ -41,6 +41,7 @@ class G2PChangeRequestWorkerService(BaseService):
         await change_request_service._validate_domain_attributes(
             change_request_service._records_from_change_request_payload(change_request_request_payload),
             section_register_definition.register_mnemonic,
+            g2p_register_section.section_ui_schema,
         )
 
         g2p_register_change_request: G2PRegisterChangeRequest = await change_request_service.construct_change_request(
@@ -59,21 +60,11 @@ class G2PChangeRequestWorkerService(BaseService):
         if hasattr(g2p_register_change_request, '_payload'):
             session.add(g2p_register_change_request._payload)
 
-        # Attach already-uploaded documents (validated against the catalog)
-        if change_request_request_payload.documents:
-            from .g2p_document_service import G2PDocumentService
-            document_service = G2PDocumentService.get_component()
-            await document_service.validate_documents_exist(
-                session,
-                [doc.document_id for doc in change_request_request_payload.documents],
-            )
-            for doc in change_request_request_payload.documents:
-                session.add(G2PRegisterChangeRequestDocument(
-                    change_request_id=g2p_register_change_request.change_request_id,
-                    document_id=doc.document_id,
-                    section_id=change_request_request_payload.section_id,
-                    label=doc.label,
-                ))
+        await change_request_service._attach_supporting_documents(
+            change_request_request_payload,
+            g2p_register_change_request,
+            session,
+        )
 
         # Ensure `change_request_id` and relationship rows are persisted within the caller's transaction.
         await session.flush()

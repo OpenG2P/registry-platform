@@ -26,7 +26,6 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
     const tabsCtx = useContext(RegisterTabsContext);
 
     const currentRegister = registerCtx?.currentRegister;
-    const activeTab = tabsCtx?.activeTab;
     const activeTabId = tabsCtx?.activeTabId;
 
     const searchParams = useSearchParams();
@@ -54,7 +53,7 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
                 href: `/register/${registerType}${search ? `?${search}` : ''}`,
             });
 
-            if (internalRecordId && activeTab && recordName?.trim()) {
+            if (internalRecordId && recordName?.trim()) {
                 items.push({
                     label: recordName,
                     href: `/register/${registerType}/${internalRecordId}${search ? `?${search}` : ''}`,
@@ -62,16 +61,24 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
             }
 
             if (includeChangeRequest && internalRecordId) {
+                const params = new URLSearchParams();
+                if (activeTabId) params.set('tab', activeTabId);
+                if (recordName?.trim()) params.set('record_name', recordName.trim());
+                const qs = params.toString();
                 items.push({
                     label: t('change_request') ?? 'Change Request',
-                    href: `/register/${registerType}/${internalRecordId}/change-request${activeTabId ? `?tab=${activeTabId}` : ''}`,
+                    href: `/register/${registerType}/${internalRecordId}/change-request${qs ? `?${qs}` : ''}`,
                 });
             }
 
             if (changeId && internalRecordId) {
+                const params = new URLSearchParams();
+                if (activeTabId) params.set('tab', activeTabId);
+                if (recordName?.trim()) params.set('record_name', recordName.trim());
+                const qs = params.toString();
                 items.push({
                     label: recordName?.trim() || "",
-                    href: `/register/${registerType}/${internalRecordId}/change-request/${changeId}${activeTabId ? `?tab=${activeTabId}` : ''}`,
+                    href: `/register/${registerType}/${internalRecordId}/change-request/${changeId}${qs ? `?${qs}` : ''}`,
                 });
             }
         }
@@ -85,7 +92,6 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
         internalRecordId,
         changeId,
         includeChangeRequest,
-        activeTab,
         activeTabId,
         customItems,
         rootItem,

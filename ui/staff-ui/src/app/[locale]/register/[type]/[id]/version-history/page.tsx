@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
     createWidgetStore,
     SectionRenderer,
@@ -107,6 +107,7 @@ export default function VersionHistoryPage() {
 
     const { currentRegister } = useRegister();
     const internalRecordId = routeRecordId ? decodeURIComponent(routeRecordId) : '';
+    const recordName = useSearchParams().get('record_name')?.trim();
     const registerId = currentRegister?.register_id ?? '';
 
     const [filterState, dispatch] = useReducer(filterReducer, initialFilterState);
@@ -280,10 +281,9 @@ export default function VersionHistoryPage() {
 
     const newSectionData = useMemo(() => {
         if (changeRequestId && changeRequestData) {
-            return buildSectionDataMap(
+          return buildSectionDataMap(
                 changeRequestData.section_register_id ?? '',
                 changeRequestData.change_payload,
-                changeRequestData.documents || null,
                 !!changeRequestData.is_list,
             );
         }
@@ -291,8 +291,8 @@ export default function VersionHistoryPage() {
             return buildSectionDataMap(
                 intakeSectionPayload.section_register_id ?? '',
                 intakeSectionPayload.records,
-                intakeSectionPayload.documents || null,
                 !!intakeSectionPayload.is_list,
+                intakeSectionPayload.documents ?? undefined,
             );
         }
         return undefined;
@@ -317,6 +317,7 @@ export default function VersionHistoryPage() {
     const breadcrumb = useBreadcrumb({
         registerType,
         internalRecordId,
+        recordName,
         includeActiveTab: true,
         includeChangeRequest: false,
         customItems: [

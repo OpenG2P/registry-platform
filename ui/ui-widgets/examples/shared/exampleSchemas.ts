@@ -1,7 +1,6 @@
 import { loadSectionSchema } from './loadExampleSchema';
 
 import dialogTableSectionRaw from '../../example-ui-schema/sections/dialog-table-section.jsonc?raw';
-import docsWidgetSectionRaw from '../../example-ui-schema/sections/docs-widget-section.jsonc?raw';
 import geoHierarchySectionRaw from '../../example-ui-schema/sections/geo-hierarchy-section.jsonc?raw';
 import headerSectionRaw from '../../example-ui-schema/sections/header-section.jsonc?raw';
 import idAuthenticationRaw from '../../example-ui-schema/sections/id-authentication-section.jsonc?raw';
@@ -30,7 +29,6 @@ export const normalSection = loadSectionSchema(normalSectionRaw);
 export const normalSection2 = loadSectionSchema(normalSection2Raw);
 export const scoresDisplaySection = loadSectionSchema(scoresDisplayRaw);
 export const tableSection = loadSectionSchema(tableSectionRaw);
-export const docsWidgetSection = loadSectionSchema(docsWidgetSectionRaw);
 export const geoHierarchySection = loadSectionSchema(geoHierarchySectionRaw);
 
 export const widgetExploreSections = [
@@ -51,7 +49,6 @@ export const registerSections = [
   normalSection2,
   geoHierarchySection,
   tableSection,
-  docsWidgetSection,
 ];
 
 export const changeRequestSection = normalSection;
