@@ -12,14 +12,32 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ApiError, api, type AuthStatus, type Beneficiary, type VcType } from "@/api/client";
+import {
+  ApiError,
+  api,
+  type AuthStatus,
+  type Beneficiary,
+  type VcType,
+  type WalletOffer,
+} from "@/api/client";
 
 /** Stop polling eventually — the beneficiary may simply walk away. */
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 type Stage = "lookup" | "authenticate" | "issue" | "done";
 
-export default function IssueFlow() {
+/**
+ * How the credential reaches the citizen.
+ *
+ * Steps 1 and 2 -- find the beneficiary, have them authenticate -- are identical
+ * either way, which is why this is one component with a mode rather than two
+ * flows that would drift apart. Only the last step differs: print a PDF, or hand
+ * the wallet an offer.
+ */
+export type DeliveryMode = "print" | "wallet";
+
+export default function IssueFlow({ mode = "print" }: { mode?: DeliveryMode }) {
+  const wallet = mode === "wallet";
   const [nationalId, setNationalId] = useState("");
   const [vcTypes, setVcTypes] = useState<VcType[]>([]);
   const [vcType, setVcType] = useState<string>("");
@@ -30,6 +48,8 @@ export default function IssueFlow() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>("");
   const [issued, setIssued] = useState<{ filename: string; issuanceId: string } | null>(null);
+  const [offer, setOffer] = useState<WalletOffer | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const pollRef = useRef<number | null>(null);
   const popupRef = useRef<Window | null>(null);
 
@@ -57,6 +77,8 @@ export default function IssueFlow() {
     setAuthId("");
     setStatus(null);
     setIssued(null);
+    setOffer(null);
+    setSecondsLeft(0);
     setError("");
     setStage("lookup");
     setNationalId("");
@@ -142,6 +164,38 @@ export default function IssueFlow() {
           setError("The authentication window was closed before it completed.");
         }
       }, 2000);
+    } catch (e) {
+      setError((e as ApiError).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // The offer is short-lived on purpose. Show the agent how long is left rather
+  // than letting them read out a code that has already lapsed.
+  useEffect(() => {
+    if (!offer) return;
+    setSecondsLeft(offer.expires_in);
+    const t = window.setInterval(
+      () => setSecondsLeft((n) => (n > 0 ? n - 1 : 0)),
+      1000,
+    );
+    return () => window.clearInterval(t);
+  }, [offer]);
+
+  async function onOffer() {
+    if (!beneficiary) return;
+    setBusy(true);
+    setError("");
+    try {
+      setOffer(
+        await api.walletOffer(
+          beneficiary.internal_record_id,
+          authId,
+          vcType || undefined,
+        ),
+      );
+      setStage("done");
     } catch (e) {
       setError((e as ApiError).message);
     } finally {
@@ -244,17 +298,57 @@ export default function IssueFlow() {
       </section>
 
       <section className="card" aria-disabled={stage !== "issue" && stage !== "done"}>
-        <h2>3 · Issue and print</h2>
-        <button onClick={onIssue} disabled={busy || stage !== "issue"}>
-          Download credential
-        </button>
-        {issued && (
-          <p className="ok">
-            Downloaded <strong>{issued.filename}</strong>. Print it and hand it to the
-            beneficiary.
-            <br />
-            <span className="muted">Issuance {issued.issuanceId}</span>
-          </p>
+        <h2>3 · {wallet ? "Hand it to their wallet" : "Issue and print"}</h2>
+
+        {wallet ? (
+          <>
+            <button onClick={onOffer} disabled={busy || stage !== "issue"}>
+              {offer ? "Create a new offer" : "Create wallet offer"}
+            </button>
+
+            {offer && (
+              <div className="offer">
+                <p className="muted">
+                  Ask the beneficiary to scan this with their wallet app.
+                </p>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={offer.qr_png}
+                  alt="Credential offer QR code"
+                  className="offer-qr"
+                  width={260}
+                  height={260}
+                />
+
+                {/* Spoken, not printed. This code is the only thing tying the
+                    offer to the person at the counter, so showing it where a
+                    photograph of the screen would capture it defeats the point. */}
+                <p className="offer-code">
+                  Read this code aloud: <strong>{offer.tx_code}</strong>
+                </p>
+                <p className={secondsLeft > 30 ? "muted" : "pending"}>
+                  {secondsLeft > 0
+                    ? `Expires in ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`
+                    : "This offer has expired — create a new one."}
+                </p>
+                <p className="muted">Nothing is issued until their wallet accepts it.</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <button onClick={onIssue} disabled={busy || stage !== "issue"}>
+              Download credential
+            </button>
+            {issued && (
+              <p className="ok">
+                Downloaded <strong>{issued.filename}</strong>. Print it and hand it to the
+                beneficiary.
+                <br />
+                <span className="muted">Issuance {issued.issuanceId}</span>
+              </p>
+            )}
+          </>
         )}
       </section>
 

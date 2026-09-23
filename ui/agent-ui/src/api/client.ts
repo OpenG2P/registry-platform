@@ -62,6 +62,24 @@ async function post<T>(path: string, payload: unknown): Promise<T> {
   return body.response_body?.response_payload as T;
 }
 
+export interface WalletOffer {
+  /** The openid-credential-offer:// URI the wallet consumes. */
+  credential_offer_uri: string;
+  offer_id: string;
+  /** PNG data URI — rendered server-side, since jsqr reads QRs but cannot write them. */
+  qr_png: string;
+  /** Fresh for every offer. Read aloud; never shown printed beside the QR. */
+  tx_code: string;
+  expires_in: number;
+  vc_type: string;
+}
+
+export interface Capabilities {
+  issuance: boolean;
+  walletIssuance: boolean;
+  verification: boolean;
+}
+
 export interface VcType {
   config_id: string;
   display_name?: string;
@@ -123,6 +141,22 @@ export const api = {
    */
   verify: (qr_payload: string) =>
     post<VerificationResult>("verify", { qr_payload }),
+
+  /**
+   * Create a credential offer for the citizen's own wallet.
+   *
+   * Nothing is issued by this call — the credential only exists once the wallet
+   * redeems the offer against Certify, which happens out of our sight.
+   */
+  walletOffer: (internal_record_id: string, authentication_id?: string, vc_type?: string) =>
+    post<WalletOffer>("wallet_offer", { internal_record_id, authentication_id, vc_type }),
+
+  /** Which credential features this deployment actually has mounted. */
+  capabilities: async (): Promise<Capabilities> => {
+    const resp = await fetch("/api/capabilities", { cache: "no-store" });
+    if (!resp.ok) return { issuance: false, walletIssuance: false, verification: false };
+    return resp.json();
+  },
 
   /** Returns the printable credential. The server streams the PDF itself. */
   async issue(

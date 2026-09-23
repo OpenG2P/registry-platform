@@ -18,7 +18,7 @@ import { ISSUE_PERMISSION, VERIFY_PERMISSION, useAuth } from '@/context/Authcont
  * cannot, not an empty page.
  */
 export default function Home() {
-    const { canIssue, canVerify } = useAuth();
+    const { canIssue, canVerify, canWallet } = useAuth();
 
     return (
         <AppShell>
@@ -41,6 +41,28 @@ export default function Home() {
                         <span className="task-card-desc">
                             Not available for this account — it needs the
                             <code> {ISSUE_PERMISSION} </code> permission in the agent realm.
+                        </span>
+                    </div>
+                )}
+
+                {canWallet ? (
+                    <Link href="/wallet" className="task-card">
+                        <span className="task-card-icon" aria-hidden="true">📲</span>
+                        <span className="task-card-title">Issue to a Mobile Wallet</span>
+                        <span className="task-card-desc">
+                            Same look-up and authentication, but hand the credential
+                            straight into the beneficiary&apos;s own wallet app instead of
+                            printing it.
+                        </span>
+                    </Link>
+                ) : (
+                    <div className="task-card task-card-disabled" aria-disabled="true">
+                        <span className="task-card-icon" aria-hidden="true">📲</span>
+                        <span className="task-card-title">Issue to a Mobile Wallet</span>
+                        <span className="task-card-desc">
+                            {canIssue
+                                ? 'Not enabled on this deployment — credentials can still be printed.'
+                                : 'Not available for this account — it needs the same issue permission as printing.'}
                         </span>
                     </div>
                 )}

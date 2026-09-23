@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 
+import { api } from '@/api/client';
+
 /** Permission an agent must hold to issue. Mirrors ISSUE_PERMISSION on the API. */
 export const ISSUE_PERMISSION = 'register:issue_credential';
 /** ...and to check one someone presents. Separate: a deployment may grant one
@@ -21,6 +23,8 @@ interface AuthContextType {
     user: LoggedInUser | null;
     canIssue: boolean;
     canVerify: boolean;
+    /** Issue permission AND the server actually having the wallet route. */
+    canWallet: boolean;
     logout: () => void;
     handleUnauthorized: () => void;
 }
@@ -31,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [user, setUser] = useState<LoggedInUser | null>(null);
     const [permissions, setPermissions] = useState<string[]>([]);
+    const [walletAvailable, setWalletAvailable] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     const logout = useCallback(() => {
@@ -69,6 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Permissions are NOT on the profile: IAM's LoggedInUserResponse
                 // carries only identity fields. Staff's RbacContext fetches them
                 // separately and so does this.
+                // Capabilities, not permissions. Wallet handover shares the ISSUE
+                // permission with printing, so permissions alone would offer the
+                // card on a deployment that has the feature switched off.
+                api.capabilities()
+                    .then((c) => setWalletAvailable(c.walletIssuance))
+                    .catch(() => setWalletAvailable(false));
+
                 const permRes = await fetch('/api/permissions', { cache: 'no-store' });
                 if (permRes.ok) {
                     const data = await permRes.json();
@@ -89,13 +101,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const canIssue = permissions.includes(ISSUE_PERMISSION);
     const canVerify = permissions.includes(VERIFY_PERMISSION);
+    const canWallet = canIssue && walletAvailable;
 
     if (isLoading) {
         return <p className="muted" style={{ padding: '2rem' }}>Signing in…</p>;
     }
 
     return (
-        <AuthContext.Provider value={{ isLoggedIn, user, canIssue, canVerify, logout, handleUnauthorized }}>
+        <AuthContext.Provider value={{ isLoggedIn, user, canIssue, canVerify, canWallet, logout, handleUnauthorized }}>
             {children}
         </AuthContext.Provider>
     );

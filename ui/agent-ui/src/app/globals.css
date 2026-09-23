@@ -417,3 +417,41 @@ a.task-card:focus-visible {
   font-size: 1.4rem;
   line-height: 1;
 }
+
+/* ── Wallet handover: the offer the citizen scans ──────────────────────────── */
+
+.offer {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+/* White plate behind the code: a QR read off a screen at an angle needs the
+   quiet zone kept, and the surface colour changes between themes. */
+.offer-qr {
+  display: block;
+  margin: 0.5rem auto;
+  background: #fff;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  image-rendering: pixelated;
+}
+
+/* The transaction code is read ALOUD. Large enough to be read at a glance
+   without leaning toward the screen, and visually separated from the QR so it
+   does not look like part of it. */
+.offer-code {
+  margin-top: 0.75rem;
+  font-size: 1.05rem;
+}
+
+.offer-code strong {
+  font-family: var(--font-body);
+  font-size: 1.6rem;
+  letter-spacing: 0.22em;
+  display: inline-block;
+  margin-left: 0.35rem;
+}
