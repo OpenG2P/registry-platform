@@ -128,7 +128,7 @@ const diffTableRows = (
     if (editAction === 'DELETE') {
       if (!rowId) return;
       result.push({
-        ...row,
+        ...pickSectionFields(row, sectionKeys),
         internal_record_id: rowId,
         edit_action: 'DELETE',
       });
@@ -137,16 +137,24 @@ const diffTableRows = (
 
     if (editAction === 'ADD' || !rowId) {
       result.push({
-        ...row,
+        ...pickSectionFields(row, sectionKeys),
         edit_action: 'ADD',
       });
       return;
     }
 
+    const currentFields = pickSectionFields(row, sectionKeys);
+    const baseline = rowId ? baselineById.get(rowId) : undefined;
+    const baselineFields = baseline ? pickSectionFields(baseline, sectionKeys) : undefined;
+    const changed =
+      !baselineFields ||
+      Object.keys(pickChangedFields(baselineFields, currentFields)).length > 0;
+
     result.push({
-      ...pickSectionFields(row, sectionKeys),
-      edit_action: 'UPDATE',
+      ...currentFields,
+      edit_action: changed ? 'UPDATE' : 'NO_CHANGE',
     });
+    
   });
 
   return result;
