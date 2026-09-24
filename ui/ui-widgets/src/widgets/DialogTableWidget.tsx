@@ -421,16 +421,21 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
   const deleteRow = useCallback(
     (rowIndex: number) => {
-      if (shouldSoftDeleteOnRemove) {
-        const newRows = [...rows];
-        newRows[rowIndex] = {
-          ...newRows[rowIndex],
-          edit_action: 'DELETE',
-        };
-        onChange(newRows);
+      const row = rows[rowIndex];
+      const addedInSession =
+        row?.edit_action === 'ADD' ||
+        !(typeof row?.internal_record_id === 'string' && row.internal_record_id.length > 0);
+
+      if (addedInSession || !shouldSoftDeleteOnRemove) {
+        onChange(rows.filter((_, i) => i !== rowIndex));
         return;
       }
-      onChange(rows.filter((_, i) => i !== rowIndex));
+      const newRows = [...rows];
+      newRows[rowIndex] = {
+        ...newRows[rowIndex],
+        edit_action: 'DELETE',
+      };
+      onChange(newRows);
     },
     [rows, onChange, shouldSoftDeleteOnRemove],
   );

@@ -847,15 +847,19 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         console.warn('[TableWidget] API delete operations require migration to dataSourceRequestHandler pattern');
       }
 
-      if (isSectionEditMode) {
+      const row = rows[rowIndex];
+      const addedInSession =
+        row?.edit_action === 'ADD' ||
+        !(typeof row?.internal_record_id === 'string' && row.internal_record_id.length > 0);
+
+      if (addedInSession || !isSectionEditMode) {
+        onChange(rows.filter((_, i) => i !== rowIndex));
+      } else {
         const newRows = [...rows];
         newRows[rowIndex] = {
           ...newRows[rowIndex],
           edit_action: 'DELETE',
         };
-        onChange(newRows);
-      } else {
-        const newRows = rows.filter((_, i) => i !== rowIndex);
         onChange(newRows);
       }
     } catch (error) {
