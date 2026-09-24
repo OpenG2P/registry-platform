@@ -12,6 +12,7 @@ import { resetWidget, setError, setTouched, setValues } from '../store/widgetSli
 import { validateWidget } from '../utils/validation';
 import { shouldRequireWidget, shouldShowWidget } from '../utils/conditions';
 import { setValueByPath } from '../utils/pathUtils';
+import { isWidgetConfigRequired, RequiredAsterisk } from '../components/WidgetFieldLabel';
 
 
 interface DialogTableWidgetProps {
@@ -133,7 +134,7 @@ const DialogTableField = memo(function DialogTableField({
       'widget-required': shouldRequireWidget(
         col['widget-data-options'],
         dialogConditionValues,
-        col['widget-required'],
+        !!(col['widget-required'] || col['widget-data-validation']?.required),
       ),
     };
   }, [col, cellWidgetId, dialogConditionValues, isReadonly, widgetType]);
@@ -356,7 +357,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
       const isRequired = shouldRequireWidget(
         col['widget-data-options'],
         conditionValues,
-        col['widget-required'],
+        !!(col['widget-required'] || col['widget-data-validation']?.required),
       );
       const validationErrors = validateWidget(
         cellValue,
@@ -420,16 +421,21 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
   const deleteRow = useCallback(
     (rowIndex: number) => {
-      if (shouldSoftDeleteOnRemove) {
-        const newRows = [...rows];
-        newRows[rowIndex] = {
-          ...newRows[rowIndex],
-          edit_action: 'DELETE',
-        };
-        onChange(newRows);
+      const row = rows[rowIndex];
+      const addedInSession =
+        row?.edit_action === 'ADD' ||
+        !(typeof row?.internal_record_id === 'string' && row.internal_record_id.length > 0);
+
+      if (addedInSession || !shouldSoftDeleteOnRemove) {
+        onChange(rows.filter((_, i) => i !== rowIndex));
         return;
       }
-      onChange(rows.filter((_, i) => i !== rowIndex));
+      const newRows = [...rows];
+      newRows[rowIndex] = {
+        ...newRows[rowIndex],
+        edit_action: 'DELETE',
+      };
+      onChange(newRows);
     },
     [rows, onChange, shouldSoftDeleteOnRemove],
   );
@@ -538,14 +544,18 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                   const headerLabel = toTitleCase(
                     tSchema(t, col['column-label'] || col['widget-label'] || col['column-key']),
                   );
+                  const isRequired = isWidgetConfigRequired(col);
                   return (
                     <th
                       key={col['column-key']}
                       className="px-4 py-3 text-left text-sm font-medium max-w-[12rem]"
                       style={{ color: 'var(--owt-widget-table-header-color)' }}
-                      title={headerLabel}
+                      title={isRequired ? `${headerLabel} *` : headerLabel}
                     >
-                      <span className="block truncate">{headerLabel}</span>
+                      <span className="flex items-baseline min-w-0 max-w-full">
+                        <span className="min-w-0 truncate">{headerLabel}</span>
+                        {isRequired && <RequiredAsterisk />}
+                      </span>
                     </th>
                   );
                 })}
