@@ -12,6 +12,16 @@ import { useFileUpload } from "@/features/shared/hooks";
 
 import { TabSection } from "@/features/register/types";
 
+const schemaHasFileWidget = (node: unknown): boolean => {
+    if (!node || typeof node !== "object") return false;
+    if (Array.isArray(node)) return node.some(schemaHasFileWidget);
+
+    const record = node as Record<string, unknown>;
+    if (record.widget === "file") return true;
+
+    return Object.values(record).some(schemaHasFileWidget);
+};
+
 export const useSectionSave = (
     onChangeRequestCreated: () => void,
     tabSections?: TabSection[]
@@ -151,7 +161,13 @@ export const useSectionSave = (
                 const profileDocumentId =
                     profileMatched.documents[0]?.document_id ??
                     profileExtracted.existingDocuments[0]?.document_id;
-                
+
+                const section = tabSections?.find(
+                    (section) => section.section_id === section_id
+                );
+                const sectionUiSchema =
+                    section?.section_ui_schema ?? section?.section_data?.section_ui_schema;
+                const includeRecordDocuments = schemaHasFileWidget(sectionUiSchema);
 
                 const records = normalizeEditActions(
                     sectionChangeRecords,
@@ -159,7 +175,7 @@ export const useSectionSave = (
                     profileDocumentId,
                 ).map((record) => {
                     if (typeof record !== "object" || record === null) return record;
-                    if (directDocuments.length === 0) return record;
+                    if (!includeRecordDocuments) return record;
                     return {
                         ...(record as Record<string, unknown>),
                         documents: directDocuments.map(({ document_id, label }) => ({
@@ -168,10 +184,6 @@ export const useSectionSave = (
                         })),
                     };
                 });
-
-                const section = tabSections?.find(
-                    (section) => section.section_id === section_id
-                );
 
                 const endpoint = section?.is_core_section ? `/api/change-request/core-section/create` : `/api/change-request/create`;
 
