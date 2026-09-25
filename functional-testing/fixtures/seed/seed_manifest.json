@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "description": "Deterministic functional seed for registry-platform Staff Tier-1 reads. IDs and search anchors are stable across gate runs.",
+  "subjects": {
+    "household": {
+      "internal_record_id": "h001",
+      "functional_record_id": "HH-FUNC-001",
+      "register_id": "a0000000-0000-4000-8000-000000000002",
+      "search_terms": ["FUNCSEEDHead001", "HH-FUNC-001"],
+      "identity_field": "household_head_name",
+      "identity_value": "FUNCSEEDHead001",
+      "fields": {
+        "household_head_name": "FUNCSEEDHead001",
+        "headship_type": "MALE_HEADED",
+        "size_total": 4,
+        "size_adults": 2,
+        "size_children_u5": 1,
+        "dwelling_type": "PERMANENT",
+        "tenure_status": "OWNED",
+        "roof_material": "CORRUGATED_IRON",
+        "wall_material": "BRICK",
+        "floor_material": "CEMENT",
+        "address_line_1": "FUNCSEEDHead001 Lane",
+        "postal_code": "1000",
+        "country_code": "ET",
+        "record_status": "ACTIVE"
+      }
+    },
+    "individual": {
+      "internal_record_id": "i001",
+      "functional_record_id": "IN-FUNC-001",
+      "register_id": "a0000000-0000-4000-8000-000000000001",
+      "link_internal_record_id": "h001",
+      "search_terms": ["FUNCSEEDInd001", "IN-FUNC-001"],
+      "identity_field": "first_name",
+      "identity_value": "FUNCSEEDInd001",
+      "fields": {
+        "first_name": "FUNCSEEDInd001",
+        "middle_name": "Func",
+        "last_name": "Seed",
+        "gender": "FEMALE",
+        "birth_date": "1990-05-15",
+        "marital_status": "MARRIED",
+        "relationship_to_head": "HEAD",
+        "primary_livelihood": "AGRICULTURE",
+        "secondary_livelihood": "LIVESTOCK",
+        "employment_status": "SELF_EMPLOYED",
+        "coping_strategies_index": 2,
+        "address_line_1": "Kebele 05, House 12",
+        "postal_code": "1000",
+        "country_code": "ET",
+        "record_status": "ACTIVE"
+      }
+    }
+  },
+  "supporting": {
+    "individual_land": [
+      {
+        "internal_record_id": "land001",
+        "link_internal_record_id": "i001",
+        "fields": {
+          "land_access": true,
+          "land_size": 1.5,
+          "productive_assets": ["PLOUGH"],
+          "record_status": "ACTIVE"
+        }
+      }
+    ],
+    "household_assets": [
+      {
+        "internal_record_id": "asset-land-001",
+        "link_internal_record_id": "h001",
+        "fields": {
+          "asset_type": "LAND",
+          "asset_category": "plot",
+          "quantity": 1,
+          "size_band": "SMALL",
+          "record_status": "ACTIVE"
+        }
+      },
+      {
+        "internal_record_id": "asset-livestock-001",
+        "link_internal_record_id": "h001",
+        "fields": {
+          "asset_type": "LIVESTOCK",
+          "asset_category": "cattle",
+          "quantity": 3,
+          "record_status": "ACTIVE"
+        }
+      }
+    ]
+  }
+}
