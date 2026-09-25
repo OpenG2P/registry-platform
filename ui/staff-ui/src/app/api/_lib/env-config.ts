@@ -12,6 +12,14 @@ export function getServerEnv() {
 
         verifyServiceUrl: process.env.VERIFY_SERVICE_URL ?? "",
         vpClientId: process.env.VP_CLIENT_ID ?? "",
+
+        notificationProvider: process.env.NOTIFICATION_PROVIDER?.trim() ?? "",
+        notificationApplicationIdentifier:
+            process.env.NOTIFICATION_APPLICATION_IDENTIFIER?.trim() ?? "",
+        notificationBackendUrl: process.env.NOTIFICATION_BACKEND_URL?.trim() ?? "",
+        notificationWebsocketUrl: process.env.NOTIFICATION_WEBSOCKET_URL?.trim() ?? "",
+        notificationSecretKey: process.env.NOTIFICATION_SECRET_KEY?.trim() ?? "",
+
         cspHeader: process.env.CSP_HEADER?.trim() ?? "",
         cspSrcDefault: process.env.CSP_SRC_DEFAULT?.trim(),
         cspSrcScript: process.env.CSP_SRC_SCRIPT?.trim(),

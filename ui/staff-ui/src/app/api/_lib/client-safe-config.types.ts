@@ -35,4 +35,13 @@ export type ClientSafeConfigShape = {
     registry_language_id: string;
     branding?: Branding;
     language_config?: LanguageConfig;
+    notificationProvider?: string;
+    notificationApplicationIdentifier?: string;
+    notificationBackendUrl?: string;
+    notificationWebsocketUrl?: string;
+    subscriberId?: string;
+    subscriberHash?: string;
+    subscriberEmail?: string;
+    subscriberFirstName?: string;
+    
 };
