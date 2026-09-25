@@ -8,7 +8,6 @@ import { useWidgetContext } from '../components/WidgetProvider';
 import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 import { formatValue } from '../utils/formatting';
 import { getValueByPath } from '../utils/pathUtils';
-import { isWidgetConfigRequired, RequiredAsterisk } from '../components/WidgetFieldLabel';
 import {
   getMinDate,
   getMaxDate,
@@ -1253,18 +1252,14 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                   const headerLabel = toTitleCase(
                     tSchema(t, col['column-label'] || col['widget-label'] || col['column-key']),
                   );
-                  const isRequired = isWidgetConfigRequired(col);
                   return (
                     <th
                       key={col['column-key']}
                       className="px-4 py-3 text-left text-sm font-medium max-w-[12rem]"
                       style={{ color: 'var(--owt-widget-table-header-color)' }}
-                      title={isRequired ? `${headerLabel} *` : headerLabel}
+                      title={headerLabel}
                     >
-                      <span className="flex items-baseline min-w-0 max-w-full">
-                        <span className="min-w-0 truncate">{headerLabel}</span>
-                        {isRequired && <RequiredAsterisk />}
-                      </span>
+                      <span className="block min-w-0 truncate">{headerLabel}</span>
                     </th>
                   );
                 })}
