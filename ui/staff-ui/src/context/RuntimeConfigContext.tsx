@@ -19,6 +19,8 @@ export interface RuntimeConfig {
     notificationWebsocketUrl?: string;
     subscriberId?: string;
     subscriberHash?: string;
+    subscriberEmail?: string;
+    subscriberFirstName?: string;
 }
 
 

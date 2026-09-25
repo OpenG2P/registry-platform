@@ -21,6 +21,11 @@ export default function NotificationInbox() {
                 applicationIdentifier: config.notificationApplicationIdentifier,
                 backendUrl: config.notificationBackendUrl,
                 socketUrl: config.notificationWebsocketUrl,
+                subscriber: {
+                    subscriberId: config.subscriberId,
+                    email: config.subscriberEmail,
+                    firstName: config.subscriberFirstName,
+                },
             }}
             localization={{
                 notifications: t("notifications"),
