@@ -59,16 +59,33 @@ jobs:
         run: npm run type-check
 
       - name: Set dev prerelease version
-        # Self-heal against drift: seed the local version from npm's published
-        # `next` dist-tag before bumping, so a stale package.json (e.g. after a
-        # release cut from a release branch, or a prior failed commit-back)
-        # cannot produce an already-published version and 403.
+        # Self-heal against drift: seed the local version from the HIGHEST
+        # version ever published, then bump, so the result is newer than
+        # everything on npm and can never 403 as a republish.
+        #
+        # Seeding from the `next` dist-tag was not enough: `next` only moves when
+        # THIS job publishes, while release branches publish `latest` and other
+        # prereleases land under other tags. It sat at 1.1.6-dev.3 while dev.4..6
+        # and 1.1.6..1.1.8 were published, so the bump recomputed dev.4 and 403'd.
         run: |
-          NEXT=$(npm view @openg2p/registry-widgets dist-tags.next 2>/dev/null || true)
-          if [ -n "$NEXT" ]; then
-            npm version "$NEXT" --no-git-tag-version --allow-same-version
+          VERSIONS=$(npm view @openg2p/registry-widgets versions --json 2>/dev/null || echo '[]')
+          HIGHEST=$(echo "$VERSIONS" | node -e '
+            const vs = [].concat(JSON.parse(require("fs").readFileSync(0, "utf8")));
+            // x.y.z[-pre.N]; a release sorts above its own prereleases.
+            const key = v => { const [core, pre] = v.split("-");
+              const n = core.split(".").map(Number);
+              const p = pre ? Number(pre.split(".").pop()) : Infinity;
+              return [...n, pre ? 0 : 1, p]; };
+            const cmp = (a, b) => { const x = key(a), y = key(b);
+              for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+              return 0; };
+            vs.sort(cmp); process.stdout.write(vs.length ? vs[vs.length - 1] : "");')
+          echo "highest published: ${HIGHEST:-<none>}"
+          if [ -n "$HIGHEST" ]; then
+            npm version "$HIGHEST" --no-git-tag-version --allow-same-version
           fi
           npm version prerelease --preid=dev --no-git-tag-version
+          echo "publishing as: $(node -p "require('./package.json').version")"
 
       - name: Build
         run: npm run build
