@@ -1,5 +1,9 @@
 """Fixtures for activity register tests against a real PostgreSQL.
 
+Run on their own (the unit tests in tests/ stub core modules for the whole run):
+
+    pytest tests_integration/activity
+
 Set ACTIVITY_TEST_DB_URL (default postgresql+asyncpg://postgres:postgres@localhost:55432/registry_test)
 to a disposable database; the public schema is dropped and recreated. Tests are
 skipped when the database is not reachable.
