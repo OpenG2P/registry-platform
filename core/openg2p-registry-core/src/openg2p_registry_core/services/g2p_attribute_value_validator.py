@@ -1,132 +1,157 @@
 import logging
+import time
 from typing import Any, Iterable, Optional
 
-from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from ..config import Settings
+from ..engine import get_engines
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..models import G2PAttribute, G2PAttributeValue
 
-_config = Settings.get_config()
+_config = Settings.get_config(strict=False)
 _logger = logging.getLogger("g2p-attribute-value-validator")
+_now = time.monotonic
 
 
 class G2PAttributeValueValidator(BaseService):
-    """Check that a record's coded values exist in the country's own lists.
-
-    This is what the compiled enums do today. They cannot keep doing it: an enum
-    is fixed at image build time, so a registry that validates against one can
-    only ever serve the country it was built for. The lists now come from the
-    country pack via Master Data, and this validates against those instead —
-    which is what lets the enums be deleted without losing the check.
-
-    OFF BY DEFAULT (registry_core_validate_attribute_values). With it off this
-    class is never consulted and submission behaves exactly as before.
-
-    Even switched on it only judges attributes that are actually seeded. A field
-    with no matching list is passed through untouched, so enabling it on a
-    deployment that seeded four lists validates those four and nothing else.
-    """
+    """Validate change-request codes against Master Data code lists."""
 
     def __init__(self):
         super().__init__()
-        # attribute_id -> permitted codes. Built once: the lists change at
-        # install, not during a request, and this sits on the submission path.
         self._codes: Optional[dict[str, set[str]]] = None
+        self._loaded_at: float | None = None
 
     @property
     def enabled(self) -> bool:
         return bool(getattr(_config, "validate_attribute_values", False))
 
     def invalidate(self) -> None:
-        """Drop the cached lists — call after seeding or editing a list."""
         self._codes = None
+        self._loaded_at = None
 
-    async def _load(self, session: Optional[AsyncSession] = None) -> dict[str, set[str]]:
-        if self._codes is not None:
+    async def _load(self) -> dict[str, set[str]]:
+        now = _now()
+        if (
+            self._codes is not None
+            and self._loaded_at is not None
+            and now - self._loaded_at < _config.cache_expires_in_seconds
+        ):
             return self._codes
 
-        async def _run(db_session: AsyncSession) -> dict[str, set[str]]:
+        master_data_engine = get_engines().get("db_engine_master_data")
+        if master_data_engine is None:
+            raise RuntimeError("Master Data database engine is not configured")
+
+        session_maker = async_sessionmaker(master_data_engine, expire_on_commit=False)
+        async with session_maker() as session:
             rows = (
-                await db_session.execute(
-                    select(G2PAttributeValue.attribute_id, G2PAttributeValue.value_code)
+                await session.execute(
+                    text(
+                        "SELECT attribute_id, value_code "
+                        "FROM g2p_attribute_values "
+                        "WHERE value_code IS NOT NULL"
+                    )
                 )
             ).all()
-            codes: dict[str, set[str]] = {}
-            for attribute_id, value_code in rows:
-                codes.setdefault(attribute_id, set()).add(value_code)
-            # An attribute with no values permits nothing, which would reject
-            # every submission naming it. Treat it as unseeded instead — that is
-            # what it is.
-            declared = (await db_session.execute(select(G2PAttribute.attribute_id))).scalars().all()
-            for attribute_id in declared:
-                codes.setdefault(attribute_id, set())
-            return {a: c for a, c in codes.items() if c}
 
-        if session is not None:
-            self._codes = await _run(session)
-        else:
-            session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
-            async with session_maker() as db_session:
-                self._codes = await _run(db_session)
-        return self._codes
+        codes: dict[str, set[str]] = {}
+        for attribute_id, value_code in rows:
+            codes.setdefault(attribute_id, set()).add(value_code)
+        self._codes = codes
+        self._loaded_at = now
+        return codes
 
     @staticmethod
-    def _attribute_id_for(field: str, field_map: Optional[dict[str, str]]) -> str:
-        # Convention, with an escape hatch. Registry columns and pack list ids
-        # already agree for 30 of Ethiopia's 34 lists — water_source_type is
-        # WATER_SOURCE_TYPE — so a mapping table would be 30 lines restating the
-        # obvious and 4 lines of actual information. field_map carries the four:
-        # NSR splits LIVELIHOOD into primary_livelihood and secondary_livelihood,
-        # for instance, and neither name matches by convention.
-        if field_map and field in field_map:
-            return field_map[field]
-        return field.upper()
+    def _path_fields(value: Any) -> Iterable[str]:
+        if isinstance(value, str):
+            field = value.rsplit(".", 1)[-1].strip()
+            if field:
+                yield field
+        elif isinstance(value, dict):
+            for nested in value.values():
+                yield from G2PAttributeValueValidator._path_fields(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                yield from G2PAttributeValueValidator._path_fields(nested)
+
+    @classmethod
+    def field_map_from_ui_schema(cls, schema: Any) -> dict[str, str]:
+        """Map persisted fields to Master Data attributes declared by widgets."""
+        field_map: dict[str, str] = {}
+
+        def walk(node: Any) -> None:
+            if isinstance(node, list):
+                for item in node:
+                    walk(item)
+                return
+            if not isinstance(node, dict):
+                return
+
+            source = node.get("widget-data-source")
+            params = source.get("params") if isinstance(source, dict) else None
+            attribute_id = params.get("attribute_id") if isinstance(params, dict) else None
+            if isinstance(attribute_id, str) and attribute_id:
+                column_key = node.get("column-key")
+                if isinstance(column_key, str) and column_key:
+                    field_map[column_key] = attribute_id
+                else:
+                    for field in cls._path_fields(node.get("widget-data-path")):
+                        field_map[field] = attribute_id
+
+            for value in node.values():
+                walk(value)
+
+        walk(schema)
+        return field_map
 
     @staticmethod
     def _values_of(value: Any) -> Iterable[Any]:
-        # A multi-select arrives as a list; each element is checked separately.
         if isinstance(value, (list, tuple, set)):
             return value
         return [value]
+
+    @staticmethod
+    def records_for_validation(records: list[dict]) -> list[dict]:
+        return [
+            record
+            for record in records
+            if not isinstance(record, dict) or record.get("edit_action") != "DELETE"
+        ]
 
     async def validate_records(
         self,
         records: list[dict],
         *,
         field_map: Optional[dict[str, str]] = None,
-        session: Optional[AsyncSession] = None,
     ) -> None:
-        """Raise on the first record carrying a value its list does not define.
-
-        Every violation in the batch is reported at once. Reporting only the
-        first turns fixing a bulk submission into one round trip per bad value.
-        """
         if not self.enabled or not records:
             return
 
-        codes = await self._load(session)
+        codes = await self._load()
         if not codes:
-            # Nothing seeded. Says the registry has no lists to check against,
-            # not that everything is invalid.
-            return
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                message=(
+                    "Attribute validation is enabled, but Master Data has no "
+                    "attribute values configured"
+                ),
+            )
 
         problems: list[str] = []
         for index, record in enumerate(records):
             if not isinstance(record, dict):
                 continue
             for field, raw in record.items():
-                attribute_id = self._attribute_id_for(field, field_map)
+                attribute_id = field_map.get(field) if field_map is not None else field.upper()
+                if not attribute_id:
+                    continue
                 permitted = codes.get(attribute_id)
                 if not permitted:
                     continue
                 for value in self._values_of(raw):
-                    if value is None or value == "":
-                        continue
-                    if not isinstance(value, str):
+                    if value is None or value == "" or not isinstance(value, str):
                         continue
                     if value not in permitted:
                         problems.append(
@@ -135,7 +160,9 @@ class G2PAttributeValueValidator(BaseService):
                         )
 
         if problems:
-            _logger.info("rejected %d coded value(s) against seeded lists", len(problems))
+            _logger.info(
+                "rejected %d coded value(s) against Master Data", len(problems)
+            )
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
                 message="; ".join(problems),

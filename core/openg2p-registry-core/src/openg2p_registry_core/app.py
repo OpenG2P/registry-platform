@@ -9,7 +9,6 @@ from .cache import init_cache
 from .config import Settings
 from .controller_services import (
     G2PDataModelControllerService,
-    G2PAttributeControllerService,
     G2PDocumentControllerService,
     G2PIngestControllerService,
     G2PIngestionConfigurationControllerService,
@@ -40,15 +39,19 @@ from .controller_services import (
     G2PAweProxyControllerService,
     G2PActivityControllerService,
 )
-from .helpers import AweHelper, ApplicationReferenceGenerator, PatternMatcher, TemplateHelper, get_document_handler
+from .helpers import (
+    AweHelper,
+    ApplicationReferenceGenerator,
+    PartnerManagementClient,
+    PatternMatcher,
+    TemplateHelper,
+    get_document_handler,
+)
 
 from .models import (
     DataModel,
     DeduplicationChangerequestResult,
     DeduplicationRegisterResult,
-    G2PAttribute,
-    G2PAttributeValue,
-    G2PAttributeValueRole,
     G2PInputMechanism,
     G2PIntakeFormDefinition,
     G2PIntakeFormSubmission,
@@ -120,7 +123,6 @@ from .models import (
 from .services import (
     G2PDataModelService,
     G2PDocumentService,
-    G2PAttributeService,
     G2PAttributeValueValidator,
     G2PChangeRequestWorkerService,
     G2PIngestionConfigurationService,
@@ -181,6 +183,7 @@ class Initializer(BaseInitializer):
         get_document_handler()
         TemplateHelper()
         PatternMatcher()
+        PartnerManagementClient()
         ApplicationReferenceGenerator(_config.application_reference_format)
         KeymanagerCryptoHelper()
         AweHelper()
@@ -200,7 +203,6 @@ class Initializer(BaseInitializer):
         G2POutgestionDataService()
         G2POutgestionConfigurationService()
         G2PTemplateService()
-        G2PAttributeService()
         G2PAttributeValueValidator()
         G2PVcConfigurationService()
         InputMechanismMetadataService()
@@ -247,7 +249,6 @@ class Initializer(BaseInitializer):
         G2PRegistryConfigurationControllerService()
         G2PRegistryThemeControllerService()
         G2PRegistryLanguageControllerService()
-        G2PAttributeControllerService()
         G2PVcConfigurationControllerService()
         InputMechanismMetadataControllerService()
         ImportFileConfigurationControllerService()
@@ -325,7 +326,7 @@ class Initializer(BaseInitializer):
             await DeduplicationIntakeFormRegisterResult.create_migrate()
             await DeduplicationIntakeFormIntakeFormResult.create_migrate()
 
-            # Incoming Models (IncomingPartner removed - now in master-data-db)
+            # Incoming Models (partners live in Partner Management, not here)
             await IncomingRawData.create_migrate()
             await IncomingTemplate.create_migrate()
             await IncomingModelKeyPath.create_migrate()
@@ -342,13 +343,6 @@ class Initializer(BaseInitializer):
             await OutgoingTemplate.create_migrate()
             await OutgoingRawDataPayload.create_migrate()
             await OutgoingTransformedDataPayload.create_migrate()
-
-            # Attribute Models
-            await G2PAttribute.create_migrate()
-            await G2PAttributeValue.create_migrate()
-            # New table, so create_all makes it on upgrade. It stays empty
-            # until a deployment opts into seeding code lists from CDS.
-            await G2PAttributeValueRole.create_migrate()
 
             # VC Configuration Models
             await G2PInputMechanism.create_migrate()

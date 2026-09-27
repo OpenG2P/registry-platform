@@ -24,14 +24,14 @@ import time
 from typing import Any, Awaitable, Callable, Optional
 
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from ..config import Settings
+from ..engine import get_engines
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import (
     G2PActivityTemporaryReference,
-    G2PAttribute,
-    G2PAttributeValue,
     ReferenceKindEnum,
     ReferenceValidationModeEnum,
 )
@@ -229,13 +229,25 @@ class G2PActivityReferenceService(BaseService):
         cached = self._cache.get(("attr", attribute_code))
         if cached is not None:
             return cached
-        rows = (
-            await session.execute(
-                select(G2PAttributeValue.value_code, G2PAttributeValue.value_display)
-                .join(G2PAttribute, G2PAttribute.attribute_id == G2PAttributeValue.attribute_id)
-                .where(G2PAttribute.attribute_code == attribute_code)
-            )
-        ).all()
+        # Code lists live in Master Data, not in this registry's database — the
+        # registry no longer keeps a copy. Read them there, the way
+        # G2PAttributeValueValidator does; `session` is the registry's and is
+        # not used for this.
+        master_data_engine = get_engines().get("db_engine_master_data")
+        if master_data_engine is None:
+            raise RuntimeError("Master Data database engine is not configured")
+        async with async_sessionmaker(master_data_engine, expire_on_commit=False)() as md_session:
+            rows = (
+                await md_session.execute(
+                    text(
+                        "SELECT v.value_code, v.value_display "
+                        "FROM g2p_attribute_values v "
+                        "JOIN g2p_attributes a ON a.attribute_id = v.attribute_id "
+                        "WHERE a.attribute_code = :attribute_code"
+                    ),
+                    {"attribute_code": attribute_code},
+                )
+            ).all()
         return self._cache.put(("attr", attribute_code), {row[0]: row[1] for row in rows})
 
     async def _geo(self, value: str) -> Optional[dict]:

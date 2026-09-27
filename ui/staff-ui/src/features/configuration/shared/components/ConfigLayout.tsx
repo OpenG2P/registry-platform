@@ -9,7 +9,6 @@ export type ConfigActiveOption =
     | "registry-themes"
     | "registry-languages"
     | "registers"
-    | "attributes"
     | "intake-forms"
     | "data-models"
     | "ingest-configurations"

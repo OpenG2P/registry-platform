@@ -7,7 +7,7 @@ import { CONFIG_NAV_ACTIONS } from '@/features/shared/permissions';
 
 const SIDEBAR_OPTIONS: ConfigActiveOption[] = [
     'registry', 'registry-details', 'registry-themes', 'registry-languages', 'registers',
-    'attributes', 'intake-forms', 'data-models', 'ingest-configurations', 'outgest-configurations',
+    'intake-forms', 'data-models', 'ingest-configurations', 'outgest-configurations',
     'ingest-key-paths', 'ingest-semantic-patterns', 'ingest-manage-subscription',
     'ingest-templates', 'outgest-topics', 'outgest-templates',
     'awe-policy-config'

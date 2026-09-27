@@ -8,7 +8,6 @@ from .ingest_payload import (
     IngestionDataSearchResultData,
     IngestionDataPayload,
     IngestDataPayload,
-    IncomingPartnerData,
     IncomingModelKeyPathData,
     IncomingModelKeyPathListData,
     IncomingModelSemanticPatternData,
@@ -66,26 +65,6 @@ class IngestionDataPayloadResponseBody(G2PResponseBody):
 
 class IngestionDataPayloadResponse(G2PResponse):
     response_body: Optional[IngestionDataPayloadResponseBody] = None
-
-
-# =============================================================================
-# IncomingPartner Response Schemas
-# =============================================================================
-
-class IncomingPartnerResponseBody(G2PResponseBody):
-    response_payload: Optional[IncomingPartnerData] = None
-
-
-class IncomingPartnerResponse(G2PResponse):
-    response_body: Optional[IncomingPartnerResponseBody] = None
-
-
-class IncomingPartnersResponseBody(G2PResponseBody):
-    response_payload: Optional[List[IncomingPartnerData]] = None
-
-
-class IncomingPartnersResponse(G2PResponse):
-    response_body: Optional[IncomingPartnersResponseBody] = None
 
 
 # =============================================================================

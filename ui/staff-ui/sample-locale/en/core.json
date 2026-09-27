@@ -146,6 +146,8 @@
   "confirm_remove_contributing_attribute": "Remove this contributing attribute?",
   "confirm_remove_import_file_config": "Are you sure you want to remove this import config?",
   "confirm_remove_score": "Are you sure you want to remove this score definition?",
+  "confirm_remove_section": "Are you sure you want to remove this section?",
+  "confirm_remove_tab": "Are you sure you want to remove this tab?",
   "confirm_remove_vc_import": "Are you sure you want to remove this VC import?",
   "context_field_names": "Context Field Names",
   "contributing_attributes": "Contributing attributes",

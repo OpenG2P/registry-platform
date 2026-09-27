@@ -1289,106 +1289,12 @@ class LanguageOperationData(BaseModel):
     success: bool = True
 
 
-# =============================================================================
-# Attribute Schemas
-# =============================================================================
-
-class AttributeData(BaseModel):
-    attribute_id: str
-    attribute_code: str
-    attribute_display: str
-    is_hierarchical: bool
-
-
-class AttributeValueData(BaseModel):
-    value_id: str
-    attribute_id: str
-    value_code: str
-    value_display: str
-    parent_value_id: Optional[str] = None
-    sort_order: int
-
-
-class GetAttributesRequestPayload(BaseModel):
-    pass
-
-
-class GetAttributeRequestPayload(BaseModel):
-    attribute_id: str
-
-
-class CreateAttributeRequestPayload(BaseModel):
-    attribute_code: str
-    attribute_display: str
-    is_hierarchical: bool = False
-
-
-class UpdateAttributeRequestPayload(BaseModel):
-    attribute_id: str
-    attribute_code: Optional[str] = None
-    attribute_display: Optional[str] = None
-    is_hierarchical: Optional[bool] = None
-
-
-class DeleteAttributeRequestPayload(BaseModel):
-    attribute_id: str
-
-
-class GetAttributeValuesRequestPayload(BaseModel):
-    attribute_id: Optional[str] = None
-    parent_value_id: Optional[str] = None
-
-
 class GeoLevelValueData(BaseModel):
     level_value_id: str
     level_value_mnemonic: str
     level_value_display: Optional[str] = None
     parent_level_value_id: Optional[str] = None
     level_mnemonic: Optional[str] = None
-
-
-class CreateAttributeValueRequestPayload(BaseModel):
-    attribute_id: str
-    value_code: str
-    value_display: str
-    parent_value_id: Optional[str] = None
-    sort_order: int = 0
-
-
-class UpdateAttributeValueRequestPayload(BaseModel):
-    value_id: str
-    value_code: Optional[str] = None
-    value_display: Optional[str] = None
-    parent_value_id: Optional[str] = None
-    sort_order: Optional[int] = None
-
-
-class DeleteAttributeValueRequestPayload(BaseModel):
-    value_id: str
-
-
-class CreateAttributeResponsePayload(BaseModel):
-    attribute: AttributeData
-
-
-class UpdateAttributeResponsePayload(BaseModel):
-    attribute: AttributeData
-
-
-class DeleteAttributeResponsePayload(BaseModel):
-    attribute_id: str
-
-
-class CreateAttributeValueResponsePayload(BaseModel):
-    attribute_value: AttributeValueData
-
-
-class UpdateAttributeValueResponsePayload(BaseModel):
-    attribute_value: AttributeValueData
-
-
-class DeleteAttributeValueResponsePayload(BaseModel):
-    value_id: str
 
 
 # =============================================================================

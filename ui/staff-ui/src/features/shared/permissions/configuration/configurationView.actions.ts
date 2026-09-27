@@ -1,4 +1,3 @@
-import { CONFIGURATION_ATTRIBUTES_ACTIONS } from "./configurationAttributes.actions";
 import { CONFIGURATION_DATA_MODELS_ACTIONS } from "./configurationDataModels.actions";
 import { CONFIGURATION_INGESTION_TEMPLATES_ACTIONS } from "./configurationIngestionTemplates.actions";
 import { CONFIGURATION_INTAKE_FORM_ACTIONS } from "./configurationIntakeForm.actions";
@@ -20,7 +19,6 @@ import { CONFIGURATION_SUBSCRIPTION_ACTIONS } from "./configurationSubscription.
 export const CONFIG_NAV_ACTIONS = [
     CONFIGURATION_REGISTRY_ACTIONS.view,
     CONFIGURATION_REGISTERS_ACTIONS.create,
-    CONFIGURATION_ATTRIBUTES_ACTIONS.create,
     CONFIGURATION_DATA_MODELS_ACTIONS.view,
     CONFIGURATION_INTAKE_FORM_ACTIONS.view,
     CONFIGURATION_INGESTION_TEMPLATES_ACTIONS.view,

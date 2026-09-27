@@ -67,15 +67,6 @@ from .register_payload import (
     CreateLanguageRequestPayload,
     UpdateLanguageRequestPayload,
     RemoveLanguageRequestPayload,
-    GetAttributesRequestPayload,
-    GetAttributeRequestPayload,
-    CreateAttributeRequestPayload,
-    UpdateAttributeRequestPayload,
-    DeleteAttributeRequestPayload,
-    GetAttributeValuesRequestPayload,
-    CreateAttributeValueRequestPayload,
-    UpdateAttributeValueRequestPayload,
-    DeleteAttributeValueRequestPayload,
     GetAllowedParentsForChildSectionRequestPayload,
 )
 
@@ -860,82 +851,6 @@ class GetEarliestPendingChangeRequestRequestBody(G2PRequestBody):
 
 class GetEarliestPendingChangeRequestRequest(G2PRequest):
     request_body: GetEarliestPendingChangeRequestRequestBody
-
-
-# =============================================================================
-# Attribute Request Schemas
-# =============================================================================
-
-class GetAttributesRequestBody(G2PRequestBody):
-    request_payload: GetAttributesRequestPayload
-
-
-class GetAttributesRequest(G2PRequest):
-    request_body: GetAttributesRequestBody
-
-
-class GetAttributeRequestBody(G2PRequestBody):
-    request_payload: GetAttributeRequestPayload
-
-
-class GetAttributeRequest(G2PRequest):
-    request_body: GetAttributeRequestBody
-
-
-class CreateAttributeRequestBody(G2PRequestBody):
-    request_payload: CreateAttributeRequestPayload
-
-
-class CreateAttributeRequest(G2PRequest):
-    request_body: CreateAttributeRequestBody
-
-
-class UpdateAttributeRequestBody(G2PRequestBody):
-    request_payload: UpdateAttributeRequestPayload
-
-
-class UpdateAttributeRequest(G2PRequest):
-    request_body: UpdateAttributeRequestBody
-
-
-class DeleteAttributeRequestBody(G2PRequestBody):
-    request_payload: DeleteAttributeRequestPayload
-
-
-class DeleteAttributeRequest(G2PRequest):
-    request_body: DeleteAttributeRequestBody
-
-
-class GetAttributeValuesRequestBody(G2PRequestBody):
-    request_payload: GetAttributeValuesRequestPayload
-
-
-class GetAttributeValuesRequest(G2PRequest):
-    request_body: GetAttributeValuesRequestBody
-
-
-class CreateAttributeValueRequestBody(G2PRequestBody):
-    request_payload: CreateAttributeValueRequestPayload
-
-
-class CreateAttributeValueRequest(G2PRequest):
-    request_body: CreateAttributeValueRequestBody
-
-
-class UpdateAttributeValueRequestBody(G2PRequestBody):
-    request_payload: UpdateAttributeValueRequestPayload
-
-
-class UpdateAttributeValueRequest(G2PRequest):
-    request_body: UpdateAttributeValueRequestBody
-
-
-class DeleteAttributeValueRequestBody(G2PRequestBody):
-    request_payload: DeleteAttributeValueRequestPayload
-
-
-class DeleteAttributeValueRequest(G2PRequest):
-    request_body: DeleteAttributeValueRequestBody
 
 
 # =============================================================================

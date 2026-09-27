@@ -130,6 +130,12 @@ async def _prepare_database():
         await engine.dispose()
         return None
     dbengine.set(engine)
+    # Code lists are read from Master Data, not from the registry. Point the
+    # master-data engine at this same test database and give it MDS's two
+    # code-list tables, so the attribute check runs against a real query.
+    import openg2p_registry_core.engine as registry_engine
+
+    registry_engine._engines = {"db_engine_master_data": engine}
 
     from openg2p_registry_core.models import (
         G2PActivityContext,
@@ -141,8 +147,6 @@ async def _prepare_database():
         G2PActivityPeriodLock,
         G2PActivityTemporaryReference,
         G2PActivityType,
-        G2PAttribute,
-        G2PAttributeValue,
         G2PRegisterDefinition,
     )
     from openg2p_registry_core.services import G2PActivityPartitionService
@@ -158,8 +162,6 @@ async def _prepare_database():
         G2PActivityIndicator,
         G2PActivityOdkForm,
         G2PActivityOdkFailure,
-        G2PAttribute,
-        G2PAttributeValue,
     ):
         await model.create_migrate()
     partitions = G2PActivityPartitionService()
@@ -175,6 +177,19 @@ async def _prepare_database():
                 "VALUES (:id, 'FieldWork', 'Field work', 'ACTIVITY', false, false, false, false, false, false)"
             ),
             {"id": REGISTER_ID},
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE g2p_attributes (attribute_id varchar PRIMARY KEY, attribute_code varchar NOT NULL, "
+                "attribute_display varchar NOT NULL, is_hierarchical boolean NOT NULL DEFAULT false)"
+            )
+        )
+        await conn.execute(
+            text(
+                "CREATE TABLE g2p_attribute_values (value_id varchar PRIMARY KEY, attribute_id varchar NOT NULL, "
+                "value_code varchar NOT NULL, value_display varchar NOT NULL, parent_value_id varchar, "
+                "sort_order integer NOT NULL DEFAULT 0)"
+            )
         )
         await conn.execute(
             text(

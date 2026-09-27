@@ -1,5 +1,4 @@
 export * from "./configurationView.actions";
-export * from "./configurationAttributes.actions";
 export * from "./configurationScores.actions";
 export * from "./configurationRegistry.actions";
 export * from "./configurationSections.actions";
