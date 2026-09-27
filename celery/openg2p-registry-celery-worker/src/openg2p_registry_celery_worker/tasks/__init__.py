@@ -15,3 +15,9 @@ from .completion_score_worker import completion_score_worker
 from .deduplication_intake_forms_vs_register_worker import deduplication_intake_forms_vs_register_worker
 from .deduplication_intake_forms_vs_intake_forms_worker import deduplication_intake_forms_vs_intake_forms_worker
 from .import_file_process_worker import import_file_process_worker
+from .activity_worker import (
+    activity_outbox_worker,
+    activity_reconcile_worker,
+    activity_partition_worker,
+    activity_odk_pull_worker,
+)

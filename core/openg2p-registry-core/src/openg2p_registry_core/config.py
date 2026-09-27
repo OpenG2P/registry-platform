@@ -77,6 +77,23 @@ class Settings(IamSettings):
     # removable, since they are the only thing checking values until then.
     validate_attribute_values: bool = False
 
+    # Activity registers
+    # Yearly partitions are created from this many years back to next year;
+    # older or later occurred_at values land in the DEFAULT partition.
+    activity_partition_years_back: int = 5
+    # Outbox processing
+    activity_outbox_batch_size: int = 200
+    activity_outbox_max_attempts: int = 5
+    # Cache for reference display names resolved at read time
+    activity_reference_cache_seconds: int = 600
+    # ODK Central (pull of form submissions into activities)
+    activity_odk_enabled: bool = False
+    activity_odk_base_url: str = "http://commons-services-odk-central-backend"
+    activity_odk_username: str = ""
+    activity_odk_password: str = ""
+    activity_odk_page_size: int = 250
+    activity_odk_timeout_seconds: int = 60
+
     # AWE (Approval Workflow Engine) client
     awe_enabled: bool = False
     # Host only, e.g. https://awe.dev.openg2p.org (do not include /v1/awe)

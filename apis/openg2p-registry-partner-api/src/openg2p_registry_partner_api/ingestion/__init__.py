@@ -1,2 +1,2 @@
-from .controllers import G2PIngestController
+from .controllers import G2PIngestController, G2PActivityPartnerController
 from .helpers import RequestResponseHelper

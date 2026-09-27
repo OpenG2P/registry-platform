@@ -36,6 +36,12 @@ class Settings(ExtSettings):
     no_of_tasks_to_process: int = 4
     default_beat_producer_frequency: int = 20
 
+    # Activity registers (seconds). Scheduled straight onto the worker tasks.
+    activity_outbox_frequency: Optional[int] = None                          # default: default_beat_producer_frequency
+    activity_odk_pull_frequency: int = 300
+    activity_reconcile_frequency: int = 24 * 60 * 60
+    activity_partition_frequency: int = 24 * 60 * 60
+
     data_transformation_beat_producer_frequency: Optional[int] = None           # ingest & outgest
 
     ingest_data_beat_producer_frequency: Optional[int] = None                   # ingest

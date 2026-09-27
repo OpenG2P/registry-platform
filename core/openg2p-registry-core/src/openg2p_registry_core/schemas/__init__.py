@@ -48,3 +48,5 @@ from .g2p_data_policy import *
 from .intake_form import *
 from .intake_form_metadata import *
 from .registrant_auth import *
+
+from .activity import *  # noqa: F401,F403

@@ -1,1 +1,2 @@
 from .g2p_ingest_controller import G2PIngestController
+from .g2p_activity_partner_controller import G2PActivityPartnerController

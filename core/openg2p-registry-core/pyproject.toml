@@ -28,6 +28,10 @@ dependencies = [
   "httpx",
   "Pillow",
   "filetype",
+  "jsonschema",
+  # Async sessions need greenlet, which SQLAlchemy 2.1 no longer installs by
+  # default; published images run 2.0.x. Pin the series and the asyncio extra.
+  "sqlalchemy[asyncio] >=2.0,<2.1",
 ]
 dynamic = ["version"]
 

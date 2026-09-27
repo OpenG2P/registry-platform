@@ -27,7 +27,10 @@ class G2PRegisterHistoryService(BaseService):
                 code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
                 message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0],
             )
-        if register_definition.register_purpose == RegisterPurposeEnum.PROGRAM_REGISTER.value:
+        if register_definition.register_purpose in (
+            RegisterPurposeEnum.PROGRAM_REGISTER.value,
+            RegisterPurposeEnum.ACTIVITY.value,
+        ):
             return
 
         module = importlib.import_module("openg2p_registry_extensions.register_domain.models")

@@ -38,6 +38,7 @@ from .controller_services import (
     G2PRegistrantAuthenticationControllerService,
     G2PAwePolicyConfigurationControllerService,
     G2PAweProxyControllerService,
+    G2PActivityControllerService,
 )
 from .helpers import AweHelper, ApplicationReferenceGenerator, PatternMatcher, TemplateHelper, get_document_handler
 
@@ -104,6 +105,17 @@ from .models import (
     G2PRegistrantAuthentication,
     G2PVcIssuance,
     G2PRegistryDataPolicy,
+    G2PActivity,
+    G2PActivityType,
+    G2PActivityContext,
+    G2PActivityPeriodLock,
+    G2PActivityIdempotencyKey,
+    G2PActivityOutbox,
+    G2PActivityTemporaryReference,
+    G2PActivityIndicator,
+    G2PActivityProjection,
+    G2PActivityOdkForm,
+    G2PActivityOdkFailure,
 )
 from .services import (
     G2PDataModelService,
@@ -139,10 +151,23 @@ from .services import (
     InputMechanismMetadataService,
     InputMechanismDataService,
     ImportFileConfigurationService,
+    G2PActivityRegistryService,
+    G2PActivityReferenceService,
+    G2PActivityRuleService,
+    G2PActivityProjectionService,
+    G2PActivityPartitionService,
+    G2PActivityService,
+    G2PActivityOutboxService,
+    G2PActivityIndicatorService,
+    G2PActivityOdkService,
 )
 
 _config = Settings.get_config(strict=False)
 _logger = logging.getLogger(_config.logging_default_logger_name)
+
+
+# Arbitrary, fixed key for the migration advisory lock (see migrate_database).
+_MIGRATION_LOCK_KEY = 7428190001
 
 
 class Initializer(BaseInitializer):
@@ -194,6 +219,16 @@ class Initializer(BaseInitializer):
         G2PAwePolicyConfigurationService()
         G2PAweIntegrationService()
         G2PAweWebhookService()
+        # Activity registers
+        G2PActivityRegistryService()
+        G2PActivityReferenceService()
+        G2PActivityRuleService()
+        G2PActivityProjectionService()
+        G2PActivityPartitionService()
+        G2PActivityService()
+        G2PActivityOutboxService()
+        G2PActivityIndicatorService()
+        G2PActivityOdkService()
 
         # Controller Services
         G2PDataModelControllerService()
@@ -226,11 +261,30 @@ class Initializer(BaseInitializer):
         G2PRegistrantAuthenticationControllerService()
         G2PAwePolicyConfigurationControllerService()
         G2PAweProxyControllerService()
+        G2PActivityControllerService()
 
     def migrate_database(self, args):
         super().migrate_database(args)
 
         async def migrate():
+            # The staff, partner, bene and agent APIs all migrate on start and
+            # usually start together; concurrent CREATE TABLEs collide on
+            # pg_type ("duplicate key ... pg_type_typname_nsp_index") and the
+            # loser stops half way. A session advisory lock runs them one at a
+            # time; create_all is idempotent, so the later ones are no-ops.
+            from openg2p_fastapi_common.context import dbengine
+            from sqlalchemy import text
+
+            async with dbengine.get().connect() as lock_connection:
+                await lock_connection.execute(text("SELECT pg_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY})
+                try:
+                    await _migrate_tables()
+                finally:
+                    await lock_connection.execute(
+                        text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY}
+                    )
+
+        async def _migrate_tables():
             # Data Models
             await DataModel.create_migrate()
 
@@ -318,4 +372,48 @@ class Initializer(BaseInitializer):
             # worse to maintain than an unused table.
             await G2PVcIssuance.create_migrate()
 
+            # Activity registers: shared tables, then every activity/projection
+            # table the extension declares (partitioned, with the append-only
+            # guard). Registries need no migration code of their own.
+            await G2PActivityType.create_migrate()
+            await G2PActivityContext.create_migrate()
+            await G2PActivityPeriodLock.create_migrate()
+            await G2PActivityIdempotencyKey.create_migrate()
+            await G2PActivityOutbox.create_migrate()
+            await G2PActivityTemporaryReference.create_migrate()
+            await G2PActivityIndicator.create_migrate()
+            await G2PActivityOdkForm.create_migrate()
+            await G2PActivityOdkFailure.create_migrate()
+            await migrate_activity_tables()
+
         asyncio.run(migrate())
+
+
+def extension_activity_models() -> tuple[list, list]:
+    """Concrete G2PActivity / G2PActivityProjection classes declared by the loaded extension."""
+    import importlib
+
+    try:
+        module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+    except ModuleNotFoundError:
+        return [], []
+    activities, projections = [], []
+    for value in vars(module).values():
+        if not isinstance(value, type) or "__tablename__" not in value.__dict__:
+            continue
+        if issubclass(value, G2PActivity):
+            activities.append(value)
+        elif issubclass(value, G2PActivityProjection):
+            projections.append(value)
+    return activities, projections
+
+
+async def migrate_activity_tables() -> None:
+    partitions = G2PActivityPartitionService.get_component() or G2PActivityPartitionService()
+    activities, projections = extension_activity_models()
+    for model in activities:
+        await partitions.ensure_activity_table(model)
+    for model in projections:
+        await partitions.ensure_projection_table(model)
+    if activities:
+        _logger.info("Activity tables ready: %s", [m.__tablename__ for m in activities])

@@ -8,11 +8,13 @@ from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 
 from openg2p_registry_core.services import G2PRegisterService
 from openg2p_registry_core.helpers import TemplateHelper
 from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate, G2PRegistryDocument
+from openg2p_registry_core.models import ActivityStatusEnum, ActivityVerificationStatusEnum, RegisterPurposeEnum
+from openg2p_registry_core.helpers.ethiopian_calendar import format_ethiopian_date
 
 from ..schemas import (
     DciSearchResponseItem,
@@ -58,13 +60,22 @@ class G2PDciService(BaseService):
                 register_id, data_model_id
             )
 
-            model_class = self._get_model_class(search_criteria.reg_type)
+            is_activity = await self._is_activity_register(search_criteria.reg_type)
+            model_class = (
+                self._get_activity_model_class(search_criteria.reg_type)
+                if is_activity
+                else self._get_model_class(search_criteria.reg_type)
+            )
 
             query_result, current_page, page_size, sort_by = self._get_registry_search_parameters(
                 search_criteria, model_class
             )
 
-            if query_result.filter_conditions:
+            if is_activity:
+                search_result_data, total_count = await self._activity_search(
+                    model_class, query_result, current_page, page_size, sort_by
+                )
+            elif query_result.filter_conditions:
                 search_result_data, total_count = await self._expression_search(
                     model_class, query_result.filter_conditions, current_page, page_size, sort_by
                 )
@@ -160,6 +171,58 @@ class G2PDciService(BaseService):
                 search_results.append(DeepSearchResultData(**record_dict))
 
             return search_results, total_count
+
+    async def _is_activity_register(self, register_mnemonic: str) -> bool:
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            purpose = (
+                await session.execute(
+                    select(G2PRegisterDefinition.register_purpose).where(
+                        G2PRegisterDefinition.register_mnemonic == register_mnemonic
+                    )
+                )
+            ).scalar_one_or_none()
+        return purpose == RegisterPurposeEnum.ACTIVITY.value
+
+    def _get_activity_model_class(self, register_mnemonic: str):
+        module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+        model_class = getattr(module, f"G2PActivity{register_mnemonic}", None)
+        if model_class is None:
+            raise ValueError(f"Activity register implementation not found: G2PActivity{register_mnemonic}")
+        return model_class
+
+    async def _activity_search(self, model_class, query_result, current_page, page_size, sort_by):
+        """Current activities only (ACTIVE, not rejected); idtype-value queries match the subject."""
+        conditions = list(query_result.filter_conditions or [])
+        conditions.append(model_class.status == ActivityStatusEnum.ACTIVE.value)
+        conditions.append(model_class.verification_status != ActivityVerificationStatusEnum.REJECTED.value)
+        if query_result.search_text:
+            conditions.append(
+                or_(
+                    model_class.subject_id == query_result.search_text,
+                    model_class.search_text.ilike(f"%{query_result.search_text}%"),
+                )
+            )
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            base = select(model_class).where(*conditions)
+            total_count = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+            order = [model_class.occurred_at.desc()]
+            if sort_by:
+                column = getattr(model_class, sort_by.lstrip("-"), None)
+                if column is not None:
+                    order = [column.desc() if sort_by.startswith("-") else column.asc()]
+            rows = (
+                await session.execute(
+                    base.order_by(*order).offset((current_page - 1) * page_size).limit(page_size)
+                )
+            ).scalars().all()
+        results = []
+        for row in rows:
+            record = {key: _plain(value) for key, value in row.to_dict().items() if key != "search_text"}
+            record["occurred_on_ec"] = format_ethiopian_date(row.occurred_at.date())
+            results.append(_ActivityRecord(record))
+        return results, total_count
 
     @staticmethod
     def _clamp_record_fields(record: Dict[str, Any], allowed_scopes: List[str]) -> Dict[str, Any]:
@@ -288,3 +351,24 @@ class G2PDciService(BaseService):
                     f"data_model_id={data_model_id}"
                 )
             return row.document_store_id, row.bucket
+
+
+def _plain(value):
+    """JSON-ready value for template rendering (Numeric columns come back as Decimal)."""
+    from decimal import Decimal
+
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    return value
+
+
+class _ActivityRecord:
+    """Adapter so an activity renders through the same DCI template path as register records."""
+
+    def __init__(self, data: Dict[str, Any]):
+        self._data = data
+
+    def model_dump(self, **_kwargs) -> Dict[str, Any]:
+        return dict(self._data)

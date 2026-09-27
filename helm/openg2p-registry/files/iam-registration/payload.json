@@ -376,6 +376,31 @@
       "permission_mnemonic": "register:verify_credential",
       "permission_description": "Verify a credential presented by a citizen",
       "active": true
+    },
+    {
+      "permission_mnemonic": "activity:view",
+      "permission_description": "View activity registers, activities, timelines, work lists and indicators",
+      "active": true
+    },
+    {
+      "permission_mnemonic": "activity:create",
+      "permission_description": "Record activities (single and batch)",
+      "active": true
+    },
+    {
+      "permission_mnemonic": "activity:correct",
+      "permission_description": "Supersede or void activities, open/close/reopen activity contexts",
+      "active": true
+    },
+    {
+      "permission_mnemonic": "activity:verify",
+      "permission_description": "Verify or reject activities awaiting verification",
+      "active": true
+    },
+    {
+      "permission_mnemonic": "activity:configure",
+      "permission_description": "Lock/unlock periods, resolve temporary references, rebuild projections",
+      "active": true
     }
   ],
   "roles": [
@@ -386,7 +411,9 @@
       "permissions": [
         "intakeFormDefinition:view",
         "intakeSubmission:edit",
-        "intakeSubmission:view"
+        "intakeSubmission:view",
+        "activity:view",
+        "activity:create"
       ]
     },
     {
@@ -398,7 +425,9 @@
         "intakeSubmission:approve",
         "intakeSubmission:view",
         "verificationIntakeForm:create",
-        "verificationIntakeForm:view"
+        "verificationIntakeForm:view",
+        "activity:view",
+        "activity:verify"
       ]
     },
     {
@@ -414,7 +443,10 @@
         "registerDefinition:view",
         "registerHistory:view",
         "registerSection:view",
-        "registerTab:view"
+        "registerTab:view",
+        "activity:view",
+        "activity:create",
+        "activity:correct"
       ]
     },
     {
@@ -430,7 +462,9 @@
         "registerSection:view",
         "registerTab:view",
         "verificationChangeRequest:create",
-        "verificationChangeRequest:view"
+        "verificationChangeRequest:view",
+        "activity:view",
+        "activity:verify"
       ]
     },
     {
@@ -446,7 +480,11 @@
         "registerScore:view",
         "registerSection:view",
         "registerTab:view",
-        "verificationChangeRequest:view"
+        "verificationChangeRequest:view",
+        "activity:view",
+        "activity:create",
+        "activity:correct",
+        "activity:verify"
       ]
     },
     {
@@ -480,7 +518,9 @@
         "verificationChangeRequest:create",
         "verificationChangeRequest:view",
         "verificationIntakeForm:create",
-        "verificationIntakeForm:view"
+        "verificationIntakeForm:view",
+        "activity:view",
+        "activity:configure"
       ]
     },
     {
@@ -634,7 +674,12 @@
         "verificationChangeRequest:create",
         "verificationChangeRequest:view",
         "verificationIntakeForm:create",
-        "verificationIntakeForm:view"
+        "verificationIntakeForm:view",
+        "activity:view",
+        "activity:create",
+        "activity:correct",
+        "activity:verify",
+        "activity:configure"
       ]
     },
     {

@@ -27,6 +27,7 @@ import {
 } from '@/features/shared/permissions';
 import { TASK_ARTIFACT_FILTER_OPTIONS } from '@/features/approval/constants';
 import Can from '@/components/shared/Can';
+import ActivityRegisterLinks from '@/features/activity/components/ActivityRegisterLinks';
 
 
 type ActiveStatsCard =
@@ -196,6 +197,8 @@ export default function Home() {
         <div className="min-h-screen bg-primary-first pt-8 sm:pt-10 md:pt-12 overflow-hidden text-secondary-second-900 bg-[url('/images/common/bg_pattern.png')]">
             <div className="relative">
                 <div className="mx-auto flex max-w-6xl flex-col items-center px-4 sm:px-6 py-8 sm:py-10 lg:py-12 space-y-10 sm:space-y-12 lg:space-y-14">
+
+                    <ActivityRegisterLinks />
 
                     {/* stats cards */}
                     {useStatsCarousel ? (

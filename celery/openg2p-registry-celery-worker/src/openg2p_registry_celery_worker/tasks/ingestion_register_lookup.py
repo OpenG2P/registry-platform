@@ -15,6 +15,12 @@ def find_register_row_by_identifier(
     register_definition = session.get(G2PRegisterDefinition, register_id)
     if not register_definition:
         return None
+    if register_definition.register_purpose == "ACTIVITY":
+        # Activities are appended, never matched and updated; partner systems
+        # send them to /partner/activity/append_activities instead.
+        raise ValueError(
+            f"{register_definition.register_mnemonic} is an activity register and cannot be ingested as records"
+        )
     model_module = importlib.import_module(_DOMAIN_MODELS_MODULE)
     register_class = getattr(
         model_module, f"G2PRegister{register_definition.register_mnemonic}"

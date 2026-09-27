@@ -97,6 +97,61 @@ class RegisterPurposeEnum(StrEnum):
     PROGRAM_REGISTER = "PROGRAM_REGISTER"
     TABLE = "TABLE"
     CORE_TABLE = "CORE_TABLE"
+    # Append-only activity register (see models/g2p_activity.py). Not a record
+    # store: no change requests, history, intake forms, dedup or functional IDs.
+    ACTIVITY = "ACTIVITY"
+
+
+class ActivityStatusEnum(StrEnum):
+    ACTIVE = "ACTIVE"
+    SUPERSEDED = "SUPERSEDED"
+    VOIDED = "VOIDED"
+
+
+class ActivityVerificationStatusEnum(StrEnum):
+    NOT_REQUIRED = "NOT_REQUIRED"
+    SUBMITTED = "SUBMITTED"
+    VERIFIED = "VERIFIED"
+    REJECTED = "REJECTED"
+
+
+class ActivityContextStatusEnum(StrEnum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+
+
+class ActivityChannelEnum(StrEnum):
+    STAFF_PORTAL = "STAFF_PORTAL"
+    AGENT_PORTAL = "AGENT_PORTAL"
+    PARTNER = "PARTNER"
+    ODK = "ODK"
+    IMPORT_FILE = "IMPORT_FILE"
+    SYSTEM = "SYSTEM"
+
+
+class ActivityOutboxEventEnum(StrEnum):
+    APPENDED = "APPENDED"
+    SUPERSEDED = "SUPERSEDED"
+    VOIDED = "VOIDED"
+    VERIFIED = "VERIFIED"
+    REJECTED = "REJECTED"
+
+
+class ReferenceKindEnum(StrEnum):
+    # A record in a register of this registry instance.
+    LOCAL_RECORD = "LOCAL_RECORD"
+    # A value of a code list (g2p_attribute_values).
+    ATTRIBUTE = "ATTRIBUTE"
+    # A geo level value from Master Data.
+    GEO = "GEO"
+    # An identifier held by another system (another registry, Fayda).
+    EXTERNAL = "EXTERNAL"
+
+
+class ReferenceValidationModeEnum(StrEnum):
+    STRICT = "STRICT"  # unresolved → reject
+    LENIENT = "LENIENT"  # unresolved → accept with a warning
+    NONE = "NONE"  # not checked
 
 
 class AwePolicyScopeEnum(StrEnum):

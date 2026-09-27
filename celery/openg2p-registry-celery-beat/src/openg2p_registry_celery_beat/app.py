@@ -27,6 +27,26 @@ celery_app = Celery(
 )
 
 celery_app.conf.beat_schedule = {
+    "activity_outbox_worker": {
+        "task": "activity_outbox_worker",
+        "options": {"queue": _config.worker_queue},
+        "schedule": _config.activity_outbox_frequency or _config.default_beat_producer_frequency,
+    },
+    "activity_odk_pull_worker": {
+        "task": "activity_odk_pull_worker",
+        "options": {"queue": _config.worker_queue},
+        "schedule": _config.activity_odk_pull_frequency,
+    },
+    "activity_reconcile_worker": {
+        "task": "activity_reconcile_worker",
+        "options": {"queue": _config.worker_queue},
+        "schedule": _config.activity_reconcile_frequency,
+    },
+    "activity_partition_worker": {
+        "task": "activity_partition_worker",
+        "options": {"queue": _config.worker_queue},
+        "schedule": _config.activity_partition_frequency,
+    },
     "ingest_data_classification_beat_producer": {
         "task": "ingest_data_classification_beat_producer",
         "schedule": (

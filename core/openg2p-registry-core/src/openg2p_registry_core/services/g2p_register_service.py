@@ -834,7 +834,8 @@ class G2PRegisterService(BaseService):
         child_register_definitions: list[G2PRegisterDefinition] = (
             await session.execute(
                 select(G2PRegisterDefinition).where(
-                    G2PRegisterDefinition.master_register_id == master_register_id
+                    G2PRegisterDefinition.master_register_id == master_register_id,
+                    G2PRegisterDefinition.register_purpose != RegisterPurposeEnum.ACTIVITY.value,
                 )
             )
         ).scalars().all()
@@ -3440,7 +3441,12 @@ class G2PRegisterService(BaseService):
             The SQLAlchemy model class for the register
         """
         _logger.info(f"Looking for implementation class for register_mnemonic='{register_mnemonic}' with purpose={register_purpose}")
-        
+        if register_purpose == RegisterPurposeEnum.ACTIVITY.value:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.ACTIVITY_NOT_SUPPORTED_FOR_REGISTER.value[1],
+                message=f"{register_mnemonic} is an activity register; use the /activity endpoints",
+            )
+
         # If register_purpose is CORE_TABLE, look in core models first
         if register_purpose == RegisterPurposeEnum.CORE_TABLE.value:
             try:

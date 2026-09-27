@@ -6,3 +6,4 @@ __all__ = [
     "RegisterRepository",
     "RegisterRecordRepository",
 ]
+from .activity_repository import ActivityPolicyRepository

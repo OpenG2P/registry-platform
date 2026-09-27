@@ -16,6 +16,13 @@ from .enum import (
     InputMechanismTypeEnum,
     AwePolicyScopeEnum,
     DocumentBucket,
+    ActivityStatusEnum,
+    ActivityVerificationStatusEnum,
+    ActivityContextStatusEnum,
+    ActivityChannelEnum,
+    ActivityOutboxEventEnum,
+    ReferenceKindEnum,
+    ReferenceValidationModeEnum,
 )
 SubmissionSourceEnum = ChangeRequestSourceEnum
 from .data_models import DataModel
@@ -110,3 +117,17 @@ from .g2p_registrant_authentication import G2PRegistrantAuthentication, Authenti
 from .g2p_register_authentication import G2PRegisterAuthentication
 
 from .g2p_vc_issuance import G2PVcIssuance, VcIssuanceStatusEnum
+
+from .g2p_activity import (
+    G2PActivity,
+    G2PActivityType,
+    G2PActivityContext,
+    G2PActivityPeriodLock,
+    G2PActivityIdempotencyKey,
+    G2PActivityOutbox,
+    G2PActivityTemporaryReference,
+    G2PActivityIndicator,
+    G2PActivityProjection,
+    G2PActivityOdkForm,
+    G2PActivityOdkFailure,
+)

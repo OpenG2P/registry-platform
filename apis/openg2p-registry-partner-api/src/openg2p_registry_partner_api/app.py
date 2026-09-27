@@ -10,7 +10,7 @@ from openg2p_fastapi_common.app import Initializer as BaseInitializer
 from openg2p_registry_core.app import Initializer as CoreInitializer
 from openg2p_registry_extensions.app import Initializer as ExtensionsInitializer
 
-from .ingestion import G2PIngestController, RequestResponseHelper
+from .ingestion import G2PActivityPartnerController, G2PIngestController, RequestResponseHelper
 # Search imports (standard specific impl)
 from .search import (
     G2PDciController,
@@ -29,6 +29,7 @@ class Initializer(BaseInitializer):
         # Ingestion
         RequestResponseHelper()
         G2PIngestController().post_init()
+        G2PActivityPartnerController().post_init()
 
         # DCI
         G2PDciController().post_init()

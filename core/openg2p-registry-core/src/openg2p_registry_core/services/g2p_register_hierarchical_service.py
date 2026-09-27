@@ -345,7 +345,8 @@ class G2PRegisterHierarchicalService(BaseService):
             The SQLAlchemy model class for the register
         """
         _logger.info(f"Looking for implementation class for register_mnemonic='{register_mnemonic}' with purpose={register_purpose}")
-        
+        _reject_activity_register(register_mnemonic, register_purpose)
+
         # If register_purpose is CORE_TABLE, look in core models first
         if register_purpose == RegisterPurposeEnum.CORE_TABLE.value:
             try:
@@ -783,7 +784,10 @@ class G2PRegisterHierarchicalService(BaseService):
         # 1. Fetch Children (Down)
         child_registers = (await session.execute(
             select(G2PRegisterDefinition).where(
-                G2PRegisterDefinition.master_register_id == register_definition.register_id
+                G2PRegisterDefinition.master_register_id == register_definition.register_id,
+                # Activity registers are append-only logs that can grow without
+                # bound; they are read through /activity, never inlined here.
+                G2PRegisterDefinition.register_purpose != RegisterPurposeEnum.ACTIVITY.value,
             )
         )).scalars().all()
 
@@ -917,3 +921,13 @@ class G2PRegisterHierarchicalService(BaseService):
                 master_register_id=parent_register.master_register_id,
                 allowed_parents=allowed_parents
             )
+
+
+def _reject_activity_register(register_mnemonic: str, register_purpose: str | None) -> None:
+    if register_purpose == RegisterPurposeEnum.ACTIVITY.value:
+        from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+
+        raise G2PRegistryException(
+            code=G2PRegistryErrorCodes.ACTIVITY_NOT_SUPPORTED_FOR_REGISTER.value[1],
+            message=f"{register_mnemonic} is an activity register; use the /activity endpoints",
+        )
