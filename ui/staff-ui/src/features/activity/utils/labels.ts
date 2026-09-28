@@ -37,3 +37,22 @@ export function formatDate(iso?: string | null): string {
     if (!iso) return "—";
     return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
 }
+
+/** "CropSown" → "Crop Sown", "crop_sown" → "Crop Sown". */
+export function humanizeMnemonic(mnemonic: string): string {
+    return mnemonic
+        .replace(/[_-]+/g, " ")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+        .trim();
+}
+
+/** Short name of an activity register: its register_subject, else the humanised mnemonic. */
+export function registerLabel(register: { register_mnemonic: string; register_subject?: string | null }): string {
+    return register.register_subject || humanizeMnemonic(register.register_mnemonic);
+}
+
+/** URL of an activity register page (lower-case mnemonic). */
+export function activityRegisterPath(mnemonic: string): string {
+    return `/activity/${mnemonic.toLowerCase()}`;
+}

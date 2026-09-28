@@ -357,6 +357,10 @@ dbSeed:
   loadImages: false
   # Upload flat Jinja templates from the db-seed image to MinIO after SQL seed
   loadTemplates: true
+  # Optional seeds the registry's db-seed image ships under /seed/optional/<name>,
+  # run after its meta_data — e.g. an activity register the registry offers but
+  # not every install needs. Empty runs none.
+  optionalSeeds: []
   image:
     repository: openg2p/openg2p-registry-db-seed
     tag: "develop"

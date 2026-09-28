@@ -174,6 +174,8 @@ class G2PActivityOdkService(BaseService):
     async def pull_form(self, config_id: str) -> dict[str, int]:
         page_size = int(_config.activity_odk_page_size)
         created = duplicates = failed = 0
+        # One pull run is one submission batch.
+        run_id = f"odk:{config_id}:{datetime.utcnow().strftime('%Y%m%dT%H%M%S')}"
         while True:
             async with self._session_maker()() as session:
                 config = await session.get(G2PActivityOdkForm, config_id)
@@ -182,7 +184,7 @@ class G2PActivityOdkService(BaseService):
                 config.odk_project_id, config.odk_form_id, config.last_submission_date, page_size
             )
             for submission in submissions:
-                outcome = await self.ingest_submission(config, mnemonic, submission)
+                outcome = await self.ingest_submission(config, mnemonic, submission, run_id)
                 created += outcome == "CREATED"
                 duplicates += outcome == "DUPLICATE"
                 failed += outcome == "FAILED"
@@ -217,13 +219,16 @@ class G2PActivityOdkService(BaseService):
             fixed += await self.ingest_submission(config, mnemonic, failure.submission or {}) != "FAILED"
         return {"retried": len(failures), "fixed": fixed}
 
-    async def ingest_submission(self, config: G2PActivityOdkForm, mnemonic: str, submission: dict) -> str:
+    async def ingest_submission(self, config: G2PActivityOdkForm, mnemonic: str, submission: dict,
+                                run_id: str | None = None) -> str:
         instance_id = submission.get("__id") or read_path(submission, "meta/instanceID")
         system = submission.get("__system") or {}
         if system.get("reviewState") == "rejected":
             return "SKIPPED"
         try:
             activity = await self.map_submission(config, mnemonic, submission, instance_id)
+            if run_id:
+                activity = activity.model_copy(update={"submission_id": run_id})
             _, outcome = await self.activities.append(
                 activity, actor=system.get("submitterName") or "odk", channel=ActivityChannelEnum.ODK.value
             )

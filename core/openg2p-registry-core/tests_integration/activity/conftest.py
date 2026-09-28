@@ -31,8 +31,8 @@ DB_URL = os.environ.get(
 
 # ---------------------------------------------------------------- test extension
 
-from openg2p_registry_core.models import G2PActivity, G2PActivityProjection  # noqa: E402
-from openg2p_registry_core.services import G2PActivityDomainService  # noqa: E402
+from openg2p_registry_core.models import G2PActivity, G2PActivityProjection, G2PRegister  # noqa: E402
+from openg2p_registry_core.services import ActivityAggregateResult, G2PActivityDomainService  # noqa: E402
 
 
 class G2PActivityFieldWork(G2PActivity):
@@ -86,6 +86,47 @@ class G2PActivityDomainServiceFieldWork(G2PActivityDomainService):
             return None
         return {"found": value.startswith("LND-")}
 
+    async def enrich(self, session, register, activity):
+        if activity.activity_type == "SOWN":
+            return {"rainfall_mm": 42, "plot": activity.payload.get("plot_id")}
+        return None
+
+    async def aggregate(self, session, register, activity, event_type):
+        # A subject's total area sown per season, recomputed from current SOWN activities.
+        from sqlalchemy import func, select
+        from openg2p_registry_core.services.g2p_activity_rule_service import active_filter
+
+        if activity.activity_type != "SOWN" or not activity.subject_id:
+            return []
+        model = register.activity_model
+        season = activity.payload.get("season")
+        total = (
+            await session.execute(
+                select(func.coalesce(func.sum(model.area_ha), 0)).where(
+                    model.activity_type == "SOWN", model.subject_id == activity.subject_id,
+                    model.payload["season"].astext == season, active_filter(model),
+                )
+            )
+        ).scalar()
+        return [
+            ActivityAggregateResult(
+                subject_type=activity.subject_type or "FARMER_ID", subject_id=activity.subject_id,
+                aggregate_type="AREA_SOWN", period_key=season, aggregate_value={"area_sown_ha": total},
+            )
+        ]
+
+
+# Two record registers in the same instance: a farmer and the farmer's plots,
+# for activities whose subject is a local record.
+class G2PRegisterTestFarmer(G2PRegister):
+    __tablename__ = "g2p_register_test_farmers"
+    __table_args__ = {"extend_existing": True}
+
+
+class G2PRegisterTestPlot(G2PRegister):
+    __tablename__ = "g2p_register_test_plots"
+    __table_args__ = {"extend_existing": True}
+
 
 extensions = types.ModuleType("openg2p_registry_extensions")
 register_domain = types.ModuleType("openg2p_registry_extensions.register_domain")
@@ -93,6 +134,8 @@ models_module = types.ModuleType("openg2p_registry_extensions.register_domain.mo
 services_module = types.ModuleType("openg2p_registry_extensions.register_domain.services")
 models_module.G2PActivityFieldWork = G2PActivityFieldWork
 models_module.G2PActivityProjectionFieldWork = G2PActivityProjectionFieldWork
+models_module.G2PRegisterTestFarmer = G2PRegisterTestFarmer
+models_module.G2PRegisterTestPlot = G2PRegisterTestPlot
 services_module.G2PActivityDomainServiceFieldWork = G2PActivityDomainServiceFieldWork
 sys.modules.update(
     {
@@ -104,6 +147,8 @@ sys.modules.update(
 )
 
 REGISTER_ID = "reg-fieldwork"
+FARMER_REGISTER_ID = "reg-test-farmer"
+PLOT_REGISTER_ID = "reg-test-plot"
 
 SOWN_SCHEMA = {
     "type": "object",
@@ -147,6 +192,10 @@ async def _prepare_database():
         G2PActivityPeriodLock,
         G2PActivityTemporaryReference,
         G2PActivityType,
+        G2PActivityTypeSchema,
+        G2PActivityEnrichment,
+        G2PActivityAggregate,
+        G2PActivityAggregateHistory,
         G2PRegisterDefinition,
     )
     from openg2p_registry_core.services import G2PActivityPartitionService
@@ -162,9 +211,16 @@ async def _prepare_database():
         G2PActivityIndicator,
         G2PActivityOdkForm,
         G2PActivityOdkFailure,
+        G2PActivityTypeSchema,
+        G2PActivityEnrichment,
+        G2PActivityAggregate,
+        G2PActivityAggregateHistory,
+        G2PRegisterTestFarmer,
+        G2PRegisterTestPlot,
     ):
         await model.create_migrate()
     partitions = G2PActivityPartitionService()
+    await partitions.ensure_activity_type_versioning()
     await partitions.ensure_activity_table(G2PActivityFieldWork)
     await partitions.ensure_projection_table(G2PActivityProjectionFieldWork)
 
@@ -177,6 +233,37 @@ async def _prepare_database():
                 "VALUES (:id, 'FieldWork', 'Field work', 'ACTIVITY', false, false, false, false, false, false)"
             ),
             {"id": REGISTER_ID},
+        )
+        for register_id, mnemonic, purpose, master in (
+            (FARMER_REGISTER_ID, "TestFarmer", "REGISTER", None),
+            (PLOT_REGISTER_ID, "TestPlot", "TABLE", FARMER_REGISTER_ID),
+        ):
+            await conn.execute(
+                text(
+                    "INSERT INTO g2p_register_definitions (register_id, register_mnemonic, register_subject, "
+                    "register_purpose, master_register_id, functional_id_generation_required, has_image, "
+                    "dedup_is_enabled, completion_score_required, outgest_applicable, "
+                    "requires_registrant_authentication) "
+                    "VALUES (:id, :m, :m, :p, :master, false, false, false, false, false, false)"
+                ),
+                {"id": register_id, "m": mnemonic, "p": purpose, "master": master},
+            )
+        now = "now() AT TIME ZONE 'utc'"
+        await conn.execute(
+            text(
+                "INSERT INTO g2p_register_test_farmers (internal_record_id, functional_record_id, record_name, "
+                f"created_by, created_at, last_approved_at, last_approved_by, record_status) VALUES "
+                f"('farmer-1', 'FR-1', 'Almaz', 't', {now}, {now}, 't', 'ACTIVE'), "
+                f"('farmer-2', 'FR-2', 'Bekele', 't', {now}, {now}, 't', 'ACTIVE')"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO g2p_register_test_plots (internal_record_id, link_internal_record_id, record_name, "
+                f"created_by, created_at, last_approved_at, last_approved_by, record_status) VALUES "
+                f"('plot-1', 'farmer-1', 'Plot one', 't', {now}, {now}, 't', 'ACTIVE'), "
+                f"('plot-2', 'farmer-2', 'Plot two', 't', {now}, {now}, 't', 'ACTIVE')"
+            )
         )
         await conn.execute(
             text(
@@ -235,6 +322,10 @@ async def activity_types(database):
             "g2p_activity_indicators",
             "g2p_activity_odk_forms",
             "g2p_activity_odk_failures",
+            "g2p_activity_type_schemas",
+            "g2p_activity_enrichments",
+            "g2p_activity_aggregates",
+            "g2p_activity_aggregate_history",
         ):
             # TRUNCATE bypasses the append-only row trigger, as intended for tests.
             await conn.execute(text(f"TRUNCATE {table}"))

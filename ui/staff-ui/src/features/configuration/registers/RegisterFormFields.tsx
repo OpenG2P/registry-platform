@@ -47,6 +47,8 @@ interface RegisterFormFieldsProps {
     fileInputRef: React.RefObject<HTMLInputElement | null>;
     onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     purposeOptions: { label: string; value: string }[];
+    /** Show the purpose but do not let it change (e.g. an activity register). */
+    purposeReadOnly?: boolean;
     iconPreview?: (icon: string) => string;
 }
 
@@ -65,6 +67,7 @@ export default function RegisterFormFields({
     fileInputRef,
     onFileChange,
     purposeOptions,
+    purposeReadOnly = false,
     iconPreview = (icon) => icon,
 }: RegisterFormFieldsProps) {
     const t = useTranslations();
@@ -103,6 +106,7 @@ export default function RegisterFormFields({
                             setFormData((prev) => ({ ...prev, register_purpose: value }))
                         }
                         options={purposeOptions}
+                        disabled={purposeReadOnly}
                     />
                 </div>
 

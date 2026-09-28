@@ -119,6 +119,10 @@ from .models import (
     G2PActivityProjection,
     G2PActivityOdkForm,
     G2PActivityOdkFailure,
+    G2PActivityTypeSchema,
+    G2PActivityEnrichment,
+    G2PActivityAggregate,
+    G2PActivityAggregateHistory,
 )
 from .services import (
     G2PDataModelService,
@@ -378,6 +382,11 @@ class Initializer(BaseInitializer):
             await G2PActivityIndicator.create_migrate()
             await G2PActivityOdkForm.create_migrate()
             await G2PActivityOdkFailure.create_migrate()
+            await G2PActivityTypeSchema.create_migrate()
+            await G2PActivityEnrichment.create_migrate()
+            await G2PActivityAggregate.create_migrate()
+            await G2PActivityAggregateHistory.create_migrate()
+            await migrate_activity_core_tables()
             await migrate_activity_tables()
 
         asyncio.run(migrate())
@@ -400,6 +409,18 @@ def extension_activity_models() -> tuple[list, list]:
         elif issubclass(value, G2PActivityProjection):
             projections.append(value)
     return activities, projections
+
+
+async def migrate_activity_core_tables() -> None:
+    """Bring the shared activity tables up to the current models, and version activity-type schemas."""
+    partitions = G2PActivityPartitionService.get_component() or G2PActivityPartitionService()
+    for model in (
+        G2PActivityType, G2PActivityContext, G2PActivityPeriodLock, G2PActivityIdempotencyKey, G2PActivityOutbox,
+        G2PActivityTemporaryReference, G2PActivityIndicator, G2PActivityOdkForm, G2PActivityOdkFailure,
+        G2PActivityTypeSchema, G2PActivityEnrichment, G2PActivityAggregate, G2PActivityAggregateHistory,
+    ):
+        await partitions.add_missing_columns(model)
+    await partitions.ensure_activity_type_versioning()
 
 
 async def migrate_activity_tables() -> None:

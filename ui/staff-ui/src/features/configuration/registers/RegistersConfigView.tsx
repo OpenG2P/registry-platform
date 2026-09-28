@@ -16,6 +16,7 @@ import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import { DataTable, DeleteButton, ViewButton } from '../shared/components';
 import ConfirmRemovePopup from '../shared/components/ConfirmRemovePopup';
+import { activityRegisterPath } from '@/features/activity/utils/labels';
 
 interface RegistersConfigViewProps {
     registers: Register[];
@@ -126,6 +127,19 @@ export default function RegistersConfigView({
                 }
                 actions={(item) => (
                     <>
+                        {item.register_purpose === 'ACTIVITY' && (
+                            <button
+                                type="button"
+                                className="font-medium text-toast-success hover:opacity-80"
+                                title="This is an activity register. Its forms come from its activity types."
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    router.push(activityRegisterPath(item.register_mnemonic));
+                                }}
+                            >
+                                Open activity register
+                            </button>
+                        )}
                         <ViewButton
                             label={t('view')}
                             onClick={() => handleView(item)}

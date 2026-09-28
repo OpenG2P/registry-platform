@@ -28,11 +28,16 @@ class ActivityInput(BaseModel):
     subject_type: Optional[str] = None
     subject_id: Optional[str] = None
     subject_internal_record_id: Optional[str] = None
+    # The register the subject record is in, when subject_internal_record_id is set.
+    subject_register_mnemonic: Optional[str] = None
     context_id: Optional[str] = None
     context_key: Optional[str] = None
     payload: dict[str, Any] = Field(default_factory=dict)
     source_record_id: Optional[str] = None
     idempotency_key: Optional[str] = None
+    # Groups the activities of one submission (an offline sync, a file). A batch
+    # append without one gets a new id for the whole batch.
+    submission_id: Optional[str] = None
 
     @model_validator(mode="after")
     def _occurred(self):
@@ -49,6 +54,7 @@ class AppendActivitiesPayload(BaseModel):
     activities: list[ActivityInput]
     # true → all or nothing; false → each activity succeeds or fails on its own.
     atomic: bool = False
+    submission_id: Optional[str] = None
 
 
 class SupersedeActivityPayload(BaseModel):
@@ -169,6 +175,50 @@ class ResolveTemporaryReferencePayload(BaseModel):
     resolved_id: str
 
 
+class SubjectActivitiesPayload(BaseModel):
+    """Activities about one record of this registry, across every activity register.
+
+    Finds activities whose subject is the record, and (with include_descendants)
+    those whose subject is one of its child records — a farmer's plots.
+    """
+
+    subject_internal_record_id: str
+    register_mnemonic: Optional[str] = None  # one activity register only
+    include_descendants: bool = True
+    statuses: Optional[list[str]] = None  # default: ACTIVE
+
+
+class LatestActivityPayload(BaseModel):
+    """The most recent current activity of a type, for form defaults."""
+
+    register_mnemonic: str
+    activity_type: str
+    context_id: Optional[str] = None
+    subject_id: Optional[str] = None
+    subject_internal_record_id: Optional[str] = None
+
+
+class SearchAggregatesPayload(BaseModel):
+    register_mnemonic: Optional[str] = None
+    subject_id: Optional[str] = None
+    subject_internal_record_id: Optional[str] = None
+    aggregate_type: Optional[str] = None
+    period_key: Optional[str] = None
+
+
+class AggregateHistoryPayload(BaseModel):
+    register_mnemonic: str
+    subject_id: str
+    aggregate_type: str
+    period_key: Optional[str] = None
+
+
+class ActivityTypeSchemaPayload(BaseModel):
+    register_mnemonic: str
+    activity_type: str
+    schema_version: Optional[int] = None  # default: every version
+
+
 class RebuildProjectionsPayload(BaseModel):
     register_mnemonic: str
     context_id: Optional[str] = None
@@ -182,6 +232,7 @@ class RebuildProjectionsPayload(BaseModel):
 class ActivityRegisterData(BaseModel):
     register_id: str
     register_mnemonic: str
+    register_subject: Optional[str] = None  # short display name, e.g. "Crop seasons"
     register_description: Optional[str] = None
     master_register_id: Optional[str] = None
     register_icon: Optional[str] = None
@@ -208,6 +259,7 @@ class ActivityTypeData(BaseModel):
     requires_verification: bool = False
     reference_rules: Optional[dict] = None
     ethiopian_date_fields: Optional[list] = None
+    schema_version: int = 1
     # Code-list options for ATTRIBUTE-referenced fields: {field: [{"code", "label"}]}
     reference_options: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
 
@@ -222,12 +274,16 @@ class ActivityData(BaseModel):
     subject_type: Optional[str] = None
     subject_id: Optional[str] = None
     subject_internal_record_id: Optional[str] = None
+    subject_register_mnemonic: Optional[str] = None
+    subject_ancestor_record_ids: Optional[list] = None
     recorded_at: datetime
     recorded_by: str
     channel: str
     source_record_id: Optional[str] = None
     source_partner_id: Optional[str] = None
     idempotency_key: Optional[str] = None
+    submission_id: Optional[str] = None
+    schema_version: Optional[int] = None
     supersedes_activity_id: Optional[str] = None
     superseded_by_activity_id: Optional[str] = None
     status: str
@@ -243,6 +299,7 @@ class ActivityData(BaseModel):
     reference_checks: Optional[dict] = None
     rule_warnings: Optional[list] = None
     display: dict[str, Any] = Field(default_factory=dict)  # resolved reference labels
+    enrichment: Optional[dict] = None  # derived or external data, added asynchronously
 
 
 class AppendActivityResult(BaseModel):
@@ -315,6 +372,41 @@ class PeriodLockData(BaseModel):
     reopen_reason: Optional[str] = None
 
 
+class ActivityAggregateData(BaseModel):
+    aggregate_id: str
+    register_id: str
+    register_mnemonic: Optional[str] = None
+    subject_type: str
+    subject_id: str
+    subject_internal_record_id: Optional[str] = None
+    subject_register_mnemonic: Optional[str] = None
+    aggregate_type: str
+    period_key: str
+    period_start: Optional[date] = None
+    period_end: Optional[date] = None
+    aggregate_value: dict
+    geo_dimensions: Optional[dict] = None
+    custom_dimensions: Optional[dict] = None
+    computed_at: datetime
+    source_activity_id: Optional[str] = None
+
+
+class SubjectActivitiesData(BaseModel):
+    """One activity register's activities (and summaries) about a record."""
+
+    register_mnemonic: str
+    register_description: Optional[str] = None
+    activities: list[ActivityData] = Field(default_factory=list)
+    aggregates: list[ActivityAggregateData] = Field(default_factory=list)
+
+
+class ActivityTypeSchemaData(BaseModel):
+    activity_type: str
+    schema_version: int
+    payload_schema: Optional[dict] = None
+    created_at: datetime
+
+
 class TemporaryReferenceData(BaseModel):
     temporary_reference_id: str
     register_id: str
@@ -364,6 +456,11 @@ ResolveTemporaryReferenceRequestBody, ResolveTemporaryReferenceRequest = _envelo
 RebuildProjectionsRequestBody, RebuildProjectionsRequest = _envelope(
     RebuildProjectionsPayload, "RebuildProjections"
 )
+SubjectActivitiesRequestBody, SubjectActivitiesRequest = _envelope(SubjectActivitiesPayload, "SubjectActivities")
+LatestActivityRequestBody, LatestActivityRequest = _envelope(LatestActivityPayload, "LatestActivity")
+SearchAggregatesRequestBody, SearchAggregatesRequest = _envelope(SearchAggregatesPayload, "SearchAggregates")
+AggregateHistoryRequestBody, AggregateHistoryRequest = _envelope(AggregateHistoryPayload, "AggregateHistory")
+ActivityTypeSchemaRequestBody, ActivityTypeSchemaRequest = _envelope(ActivityTypeSchemaPayload, "ActivityTypeSchema")
 
 
 class ActivityResponseBody(G2PResponseBody):

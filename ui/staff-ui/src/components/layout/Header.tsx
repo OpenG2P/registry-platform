@@ -8,7 +8,8 @@ import { ProfileDropdown, NotificationDropdown, ConfigurationButton, LanguageSwi
 import { useRuntimeConfig } from "@/context/RuntimeConfigContext";
 import { useLogoDimensions } from '@/shared/hooks';
 import Can from "../shared/Can";
-import { CONFIG_NAV_ACTIONS } from "@/features/shared/permissions";
+import { ACTIVITY_ACTIONS, CONFIG_NAV_ACTIONS } from "@/features/shared/permissions";
+import ActivityRegistersButton from "./ActivityRegistersButton";
 
 export default function Header() {
     const t = useTranslations();
@@ -74,6 +75,9 @@ export default function Header() {
 
                 {/* Desktop Navigation */}
                 <div className="flex items-center gap-8">
+                    <Can action={ACTIVITY_ACTIONS.view}>
+                        <ActivityRegistersButton />
+                    </Can>
                     <Can anyOf={CONFIG_NAV_ACTIONS}>
                         <ConfigurationButton />
                     </Can>

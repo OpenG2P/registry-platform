@@ -16,14 +16,16 @@ A concrete activity register is a ``g2p_register_definitions`` row with
 
 Activity types, contexts, period locks, idempotency keys, the outbox,
 temporary references and indicators are core tables shared by every activity
-register in the instance.
+register in the instance. So are the asynchronous layer's tables: enrichments
+(derived or external data kept beside an activity, never inside it) and
+aggregates (roll-ups per subject and period, with their history).
 """
 
 import uuid
 from datetime import datetime
 
 from openg2p_fastapi_common.models import BaseORMModel
-from sqlalchemy import Boolean, Date, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -60,10 +62,15 @@ class G2PActivity(BaseORMModel):
 
     # Who or what the activity is about. subject_type names the identifier
     # scheme (e.g. FARMER_ID, FAYDA_FAN, LOCAL_RECORD); subject_internal_record_id
-    # is set only when the subject is a record in a register of this instance.
+    # is set only when the subject is a record in a register of this instance,
+    # with subject_register_mnemonic naming that register. The record's
+    # ancestors (e.g. the farmer owning a plot) are kept as they were when the
+    # activity was written, so a farmer's profile finds its plots' activities.
     subject_type: Mapped[str] = mapped_column(String, nullable=True)
     subject_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     subject_internal_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    subject_register_mnemonic: Mapped[str] = mapped_column(String, nullable=True)
+    subject_ancestor_record_ids: Mapped[list] = mapped_column(JSONB, nullable=True)
 
     recorded_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
     recorded_by: Mapped[str] = mapped_column(String, nullable=False)
@@ -71,6 +78,11 @@ class G2PActivity(BaseORMModel):
     source_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     source_partner_id: Mapped[str] = mapped_column(String, nullable=True)
     idempotency_key: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    # One id per submission batch (an offline sync, a file, a partner call).
+    submission_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    # The activity type's schema_version when this activity was written, so a
+    # payload is always read against the schema it was validated with.
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=True)
 
     supersedes_activity_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     superseded_by_activity_id: Mapped[str] = mapped_column(String, nullable=True)
@@ -120,6 +132,9 @@ class G2PActivityType(BaseORMModel):
 
     # JSON Schema (draft 2020-12) the payload must satisfy.
     payload_schema: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    # Incremented by a database trigger whenever payload_schema changes (by a
+    # seed, an API or by hand); each version is kept in g2p_activity_type_schemas.
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     # Form layout for the staff UI, same shape as g2p_register_sections.section_ui_schema.
     section_ui_schema: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
@@ -332,3 +347,78 @@ class G2PActivityOdkFailure(BaseORMModel):
     first_failed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
     last_failed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
     resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+
+
+class G2PActivityTypeSchema(BaseORMModel):
+    """Every payload schema an activity type has had, by version (written by a trigger)."""
+
+    __tablename__ = "g2p_activity_type_schemas"
+
+    activity_type_id: Mapped[str] = mapped_column(String, primary_key=True)
+    schema_version: Mapped[int] = mapped_column(Integer, primary_key=True)
+    register_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    activity_type: Mapped[str] = mapped_column(String, nullable=False)
+    payload_schema: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
+
+
+class G2PActivityEnrichment(BaseORMModel):
+    """Derived or external data for one activity (e.g. rainfall at the plot), written asynchronously.
+
+    Kept beside the activity rather than in it: the activity row is append-only
+    and its payload is exactly what was submitted.
+    """
+
+    __tablename__ = "g2p_activity_enrichments"
+
+    activity_id: Mapped[str] = mapped_column(String, primary_key=True)
+    register_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    enrichment: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    enriched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
+
+
+class _G2PActivityAggregateBase(BaseORMModel):
+    __abstract__ = True
+
+    register_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # The subject the roll-up is about, which need not be an activity's own
+    # subject (e.g. a farmer's season summary across all of the farmer's plots).
+    subject_type: Mapped[str] = mapped_column(String, nullable=False)
+    subject_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    subject_internal_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    subject_register_mnemonic: Mapped[str] = mapped_column(String, nullable=True)
+    aggregate_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # A label the domain chooses (e.g. "2019|SEASON_MEHER"), with a sortable date range.
+    period_key: Mapped[str] = mapped_column(String, nullable=False)
+    period_start: Mapped[datetime] = mapped_column(Date, nullable=True, index=True)
+    period_end: Mapped[datetime] = mapped_column(Date, nullable=True)
+    aggregate_value: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    geo_dimensions: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    custom_dimensions: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    computed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
+    # The activity event that caused this computation.
+    source_activity_id: Mapped[str] = mapped_column(String, nullable=True)
+
+
+class G2PActivityAggregate(_G2PActivityAggregateBase):
+    """The latest value of a roll-up, one row per register × subject × aggregate type × period."""
+
+    __tablename__ = "g2p_activity_aggregates"
+    __table_args__ = (
+        UniqueConstraint(
+            "register_id", "subject_type", "subject_id", "aggregate_type", "period_key",
+            name="uq_activity_aggregate",
+        ),
+    )
+
+    aggregate_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+
+
+class G2PActivityAggregateHistory(_G2PActivityAggregateBase):
+    """Every value a roll-up has had, appended on each computation."""
+
+    __tablename__ = "g2p_activity_aggregate_history"
+    __table_args__ = (Index("ix_activity_aggregate_history_key", "subject_id", "aggregate_type", "period_key"),)
+
+    history_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    aggregate_id: Mapped[str] = mapped_column(String, nullable=False, index=True)

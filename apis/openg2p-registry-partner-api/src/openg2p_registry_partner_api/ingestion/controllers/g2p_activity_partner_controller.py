@@ -86,6 +86,8 @@ class G2PActivityPartnerController(BaseController):
                 channel=ActivityChannelEnum.PARTNER.value,
                 atomic=envelope.message.atomic,
                 partner_id=partner,
+                # One partner message is one submission.
+                submission_id=f"{partner}:{envelope.header.message_id}",
             )
             failed = sum(1 for result in results if result.outcome == "FAILED")
             status = "SUCCESS" if not failed else ("FAILED" if failed == len(results) else "PARTIAL")

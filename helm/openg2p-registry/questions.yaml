@@ -234,6 +234,13 @@ questions:
   label: Load Templates to MinIO
   group: DB Seed
 
+- variable: dbSeed.optionalSeeds
+  description: "Optional seeds the registry's db-seed image ships (folders under /seed/optional), comma-separated, run after the registry's own seed — for example an activity register the registry offers but not every install needs. Leave empty for none."
+  type: string
+  default: ""
+  label: Optional Seeds
+  group: DB Seed
+
 - variable: dbSeed.image.repository
   description: Docker image repository for the DB seed container
   type: string

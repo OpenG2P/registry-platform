@@ -2,12 +2,22 @@
 
 The outbox row is committed in the same transaction as the activity, so no
 event is ever lost. A worker claims pending rows with SKIP LOCKED (several
-workers can run), publishes to outgest topics, runs the register's aggregate
-hook, and marks the row processed — in one transaction, so a crash means the
-row is simply picked up again. Every step is idempotent.
+workers can run) and, for each event:
+
+1. publishes to outgest topics;
+2. enrichment — stores the register's ``enrich`` result beside the activity
+   (APPENDED events);
+3. aggregates — stores each roll-up the register's ``aggregate`` returns,
+   replacing the current value for its subject, type and period, and appends
+   it to the aggregate history;
+4. runs the register's ``on_activity_event`` hook, if any;
+
+and marks the row processed — in one transaction, so a crash means the row is
+simply picked up again. Every step is idempotent.
 """
 
 import logging
+import uuid
 from datetime import datetime
 
 from openg2p_fastapi_common.context import dbengine
@@ -19,6 +29,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..config import Settings
 from ..errors import G2PRegistryException
 from ..models import (
+    ActivityOutboxEventEnum,
+    G2PActivityAggregate,
+    G2PActivityAggregateHistory,
+    G2PActivityEnrichment,
     G2PActivityOutbox,
     G2PRegisterDefinition,
     OutgoingRawData,
@@ -96,9 +110,67 @@ class G2PActivityOutboxService(BaseService):
             return
         if definition.outgest_applicable:
             await self._outgest(session, definition, activity, outbox)
-        hook = getattr(register.domain_service, "on_activity_event", None)
+        domain = register.domain_service
+        if outbox.event_type == ActivityOutboxEventEnum.APPENDED.value:
+            enrichment = await domain.enrich(session, register, activity)
+            if enrichment:
+                await self._store_enrichment(session, register, activity, enrichment)
+        for result in await domain.aggregate(session, register, activity, outbox.event_type) or []:
+            await self._store_aggregate(session, register, activity, result)
+        hook = getattr(domain, "on_activity_event", None)
         if hook is not None:
             await hook(session, outbox.event_type, activity)
+
+    @staticmethod
+    async def _store_enrichment(session, register, activity, enrichment: dict) -> None:
+        stmt = insert(G2PActivityEnrichment).values(
+            activity_id=activity.activity_id,
+            register_id=register.register_id,
+            enrichment=enrichment,
+            enriched_at=datetime.utcnow(),
+        )
+        await session.execute(
+            stmt.on_conflict_do_update(
+                index_elements=["activity_id"],
+                set_={"enrichment": stmt.excluded.enrichment, "enriched_at": stmt.excluded.enriched_at},
+            )
+        )
+
+    @staticmethod
+    async def _store_aggregate(session, register, activity, result) -> None:
+        now = datetime.utcnow()
+        values = {
+            "register_id": register.register_id,
+            "subject_type": result.subject_type,
+            "subject_id": result.subject_id,
+            "subject_internal_record_id": result.subject_internal_record_id,
+            "subject_register_mnemonic": result.subject_register_mnemonic,
+            "aggregate_type": result.aggregate_type,
+            "period_key": result.period_key,
+            "period_start": result.period_start,
+            "period_end": result.period_end,
+            "aggregate_value": _json_ready(result.aggregate_value),
+            "geo_dimensions": _json_ready(
+                result.geo_dimensions
+                if result.geo_dimensions is not None
+                else getattr(activity, "geo_code_hierarchy_json", None)
+            ),
+            "custom_dimensions": _json_ready(result.custom_dimensions),
+            "computed_at": now,
+            "source_activity_id": activity.activity_id,
+        }
+        stmt = insert(G2PActivityAggregate).values(aggregate_id=str(uuid.uuid4()), **values)
+        stmt = stmt.on_conflict_do_update(
+            constraint="uq_activity_aggregate",
+            set_={key: stmt.excluded[key] for key in values if key not in (
+                "register_id", "subject_type", "subject_id", "aggregate_type", "period_key")},
+        ).returning(G2PActivityAggregate.aggregate_id)
+        aggregate_id = (await session.execute(stmt)).scalar_one()
+        await session.execute(
+            insert(G2PActivityAggregateHistory).values(
+                history_id=str(uuid.uuid4()), aggregate_id=aggregate_id, **values
+            )
+        )
 
     async def _outgest(self, session, definition, activity, outbox) -> None:
         topics = (
@@ -212,6 +284,15 @@ class G2PActivityOutboxService(BaseService):
             "counts": counts,
             "oldest_pending_seconds": (datetime.utcnow() - oldest).total_seconds() if oldest else 0,
         }
+
+
+def _json_ready(value):
+    """Aggregate values may hold Decimals and dates from projections; JSONB wants plain JSON."""
+    if isinstance(value, dict):
+        return {key: _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    return _jsonable(value)
 
 
 def _jsonable(value):

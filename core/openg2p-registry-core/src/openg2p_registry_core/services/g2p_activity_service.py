@@ -6,7 +6,9 @@ Writing an activity is one transaction:
    idempotency key was seen before;
 2. convert Ethiopian-calendar dates, let the domain enrich the payload, and
    validate it against the type's JSON Schema;
-3. check references (codes, geo, local records, external IDs);
+3. check references (codes, geo, local records, external IDs), and take the
+   subject from a reference marked as the subject (with the record's
+   ancestors, so parent records' profiles find the activity);
 4. find or open the context, locking it so concurrent writes to one context
    are serialised;
 5. check dates, period locks, repeatability, uniqueness and sequence;
@@ -38,19 +40,27 @@ from ..models import (
     ActivityStatusEnum,
     ActivityVerificationStatusEnum,
     G2PActivity,
+    G2PActivityAggregate,
+    G2PActivityAggregateHistory,
     G2PActivityContext,
+    G2PActivityEnrichment,
     G2PActivityIdempotencyKey,
     G2PActivityOutbox,
     G2PActivityPeriodLock,
     G2PActivityTemporaryReference,
+    G2PActivityTypeSchema,
+    G2PRegisterDefinition,
 )
 from ..repositories import ActivityPolicyRepository
 from ..schemas.activity import (
+    ActivityAggregateData,
     ActivityContextData,
     ActivityData,
     ActivityInput,
+    ActivityTypeSchemaData,
     AppendActivityResult,
     PeriodLockData,
+    SubjectActivitiesData,
     TemporaryReferenceData,
     WorkItemData,
 )
@@ -125,7 +135,13 @@ class G2PActivityService(BaseService):
         channel: str,
         atomic: bool = False,
         partner_id: Optional[str] = None,
+        submission_id: Optional[str] = None,
     ) -> list[AppendActivityResult]:
+        # One submission id for the batch, unless each activity already names its own.
+        batch_id = submission_id or str(uuid.uuid4())
+        activities = [
+            a if a.submission_id else a.model_copy(update={"submission_id": batch_id}) for a in activities
+        ]
         if atomic:
             async with self._session_maker()() as session:
                 async with session.begin():
@@ -187,6 +203,10 @@ class G2PActivityService(BaseService):
         payload, checks, warnings = await self.references.check_references(
             session, register.register_id, type_row, payload, domain
         )
+        activity = await self._with_subject(session, type_row, activity, payload)
+        ancestors = await self.references.ancestor_record_ids(
+            session, activity.subject_register_mnemonic, activity.subject_internal_record_id
+        )
 
         context = await self._resolve_context(session, register, type_row, activity, payload, actor)
         self.rules.check_dates(type_row, occurred_at, now)
@@ -209,12 +229,16 @@ class G2PActivityService(BaseService):
             subject_type=activity.subject_type or (context.subject_type if context else None),
             subject_id=activity.subject_id or (context.subject_id if context else None),
             subject_internal_record_id=activity.subject_internal_record_id,
+            subject_register_mnemonic=activity.subject_register_mnemonic,
+            subject_ancestor_record_ids=ancestors or None,
             recorded_at=now,
             recorded_by=actor,
             channel=channel,
             source_record_id=activity.source_record_id,
             source_partner_id=partner_id,
             idempotency_key=activity.idempotency_key,
+            submission_id=activity.submission_id,
+            schema_version=type_row.schema_version,
             supersedes_activity_id=superseding.activity_id if superseding is not None else None,
             status=ActivityStatusEnum.ACTIVE.value,
             verification_status=(
@@ -263,6 +287,7 @@ class G2PActivityService(BaseService):
                     subject_type=old.subject_type,
                     subject_id=old.subject_id,
                     subject_internal_record_id=old.subject_internal_record_id,
+                    subject_register_mnemonic=old.subject_register_mnemonic,
                     context_id=old.context_id,
                     payload=payload if payload is not None else dict(old.payload or {}),
                     source_record_id=old.source_record_id,
@@ -385,6 +410,136 @@ class G2PActivityService(BaseService):
             stmt = self._apply_policy(select(model).where(*conditions), register, model, data_policies)
             rows = (await session.execute(stmt.order_by(model.occurred_at, model.recorded_at))).scalars()
             return [await self.to_data(session, register, row) for row in rows]
+
+    # ================================================= subjects and defaults
+
+    async def subject_activities(self, payload, data_policies=None) -> list[SubjectActivitiesData]:
+        """Activities about a record of this registry, per activity register, newest first.
+
+        With include_descendants, also those about its child records (a
+        farmer's plots), found through the ancestors stamped on each activity.
+        """
+        record_id = payload.subject_internal_record_id
+        statuses = payload.statuses or [ActivityStatusEnum.ACTIVE.value]
+        result: list[SubjectActivitiesData] = []
+        async with self._session_maker()() as session:
+            definitions = await self.registry.list_registers(session)
+            for definition in definitions:
+                if payload.register_mnemonic and definition.register_mnemonic != payload.register_mnemonic:
+                    continue
+                try:
+                    register = await self.registry.get_register(session, definition.register_mnemonic)
+                except G2PRegistryException:
+                    continue  # no classes for this register in the loaded extension
+                model = register.activity_model
+                about = model.subject_internal_record_id == record_id
+                if payload.include_descendants:
+                    about = or_(about, model.subject_ancestor_record_ids.contains([record_id]))
+                stmt = select(model).where(about, model.status.in_(statuses))
+                stmt = self._apply_policy(stmt, register, model, data_policies)
+                rows = list(
+                    (await session.execute(stmt.order_by(model.occurred_at.desc(), model.recorded_at.desc()))).scalars()
+                )
+                aggregates = await self._aggregates(session, [register.register_id], None, record_id, None, None)
+                if not rows and not aggregates:
+                    continue
+                result.append(
+                    SubjectActivitiesData(
+                        register_mnemonic=register.mnemonic,
+                        register_description=definition.register_description,
+                        activities=[await self.to_data(session, register, row) for row in rows],
+                        aggregates=aggregates,
+                    )
+                )
+        return result
+
+    async def latest_activity(self, payload, data_policies=None) -> Optional[ActivityData]:
+        """The most recent current activity of a type for a context or subject — form defaults."""
+        async with self._session_maker()() as session:
+            register = await self.registry.get_register(session, payload.register_mnemonic)
+            model = register.activity_model
+            conditions = [model.activity_type == payload.activity_type, active_filter(model)]
+            if payload.context_id:
+                conditions.append(model.context_id == payload.context_id)
+            elif payload.subject_internal_record_id:
+                conditions.append(model.subject_internal_record_id == payload.subject_internal_record_id)
+            elif payload.subject_id:
+                conditions.append(model.subject_id == payload.subject_id)
+            else:
+                return None
+            stmt = self._apply_policy(select(model).where(*conditions), register, model, data_policies)
+            row = (
+                await session.execute(stmt.order_by(model.occurred_at.desc(), model.recorded_at.desc()).limit(1))
+            ).scalar()
+            return await self.to_data(session, register, row) if row is not None else None
+
+    async def activity_type_schemas(self, payload) -> list[ActivityTypeSchemaData]:
+        """Every payload schema an activity type has had, newest first."""
+        async with self._session_maker()() as session:
+            register = await self.registry.get_register(session, payload.register_mnemonic)
+            stmt = select(G2PActivityTypeSchema).where(
+                G2PActivityTypeSchema.register_id == register.register_id,
+                G2PActivityTypeSchema.activity_type == payload.activity_type,
+            )
+            if payload.schema_version is not None:
+                stmt = stmt.where(G2PActivityTypeSchema.schema_version == payload.schema_version)
+            rows = (await session.execute(stmt.order_by(G2PActivityTypeSchema.schema_version.desc()))).scalars()
+            return [ActivityTypeSchemaData.model_validate(row, from_attributes=True) for row in rows]
+
+    # ============================================================= aggregates
+
+    async def search_aggregates(self, payload) -> list[ActivityAggregateData]:
+        async with self._session_maker()() as session:
+            register_ids = None
+            if payload.register_mnemonic:
+                register_ids = [(await self.registry.get_register(session, payload.register_mnemonic)).register_id]
+            return await self._aggregates(
+                session, register_ids, payload.subject_id, payload.subject_internal_record_id,
+                payload.aggregate_type, payload.period_key,
+            )
+
+    async def aggregate_history(self, payload) -> list[ActivityAggregateData]:
+        async with self._session_maker()() as session:
+            register = await self.registry.get_register(session, payload.register_mnemonic)
+            stmt = select(G2PActivityAggregateHistory).where(
+                G2PActivityAggregateHistory.register_id == register.register_id,
+                G2PActivityAggregateHistory.subject_id == payload.subject_id,
+                G2PActivityAggregateHistory.aggregate_type == payload.aggregate_type,
+            )
+            if payload.period_key:
+                stmt = stmt.where(G2PActivityAggregateHistory.period_key == payload.period_key)
+            rows = (await session.execute(stmt.order_by(G2PActivityAggregateHistory.computed_at))).scalars()
+            return [
+                ActivityAggregateData.model_validate(row, from_attributes=True).model_copy(
+                    update={"register_mnemonic": register.mnemonic}
+                )
+                for row in rows
+            ]
+
+    async def _aggregates(self, session, register_ids, subject_id, subject_internal_record_id, aggregate_type,
+                          period_key) -> list[ActivityAggregateData]:
+        if not subject_id and not subject_internal_record_id:
+            return []
+        stmt = select(G2PActivityAggregate, G2PRegisterDefinition.register_mnemonic).join(
+            G2PRegisterDefinition, G2PRegisterDefinition.register_id == G2PActivityAggregate.register_id
+        )
+        if register_ids is not None:
+            stmt = stmt.where(G2PActivityAggregate.register_id.in_(register_ids))
+        if subject_internal_record_id:
+            stmt = stmt.where(G2PActivityAggregate.subject_internal_record_id == subject_internal_record_id)
+        if subject_id:
+            stmt = stmt.where(G2PActivityAggregate.subject_id == subject_id)
+        if aggregate_type:
+            stmt = stmt.where(G2PActivityAggregate.aggregate_type == aggregate_type)
+        if period_key:
+            stmt = stmt.where(G2PActivityAggregate.period_key == period_key)
+        stmt = stmt.order_by(G2PActivityAggregate.period_start.desc().nulls_last(), G2PActivityAggregate.aggregate_type)
+        return [
+            ActivityAggregateData.model_validate(row, from_attributes=True).model_copy(
+                update={"register_mnemonic": mnemonic}
+            )
+            for row, mnemonic in (await session.execute(stmt)).all()
+        ]
 
     # =============================================================== contexts
 
@@ -619,6 +774,7 @@ class G2PActivityService(BaseService):
             display = await self.references.display_labels(session, type_row, row.payload or {}, register.domain_service)
         except G2PRegistryException:
             pass  # type deactivated since: still return the activity
+        enrichment = await session.get(G2PActivityEnrichment, row.activity_id)
         base = {key: value for key, value in values.items() if key in _BASE_ACTIVITY_COLUMNS}
         return ActivityData(
             **base,
@@ -626,7 +782,17 @@ class G2PActivityService(BaseService):
             occurred_on_ec=format_ethiopian_date(row.occurred_at.date()),
             columns={key: _jsonable(value) for key, value in columns.items()},
             display=display,
+            enrichment=enrichment.enrichment if enrichment is not None else None,
         )
+
+    async def _with_subject(self, session, type_row, activity: ActivityInput, payload: dict) -> ActivityInput:
+        """Take the subject from a reference rule marked ``"subject": true`` when the caller named none."""
+        if activity.subject_internal_record_id:
+            return activity
+        subject = await self.references.subject_from_rules(session, type_row, payload)
+        if subject is None:
+            return activity
+        return activity.model_copy(update=subject)
 
     def _occurred_at(self, activity: ActivityInput) -> datetime:
         if activity.occurred_on_ec:

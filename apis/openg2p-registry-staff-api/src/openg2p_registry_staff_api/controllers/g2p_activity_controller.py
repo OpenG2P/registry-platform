@@ -11,6 +11,8 @@ from openg2p_registry_core.schemas import (
     ActivityResponse,
     ActivityStatusChangeRequest,
     ActivityTimelineRequest,
+    ActivityTypeSchemaRequest,
+    AggregateHistoryRequest,
     AppendActivitiesRequest,
     AppendActivityRequest,
     ComputeIndicatorRequest,
@@ -18,14 +20,17 @@ from openg2p_registry_core.schemas import (
     ContextStatusChangeRequest,
     GetActivityRequest,
     GetProjectionRequest,
+    LatestActivityRequest,
     LockPeriodRequest,
     OpenContextRequest,
     RebuildProjectionsRequest,
     RegisterMnemonicRequest,
     ResolveTemporaryReferenceRequest,
     SearchActivitiesRequest,
+    SearchAggregatesRequest,
     SearchContextsRequest,
     SearchProjectionsRequest,
+    SubjectActivitiesRequest,
     SupersedeActivityRequest,
     UnlockPeriodRequest,
     WorkListRequest,
@@ -95,6 +100,11 @@ class G2PActivityController(BaseController):
             ("/get_temporary_references", self.get_temporary_references),
             ("/resolve_temporary_reference", self.resolve_temporary_reference),
             ("/rebuild_projections", self.rebuild_projections),
+            ("/get_subject_activities", self.get_subject_activities),
+            ("/get_latest_activity", self.get_latest_activity),
+            ("/search_aggregates", self.search_aggregates),
+            ("/get_aggregate_history", self.get_aggregate_history),
+            ("/get_activity_type_schemas", self.get_activity_type_schemas),
         ]
         for path, endpoint in routes:
             self.router.add_api_route(path, endpoint, responses={200: {"model": ActivityResponse}}, methods=["POST"])
@@ -148,7 +158,8 @@ class G2PActivityController(BaseController):
         return await self._respond(
             request,
             self.activities.append_many(
-                payload.activities, _actor(http_request), ActivityChannelEnum.STAFF_PORTAL.value, atomic=payload.atomic
+                payload.activities, _actor(http_request), ActivityChannelEnum.STAFF_PORTAL.value,
+                atomic=payload.atomic, submission_id=payload.submission_id,
             ),
         )
 
@@ -347,3 +358,37 @@ class G2PActivityController(BaseController):
             return {"contexts_rebuilt": await self.controller_service.rebuild_projections(p.register_mnemonic, p.context_id)}
 
         return await self._respond(request, work())
+
+    # ------------------------------------------------ subjects, defaults, roll-ups
+
+    @require_permissions(VIEW)
+    @data_policy
+    async def get_subject_activities(self, http_request: Request, request: SubjectActivitiesRequest) -> ActivityResponse:
+        """A record's activities (and its child records'), per activity register — the profile tab."""
+        return await self._respond(
+            request,
+            self.activities.subject_activities(request.request_body.request_payload, get_data_policies(http_request)),
+        )
+
+    @require_permissions(VIEW)
+    @data_policy
+    async def get_latest_activity(self, http_request: Request, request: LatestActivityRequest) -> ActivityResponse:
+        """The latest current activity of a type for a context or subject, to pre-fill a new one."""
+        return await self._respond(
+            request,
+            self.activities.latest_activity(request.request_body.request_payload, get_data_policies(http_request)),
+        )
+
+    @require_permissions(VIEW)
+    async def search_aggregates(self, request: SearchAggregatesRequest) -> ActivityResponse:
+        return await self._respond(request, self.activities.search_aggregates(request.request_body.request_payload))
+
+    @require_permissions(VIEW)
+    async def get_aggregate_history(self, request: AggregateHistoryRequest) -> ActivityResponse:
+        return await self._respond(request, self.activities.aggregate_history(request.request_body.request_payload))
+
+    @require_permissions(VIEW)
+    async def get_activity_type_schemas(self, request: ActivityTypeSchemaRequest) -> ActivityResponse:
+        return await self._respond(
+            request, self.activities.activity_type_schemas(request.request_body.request_payload)
+        )

@@ -22,6 +22,9 @@ const PURPOSE_OPTIONS = [
     { label: 'TABLE', value: 'TABLE' },
 ];
 
+/** An activity register keeps its purpose; no other register can be switched to it. */
+const ACTIVITY_PURPOSE = 'ACTIVITY';
+
 export default function EditRegisterModal({ onClose, onSuccess, initialData }: EditRegisterModalProps) {
     const t = useTranslations();
     const { registers } = useAllRegister(1, 100);
@@ -29,6 +32,10 @@ export default function EditRegisterModal({ onClose, onSuccess, initialData }: E
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState(EMPTY_REGISTER_FORM);
+    const isActivityRegister = initialData?.register_purpose === ACTIVITY_PURPOSE;
+    const purposeOptions = isActivityRegister
+        ? [{ label: ACTIVITY_PURPOSE, value: ACTIVITY_PURPOSE }]
+        : PURPOSE_OPTIONS;
 
     useEffect(() => {
         if (initialData) {
@@ -87,7 +94,7 @@ export default function EditRegisterModal({ onClose, onSuccess, initialData }: E
                 dedup_threshold_score: Number(formData.dedup_threshold_score) || 0,
                 register_icon: formData.register_icon,
                 register_rank: Number(formData.register_rank) || 0,
-                register_purpose: formData.register_purpose,
+                register_purpose: isActivityRegister ? ACTIVITY_PURPOSE : formData.register_purpose,
                 functional_id_generation_required: formData.functional_id_generation_required,
                 completion_score_required: formData.completion_score_required,
                 requires_registrant_authentication: formData.requires_registrant_authentication,
@@ -124,7 +131,8 @@ export default function EditRegisterModal({ onClose, onSuccess, initialData }: E
                 registers={registers}
                 fileInputRef={fileInputRef}
                 onFileChange={handleFileChange}
-                purposeOptions={PURPOSE_OPTIONS}
+                purposeOptions={purposeOptions}
+                purposeReadOnly={isActivityRegister}
                 iconPreview={(icon) =>
                     icon.startsWith('data:') ? icon : `data:image/png;base64,${icon}`
                 }

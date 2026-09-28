@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 import { toast } from "react-toastify";
-import type { Activity, ActivityType, AppendResult, JsonValue } from "../types";
+import type { Activity, ActivityInput, ActivityType, AppendResult, JsonValue } from "../types";
 import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
+import { useLatestActivity } from "../hooks/useLatestActivity";
 import { formatEc } from "../utils/ethiopianCalendar";
+import { prefillPayload } from "../utils/prefill";
 import EthiopianDateInput from "./EthiopianDateInput";
 import SchemaForm from "./SchemaForm";
+
+/** The registry record an activity is about, when recording from its profile. */
+export interface RecordSubject {
+    internalRecordId: string;
+    registerMnemonic?: string;
+    label?: string;
+}
 
 interface Props {
     registerMnemonic: string;
@@ -14,6 +23,7 @@ interface Props {
     /** Prefill (e.g. from a crop-season page); these fields are shown read-only. */
     fixed?: Record<string, JsonValue>;
     contextId?: string;
+    subject?: RecordSubject;
     initialType?: string;
     onRecorded?: (activity: Activity) => void;
 }
@@ -21,9 +31,10 @@ interface Props {
 /**
  * Record one activity, or several at once (batch): each batch row shares the
  * type and date and differs only in its own fields — e.g. the same sowing
- * survey across many plots.
+ * survey across many plots. A single entry is pre-filled from the last
+ * activity of the same type for the context or subject.
  */
-export default function RecordActivity({ registerMnemonic, types, fixed = {}, contextId, initialType, onRecorded }: Props) {
+export default function RecordActivity({ registerMnemonic, types, fixed = {}, contextId, subject, initialType, onRecorded }: Props) {
     const api = useActivityApi();
     const [activityType, setActivityType] = useState(initialType ?? types[0]?.activity_type ?? "");
     const [occurredOn, setOccurredOn] = useState<string | undefined>(new Date().toISOString().slice(0, 10));
@@ -32,26 +43,55 @@ export default function RecordActivity({ registerMnemonic, types, fixed = {}, co
     const [busy, setBusy] = useState(false);
     const type = types.find((t) => t.activity_type === activityType);
 
+    // Form defaults from the last activity of this type (dates, photos and documents excluded).
+    const typedSubjectId = rows.length === 1 && typeof rows[0]?.subject_id === "string" ? rows[0].subject_id : undefined;
+    const latest = useLatestActivity({
+        registerMnemonic,
+        activityType,
+        contextId,
+        subjectId: typedSubjectId,
+        subjectInternalRecordId: subject?.internalRecordId,
+    });
+    const [appliedId, setAppliedId] = useState<string | null>(null);
+    const [filledFrom, setFilledFrom] = useState<Activity | null>(null);
+    if (latest && type && rows.length === 1 && latest.activity_id !== appliedId) {
+        setAppliedId(latest.activity_id);
+        setRows([{ ...prefillPayload(type, latest.payload), ...rows[0], ...fixed }]);
+        setFilledFrom(latest);
+    }
+    const clearPrefill = () => {
+        setRows([{ ...fixed }]);
+        setFilledFrom(null);
+    };
+
     const submit = async () => {
         if (!occurredOn) return;
         setBusy(true);
         setResults(null);
         try {
-            const activities = rows.map((payload) => ({
+            const activities: ActivityInput[] = rows.map((payload) => ({
                 register_mnemonic: registerMnemonic,
                 activity_type: activityType,
                 occurred_at: `${occurredOn}T00:00:00Z`,
                 context_id: contextId,
+                subject_internal_record_id: subject?.internalRecordId,
+                subject_register_mnemonic: subject?.internalRecordId ? subject.registerMnemonic : undefined,
                 payload,
                 idempotency_key: `ui:${crypto.randomUUID()}`,
             }));
             if (activities.length === 1) {
-                const { data } = await api<{ outcome: string; activity: Activity }>("append_activity", activities[0]);
+                const { data } = await api<{ outcome: string; activity: Activity }>("append_activity", { ...activities[0] });
                 toast.success(data.activity.rule_warnings?.length ? "Recorded, with warnings" : "Recorded");
                 setRows([{ ...fixed }]);
+                setFilledFrom(null);
                 onRecorded?.(data.activity);
             } else {
-                const { data } = await api<AppendResult[]>("append_activities", { activities, atomic: false });
+                const submissionId = crypto.randomUUID();
+                const { data } = await api<AppendResult[]>("append_activities", {
+                    activities: activities.map((a) => ({ ...a, submission_id: submissionId })),
+                    atomic: false,
+                    submission_id: submissionId,
+                });
                 setResults(data);
                 const failed = data.filter((r) => r.outcome === "FAILED").length;
                 if (failed) toast.warning(`${data.length - failed} recorded, ${failed} failed`);
@@ -69,6 +109,12 @@ export default function RecordActivity({ registerMnemonic, types, fixed = {}, co
 
     return (
         <div className="flex flex-col gap-5">
+            {subject?.internalRecordId && (
+                <p className="rounded-md bg-primary-first/20 px-3 py-2 text-sm">
+                    Recording for <span className="font-medium">{subject.label || subject.internalRecordId}</span>
+                    {subject.registerMnemonic ? <span className="opacity-70"> ({subject.registerMnemonic})</span> : null}
+                </p>
+            )}
             <div className="flex flex-wrap items-end gap-6">
                 <label className="flex flex-col gap-1 text-sm font-medium">
                     Activity
@@ -90,6 +136,14 @@ export default function RecordActivity({ registerMnemonic, types, fixed = {}, co
                     {type.requires_verification ? " · A supervisor verifies it" : ""}
                 </p>
             ) : null}
+
+            {filledFrom && rows.length === 1 && (
+                <p className="flex flex-wrap items-center gap-2 text-xs rounded-md bg-secondary-first px-3 py-2">
+                    Filled from the last {type?.display_name ?? filledFrom.activity_type} on {formatEc(filledFrom.occurred_at) || filledFrom.occurred_on_ec}
+                    <span className="opacity-60">({filledFrom.occurred_at.slice(0, 10)})</span>
+                    <button type="button" className="underline" onClick={clearPrefill}>Clear</button>
+                </p>
+            )}
 
             {type && rows.map((row, index) => (
                 <div key={index} className="rounded-[10px] bg-neutral-second p-4 flex flex-col gap-3">

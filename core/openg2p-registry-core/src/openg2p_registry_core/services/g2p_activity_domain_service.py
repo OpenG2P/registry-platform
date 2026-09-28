@@ -6,7 +6,8 @@ class. Every hook has a working default, so a register only overrides what its
 domain needs.
 """
 
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any, Optional
 
 from openg2p_fastapi_common.service import BaseService
@@ -14,6 +15,29 @@ from openg2p_fastapi_common.service import BaseService
 
 class ActivityContextSpec(dict):
     """What ``build_context`` returns: context_key plus optional context_type, subject and attributes."""
+
+
+@dataclass
+class ActivityAggregateResult:
+    """One roll-up value, returned by ``aggregate``; the platform stores it and keeps its history.
+
+    The subject may differ from the activity's (a farmer's season summary from a
+    plot's harvest). ``period_key`` is the domain's label for the period, with
+    its date range for sorting and filtering. Leave ``geo_dimensions`` unset to
+    have the platform copy the triggering activity's geography.
+    """
+
+    subject_type: str
+    subject_id: str
+    aggregate_type: str
+    period_key: str
+    aggregate_value: dict[str, Any]
+    period_start: Optional[date] = None
+    period_end: Optional[date] = None
+    subject_internal_record_id: Optional[str] = None
+    subject_register_mnemonic: Optional[str] = None
+    geo_dimensions: Optional[dict[str, Any]] = None
+    custom_dimensions: Optional[dict[str, Any]] = field(default=None)
 
 
 class G2PActivityDomainService(BaseService):
@@ -65,6 +89,29 @@ class G2PActivityDomainService(BaseService):
     def reference_display(self, field: str, value: Any) -> Optional[str]:
         """A display label for a referenced value not covered by code lists or geo."""
         return None
+
+    # ------------------------------------------------ asynchronous layer
+    #
+    # Both run from the outbox worker after an activity event (appended,
+    # superseded, voided, verified, rejected), in the worker's transaction, so
+    # they may read the register's activities and projections through
+    # ``session``. Both must be idempotent: an event can be processed again.
+
+    async def enrich(self, session, register, activity) -> Optional[dict[str, Any]]:
+        """Derived or external data for an activity (e.g. rainfall at the plot on the sowing date).
+
+        Returned data is stored beside the activity, never in it, and shown with
+        it. Return ``None`` for nothing to add. Called for APPENDED events only.
+        """
+        return None
+
+    async def aggregate(self, session, register, activity, event_type: str) -> list[ActivityAggregateResult]:
+        """Roll-ups affected by this event, recomputed from current data (not incremented).
+
+        Return every roll-up whose value may have changed; each replaces the
+        stored value for its subject, type and period, and is appended to history.
+        """
+        return []
 
     def now(self) -> datetime:
         return datetime.utcnow()

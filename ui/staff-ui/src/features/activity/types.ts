@@ -3,6 +3,8 @@ export type JsonValue = string | number | boolean | null | JsonValue[] | { [key:
 export interface ActivityRegister {
     register_id: string;
     register_mnemonic: string;
+    /** Short display name, e.g. "Crop seasons"; register_description is the long sentence. */
+    register_subject?: string | null;
     register_description?: string | null;
     master_register_id?: string | null;
     register_icon?: string | null;
@@ -49,6 +51,7 @@ export interface ActivityType {
     reference_rules?: Record<string, { kind: string; mode?: string; temporary_prefix?: string }> | null;
     ethiopian_date_fields?: string[] | null;
     reference_options: Record<string, CodeOption[]>;
+    schema_version: number;
 }
 
 export interface Activity {
@@ -60,10 +63,15 @@ export interface Activity {
     context_id?: string | null;
     subject_type?: string | null;
     subject_id?: string | null;
+    subject_internal_record_id?: string | null;
+    subject_register_mnemonic?: string | null;
+    subject_ancestor_record_ids?: string[] | null;
     recorded_at: string;
     recorded_by: string;
     channel: string;
     source_record_id?: string | null;
+    submission_id?: string | null;
+    schema_version?: number | null;
     supersedes_activity_id?: string | null;
     superseded_by_activity_id?: string | null;
     status: "ACTIVE" | "SUPERSEDED" | "VOIDED";
@@ -79,6 +87,62 @@ export interface Activity {
     reference_checks?: Record<string, { kind: string; mode: string; status: string; message?: string }> | null;
     rule_warnings?: string[] | null;
     display: Record<string, JsonValue>;
+    /** Derived or external data, added asynchronously after the activity was recorded. */
+    enrichment?: Record<string, JsonValue> | null;
+}
+
+/** What append_activity / append_activities accept for one activity. */
+export interface ActivityInput {
+    register_mnemonic: string;
+    activity_type: string;
+    occurred_at?: string;
+    occurred_on_ec?: string;
+    subject_type?: string;
+    subject_id?: string;
+    subject_internal_record_id?: string;
+    /** The register the subject record is in, when subject_internal_record_id is set. */
+    subject_register_mnemonic?: string;
+    context_id?: string;
+    context_key?: string;
+    payload: Record<string, JsonValue>;
+    source_record_id?: string;
+    idempotency_key?: string;
+    submission_id?: string;
+}
+
+/** A per-subject, per-period summary the register keeps up to date from its activities. */
+export interface ActivityAggregate {
+    aggregate_id: string;
+    register_id: string;
+    register_mnemonic?: string | null;
+    subject_type: string;
+    subject_id: string;
+    subject_internal_record_id?: string | null;
+    subject_register_mnemonic?: string | null;
+    aggregate_type: string;
+    period_key: string;
+    period_start?: string | null;
+    period_end?: string | null;
+    aggregate_value: Record<string, JsonValue>;
+    geo_dimensions?: Record<string, JsonValue> | null;
+    custom_dimensions?: Record<string, JsonValue> | null;
+    computed_at: string;
+    source_activity_id?: string | null;
+}
+
+/** One activity register's activities and summaries about a record (get_subject_activities). */
+export interface SubjectActivities {
+    register_mnemonic: string;
+    register_description?: string | null;
+    activities: Activity[];
+    aggregates: ActivityAggregate[];
+}
+
+export interface ActivityTypeSchema {
+    activity_type: string;
+    schema_version: number;
+    payload_schema?: JsonSchema | null;
+    created_at: string;
 }
 
 export interface ActivityContext {

@@ -11,6 +11,17 @@ Each activity type declares ``reference_rules`` per payload field::
 An EXTERNAL rule with ``"lookup": false`` checks the format only and never asks
 the other system (status FORMAT_CHECKED, no warning).
 
+Two options apply to LOCAL_RECORD rules, for an activity register that sits in
+the same registry as the records it is about (e.g. crop seasons inside the
+Farmer Registry):
+
+* ``"subject": true`` — the referenced record is the activity's subject; the
+  platform fills the subject fields, including the record's ancestors, so the
+  record's profile (and its parents' profiles) list the activity;
+* ``"belongs_to": "<field>"`` — the referenced record must be a child of the
+  record in ``<field>`` (e.g. the plot must belong to the farmer). STRICT
+  rejects a mismatch, LENIENT warns.
+
 Modes: STRICT rejects an unresolved value, LENIENT accepts it with a warning,
 NONE skips the check. A value starting with ``temporary_prefix`` is an ID
 created offline; it is recorded, replaced by its resolution once one exists,
@@ -32,6 +43,7 @@ from ..engine import get_engines
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import (
     G2PActivityTemporaryReference,
+    G2PRegisterDefinition,
     ReferenceKindEnum,
     ReferenceValidationModeEnum,
 )
@@ -132,7 +144,83 @@ class G2PActivityReferenceService(BaseService):
             elif overall == TEMPORARY:
                 warnings.append(f"{field}: temporary identifier awaiting resolution")
 
+        warnings += await self._check_ownership(session, rules, payload, checks)
         return payload, checks, warnings
+
+    async def _check_ownership(self, session, rules: dict, payload: dict, checks: dict) -> list[str]:
+        """``belongs_to``: a referenced record must be a child of another referenced record."""
+        warnings = []
+        for field, rule in rules.items():
+            parent_field = rule.get("belongs_to")
+            if not parent_field or str(rule.get("kind") or "").upper() != ReferenceKindEnum.LOCAL_RECORD.value:
+                continue
+            if checks.get(field, {}).get("status") != RESOLVED or checks.get(parent_field, {}).get("status") != RESOLVED:
+                continue
+            child = await self._local_record(session, rule, str(payload[field]))
+            parent = await self._local_record(session, rules.get(parent_field) or {}, str(payload[parent_field]))
+            if child is None or parent is None:
+                continue
+            if getattr(child, "link_internal_record_id", None) == parent.internal_record_id:
+                continue
+            text = f"{field}: '{payload[field]}' does not belong to {parent_field} '{payload[parent_field]}'"
+            checks[field]["status"] = UNRESOLVED
+            checks[field]["message"] = text
+            mode = str(rule.get("mode") or ReferenceValidationModeEnum.STRICT.value).upper()
+            if mode == ReferenceValidationModeEnum.STRICT.value:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.ACTIVITY_REFERENCE_UNRESOLVED.value[1], message=text
+                )
+            warnings.append(text)
+        return warnings
+
+    async def subject_from_rules(self, session, activity_type_row, payload: dict) -> Optional[dict]:
+        """The subject named by a LOCAL_RECORD rule marked ``"subject": true``, if the payload has one."""
+        for field, rule in (activity_type_row.reference_rules or {}).items():
+            if not rule.get("subject") or str(rule.get("kind") or "").upper() != ReferenceKindEnum.LOCAL_RECORD.value:
+                continue
+            value = payload.get(field)
+            if value in (None, ""):
+                continue
+            record = await self._local_record(session, rule, str(value))
+            if record is None:
+                continue
+            return {
+                "subject_type": ReferenceKindEnum.LOCAL_RECORD.value,
+                "subject_id": str(value),
+                "subject_internal_record_id": record.internal_record_id,
+                "subject_register_mnemonic": rule.get("register"),
+            }
+        return None
+
+    async def ancestor_record_ids(self, session, register_mnemonic: Optional[str], internal_record_id: str) -> list:
+        """The internal_record_ids of a record's parents, nearest first (a plot's farmer, and so on)."""
+        if not register_mnemonic or not internal_record_id:
+            return []
+        try:
+            models = importlib.import_module("openg2p_registry_extensions.register_domain.models")
+        except ModuleNotFoundError:
+            return []
+        ancestors: list[str] = []
+        mnemonic, record_id = register_mnemonic, internal_record_id
+        for _ in range(10):  # registers nest a few levels at most; never loop on bad data
+            definition = (
+                await session.execute(
+                    select(G2PRegisterDefinition).where(G2PRegisterDefinition.register_mnemonic == mnemonic)
+                )
+            ).scalar()
+            model = getattr(models, f"G2PRegister{mnemonic}", None)
+            if definition is None or model is None or not definition.master_register_id:
+                break
+            record = (
+                await session.execute(select(model).where(model.internal_record_id == record_id).limit(1))
+            ).scalar()
+            parent_id = getattr(record, "link_internal_record_id", None) if record is not None else None
+            parent = await session.get(G2PRegisterDefinition, definition.master_register_id)
+            if not parent_id or parent is None or parent_id in ancestors:
+                break
+            ancestors.append(parent_id)
+            mnemonic, record_id = parent.register_mnemonic, parent_id
+        return ancestors
 
     async def _check_rows(self, session, register_id, field, rule, payload, checks, domain_service) -> list[str]:
         list_field, key = field.split(".", 1)

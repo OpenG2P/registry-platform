@@ -28,6 +28,7 @@ import { CONFIGURATION_SCORES_ACTIONS } from '@/features/shared/permissions';
 import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
 import RegisterSectionConfigView from '@/features/configuration/registers/RegisterSectionConfigView';
+import ActivityRegisterNotice from '@/features/configuration/registers/ActivityRegisterNotice';
 
 type PaginatedTab = 'tabs' | 'sections' | 'scores' | 'file-import' | 'vc-import';
 type PaginationState = { totalItems: number; currentCount: number };
@@ -60,6 +61,12 @@ const RegisterConfigurationPage = () => {
     const [fileImportPagination, setFileImportPagination] = useState(EMPTY_PAGINATION);
     const [vcImportPagination, setVcImportPagination] = useState(EMPTY_PAGINATION);
 
+    const { registers, loading, refresh } = useAllRegister(1, 100);
+    const registerDetails = getRegisterDetails(registerId, registers);
+    // Activity registers take their forms from their activity types: tabs and sections do nothing for them.
+    const isActivityRegister = registerDetails?.register_purpose === 'ACTIVITY';
+    const currentTab = isActivityRegister && (activeTab === 'tabs' || activeTab === 'sections') ? 'scores' : activeTab;
+
     const paginatedTabs: Record<
         PaginatedTab,
         {
@@ -86,7 +93,7 @@ const RegisterConfigurationPage = () => {
         },
     };
 
-    const activePaginatedTab = paginatedTabs[activeTab as PaginatedTab];
+    const activePaginatedTab = paginatedTabs[currentTab as PaginatedTab];
     const currentPage = activePaginatedTab?.page ?? 1;
     const paginationInfo = activePaginatedTab?.pagination ?? EMPTY_PAGINATION;
 
@@ -95,12 +102,9 @@ const RegisterConfigurationPage = () => {
     const canCreateTabs = can(CONFIGURATION_TABS_ACTIONS.create);
     const canCreateScores = can(CONFIGURATION_SCORES_ACTIONS.create);
 
-    const { registers, loading, refresh } = useAllRegister(1, 100);
-    const registerDetails = getRegisterDetails(registerId, registers);
 
     const tabLabels: Record<string, string> = {
-        tabs: t('tabs'),
-        sections: t('sections'),
+        ...(isActivityRegister ? {} : { tabs: t('tabs'), sections: t('sections') }),
         scores: t('score_definition'),
         'file-import': t('file_import'),
         'vc-import': t('vc_import'),
@@ -112,13 +116,13 @@ const RegisterConfigurationPage = () => {
     const breadcrumb = useBreadcrumb({
         rootItem: { label: t('registers'), href: '/configuration/registers' },
         customItems: [
-            { label: `${registerDetails?.register_mnemonic || ''} - ${tabLabels[activeTab]}`, href: `/configuration/registers/${registerId}` }
+            { label: `${registerDetails?.register_mnemonic || ''} - ${tabLabels[currentTab]}`, href: `/configuration/registers/${registerId}` }
         ]
     });
 
     useEffect(() => {
-        paginatedTabs[activeTab as PaginatedTab]?.setPage(1);
-    }, [activeTab]);
+        paginatedTabs[currentTab as PaginatedTab]?.setPage(1);
+    }, [currentTab]);
 
     useEffect(() => {
         setIsTabModalOpen(false);
@@ -126,7 +130,7 @@ const RegisterConfigurationPage = () => {
         setIsScoreModalOpen(false);
         setIsFileImportModalOpen(false);
         setIsVcImportModalOpen(false);
-    }, [activeTab]);
+    }, [currentTab]);
 
     const { config } = useRuntimeConfig();
     const PAGE_SIZE = config.pageSize || 10;
@@ -177,10 +181,14 @@ const RegisterConfigurationPage = () => {
                 onView={() => setIsViewModalOpen(true)}
             />
 
+            {isActivityRegister && (
+                <ActivityRegisterNotice mnemonic={registerDetails.register_mnemonic ?? ''} />
+            )}
+
             <div className=" ml-4 mt-4 px-7.5">
                 <div className="flex justify-between items-center h-14">
                     <ConfigurationTabs
-                        activeTab={activeTab}
+                        activeTab={currentTab}
                         setActiveTab={setActiveTab}
                         tabLabels={tabLabels}
                     />
@@ -193,33 +201,33 @@ const RegisterConfigurationPage = () => {
                             showPagination={!!activePaginatedTab}
 
                             showAddNewButton={
-                                ((activeTab === 'scores' && canCreateScores) ||
-                                (activeTab !== 'scores' && canCreateTabs)) &&
-                                (activeTab === 'tabs' ||
-                                    activeTab === 'sections' ||
-                                    activeTab === 'scores' ||
-                                    activeTab === 'file-import' ||
-                                    activeTab === 'vc-import')
+                                ((currentTab === 'scores' && canCreateScores) ||
+                                (currentTab !== 'scores' && canCreateTabs)) &&
+                                (currentTab === 'tabs' ||
+                                    currentTab === 'sections' ||
+                                    currentTab === 'scores' ||
+                                    currentTab === 'file-import' ||
+                                    currentTab === 'vc-import')
                             }
 
                             addNewButtonText={(() => {
-                                if (activeTab === 'tabs') return t('add_new_tab');
-                                if (activeTab === 'scores') return t('add_new_score_type');
-                                if (activeTab === 'file-import') return t('add_new_import_file_config');
-                                if (activeTab === 'vc-import') return t('add_new_vc_import');
+                                if (currentTab === 'tabs') return t('add_new_tab');
+                                if (currentTab === 'scores') return t('add_new_score_type');
+                                if (currentTab === 'file-import') return t('add_new_import_file_config');
+                                if (currentTab === 'vc-import') return t('add_new_vc_import');
                                 return t('add_new_section');
                             })()}
 
                             onAddNewButton={() => {
-                                if (activeTab === 'tabs') {
+                                if (currentTab === 'tabs') {
                                     setIsTabModalOpen(true);
-                                } else if (activeTab === 'sections') {
+                                } else if (currentTab === 'sections') {
                                     setIsSectionModalOpen(true);
-                                } else if (activeTab === 'scores') {
+                                } else if (currentTab === 'scores') {
                                     setIsScoreModalOpen(true);
-                                } else if (activeTab === 'file-import') {
+                                } else if (currentTab === 'file-import') {
                                     setIsFileImportModalOpen(true);
-                                } else if (activeTab === 'vc-import') {
+                                } else if (currentTab === 'vc-import') {
                                     setIsVcImportModalOpen(true);
                                 }
                             }}
@@ -237,7 +245,7 @@ const RegisterConfigurationPage = () => {
 
 
             <div className="mt-0">
-                {activeTab === 'tabs' && (
+                {currentTab === 'tabs' && (
                     <RegisterTabConfigView
                         isModalOpen={isTabModalOpen}
                         onCloseModal={() => setIsTabModalOpen(false)}
@@ -249,7 +257,7 @@ const RegisterConfigurationPage = () => {
                     />
                 )}
 
-                {activeTab === 'sections' && (
+                {currentTab === 'sections' && (
                     <RegisterSectionConfigView
                         isModalOpen={isSectionModalOpen}
                         onCloseModal={() => setIsSectionModalOpen(false)}
@@ -261,7 +269,7 @@ const RegisterConfigurationPage = () => {
                     />
                 )}
 
-                {activeTab === 'scores' && (
+                {currentTab === 'scores' && (
                     <RegisterScoreConfigView
                         isModalOpen={isScoreModalOpen}
                         onCloseModal={() => setIsScoreModalOpen(false)}
@@ -273,7 +281,7 @@ const RegisterConfigurationPage = () => {
                     />
                 )}
 
-                {activeTab === 'file-import' && (
+                {currentTab === 'file-import' && (
                     <RegisterImportFileConfigView
                         isModalOpen={isFileImportModalOpen}
                         onCloseModal={() => setIsFileImportModalOpen(false)}
@@ -285,7 +293,7 @@ const RegisterConfigurationPage = () => {
                     />
                 )}
 
-                {activeTab === 'vc-import' && (
+                {currentTab === 'vc-import' && (
                     <RegisterVcImportView
                         isModalOpen={isVcImportModalOpen}
                         onCloseModal={() => setIsVcImportModalOpen(false)}
@@ -297,10 +305,10 @@ const RegisterConfigurationPage = () => {
                     />
                 )}
 
-                {['filter', 'search', 'deduplication'].includes(activeTab) && (
+                {['filter', 'search', 'deduplication'].includes(currentTab) && (
                     <RegisterSchemaView
                         registerId={registerId}
-                        activeTab={activeTab as 'filter' | 'search' | 'deduplication'}
+                        activeTab={currentTab as 'filter' | 'search' | 'deduplication'}
                     />
                 )}
             </div>

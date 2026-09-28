@@ -128,4 +128,8 @@ from .g2p_activity import (
     G2PActivityProjection,
     G2PActivityOdkForm,
     G2PActivityOdkFailure,
+    G2PActivityTypeSchema,
+    G2PActivityEnrichment,
+    G2PActivityAggregate,
+    G2PActivityAggregateHistory,
 )

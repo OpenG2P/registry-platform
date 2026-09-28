@@ -6,7 +6,7 @@ import Can from "@/components/shared/Can";
 import { ACTIVITY_ACTIONS } from "@/features/shared/permissions";
 import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
 import type { Activity, ActivityType, JsonValue } from "../types";
-import { displayValue, fieldLabel, formatDateTime } from "../utils/labels";
+import { displayValue, fieldLabel, formatDateTime, humanize } from "../utils/labels";
 import { formatEc } from "../utils/ethiopianCalendar";
 import ReasonDialog from "./ReasonDialog";
 import SchemaForm from "./SchemaForm";
@@ -141,6 +141,21 @@ export default function ActivityDetail({ registerMnemonic, activity, type, onCha
                     </section>
                 )}
 
+                {activity.enrichment && Object.keys(activity.enrichment).length > 0 && (
+                    <section>
+                        <h3 className="font-medium mb-1">Enrichment</h3>
+                        <p className="text-xs opacity-70 mb-2">Derived or external data added after the activity was recorded.</p>
+                        <dl className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-4 gap-y-2 text-sm">
+                            {Object.entries(activity.enrichment).map(([key, value]) => (
+                                <div key={key} className="contents">
+                                    <dt className="opacity-70">{humanize(key)}</dt>
+                                    <dd className="break-words">{displayValue(undefined, key, value)}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </section>
+                )}
+
                 <section>
                     <h3 className="font-medium mb-2">Checks</h3>
                     <ul className="text-sm flex flex-col gap-1">
@@ -160,6 +175,8 @@ export default function ActivityDetail({ registerMnemonic, activity, type, onCha
                     <dl className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-4 gap-y-2 text-sm">
                         <dt className="opacity-70">Recorded</dt>
                         <dd>{formatDateTime(activity.recorded_at)} by {activity.recorded_by} ({activity.channel.replace("_", " ").toLowerCase()})</dd>
+                        {activity.schema_version != null && (<><dt className="opacity-70">Form</dt><dd>Form version {activity.schema_version}</dd></>)}
+                        {activity.submission_id && (<><dt className="opacity-70">Submission</dt><dd className="break-all">{activity.submission_id}</dd></>)}
                         {activity.source_record_id && (<><dt className="opacity-70">Source record</dt><dd className="break-all">{activity.source_record_id}</dd></>)}
                         {activity.supersedes_activity_id && (<><dt className="opacity-70">Corrects</dt><dd className="break-all">{activity.supersedes_activity_id}</dd></>)}
                         {activity.status !== "ACTIVE" && (

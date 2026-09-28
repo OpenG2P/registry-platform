@@ -2401,6 +2401,14 @@ class G2PRegisterService(BaseService):
         """
         Create a new register definition and a null register schema record.
         """
+        if register_purpose == RegisterPurposeEnum.ACTIVITY.value:
+            # An activity register needs its extension's G2PActivity<Mnemonic>
+            # classes; one created from configuration would have no tables.
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.ACTIVITY_REGISTER_IDENTITY_FIXED.value[1],
+                message="Activity registers are defined by a registry extension and created by its seed, "
+                        "not from register configuration",
+            )
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             # Check if register_mnemonic already exists

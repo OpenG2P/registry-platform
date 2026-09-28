@@ -33,6 +33,11 @@ const ACTIONS = new Set([
     "get_temporary_references",
     "resolve_temporary_reference",
     "rebuild_projections",
+    "get_subject_activities",
+    "get_latest_activity",
+    "search_aggregates",
+    "get_aggregate_history",
+    "get_activity_type_schemas",
 ]);
 
 export async function POST(req: NextRequest, context: { params: Promise<{ action: string }> }) {

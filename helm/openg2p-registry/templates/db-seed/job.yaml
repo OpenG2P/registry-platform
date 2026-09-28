@@ -124,6 +124,8 @@ spec:
               value: {{ .Values.dbSeed.loadImages | quote }}
             - name: LOAD_TEMPLATES
               value: {{ .Values.dbSeed.loadTemplates | quote }}
+            - name: OPTIONAL_SEEDS
+              value: {{ join "," (.Values.dbSeed.optionalSeeds | default list) | quote }}
             - name: IMAGE_BUCKET_NAME
               value: {{ tpl .Values.global.documentsBucketName $ | quote }}
             - name: AWE_DB_SEED_ENABLED

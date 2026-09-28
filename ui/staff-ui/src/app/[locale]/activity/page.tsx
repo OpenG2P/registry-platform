@@ -3,6 +3,7 @@
 import { Link } from '@/i18n/navigation';
 import { BreadcrumbBar } from '@/components/shared';
 import { useActivityRegisters } from '@/features/activity/hooks/useActivityRegisters';
+import { activityRegisterPath, registerLabel } from '@/features/activity/utils/labels';
 
 /** Every activity register in this registry instance. */
 export default function ActivityRegistersPage() {
@@ -16,9 +17,9 @@ export default function ActivityRegistersPage() {
                 {loading && <p className="text-sm opacity-70">Loading…</p>}
                 {!loading && registers.length === 0 && <p className="text-sm opacity-70">This registry has no activity registers.</p>}
                 {registers.map((r) => (
-                    <Link key={r.register_id} href={`/activity/${r.register_mnemonic.toLowerCase()}`}
+                    <Link key={r.register_id} href={activityRegisterPath(r.register_mnemonic)}
                         className="rounded-[10px] bg-neutral-second p-5 flex flex-col gap-1 hover:shadow-md">
-                        <span className="font-semibold">{r.register_mnemonic}</span>
+                        <span className="font-semibold">{registerLabel(r)}</span>
                         {r.register_description && <span className="text-sm opacity-80">{r.register_description}</span>}
                     </Link>
                 ))}

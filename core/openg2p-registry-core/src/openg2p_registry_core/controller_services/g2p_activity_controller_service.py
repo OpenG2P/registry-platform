@@ -48,6 +48,7 @@ class G2PActivityControllerService(BaseService):
                     ActivityRegisterData(
                         register_id=definition.register_id,
                         register_mnemonic=definition.register_mnemonic,
+                        register_subject=definition.register_subject,
                         register_description=definition.register_description,
                         master_register_id=definition.master_register_id,
                         register_icon=definition.register_icon,

@@ -43,6 +43,10 @@ LOAD_SAMPLE_DATA="${LOAD_SAMPLE_DATA:-false}"
 LOAD_IMAGES="${LOAD_IMAGES:-false}"
 LOAD_TEMPLATES="${LOAD_TEMPLATES:-false}"
 AWE_DB_SEED_ENABLED="${AWE_DB_SEED_ENABLED:-false}"
+# Optional seeds an extension ships but not every install wants, as
+# /seed/optional/<name>/*.sql — e.g. an activity register a registry offers as
+# an option. Comma-separated names; empty runs none.
+OPTIONAL_SEEDS="${OPTIONAL_SEEDS:-}"
 
 SEED_DIR="/seed"
 META_DATA_DIR="${SEED_DIR}/meta_data"
@@ -112,10 +116,21 @@ echo " Geo data    : ${LOAD_GEO_DATA}"
 echo " Sample data : ${LOAD_SAMPLE_DATA}"
 echo " Images      : ${LOAD_IMAGES}"
 echo " Templates   : ${LOAD_TEMPLATES}"
+echo " Optional    : ${OPTIONAL_SEEDS:-none}"
 echo "============================================="
 
 # 1. Registry meta_data (includes awe-integration mappings under meta_data/)
 run_sql_files "$META_DATA_DIR" "meta-data"
+
+# 1b. Optional seeds named in OPTIONAL_SEEDS, after meta_data (they may refer to
+#     registers it created).
+for name in $(echo "$OPTIONAL_SEEDS" | tr ',' ' '); do
+  if [ -d "${SEED_DIR}/optional/${name}" ]; then
+    run_sql_files "${SEED_DIR}/optional/${name}" "optional seed '${name}'"
+  else
+    echo "[db-seed] WARNING: optional seed '${name}' not found under ${SEED_DIR}/optional"
+  fi
+done
 
 # 2. Optionally load geo reference data into the master_data DB. Must run before
 #    sample data so the geo ids derived by load_sample_data.py already resolve.

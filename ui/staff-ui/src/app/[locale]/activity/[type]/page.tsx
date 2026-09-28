@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { BreadcrumbBar } from '@/components/shared';
 import Can from '@/components/shared/Can';
 import { ACTIVITY_ACTIONS } from '@/features/shared/permissions';
@@ -12,9 +12,13 @@ import ContextList from '@/features/activity/components/ContextList';
 import WorkList from '@/features/activity/components/WorkList';
 import Indicators from '@/features/activity/components/Indicators';
 import AdminPanel from '@/features/activity/components/AdminPanel';
-import RecordActivity from '@/features/activity/components/RecordActivity';
+import RecordActivity, { type RecordSubject } from '@/features/activity/components/RecordActivity';
+import Summaries from '@/features/activity/components/Summaries';
+import { registerLabel } from '@/features/activity/utils/labels';
 
-type Tab = 'activities' | 'contexts' | 'work' | 'indicators' | 'record' | 'admin';
+type Tab = 'activities' | 'contexts' | 'work' | 'summaries' | 'indicators' | 'record' | 'admin';
+const TABS: readonly Tab[] = ['activities', 'contexts', 'work', 'summaries', 'indicators', 'record', 'admin'];
+const isTab = (value: string | null): value is Tab => !!value && (TABS as readonly string[]).includes(value);
 
 /** One activity register: its activities, contexts, work list, indicators and settings. */
 export default function ActivityRegisterPage() {
@@ -23,7 +27,21 @@ export default function ActivityRegisterPage() {
     const register = findRegister(registers, type);
     const mnemonic = register?.register_mnemonic ?? '';
     const { types, byType } = useActivityTypes(mnemonic);
-    const [tab, setTab] = useState<Tab>('activities');
+    const searchParams = useSearchParams();
+    const [tab, setTab] = useState<Tab>(() => {
+        const fromUrl = searchParams.get('tab');
+        return isTab(fromUrl) ? fromUrl : 'activities';
+    });
+    // Recording from a registry record's profile (?tab=record&subject_internal_record_id=…).
+    const subjectInternalRecordId = searchParams.get('subject_internal_record_id') ?? undefined;
+    const subject: RecordSubject | undefined = subjectInternalRecordId
+        ? {
+            internalRecordId: subjectInternalRecordId,
+            registerMnemonic: searchParams.get('subject_register_mnemonic') ?? undefined,
+            label: searchParams.get('subject_label') ?? undefined,
+        }
+        : undefined;
+    const contextId = searchParams.get('context_id') ?? undefined;
     const [refreshKey, setRefreshKey] = useState(0);
 
     if (loading) return <div className="p-8 text-sm opacity-70">Loading…</div>;
@@ -33,6 +51,7 @@ export default function ActivityRegisterPage() {
         { id: 'activities', label: 'Activities' },
         { id: 'contexts', label: register.has_projection ? 'Current state' : 'Contexts' },
         { id: 'work', label: 'Work list' },
+        { id: 'summaries', label: 'Summaries' },
         { id: 'indicators', label: 'Indicators' },
         { id: 'record', label: 'Record', action: ACTIVITY_ACTIONS.create },
         { id: 'admin', label: 'Settings', action: ACTIVITY_ACTIONS.configure },
@@ -41,7 +60,7 @@ export default function ActivityRegisterPage() {
     return (
         <div className="min-h-screen bg-secondary-first pb-10">
             <div className="px-7.5 pt-5 flex flex-col gap-2">
-                <BreadcrumbBar breadcrumb={[{ label: 'Activity registers', href: '/activity' }, { label: register.register_mnemonic }]} />
+                <BreadcrumbBar breadcrumb={[{ label: 'Activity registers', href: '/activity' }, { label: registerLabel(register) }]} />
                 {register.register_description && <p className="text-sm opacity-80">{register.register_description}</p>}
             </div>
 
@@ -66,11 +85,14 @@ export default function ActivityRegisterPage() {
                 {tab === 'activities' && <ActivityList registerMnemonic={mnemonic} types={types} byType={byType} refreshKey={refreshKey} />}
                 {tab === 'contexts' && <ContextList registerMnemonic={mnemonic} hasProjection={register.has_projection} />}
                 {tab === 'work' && <WorkList registerMnemonic={mnemonic} types={types} byType={byType} />}
+                {tab === 'summaries' && <Summaries registerMnemonic={mnemonic} />}
                 {tab === 'indicators' && <Indicators registerMnemonic={mnemonic} />}
                 {tab === 'record' && types.length > 0 && (
                     <RecordActivity
                         registerMnemonic={mnemonic}
                         types={types}
+                        contextId={contextId}
+                        subject={subject}
                         onRecorded={() => { setRefreshKey((k) => k + 1); setTab('activities'); }}
                     />
                 )}

@@ -15,6 +15,9 @@ import { useRegisterDetail } from '@/features/register/hooks/useRegisterDetail';
 import RegisterDetailsPageSkeleton from '@/features/register/components/RegisterDetailsPageSkeleton';
 import { dataSourceRequestHandler } from '@/shared/services';
 import { VersionHistoryCard } from '@/features/register/components';
+import RecordActivities from '@/features/activity/components/RecordActivities';
+import { useRecordActivitiesTab } from '@/features/activity/hooks/useRecordActivitiesTab';
+import { useRegisterRecord } from '@/context/RegisterRecordContext';
 
 
 export default function RegisterDetailPage() {
@@ -39,17 +42,39 @@ export default function RegisterDetailPage() {
         currentRegister
     } = useRegisterDetail(() => setChangeRequestCount(prevCount => (prevCount ?? 0) + 1));
 
+    const { recordName, functionalRecordId } = useRegisterRecord();
+    const activities = useRecordActivitiesTab({
+        internalRecordId,
+        registerId: currentRegister?.register_id,
+        tabs,
+        activeTabIndex,
+        setActiveTabByIndex,
+    });
+
     const isLoading = !internalRecordId || !canRenderContent;
     const isNotFound = !internalRecordId;
 
     return (
         <TabsLayout
             breadcrumb={breadcrumb}
-            tabs={{ tabs }}
-            activeTab={activeTabIndex}
-            onTabChange={setActiveTabByIndex}
+            tabs={{ tabs: activities.tabs }}
+            activeTab={activities.activeTabIndex}
+            onTabChange={activities.onTabChange}
         >
-            {isLoading ? (
+            {activities.isActive && internalRecordId ? (
+                <RecordActivities
+                    subject={{
+                        internalRecordId,
+                        registerMnemonic: currentRegister?.register_mnemonic,
+                        label: [recordName, functionalRecordId].filter(Boolean).join(' · ') || undefined,
+                    }}
+                    groups={activities.groups}
+                    registers={activities.registers}
+                    loading={activities.loading}
+                    error={activities.error}
+                    onChanged={activities.reload}
+                />
+            ) : isLoading ? (
                 <RegisterDetailsPageSkeleton tabs={tabs} />
             ) : isNotFound ? (
                 <div className="p-8 text-center text-toast-failed bg-neutral-second rounded-lg border border-red-100 shadow-sm">
