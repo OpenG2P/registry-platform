@@ -777,6 +777,9 @@ class G2PRegisterService(BaseService):
 
     async def _check_register_has_data(self, register_definition: G2PRegisterDefinition, session) -> bool:
         """Check if a register has data in register table or change_request table (any state)"""
+        if register_definition.register_purpose == RegisterPurposeEnum.ACTIVITY.value:
+            return await self._check_activity_register_has_data(register_definition, session)
+
         # 1. Check register table (using dynamic class)
         try:
             module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
@@ -803,6 +806,58 @@ class G2PRegisterService(BaseService):
             return True
 
         return False
+
+    @staticmethod
+    async def _check_activity_register_has_data(register_definition: G2PRegisterDefinition, session) -> bool:
+        """An activity register holds data once it has an activity or a context.
+
+        Its rows live in the extension's G2PActivity<Mnemonic> table, not in a
+        G2PRegister<Mnemonic> table or in change requests, so the record-register
+        check always found it empty.
+        """
+        from ..models import G2PActivityContext
+        from .g2p_activity_registry_service import G2PActivityRegistryService
+
+        activity_model, _ = G2PActivityRegistryService.resolve_classes(register_definition.register_mnemonic)
+        if activity_model is not None:
+            count = await session.execute(select(func.count()).select_from(activity_model).limit(1))
+            if count.scalar() > 0:
+                return True
+        count = await session.execute(
+            select(func.count())
+            .select_from(G2PActivityContext)
+            .where(G2PActivityContext.register_id == register_definition.register_id)
+            .limit(1)
+        )
+        return count.scalar() > 0
+
+    @staticmethod
+    def _reject_activity_identity_change(
+        register_definition: G2PRegisterDefinition, register_mnemonic: str | None, register_purpose: str | None
+    ) -> None:
+        """An activity register's mnemonic and purpose are fixed, data or not.
+
+        The mnemonic names the extension's G2PActivity<Mnemonic> classes, so renaming
+        the register detaches it from its tables; and a register cannot switch
+        between the activity and record kinds, whose storage differs entirely.
+        """
+        current = register_definition.register_purpose
+        is_activity = current == RegisterPurposeEnum.ACTIVITY.value
+        if is_activity and register_mnemonic is not None and register_mnemonic != register_definition.register_mnemonic:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.ACTIVITY_REGISTER_IDENTITY_FIXED.value[1],
+                message=(
+                    f"'{register_definition.register_mnemonic}' is an activity register; its mnemonic names the "
+                    "extension's activity tables and cannot be changed"
+                ),
+            )
+        if register_purpose is not None and register_purpose != current and (
+            is_activity or register_purpose == RegisterPurposeEnum.ACTIVITY.value
+        ):
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.ACTIVITY_REGISTER_IDENTITY_FIXED.value[1],
+                message="A register cannot be changed to or from an activity register",
+            )
 
     async def _fetch_dashboard_registers(self, session) -> list[RegisterData]:
         """Fetch all registers for dashboard display (clone of _fetch_all_registers)"""
@@ -2444,6 +2499,8 @@ class G2PRegisterService(BaseService):
         async with session_maker() as session:
             # Validate register exists
             register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
+
+            self._reject_activity_identity_change(register_definition, register_mnemonic, register_purpose)
 
             # Check if register has data
             has_data = await self._check_register_has_data(register_definition, session)
