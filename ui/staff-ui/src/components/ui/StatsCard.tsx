@@ -28,10 +28,17 @@ const StatsCard = ({
     onNavigate,
 }: StatsCardProps) => {
     const t = useTranslations();
+    const isMessagesCard = stats_endpoint.includes("messages");
     const { data, loading, error } = useFetch<any>({
         url: stats_endpoint,
         enabled: !!stats_endpoint,
     });
+    const { data: outgoingMessages, loading: outgoingLoading } = useFetch<any>({
+        url: "/api/stats/outgoing-messages",
+        enabled: isMessagesCard,
+    });
+    const incomingMessages = isMessagesCard ? data : null;
+    const cardLoading = loading || (isMessagesCard && outgoingLoading);
 
     const { title, rows } = useMemo((): { title: string; rows: StatsRow[] } => {
         if (!data) return { title: t('items'), rows: [] };
@@ -98,14 +105,14 @@ const StatsCard = ({
                     {
                         id: "incomingMessages",
                         label: t('incoming_messages'),
-                        value: data.no_of_messages|| "0",
+                        value: incomingMessages.no_of_messages || "0",
                         imageUrl: "/images/messages/message_icon.png",
                         href: "/incoming-messages",
                     },
                     {
                         id: "outgoingMessages",
                         label: t('outgoing_messages'),
-                        value: data.outgoing || "0",
+                        value: outgoingMessages?.no_of_messages || "0",
                         imageUrl: "/images/messages/message_icon.png",
                         href: "/outgoing-messages",
                     },
@@ -136,7 +143,7 @@ const StatsCard = ({
         }
 
         return { title: t('items'), rows: [] };
-    }, [data, stats_endpoint, t]);
+    }, [data, incomingMessages, outgoingMessages, stats_endpoint, t]);
 
     const totalCount = useMemo(() => {
         // For registers, just count how many registers
@@ -150,15 +157,15 @@ const StatsCard = ({
             return data?.total_submissions || 0;
         }
         if (stats_endpoint.includes("messages")) {
-            return data?.no_of_messages || 0;
+            return (incomingMessages?.no_of_messages || 0) + (outgoingMessages?.no_of_messages || 0);
         }
         if (stats_endpoint.includes("/tasks")) {
             return data?.total || 0;
         }
-    }, [data, stats_endpoint]);
+    }, [data, incomingMessages, outgoingMessages, stats_endpoint]);
 
     const handleCardActivate = () => {
-        if (loading) return;
+        if (cardLoading) return;
         if (active) {
             onNavigate?.();
             return;
@@ -214,7 +221,7 @@ const StatsCard = ({
             <div className="min-h-40">
                 {/* count and title */}
                 <div className="mb-4 mt-4">
-                    {loading ? (
+                    {cardLoading ? (
                         <div className="animate-pulse space-y-2">
                             <div className="h-12.5 w-32 rounded bg-secondary-third dark:bg-secondary-second-700"></div>
                             <div className="h-7 w-24 rounded bg-secondary-third dark:bg-secondary-second-700"></div>
@@ -232,7 +239,7 @@ const StatsCard = ({
                 </div>
 
 
-                {loading ? (
+                {cardLoading ? (
                     <div className="animate-pulse">
                         <div className="h-4 w-24 rounded bg-secondary-third dark:bg-secondary-second-700 mb-1.75"></div>
                         <div className="h-5 w-32 rounded bg-secondary-third dark:bg-secondary-second-700"></div>
