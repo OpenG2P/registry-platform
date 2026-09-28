@@ -165,7 +165,7 @@ export default function Home() {
             registers: 'register',
             'form-submissions': 'intake-form',
             'change-request': 'change-request',
-            messages: 'messages',
+            messages: 'incoming-messages',
             tasks: 'tasks',
         };
         return `/api/stats/${endpointByType[type]}`;
