@@ -1,6 +1,33 @@
-from pydantic import BaseModel
 from datetime import datetime, date
-from typing import Optional
+from typing import Any, Optional, get_args
+
+from pydantic import BaseModel, model_validator
+
+
+def _annotation_includes_date(annotation) -> bool:
+    if annotation in (date, datetime):
+        return True
+    return any(
+        arg is not type(None) and _annotation_includes_date(arg)
+        for arg in get_args(annotation)
+    )
+
+
+def coerce_blank_dates_to_none(model_cls, data: Any) -> Any:
+    """Treat blank date/datetime strings as null. Optional date fields allow None, not ''."""
+    if not isinstance(data, dict):
+        return data
+    blank_dates = {
+        name: None
+        for name, field in model_cls.model_fields.items()
+        if name in data
+        and isinstance(data[name], str)
+        and data[name].strip() == ""
+        and _annotation_includes_date(field.annotation)
+    }
+    if not blank_dates:
+        return data
+    return {**data, **blank_dates}
 
 
 class G2PTableBaseSchema(BaseModel):
@@ -20,6 +47,11 @@ class G2PProgramRegisterBaseSchema(BaseModel):
 
 class G2PRegisterBaseSchema(BaseModel):
     """Base schema for G2PRegister fields."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def empty_date_strings_to_none(cls, data: Any) -> Any:
+        return coerce_blank_dates_to_none(cls, data)
 
     internal_record_id: Optional[str] = None
     functional_record_id: Optional[str] = None
