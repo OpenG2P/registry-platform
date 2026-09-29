@@ -15,6 +15,13 @@ export function getServerEnv() {
         vpClientId: process.env.VP_CLIENT_ID ?? "",
         pageSize: parseInt(process.env.PAGE_SIZE ?? "10", 10),
 
+        notificationProvider: process.env.NOTIFICATION_PROVIDER?.trim() ?? "",
+        notificationApplicationIdentifier:
+            process.env.NOTIFICATION_APPLICATION_IDENTIFIER?.trim() ?? "",
+        notificationBackendUrl: process.env.NOTIFICATION_BACKEND_URL?.trim() ?? "",
+        notificationWebsocketUrl: process.env.NOTIFICATION_WEBSOCKET_URL?.trim() ?? "",
+        notificationSecretKey: process.env.NOTIFICATION_SECRET_KEY?.trim() ?? "",
+
         cspHeader: process.env.CSP_HEADER?.trim() ?? "",
         cspSrcDefault: process.env.CSP_SRC_DEFAULT?.trim(),
         cspSrcScript: process.env.CSP_SRC_SCRIPT?.trim(),

@@ -31,7 +31,7 @@ export async function generateMetadata({
     const { locale } = await params;
     const t = await getTranslations({ locale });
     await clientSafeConfig.fetchRegistryConfig(origin);
-    const config = clientSafeConfig.getAll();
+    const config = await clientSafeConfig.getAll();
 
     return {
         title: config.registryName || t('registry'),
@@ -56,7 +56,7 @@ export default async function RootLayout({
     const messages = await getMessages();
 
     await clientSafeConfig.fetchRegistryConfig(origin);
-    const config = clientSafeConfig.getAll();
+    const config = await clientSafeConfig.getAll();
 
     const cssVariables = `
         :root {

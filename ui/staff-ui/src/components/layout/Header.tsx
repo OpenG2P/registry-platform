@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-import { ProfileDropdown, NotificationDropdown, ConfigurationButton, LanguageSwitcher } from '@/components/layout';
+import { ProfileDropdown, NotificationInbox, ConfigurationButton, LanguageSwitcher } from '@/components/layout';
 import { useRuntimeConfig } from "@/context/RuntimeConfigContext";
 import { useLogoDimensions } from '@/shared/hooks';
 import Can from "../shared/Can";
@@ -78,7 +78,7 @@ export default function Header() {
                         <ConfigurationButton />
                     </Can>
                     <LanguageSwitcher />
-                    <NotificationDropdown />
+                    <NotificationInbox />
                     <ProfileDropdown />
                 </div>
             </div>
