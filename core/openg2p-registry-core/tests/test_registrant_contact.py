@@ -1,0 +1,363 @@
+from __future__ import annotations
+
+import asyncio
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from openg2p_registry_core.helpers.notification import (
+    NotificationWorkflow,
+    NotificationHelper,
+    change_request_payload,
+)
+from openg2p_registry_core.helpers.registrant_contact import (
+    RegistrantContact,
+    contact_from_record,
+    resolve_registrant_contact,
+)
+
+
+def test_contact_from_record_picks_primary_phone_and_email():
+    contact = contact_from_record(
+        {
+            "internal_record_id": "p1",
+            "record_name": "Ada Lovelace",
+            "emails": [
+                {"address": "other@example.org", "is_primary": False},
+                {"address": "ada@example.org", "is_primary": True},
+            ],
+            "phone_numbers": [
+                {"number": "+15550001", "is_primary": True},
+                {"number": "+15550002", "is_primary": False},
+            ],
+        }
+    )
+    assert contact.person_id == "p1"
+    assert contact.email == "ada@example.org"
+    assert contact.phone == "+15550001"
+    assert contact.name == "Ada Lovelace"
+    assert contact.has_channel()
+
+
+def test_contact_from_record_reads_scalar_columns():
+    contact = contact_from_record(
+        SimpleNamespace(
+            internal_record_id="p2",
+            email="bare@example.org",
+            phone="+251911",
+        )
+    )
+    assert contact.email == "bare@example.org"
+    assert contact.phone == "+251911"
+    assert contact.name is None
+
+
+def test_contact_from_record_none_when_not_a_person():
+    assert contact_from_record({"internal_record_id": "h1", "household_head_name": "Ada"}) is None
+    assert contact_from_record(None) is None
+
+
+def test_contact_from_record_person_without_channels():
+    contact = contact_from_record(
+        {"internal_record_id": "p3", "emails": None, "phone_numbers": []}
+    )
+    assert contact.person_id == "p3"
+    assert contact.email is None
+    assert contact.phone is None
+    assert not contact.has_channel()
+
+
+def test_dispatch_forwards_payload_and_skips_empty_recipients():
+    send = MagicMock()
+    factory = MagicMock()
+    factory.get_notifier.return_value.send = send
+    payload = {"change_request_id": "cr-1", "record_name": "Ada", "approval_status": "pending"}
+    empty = contact_from_record({"internal_record_id": "p1", "emails": None, "phone_numbers": []})
+    with_email = RegistrantContact(person_id="p1", email="a@b.c", name="Ada")
+
+    def fake_connector():
+        return factory, SimpleNamespace, lambda person_id: f"person:{person_id}", lambda _workflow: True
+
+    async def _run():
+        with patch(
+            "openg2p_registry_core.helpers.notification._connector",
+            fake_connector,
+        ):
+            await NotificationHelper.dispatch_notification_staff(
+                "staff.workflow", "cr-1", payload, {}
+            )
+            await NotificationHelper.dispatch_notification_registrant(
+                "registrant.workflow", "cr-1", payload, empty
+            )
+            await NotificationHelper.dispatch_notification_registrant(
+                "registrant.workflow", "cr-1", payload, with_email
+            )
+
+    asyncio.run(_run())
+    send.assert_called_once()
+    assert send.call_args.args[0] == "registrant.workflow"
+    assert send.call_args.args[1] == "cr-1"
+    assert send.call_args.args[2] is payload
+    assert send.call_args.args[3].recipient_id == "person:p1"
+    assert send.call_args.args[3].recipient_email == "a@b.c"
+
+
+def test_resolve_registrant_contact_uses_mnemonic_domain_service():
+    definition = SimpleNamespace(register_mnemonic="Individual")
+    session = SimpleNamespace(get=AsyncMock(return_value=definition))
+    person = contact_from_record(
+        {
+            "internal_record_id": "p1",
+            "emails": [{"address": "a@b.c"}],
+            "phone_numbers": [{"number": "+1"}],
+        }
+    )
+    service = SimpleNamespace(resolve_contact=AsyncMock(return_value=person))
+    factory = SimpleNamespace(get_domain_service=MagicMock(return_value=service))
+
+    async def _run():
+        with patch(
+            "openg2p_registry_core.interfaces.G2PRegisterDomainFactory.get_component",
+            return_value=factory,
+        ):
+            return await resolve_registrant_contact(session, "reg-1", "p1")
+
+    contact = asyncio.run(_run())
+    assert contact.email == "a@b.c"
+    factory.get_domain_service.assert_called_once_with("Individual")
+    service.resolve_contact.assert_awaited_once()
+
+
+def test_dispatch_staff_sends_username_name_and_email():
+    send = MagicMock()
+    factory = MagicMock()
+    factory.get_notifier.return_value.send = send
+    payload = {"record_name": "Ada"}
+
+    def fake_connector():
+        return factory, SimpleNamespace, lambda person_id: f"person:{person_id}", lambda _workflow: True
+
+    async def _run():
+        with patch(
+            "openg2p_registry_core.helpers.notification._connector",
+            fake_connector,
+        ):
+            await NotificationHelper.dispatch_notification_staff(
+                "staff.workflow",
+                "cr-1",
+                payload,
+                {
+                    "preferred_username": "staff-user",
+                    "name": "Alex Carter",
+                    "email": "alex@example.org",
+                },
+            )
+
+    asyncio.run(_run())
+    send.assert_called_once()
+    recipient = send.call_args.args[3]
+    assert send.call_args.args[0] == "staff.workflow"
+    assert send.call_args.args[2] is payload
+    assert recipient.recipient_id == "staff-user"
+    assert recipient.recipient_name == "Alex Carter"
+    assert recipient.recipient_email == "alex@example.org"
+
+
+def test_change_request_payload_uses_register_mnemonic():
+    change_request = SimpleNamespace(
+        change_request_id="cr-1",
+        record_name="Ada",
+        register_id="reg-1",
+        tab_id="tab-1",
+        section_id="sec-1",
+        section_register_id="sreg-1",
+        internal_record_id="p1",
+        approval_status="PENDING",
+        no_of_verifications_required=1,
+        no_of_verifications_done=0,
+        created_by="staff",
+        created_at=None,
+        approved_by=None,
+        approved_at=None,
+        change_request_source="INTAKE_FORM",
+        source_partner_id="partner",
+        remarks=None,
+        rejection_reason=None,
+    )
+    definition = SimpleNamespace(register_mnemonic="Individual")
+    session = SimpleNamespace(get=AsyncMock(side_effect=[change_request, definition]))
+
+    payload = asyncio.run(change_request_payload("cr-1", session))
+    assert payload["change_request_id"] == "cr-1"
+    assert payload["register_mnemonic"] == "Individual"
+    assert "register_id" not in payload
+    assert session.get.await_count == 2
+
+
+def test_dispatch_change_request_notification_loads_payload():
+    send = MagicMock()
+    factory = MagicMock()
+    factory.get_notifier.return_value.send = send
+    payload = {
+        "change_request_id": "cr-1",
+        "register_mnemonic": "Individual",
+        "internal_record_id": "p1",
+    }
+    contact = RegistrantContact(person_id="p1", email="a@b.c")
+
+    def fake_connector():
+        return factory, SimpleNamespace, lambda person_id: f"person:{person_id}", lambda _workflow: True
+
+    async def _run():
+        with (
+            patch(
+                "openg2p_registry_core.helpers.notification._connector",
+                fake_connector,
+            ),
+            patch(
+                "openg2p_registry_core.helpers.notification.change_request_payload",
+                AsyncMock(return_value=payload),
+            ),
+            patch(
+                "openg2p_registry_core.helpers.notification.resolve_registrant_contact",
+                AsyncMock(return_value=contact),
+            ) as resolve,
+        ):
+            await NotificationHelper.dispatch_change_request_notification(
+                "cr-1",
+                NotificationWorkflow.CHANGE_REQUEST_CREATED,
+                session="session",
+            )
+            resolve.assert_awaited_once_with(
+                "session",
+                None,
+                "p1",
+                register_mnemonic="Individual",
+            )
+
+    asyncio.run(_run())
+    send.assert_called_once()
+    assert send.call_args.args[0] == NotificationWorkflow.CHANGE_REQUEST_CREATED
+    assert send.call_args.args[3].recipient_id == "person:p1"
+    assert send.call_args.args[2] is payload
+
+
+def test_dispatch_intake_form_notification_sends_only_to_registrant():
+    send = MagicMock()
+    factory = MagicMock()
+    factory.get_notifier.return_value.send = send
+    payload = {
+        "submission_id": "sub-1",
+        "register_mnemonic": "Individual",
+        "internal_record_id": "p1",
+    }
+    contact = RegistrantContact(person_id="p1", email="a@b.c")
+
+    def fake_connector():
+        return factory, SimpleNamespace, lambda person_id: f"person:{person_id}", lambda _workflow: True
+
+    async def _run():
+        with (
+            patch(
+                "openg2p_registry_core.helpers.notification._connector",
+                fake_connector,
+            ),
+            patch(
+                "openg2p_registry_core.helpers.notification.intake_form_submission_payload",
+                AsyncMock(return_value=(payload, contact)),
+            ),
+        ):
+            await NotificationHelper.dispatch_intake_form_notification(
+                "sub-1",
+                NotificationWorkflow.INTAKE_FORM_SUBMISSION_CREATED,
+                session="session",
+            )
+
+    asyncio.run(_run())
+    send.assert_called_once()
+    assert send.call_args.args[0] == NotificationWorkflow.INTAKE_FORM_SUBMISSION_CREATED
+    assert send.call_args.args[3].recipient_id == "person:p1"
+    assert send.call_args.args[3].recipient_email == "a@b.c"
+
+
+def test_dispatch_register_export_notification_sends_to_requester():
+    send = MagicMock()
+    factory = MagicMock()
+    factory.get_notifier.return_value.send = send
+    payload = {
+        "export_id": "export-1",
+        "register_mnemonic": "Individual",
+        "requested_by": "staff-user",
+        "export_status": "completed",
+    }
+
+    def fake_connector():
+        return factory, SimpleNamespace, lambda person_id: f"person:{person_id}", lambda _workflow: True
+
+    async def _run():
+        with (
+            patch(
+                "openg2p_registry_core.helpers.notification._connector",
+                fake_connector,
+            ),
+            patch(
+                "openg2p_registry_core.helpers.notification.register_export_payload",
+                AsyncMock(return_value=payload),
+            ),
+        ):
+            await NotificationHelper.dispatch_register_export_notification(
+                "export-1",
+                NotificationWorkflow.REGISTER_EXPORT_COMPLETED,
+                session="session",
+            )
+
+    asyncio.run(_run())
+    send.assert_called_once()
+    assert send.call_args.args[0] == NotificationWorkflow.REGISTER_EXPORT_COMPLETED
+    assert send.call_args.args[1] == "export-1"
+    assert send.call_args.args[2] is payload
+    assert send.call_args.args[3].recipient_id == "staff-user"
+
+
+def test_dispatch_skips_unmapped_workflow():
+    send = MagicMock()
+    factory = MagicMock()
+    factory.get_notifier.return_value.send = send
+    payload = {
+        "change_request_id": "cr-1",
+        "register_mnemonic": "Individual",
+        "internal_record_id": "p1",
+    }
+    contact = RegistrantContact(person_id="p1", email="a@b.c")
+
+    def fake_connector():
+        return factory, SimpleNamespace, lambda person_id: f"person:{person_id}", lambda _workflow: False
+
+    async def _run():
+        with (
+            patch(
+                "openg2p_registry_core.helpers.notification._connector",
+                fake_connector,
+            ),
+            patch(
+                "openg2p_registry_core.helpers.notification.change_request_payload",
+                AsyncMock(return_value=payload),
+            ),
+            patch(
+                "openg2p_registry_core.helpers.notification.resolve_registrant_contact",
+                AsyncMock(return_value=contact),
+            ),
+        ):
+            await NotificationHelper.dispatch_notification_registrant(
+                NotificationWorkflow.CHANGE_REQUEST_CREATED,
+                "cr-1",
+                payload,
+                contact,
+            )
+            await NotificationHelper.dispatch_change_request_notification(
+                "cr-1",
+                NotificationWorkflow.CHANGE_REQUEST_CREATED,
+                session="session",
+            )
+
+    asyncio.run(_run())
+    send.assert_not_called()
