@@ -7,6 +7,7 @@ import { ACTIVITY_ACTIONS } from "@/features/shared/permissions";
 import { useActivityTypes } from "../hooks/useActivityTypes";
 import type { Activity, ActivityRegister, ActivityType, SubjectActivities } from "../types";
 import { formatEc } from "../utils/ethiopianCalendar";
+import { asGeoDimensions, formatLocation, locationTooltip } from "../utils/geo";
 import { activityRegisterPath, displayValue, fieldLabel, humanize, registerLabel } from "../utils/labels";
 import ActivityDetail from "./ActivityDetail";
 import AggregateValues from "./AggregateValues";
@@ -122,6 +123,9 @@ function RegisterGroup({ group, register, subject, onChanged }: GroupProps) {
                             <li key={a.aggregate_id} className="rounded-md bg-secondary-first px-3 py-2 flex flex-wrap gap-x-4 gap-y-1">
                                 <span className="font-medium">{humanize(a.aggregate_type)}</span>
                                 <span className="opacity-70">{a.period_key}</span>
+                                {asGeoDimensions(a.geo_dimensions) && (
+                                    <span className="opacity-70" title={locationTooltip(a.geo_dimensions)}>{formatLocation(a.geo_dimensions)}</span>
+                                )}
                                 {a.subject_internal_record_id && a.subject_internal_record_id !== subject.internalRecordId && (
                                     <span className="opacity-70">{a.subject_id}</span>
                                 )}

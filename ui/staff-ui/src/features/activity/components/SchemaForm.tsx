@@ -1,7 +1,9 @@
 "use client";
 
-import type { ActivityType, JsonSchema, JsonValue } from "../types";
+import type { ActivityType, JsonSchema, JsonValue, ReferenceRule } from "../types";
+import { isGeoRule } from "../utils/geo";
 import EthiopianDateInput from "./EthiopianDateInput";
+import GeoPicker from "./GeoPicker";
 
 interface Props {
     type: ActivityType;
@@ -27,8 +29,9 @@ function isType(schema: JsonSchema, name: string) {
 /**
  * Renders an activity type's payload JSON Schema as a form. Code-list fields
  * (reference rules of kind ATTRIBUTE) become selects using the options the
- * API returns with the type; date fields listed in ethiopian_date_fields get
- * an Ethiopian-calendar picker.
+ * API returns with the type; location fields (reference rules of kind GEO)
+ * become a cascading Master Data picker; date fields listed in
+ * ethiopian_date_fields get an Ethiopian-calendar picker.
  */
 export default function SchemaForm({ type, value, onChange, lockedFields = [], errors = {} }: Props) {
     const schema = type.payload_schema ?? { properties: {} };
@@ -51,7 +54,9 @@ export default function SchemaForm({ type, value, onChange, lockedFields = [], e
                 const options = type.reference_options?.[field];
                 const locked = lockedFields.includes(field);
                 const label = fieldSchema.title || field;
-                const wide = isType(fieldSchema, "array") && fieldSchema.items && isType(fieldSchema.items, "object");
+                const rule = type.reference_rules?.[field];
+                const geoRule = isGeoRule(rule) && !isType(fieldSchema, "array") ? rule : undefined;
+                const wide = !!geoRule || (isType(fieldSchema, "array") && fieldSchema.items && isType(fieldSchema.items, "object"));
                 return (
                     <div key={field} className={`flex flex-col gap-1 ${wide ? "md:col-span-2" : ""}`}>
                         <label htmlFor={`f-${field}`} className="text-sm font-medium">
@@ -66,8 +71,11 @@ export default function SchemaForm({ type, value, onChange, lockedFields = [], e
                             ethiopian={(type.ethiopian_date_fields ?? []).includes(field)}
                             value={value[field]}
                             disabled={locked}
+                            required={required.has(field)}
                             onChange={(v) => set(field, v)}
                             nestedOptions={type.reference_options}
+                            geoRule={geoRule}
+                            referenceRules={type.reference_rules}
                         />
                         {errors[field] && <span className="text-xs text-toast-failed">{errors[field]}</span>}
                     </div>
@@ -86,11 +94,30 @@ interface FieldProps {
     ethiopian: boolean;
     value: JsonValue | undefined;
     disabled?: boolean;
+    required?: boolean;
     onChange: (value: JsonValue | undefined) => void;
+    /** Set when the field is a Master Data location (a GEO reference rule). */
+    geoRule?: ReferenceRule;
+    /** The type's reference rules, for fields inside list rows ("list_field.row_field"). */
+    referenceRules?: Record<string, ReferenceRule> | null;
 }
 
-function Field({ id, field, schema, options, nestedOptions, ethiopian, value, disabled, onChange }: FieldProps) {
+function Field({ id, field, schema, options, nestedOptions, ethiopian, value, disabled, required, onChange, geoRule, referenceRules }: FieldProps) {
     const enumOptions = options ?? schema.enum?.map((v) => ({ code: String(v), label: String(v) }));
+
+    if (geoRule) {
+        return (
+            <GeoPicker
+                id={id}
+                level={geoRule.level}
+                value={value === null || value === undefined || value === "" ? undefined : asText(value)}
+                onChange={onChange}
+                disabled={disabled}
+                required={required}
+                className={inputClass}
+            />
+        );
+    }
 
     if (isType(schema, "array") && schema.items) {
         if (isType(schema.items, "object")) {
@@ -102,6 +129,7 @@ function Field({ id, field, schema, options, nestedOptions, ethiopian, value, di
                     onChange={onChange}
                     disabled={disabled}
                     nestedOptions={nestedOptions}
+                    referenceRules={referenceRules}
                     parentField={field}
                 />
             );
@@ -202,7 +230,7 @@ function Field({ id, field, schema, options, nestedOptions, ethiopian, value, di
 }
 
 function ObjectList({
-    id, itemSchema, rows, onChange, disabled, nestedOptions, parentField,
+    id, itemSchema, rows, onChange, disabled, nestedOptions, referenceRules, parentField,
 }: {
     id: string;
     itemSchema: JsonSchema;
@@ -210,9 +238,15 @@ function ObjectList({
     onChange: (rows: Row[] | undefined) => void;
     disabled?: boolean;
     nestedOptions?: Record<string, { code: string; label: string }[]>;
+    referenceRules?: Record<string, ReferenceRule> | null;
     parentField: string;
 }) {
     const columns = Object.entries(itemSchema.properties ?? {});
+    const requiredColumns = new Set(itemSchema.required ?? []);
+    const geoRuleOf = (key: string, colSchema: JsonSchema) => {
+        const rule = referenceRules?.[`${parentField}.${key}`];
+        return isGeoRule(rule) && !isType(colSchema, "array") ? rule : undefined;
+    };
     const update = (index: number, key: string, v: JsonValue | undefined) => {
         const next = rows.map((row, i) => {
             if (i !== index) return row;
@@ -227,21 +261,26 @@ function ObjectList({
         <div className="flex flex-col gap-2" id={id}>
             {rows.map((row, index) => (
                 <div key={index} className="flex flex-wrap items-end gap-3 p-2 rounded-md bg-secondary-first">
-                    {columns.map(([key, colSchema]) => (
-                        <div key={key} className="flex flex-col gap-1 min-w-40 flex-1">
-                            <span className="text-xs">{colSchema.title || key}</span>
-                            <Field
-                                id={`${id}-${index}-${key}`}
-                                field={key}
-                                schema={colSchema}
-                                options={nestedOptions?.[`${parentField}.${key}`]}
-                                ethiopian={false}
-                                value={row[key]}
-                                disabled={disabled}
-                                onChange={(v) => update(index, key, v)}
-                            />
-                        </div>
-                    ))}
+                    {columns.map(([key, colSchema]) => {
+                        const geoRule = geoRuleOf(key, colSchema);
+                        return (
+                            <div key={key} className={`flex flex-col gap-1 min-w-40 flex-1 ${geoRule ? "basis-full" : ""}`}>
+                                <span className="text-xs">{colSchema.title || key}</span>
+                                <Field
+                                    id={`${id}-${index}-${key}`}
+                                    field={key}
+                                    schema={colSchema}
+                                    options={nestedOptions?.[`${parentField}.${key}`]}
+                                    ethiopian={false}
+                                    value={row[key]}
+                                    disabled={disabled}
+                                    required={requiredColumns.has(key)}
+                                    geoRule={geoRule}
+                                    onChange={(v) => update(index, key, v)}
+                                />
+                            </div>
+                        );
+                    })}
                     {!disabled && (
                         <button type="button" className="text-sm text-toast-failed pb-2" onClick={() => onChange(rows.filter((_, i) => i !== index))}>
                             Remove

@@ -32,6 +32,7 @@ from .g2p_awe_policy_configuration_service import G2PAwePolicyConfigurationServi
 from .g2p_awe_integration_service import G2PAweIntegrationService
 from .g2p_awe_webhook_service import G2PAweWebhookService
 from .g2p_activity_domain_service import G2PActivityDomainService, ActivityContextSpec, ActivityAggregateResult
+from .g2p_activity_geo_service import G2PActivityGeoService, common_dimensions
 from .g2p_activity_registry_service import G2PActivityRegistryService, ActivityRegister
 from .g2p_activity_reference_service import G2PActivityReferenceService
 from .g2p_activity_rule_service import G2PActivityRuleService

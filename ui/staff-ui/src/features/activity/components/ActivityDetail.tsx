@@ -8,6 +8,7 @@ import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
 import type { Activity, ActivityType, JsonValue } from "../types";
 import { displayValue, fieldLabel, formatDateTime, humanize } from "../utils/labels";
 import { formatEc } from "../utils/ethiopianCalendar";
+import { activityLocationFallback, formatLocation, locationTooltip } from "../utils/geo";
 import ReasonDialog from "./ReasonDialog";
 import SchemaForm from "./SchemaForm";
 import { StatusBadge, VerificationBadge } from "./StatusBadges";
@@ -64,6 +65,7 @@ export default function ActivityDetail({ registerMnemonic, activity, type, onCha
 
     const isActive = activity.status === "ACTIVE";
     const payloadFields = Object.keys(activity.payload ?? {});
+    const location = formatLocation(activity.geo_dimensions, activityLocationFallback(type, activity.payload, activity.display));
 
     return (
         <aside className="fixed inset-y-0 right-0 w-full max-w-2xl bg-neutral-second shadow-2xl z-[90] flex flex-col" aria-label="Activity details">
@@ -72,6 +74,9 @@ export default function ActivityDetail({ registerMnemonic, activity, type, onCha
                     <h2 className="text-lg font-semibold">{type?.display_name ?? activity.activity_type}</h2>
                     <p className="text-sm opacity-80">
                         {formatEc(activity.occurred_at)} · {activity.occurred_at.slice(0, 10)}
+                    </p>
+                    <p className="text-sm" title={locationTooltip(activity.geo_dimensions)}>
+                        <span className="opacity-70">Location:</span> {location}
                     </p>
                     <div className="flex gap-2">
                         <StatusBadge status={activity.status} />

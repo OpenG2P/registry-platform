@@ -101,6 +101,12 @@ class G2PActivity(BaseORMModel):
     verification_remarks: Mapped[str] = mapped_column(Text, nullable=True)
 
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Where the activity happened, as named administrative levels from Master
+    # Data, snapshotted when it is written: {"region": {"code": "ET04", "name":
+    # "Oromia"}, "zone": {...}, "woreda": {...}}. Taken from the payload's
+    # location, else from the subject record (same registry), else from the
+    # activity's context. Roll-ups by geography group on these levels.
+    geo_dimensions: Mapped[dict] = mapped_column(JSONB, nullable=True)
     # Result of reference resolution at write time: which references were
     # checked, how, and any warnings (lenient mode). Display names are not
     # stored here; they are resolved when read.
@@ -291,6 +297,9 @@ class G2PActivityProjection(BaseORMModel):
     projected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
     # Geo copied from the context/latest activity so data policies can filter projections.
     geo_code_hierarchy_json: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    # The context's location as named levels (see G2PActivity.geo_dimensions),
+    # from its latest activity that has one. Indicators group by "geo:<level>".
+    geo_dimensions: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
     def to_dict(self) -> dict:
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}

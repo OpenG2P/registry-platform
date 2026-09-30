@@ -3,8 +3,20 @@
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
-import type { Indicator, IndicatorResult } from "../types";
+import type { Indicator, IndicatorResult, JsonValue } from "../types";
+import { indicatorColumns, type IndicatorColumn } from "../utils/geo";
 import { humanize } from "../utils/labels";
+
+/** A group_by cell: a geo level's name (code in the tooltip), else the humanised value. */
+function GroupCell({ column, row }: { column: IndicatorColumn; row: Record<string, JsonValue> }) {
+    const value = row[column.key];
+    if (column.nameKey) {
+        const name = row[column.nameKey];
+        const code = value === null || value === undefined ? undefined : String(value);
+        return <td className="py-1.5 pr-3" title={code}>{name === null || name === undefined || name === "" ? code ?? "—" : String(name)}</td>;
+    }
+    return <td className="py-1.5 pr-3">{humanize(String(value ?? "—"))}</td>;
+}
 
 /** Configured indicators over the register's projection, each as a table with a proportional bar. */
 export default function Indicators({ registerMnemonic }: { registerMnemonic: string }) {
@@ -39,6 +51,7 @@ export default function Indicators({ registerMnemonic }: { registerMnemonic: str
             {indicators.map((indicator) => {
                 const result = results[indicator.indicator_code];
                 const max = Math.max(1, ...(result?.rows ?? []).map((r) => Number(r.value) || 0));
+                const columns = result ? indicatorColumns(result.group_by, humanize) : [];
                 return (
                     <section key={indicator.indicator_code} className="rounded-[10px] bg-neutral-second p-4 flex flex-col gap-3">
                         <h3 className="font-medium">{indicator.display_name}{indicator.unit ? ` (${indicator.unit})` : ""}</h3>
@@ -48,7 +61,7 @@ export default function Indicators({ registerMnemonic }: { registerMnemonic: str
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="text-left">
-                                        {result.group_by.map((g) => <th key={g} className="py-1 pr-3 font-medium">{humanize(g)}</th>)}
+                                        {columns.map((c) => <th key={c.key} className="py-1 pr-3 font-medium">{c.header}</th>)}
                                         <th className="py-1 font-medium text-right">Value</th>
                                         <th className="py-1 w-1/3" aria-hidden />
                                     </tr>
@@ -56,7 +69,7 @@ export default function Indicators({ registerMnemonic }: { registerMnemonic: str
                                 <tbody>
                                     {result.rows.map((row, i) => (
                                         <tr key={i} className="border-t border-secondary-second">
-                                            {result.group_by.map((g) => <td key={g} className="py-1.5 pr-3">{humanize(String(row[g] ?? "—"))}</td>)}
+                                            {columns.map((c) => <GroupCell key={c.key} column={c} row={row} />)}
                                             <td className="py-1.5 text-right tabular-nums">{Number(row.value ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                                             <td className="py-1.5 pl-3">
                                                 <div className="h-2 rounded-full bg-primary-first" style={{ width: `${(100 * (Number(row.value) || 0)) / max}%` }} />

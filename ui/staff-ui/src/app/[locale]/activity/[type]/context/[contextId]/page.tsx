@@ -14,8 +14,12 @@ import RecordActivity from '@/features/activity/components/RecordActivity';
 import ReasonDialog from '@/features/activity/components/ReasonDialog';
 import type { ActivityContext, JsonValue } from '@/features/activity/types';
 import { formatDate, humanize } from '@/features/activity/utils/labels';
+import { asGeoDimensions, formatLocation, locationTooltip } from '@/features/activity/utils/geo';
 
-const HIDDEN = new Set(['context_id', 'context_key', 'subject_type', 'projected_at', 'geo_code_hierarchy_json', 'last_activity_id']);
+const HIDDEN = new Set([
+    'context_id', 'context_key', 'subject_type', 'projected_at', 'geo_code_hierarchy_json', 'last_activity_id',
+    'geo_dimensions', 'geo_lowest_level_value_id',
+]);
 
 /** One context (e.g. a crop season): current state, full timeline, and recording the next activity. */
 export default function ActivityContextPage() {
@@ -46,6 +50,10 @@ export default function ActivityContextPage() {
         }
         return () => { cancelled = true; };
     }, [api, mnemonic, hasProjection, contextId, refreshKey]);
+
+    const geo = asGeoDimensions(projection?.geo_dimensions);
+    const locationCode = projection?.geo_lowest_level_value_id;
+    const location = geo || locationCode ? formatLocation(geo, locationCode ? String(locationCode) : undefined) : null;
 
     const fixed = Object.fromEntries(
         Object.entries(context?.attributes ?? {}).filter(([, v]) => v !== null && v !== undefined && v !== ''),
@@ -80,6 +88,12 @@ export default function ActivityContextPage() {
                         <p className="text-sm rounded-md bg-secondary-first p-2">Closed {formatDate(context.closed_at)} by {context.closed_by}: {context.close_reason}</p>
                     )}
                     <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                        {location && (
+                            <>
+                                <dt className="opacity-70">Location</dt>
+                                <dd title={locationTooltip(geo)}>{location}</dd>
+                            </>
+                        )}
                         {Object.entries(projection ?? context?.attributes ?? {})
                             .filter(([k, v]) => !HIDDEN.has(k) && v !== null && v !== undefined && v !== '')
                             .map(([k, v]) => (

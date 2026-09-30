@@ -31,7 +31,7 @@ DB_URL = os.environ.get(
 
 # ---------------------------------------------------------------- test extension
 
-from openg2p_registry_core.models import G2PActivity, G2PActivityProjection, G2PRegister  # noqa: E402
+from openg2p_registry_core.models import G2PActivity, G2PActivityProjection, G2PGeo, G2PRegister  # noqa: E402
 from openg2p_registry_core.services import ActivityAggregateResult, G2PActivityDomainService  # noqa: E402
 
 
@@ -118,12 +118,12 @@ class G2PActivityDomainServiceFieldWork(G2PActivityDomainService):
 
 # Two record registers in the same instance: a farmer and the farmer's plots,
 # for activities whose subject is a local record.
-class G2PRegisterTestFarmer(G2PRegister):
+class G2PRegisterTestFarmer(G2PRegister, G2PGeo):
     __tablename__ = "g2p_register_test_farmers"
     __table_args__ = {"extend_existing": True}
 
 
-class G2PRegisterTestPlot(G2PRegister):
+class G2PRegisterTestPlot(G2PRegister, G2PGeo):
     __tablename__ = "g2p_register_test_plots"
     __table_args__ = {"extend_existing": True}
 
@@ -248,21 +248,35 @@ async def _prepare_database():
                 ),
                 {"id": register_id, "m": mnemonic, "p": purpose, "master": master},
             )
+        # Master Data's geography tables, with a small country:
+        # XK > R1 Alpha > Z1 North (W1 Lake, W2 Hill) and Z2 South (W3 Plain).
+        await conn.execute(text("CREATE TABLE g2p_geo_levels (level_id varchar PRIMARY KEY, "
+                                "level_mnemonic varchar, parent_level_id varchar)"))
+        await conn.execute(text("CREATE TABLE g2p_geo_level_values (level_value_id varchar PRIMARY KEY, "
+                                "level_id varchar, level_value_mnemonic varchar, parent_level_value_id varchar)"))
+        await conn.execute(text("INSERT INTO g2p_geo_levels VALUES ('l0','country',NULL), ('l1','region','l0'), "
+                                "('l2','zone','l1'), ('l3','woreda','l2')"))
+        await conn.execute(text(
+            "INSERT INTO g2p_geo_level_values VALUES ('XK','l0','Kamuntu',NULL), ('R1','l1','Alpha','XK'), "
+            "('Z1','l2','North','R1'), ('Z2','l2','South','R1'), ('W1','l3','Lake','Z1'), ('W2','l3','Hill','Z1'), "
+            "('W3','l3','Plain','Z2')"))
         now = "now() AT TIME ZONE 'utc'"
         await conn.execute(
             text(
                 "INSERT INTO g2p_register_test_farmers (internal_record_id, functional_record_id, record_name, "
-                f"created_by, created_at, last_approved_at, last_approved_by, record_status) VALUES "
-                f"('farmer-1', 'FR-1', 'Almaz', 't', {now}, {now}, 't', 'ACTIVE'), "
-                f"('farmer-2', 'FR-2', 'Bekele', 't', {now}, {now}, 't', 'ACTIVE')"
+                f"created_by, created_at, last_approved_at, last_approved_by, record_status, "
+                f"geo_lowest_level_value_id) VALUES "
+                f"('farmer-1', 'FR-1', 'Almaz', 't', {now}, {now}, 't', 'ACTIVE', 'W2'), "
+                f"('farmer-2', 'FR-2', 'Bekele', 't', {now}, {now}, 't', 'ACTIVE', NULL)"
             )
         )
         await conn.execute(
             text(
                 "INSERT INTO g2p_register_test_plots (internal_record_id, link_internal_record_id, record_name, "
-                f"created_by, created_at, last_approved_at, last_approved_by, record_status) VALUES "
-                f"('plot-1', 'farmer-1', 'Plot one', 't', {now}, {now}, 't', 'ACTIVE'), "
-                f"('plot-2', 'farmer-2', 'Plot two', 't', {now}, {now}, 't', 'ACTIVE')"
+                f"created_by, created_at, last_approved_at, last_approved_by, record_status, "
+                f"geo_lowest_level_value_id) VALUES "
+                f"('plot-1', 'farmer-1', 'Plot one', 't', {now}, {now}, 't', 'ACTIVE', NULL), "
+                f"('plot-2', 'farmer-2', 'Plot two', 't', {now}, {now}, 't', 'ACTIVE', 'W3')"
             )
         )
         await conn.execute(
@@ -358,6 +372,8 @@ async def activity_types(database):
                             "mode": "LENIENT",
                             "temporary_prefix": "TMP-",
                         },
+                        # Where the sowing happened (checked by the geo tests, not here).
+                        "woreda": {"kind": "GEO", "mode": "NONE", "location": True},
                     }
                 ),
             },

@@ -35,6 +35,7 @@ _BASE_COLUMNS = {
     "last_recorded_at",
     "projected_at",
     "geo_code_hierarchy_json",
+    "geo_dimensions",
 }
 
 
@@ -76,12 +77,13 @@ class G2PActivityProjectionService(BaseService):
             last_recorded_at=max(a.recorded_at for a in activities),
             projected_at=datetime.utcnow(),
         )
-        if values.get("geo_code_hierarchy_json") is None:
-            for activity in reversed(activities):
-                geo = getattr(activity, "geo_code_hierarchy_json", None)
-                if geo:
-                    values["geo_code_hierarchy_json"] = geo
-                    break
+        for field in ("geo_code_hierarchy_json", "geo_dimensions"):
+            if values.get(field) is None:
+                for activity in reversed(activities):
+                    geo = getattr(activity, field, None)
+                    if geo:
+                        values[field] = geo
+                        break
 
         columns = set(projection_model.__table__.columns.keys())
         unknown = set(values) - columns

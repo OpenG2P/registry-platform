@@ -204,6 +204,12 @@ class G2PActivityPartitionService(BaseService):
                     "USING gin (subject_ancestor_record_ids jsonb_path_ops)"
                 )
             )
+            await conn.execute(
+                text(
+                    f'CREATE INDEX IF NOT EXISTS "idx_{table_name}_geo_dimensions" ON "{table_name}" '
+                    "USING gin (geo_dimensions jsonb_path_ops)"
+                )
+            )
             await conn.execute(text(_GUARD_FUNCTION))
             for year in years:
                 await conn.execute(text(self._partition_ddl(table_name, year)))
@@ -222,6 +228,14 @@ class G2PActivityPartitionService(BaseService):
     async def ensure_projection_table(self, projection_model) -> None:
         await projection_model.create_migrate()
         await self.add_missing_columns(projection_model)
+        table_name = projection_model.__tablename__
+        async with dbengine.get().begin() as conn:
+            await conn.execute(
+                text(
+                    f'CREATE INDEX IF NOT EXISTS "idx_{table_name}_geo_dimensions" ON "{table_name}" '
+                    "USING gin (geo_dimensions jsonb_path_ops)"
+                )
+            )
 
     @staticmethod
     def default_years(now: datetime | None = None) -> list[int]:

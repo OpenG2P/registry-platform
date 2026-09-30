@@ -14,6 +14,8 @@ from openg2p_registry_core.services import G2PRegisterService
 from openg2p_registry_core.helpers import TemplateHelper
 from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate, G2PRegistryDocument
 from openg2p_registry_core.models import ActivityStatusEnum, ActivityVerificationStatusEnum, RegisterPurposeEnum
+from openg2p_registry_core.models import G2PActivityAggregate, G2PActivityContext
+from openg2p_registry_core.services import G2PActivityRegistryService
 from openg2p_registry_core.helpers.ethiopian_calendar import format_ethiopian_date
 
 from ..schemas import (
@@ -71,7 +73,27 @@ class G2PDciService(BaseService):
                 search_criteria, model_class
             )
 
-            if is_activity:
+            aggregate_records = None
+            state_type = (
+                await self._state_context_type(register_id, search_criteria.reg_record_type)
+                if is_activity and not _is_aggregate_request(search_criteria.reg_record_type)
+                else None
+            )
+            if is_activity and _is_aggregate_request(search_criteria.reg_record_type):
+                # A subject's roll-ups (e.g. a farmer's season summary) rather
+                # than its activities — what an eligibility check reads.
+                aggregate_records, total_count = await self._aggregate_search(
+                    search_criteria.reg_type, register_id, query_result, current_page, page_size
+                )
+                search_result_data = []
+            elif state_type:
+                # The subject's contexts' current state (e.g. each crop season:
+                # stage, area sown, yield, verified) from the projection.
+                aggregate_records, total_count = await self._state_search(
+                    search_criteria.reg_type, register_id, state_type, query_result, current_page, page_size
+                )
+                search_result_data = []
+            elif is_activity:
                 search_result_data, total_count = await self._activity_search(
                     model_class, query_result, current_page, page_size, sort_by
                 )
@@ -88,7 +110,7 @@ class G2PDciService(BaseService):
                     sort_by=sort_by,
                 )
 
-            reg_records = [
+            reg_records = aggregate_records if aggregate_records is not None else [
                 self._render_reg_record_with_template(
                     datum, template_store_id, bucket=template_bucket
                 )
@@ -224,6 +246,92 @@ class G2PDciService(BaseService):
             results.append(_ActivityRecord(record))
         return results, total_count
 
+    async def _state_context_type(self, register_id: str, reg_record_type: Optional[str]) -> Optional[str]:
+        """The context type a record type names (…:CropSeason → CROP_SEASON), if the register has it."""
+        context_type = _context_type_of(reg_record_type)
+        if not context_type:
+            return None
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            found = (
+                await session.execute(
+                    select(G2PActivityContext.context_id)
+                    .where(
+                        G2PActivityContext.register_id == register_id,
+                        G2PActivityContext.context_type == context_type,
+                    )
+                    .limit(1)
+                )
+            ).scalar()
+        return context_type if found else None
+
+    async def _state_search(self, register_mnemonic: str, register_id: str, context_type: str, query_result,
+                            current_page: int, page_size: int):
+        """A subject's contexts of one type, current state from the projection, shaped by the register."""
+        value = query_result.search_text
+        registry = G2PActivityRegistryService.get_component() or G2PActivityRegistryService()
+        _, projection = registry.resolve_classes(register_mnemonic)
+        if not value or projection is None:
+            return [], 0
+        domain = registry.domain_service(register_mnemonic)
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            base = (
+                select(projection)
+                .join(G2PActivityContext, G2PActivityContext.context_id == projection.context_id)
+                .where(
+                    G2PActivityContext.register_id == register_id,
+                    G2PActivityContext.context_type == context_type,
+                    projection.subject_id == value,
+                )
+            )
+            total_count = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+            rows = (
+                await session.execute(
+                    base.order_by(projection.last_occurred_at.desc().nulls_last())
+                    .offset((current_page - 1) * page_size)
+                    .limit(page_size)
+                )
+            ).scalars().all()
+        return [domain.dci_state_record(_json_ready(row.to_dict())) for row in rows], total_count
+
+    async def _aggregate_search(self, register_mnemonic: str, register_id: str, query_result, current_page: int,
+                                page_size: int):
+        """A subject's current aggregates, shaped by the register's dci_aggregate_record.
+
+        The subject is the idtype-value (or expression) search value, matched on
+        the aggregate's subject_id or subject_internal_record_id. Top-level keys
+        are what consent scopes clamp; the register maps them onto its scopes.
+        """
+        value = query_result.search_text
+        if not value:
+            return [], 0
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            base = select(G2PActivityAggregate).where(
+                G2PActivityAggregate.register_id == register_id,
+                or_(
+                    G2PActivityAggregate.subject_id == value,
+                    G2PActivityAggregate.subject_internal_record_id == value,
+                ),
+            )
+            total_count = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
+            rows = (
+                await session.execute(
+                    base.order_by(
+                        G2PActivityAggregate.period_start.desc().nulls_last(), G2PActivityAggregate.aggregate_type
+                    )
+                    .offset((current_page - 1) * page_size)
+                    .limit(page_size)
+                )
+            ).scalars().all()
+        registry = G2PActivityRegistryService.get_component() or G2PActivityRegistryService()
+        domain = registry.domain_service(register_mnemonic)
+        return [
+            domain.dci_aggregate_record(_json_ready({c.name: getattr(row, c.name) for c in row.__table__.columns}))
+            for row in rows
+        ], total_count
+
     @staticmethod
     def _clamp_record_fields(record: Dict[str, Any], allowed_scopes: List[str]) -> Dict[str, Any]:
         """Return a copy of a rendered registry record keeping only the fields
@@ -351,6 +459,29 @@ class G2PDciService(BaseService):
                     f"data_model_id={data_model_id}"
                 )
             return row.document_store_id, row.bucket
+
+
+def _is_aggregate_request(reg_record_type: Optional[str]) -> bool:
+    """reg_record_type ending in "Aggregate" (e.g. spdci-extensions-agri:ActivityAggregate) asks for roll-ups."""
+    return bool(reg_record_type) and str(reg_record_type).lower().endswith("aggregate")
+
+
+def _context_type_of(reg_record_type: Optional[str]) -> Optional[str]:
+    """…:CropSeason → CROP_SEASON (the local name, CamelCase to UPPER_SNAKE)."""
+    import re
+
+    if not reg_record_type:
+        return None
+    local = str(reg_record_type).split(":")[-1]
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", local).upper() or None
+
+
+def _json_ready(value):
+    if isinstance(value, dict):
+        return {key: _json_ready(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_ready(item) for item in value]
+    return _plain(value)
 
 
 def _plain(value):

@@ -342,14 +342,7 @@ class G2PActivityReferenceService(BaseService):
         cached = self._cache.get(("geo", value))
         if cached is not None:
             return cached
-        lookup = self._geo_lookup
-        if lookup is None:
-            from .g2p_geo_hierarchy_service import G2PGeoHierarchyService
-
-            service = G2PGeoHierarchyService.get_component()
-            lookup = service.get_geo_hierarchy if service else None
-        if lookup is None:
-            return None
+        lookup = self._geo_lookup or _hierarchy_from_master_data
         try:
             hierarchy = await lookup(value)
         except Exception as error:
@@ -426,3 +419,23 @@ class G2PActivityReferenceService(BaseService):
             record = await self._local_record(session, rule, value)
             return getattr(record, "record_name", None) if record is not None else None
         return domain_service.reference_display(field, value)
+
+
+async def _hierarchy_from_master_data(value: str) -> Optional[dict]:
+    """The value's chain from Master Data, top level first, in the hierarchy service's shape.
+
+    Read directly (not through G2PGeoHierarchyService, whose response cache needs
+    the web app's cache backend), so it works the same in APIs, workers and tests.
+    """
+    from .g2p_activity_geo_service import G2PActivityGeoService
+
+    service = G2PActivityGeoService.get_component() or G2PActivityGeoService()
+    dims = await service.dimensions(value)
+    if not dims:
+        return None
+    return {
+        "hierarchy": [
+            {"level_mnemonic": level, "level_value_mnemonic": entry["name"], "level_value_id": entry["code"]}
+            for level, entry in dims.items()
+        ]
+    }

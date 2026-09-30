@@ -299,6 +299,7 @@ class ActivityData(BaseModel):
     reference_checks: Optional[dict] = None
     rule_warnings: Optional[list] = None
     display: dict[str, Any] = Field(default_factory=dict)  # resolved reference labels
+    geo_dimensions: Optional[dict] = None  # where it happened, as named Master Data levels
     enrichment: Optional[dict] = None  # derived or external data, added asynchronously
 
 

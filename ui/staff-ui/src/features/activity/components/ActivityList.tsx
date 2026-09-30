@@ -6,6 +6,7 @@ import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
 import type { Activity, ActivityType, PageInfo } from "../types";
 import { formatEc } from "../utils/ethiopianCalendar";
 import { displayValue, formatDateTime } from "../utils/labels";
+import { activityLocationFallback, locationTooltip, lowestLocation } from "../utils/geo";
 import ActivityDetail from "./ActivityDetail";
 import { StatusBadge, VerificationBadge, WarningCount } from "./StatusBadges";
 
@@ -111,6 +112,7 @@ export default function ActivityList({ registerMnemonic, types, byType, contextI
                         <tr className="text-left border-b border-secondary-second">
                             <th className="px-4 py-3 font-medium">Activity</th>
                             <th className="px-4 py-3 font-medium">Happened</th>
+                            <th className="px-4 py-3 font-medium">Location</th>
                             <th className="px-4 py-3 font-medium">Details</th>
                             <th className="px-4 py-3 font-medium">Recorded</th>
                             <th className="px-4 py-3 font-medium">State</th>
@@ -118,10 +120,10 @@ export default function ActivityList({ registerMnemonic, types, byType, contextI
                     </thead>
                     <tbody>
                         {loading && (
-                            <tr><td colSpan={5} className="px-4 py-6 opacity-70">Loading…</td></tr>
+                            <tr><td colSpan={6} className="px-4 py-6 opacity-70">Loading…</td></tr>
                         )}
                         {!loading && rows.length === 0 && (
-                            <tr><td colSpan={5} className="px-4 py-6 opacity-70">No activities match.</td></tr>
+                            <tr><td colSpan={6} className="px-4 py-6 opacity-70">No activities match.</td></tr>
                         )}
                         {!loading && rows.map((a) => {
                             const type = byType[a.activity_type];
@@ -135,6 +137,9 @@ export default function ActivityList({ registerMnemonic, types, byType, contextI
                                     <td className="px-4 py-3 whitespace-nowrap">
                                         <div>{formatEc(a.occurred_at)}</div>
                                         <div className="text-xs opacity-60">{a.occurred_at.slice(0, 10)}</div>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap" title={locationTooltip(a.geo_dimensions)}>
+                                        {lowestLocation(a.geo_dimensions, activityLocationFallback(type, a.payload, a.display))}
                                     </td>
                                     <td className="px-4 py-3">
                                         {SUMMARY_FIELDS.filter((f) => a.payload?.[f] !== undefined).map((f) => (

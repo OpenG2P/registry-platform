@@ -113,5 +113,41 @@ class G2PActivityDomainService(BaseService):
         """
         return []
 
+    # ------------------------------------------------------------- sharing
+
+    # A DCI search on an activity register can return, instead of activities, a
+    # subject's current state per context (reg_record_type naming the context
+    # type, e.g. ...:CropSeason) or its aggregates (...:Aggregate). These hooks
+    # shape those records. Top-level keys are what consent scopes clamp, so a
+    # register maps them onto its own scope names; the defaults are generic.
+
+    def dci_state_record(self, state: dict[str, Any]) -> dict[str, Any]:
+        """One context's current state (a projection row, JSON-ready) as a DCI record."""
+        base = {"context_id", "context_key", "subject_type", "subject_id", "context_status", "activity_count",
+                "last_activity_id", "last_activity_type", "last_occurred_at", "last_recorded_at", "projected_at",
+                "geo_dimensions", "geo_code_hierarchy_json"}
+        return {
+            "subject_reference": {"subject_type": state.get("subject_type"), "subject_id": state.get("subject_id")},
+            "context": {key: state.get(key) for key in ("context_id", "context_key", "context_status",
+                                                         "activity_count", "last_activity_type", "last_occurred_at")},
+            "state": {key: value for key, value in state.items() if key not in base},
+            "location": state.get("geo_dimensions"),
+        }
+
+    def dci_aggregate_record(self, aggregate: dict[str, Any]) -> dict[str, Any]:
+        """One aggregate (JSON-ready) as a DCI record."""
+        return {
+            "subject_reference": {
+                "subject_type": aggregate.get("subject_type"),
+                "subject_id": aggregate.get("subject_id"),
+                "subject_register": aggregate.get("subject_register_mnemonic"),
+            },
+            "aggregate": {key: aggregate.get(key) for key in (
+                "aggregate_type", "period_key", "period_start", "period_end", "computed_at")},
+            "measures": aggregate.get("aggregate_value"),
+            "location": aggregate.get("geo_dimensions"),
+            "dimensions": aggregate.get("custom_dimensions"),
+        }
+
     def now(self) -> datetime:
         return datetime.utcnow()

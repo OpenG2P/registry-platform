@@ -11,6 +11,31 @@ export interface ActivityRegister {
     has_projection: boolean;
 }
 
+/** One administrative unit of a location, from Master Data (e.g. {code: "ET04", name: "Oromia"}). */
+export interface GeoUnit {
+    code: string;
+    name: string;
+}
+
+/**
+ * Where something happened, as named administrative levels from the top level
+ * down, e.g. {country: {...}, region: {...}, zone: {...}, woreda: {...}}.
+ */
+export type GeoDimensions = Record<string, GeoUnit>;
+
+/**
+ * How a payload field is checked. kind GEO names a Master Data geography value:
+ * `level` is the level it must be at, `location` marks it as the activity's location.
+ */
+export interface ReferenceRule {
+    kind: string;
+    mode?: string;
+    temporary_prefix?: string;
+    attribute?: string;
+    level?: string;
+    location?: boolean;
+}
+
 export interface CodeOption {
     code: string;
     label: string;
@@ -48,7 +73,8 @@ export interface ActivityType {
     due_rule?: { after_type: string; min_days?: number; max_days?: number } | null;
     max_backdate_days?: number | null;
     requires_verification: boolean;
-    reference_rules?: Record<string, { kind: string; mode?: string; temporary_prefix?: string }> | null;
+    /** Keyed by payload field; fields inside list rows use "list_field.row_field". */
+    reference_rules?: Record<string, ReferenceRule> | null;
     ethiopian_date_fields?: string[] | null;
     reference_options: Record<string, CodeOption[]>;
     schema_version: number;
@@ -89,6 +115,8 @@ export interface Activity {
     display: Record<string, JsonValue>;
     /** Derived or external data, added asynchronously after the activity was recorded. */
     enrichment?: Record<string, JsonValue> | null;
+    /** Where the activity happened, resolved from Master Data when it was written; null if unknown. */
+    geo_dimensions?: GeoDimensions | null;
 }
 
 /** What append_activity / append_activities accept for one activity. */
@@ -124,7 +152,8 @@ export interface ActivityAggregate {
     period_start?: string | null;
     period_end?: string | null;
     aggregate_value: Record<string, JsonValue>;
-    geo_dimensions?: Record<string, JsonValue> | null;
+    /** Empty when the location is unknown. */
+    geo_dimensions?: GeoDimensions | null;
     custom_dimensions?: Record<string, JsonValue> | null;
     computed_at: string;
     source_activity_id?: string | null;

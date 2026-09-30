@@ -3,7 +3,14 @@
 An indicator definition names an aggregate, the projection column it applies
 to, optional group-by columns and filters. Column names are checked against
 the projection model, so configuration can never inject SQL.
+
+Geography is addressed as ``geo:<level>`` (e.g. ``geo:region``, ``geo:woreda``),
+the projection's named Master Data levels: in ``group_by`` it groups by the
+level's code and adds its name (``geo:region_name``); in ``filters`` it matches
+the level's code. Level names are validated, and reach SQL only as bound values.
 """
+
+import re
 
 import logging
 from decimal import Decimal
@@ -30,6 +37,10 @@ _AGGREGATES = {
     "min": func.min,
     "max": func.max,
 }
+
+
+GEO_PREFIX = "geo:"
+_LEVEL = re.compile(r"^[a-z][a-z0-9_]{0,40}$")
 
 
 def _error(code: G2PRegistryErrorCodes, message: str) -> G2PRegistryException:
@@ -93,11 +104,13 @@ class G2PActivityIndicatorService(BaseService):
             if fn not in _AGGREGATES:
                 raise _error(G2PRegistryErrorCodes.ACTIVITY_INDICATOR_INVALID, f"Unsupported aggregate {fn}")
             measure_column = self._column(projection, measure.get("field") or "context_id")
-            group_by = [self._column(projection, name) for name in definition.get("group_by") or []]
+            group_by = []
+            for name in definition.get("group_by") or []:
+                group_by += self._group_columns(projection, name)
 
             stmt = select(*group_by, _AGGREGATES[fn](measure_column).label("value"))
             for name, value in {**(definition.get("filters") or {}), **(filters or {})}.items():
-                column = self._column(projection, name)
+                column = self._geo(projection, name, "code") if name.startswith(GEO_PREFIX) else self._column(projection, name)
                 stmt = stmt.where(column.in_(value) if isinstance(value, list) else column == value)
             if data_policies:
                 from iam_core.helpers.data_policy_helper import DataPolicyHelper
@@ -117,9 +130,22 @@ class G2PActivityIndicatorService(BaseService):
                 indicator_code=indicator.indicator_code,
                 display_name=indicator.display_name,
                 unit=indicator.unit,
-                group_by=[column.key for column in group_by],
+                group_by=[getattr(column, "key", None) or column.name for column in group_by],
                 rows=rows,
             )
+
+    @classmethod
+    def _group_columns(cls, projection, name: str) -> list:
+        if name.startswith(GEO_PREFIX):
+            return [cls._geo(projection, name, "code").label(name), cls._geo(projection, name, "name").label(f"{name}_name")]
+        return [cls._column(projection, name)]
+
+    @staticmethod
+    def _geo(projection, name: str, part: str):
+        level = name[len(GEO_PREFIX):]
+        if not _LEVEL.match(level) or "geo_dimensions" not in projection.__table__.columns:
+            raise _error(G2PRegistryErrorCodes.ACTIVITY_INDICATOR_INVALID, f"{name} is not a geographic level")
+        return projection.__table__.c.geo_dimensions[level][part].astext
 
     @staticmethod
     def _column(projection, name: str):

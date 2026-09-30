@@ -64,6 +64,7 @@ from ..schemas.activity import (
     TemporaryReferenceData,
     WorkItemData,
 )
+from .g2p_activity_geo_service import G2PActivityGeoService
 from .g2p_activity_projection_service import G2PActivityProjectionService
 from .g2p_activity_reference_service import G2PActivityReferenceService
 from .g2p_activity_registry_service import ActivityRegister, G2PActivityRegistryService
@@ -95,6 +96,7 @@ class G2PActivityService(BaseService):
         self.references = G2PActivityReferenceService.get_component() or G2PActivityReferenceService()
         self.rules = G2PActivityRuleService.get_component() or G2PActivityRuleService()
         self.projections = G2PActivityProjectionService.get_component() or G2PActivityProjectionService()
+        self.geo = G2PActivityGeoService.get_component() or G2PActivityGeoService()
 
     @staticmethod
     def _session_maker():
@@ -219,6 +221,7 @@ class G2PActivityService(BaseService):
                 context_activities = [a for a in context_activities if a.activity_id != superseding.activity_id]
             warnings += self.rules.check_context_rules(type_row, payload, context_activities, occurred_at)
         warnings += domain.validate(type_row.activity_type, payload, context_activities) or []
+        geo_dimensions = await self.geo.resolve(session, register, type_row, activity, payload, context)
 
         model = register.activity_model
         row = model(
@@ -247,6 +250,7 @@ class G2PActivityService(BaseService):
                 else ActivityVerificationStatusEnum.NOT_REQUIRED.value
             ),
             payload=payload,
+            geo_dimensions=geo_dimensions,
             reference_checks=checks or None,
             rule_warnings=warnings or None,
             **self._promoted_columns(model, payload),

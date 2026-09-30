@@ -6,6 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
 import type { ActivityContext, PageInfo, JsonValue } from "../types";
 import { formatDate, humanize } from "../utils/labels";
+import { asGeoDimensions, locationTooltip, lowestLocation } from "../utils/geo";
 
 interface Props {
     registerMnemonic: string;
@@ -22,7 +23,7 @@ const str = (value: JsonValue | undefined): string | undefined =>
 const BASE = new Set([
     "context_id", "context_key", "subject_type", "context_status", "activity_count", "last_activity_id",
     "last_activity_type", "last_occurred_at", "last_recorded_at", "projected_at", "geo_code_hierarchy_json",
-    "geo_lowest_level_value_id",
+    "geo_lowest_level_value_id", "geo_dimensions",
 ]);
 
 /**
@@ -59,6 +60,8 @@ export default function ContextList({ registerMnemonic, hasProjection }: Props) 
     const extraColumns = hasProjection && rows.length
         ? Object.keys(rows[0]).filter((k) => (!BASE.has(k) && !k.endsWith("_id")) || ["farmer_id", "plot_id"].includes(k)).slice(0, 8)
         : [];
+    // Where each context is, from the projection's geo dimensions (else its location code).
+    const showLocation = hasProjection && rows.some((r) => asGeoDimensions(r.geo_dimensions) || r.geo_lowest_level_value_id);
 
     return (
         <div className="flex flex-col gap-3">
@@ -77,6 +80,7 @@ export default function ContextList({ registerMnemonic, hasProjection }: Props) 
                             {hasProjection ? (
                                 <>
                                     {extraColumns.map((c) => <th key={c} className="px-4 py-3 font-medium">{humanize(c)}</th>)}
+                                    {showLocation && <th className="px-4 py-3 font-medium">Location</th>}
                                     <th className="px-4 py-3 font-medium">Activities</th>
                                     <th className="px-4 py-3 font-medium">Last activity</th>
                                     <th className="px-4 py-3 font-medium">Status</th>
@@ -110,6 +114,11 @@ export default function ContextList({ registerMnemonic, hasProjection }: Props) 
                                                     : text(row[c])}
                                             </td>
                                         ))}
+                                        {showLocation && (
+                                            <td className="px-4 py-3 whitespace-nowrap" title={locationTooltip(asGeoDimensions(row.geo_dimensions))}>
+                                                {lowestLocation(asGeoDimensions(row.geo_dimensions), str(row.geo_lowest_level_value_id))}
+                                            </td>
+                                        )}
                                         <td className="px-4 py-3">{text(row.activity_count)}</td>
                                         <td className="px-4 py-3 whitespace-nowrap">{humanize(str(row.last_activity_type))} · {formatDate(str(row.last_occurred_at))}</td>
                                         <td className="px-4 py-3">{humanize(str(row.context_status))}</td>

@@ -150,10 +150,12 @@ class G2PActivityOutboxService(BaseService):
             "period_start": result.period_start,
             "period_end": result.period_end,
             "aggregate_value": _json_ready(result.aggregate_value),
+            # Platform-owned, as in the Observations design: the activity's named
+            # levels unless the domain chose the roll-up's own.
             "geo_dimensions": _json_ready(
                 result.geo_dimensions
                 if result.geo_dimensions is not None
-                else getattr(activity, "geo_code_hierarchy_json", None)
+                else getattr(activity, "geo_dimensions", None)
             ),
             "custom_dimensions": _json_ready(result.custom_dimensions),
             "computed_at": now,

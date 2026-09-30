@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAggregates } from "../hooks/useAggregates";
 import type { ActivityAggregate } from "../types";
 import { formatDate, formatDateTime, humanize } from "../utils/labels";
+import { asGeoDimensions, formatLocation, locationTooltip } from "../utils/geo";
 import AggregateValues from "./AggregateValues";
 
 const inputClass = "border border-secondary-second rounded-md px-3 py-2 bg-neutral-second text-sm min-w-64";
@@ -64,6 +65,8 @@ interface TableProps {
 }
 
 function AggregateTable({ rows, empty, selectedId, onSelect }: TableProps) {
+    const showLocation = rows.some((a) => asGeoDimensions(a.geo_dimensions));
+    const columnCount = showLocation ? 5 : 4;
     return (
         <div className="overflow-x-auto rounded-[10px] bg-neutral-second">
             <table className="w-full text-sm">
@@ -71,12 +74,13 @@ function AggregateTable({ rows, empty, selectedId, onSelect }: TableProps) {
                     <tr className="text-left border-b border-secondary-second">
                         <th className="px-4 py-3 font-medium">Summary</th>
                         <th className="px-4 py-3 font-medium">Period</th>
+                        {showLocation && <th className="px-4 py-3 font-medium">Location</th>}
                         <th className="px-4 py-3 font-medium">Values</th>
                         <th className="px-4 py-3 font-medium">Computed</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {rows.length === 0 && <tr><td colSpan={4} className="px-4 py-6 opacity-70">{empty}</td></tr>}
+                    {rows.length === 0 && <tr><td colSpan={columnCount} className="px-4 py-6 opacity-70">{empty}</td></tr>}
                     {rows.map((a) => (
                         <tr
                             key={`${a.aggregate_id}:${a.computed_at}`}
@@ -90,6 +94,9 @@ function AggregateTable({ rows, empty, selectedId, onSelect }: TableProps) {
                                     <div className="text-xs opacity-60">{formatDate(a.period_start)} – {formatDate(a.period_end)}</div>
                                 )}
                             </td>
+                            {showLocation && (
+                                <td className="px-4 py-3" title={locationTooltip(a.geo_dimensions)}>{formatLocation(a.geo_dimensions)}</td>
+                            )}
                             <td className="px-4 py-3"><AggregateValues value={a.aggregate_value} /></td>
                             <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(a.computed_at)}</td>
                         </tr>
