@@ -7,7 +7,10 @@ from openg2p_fastapi_common.schemas import G2PResponse
 from openg2p_registry_core.controller_services import (
     G2PChangeRequestCoreControllerService,
 )
-from openg2p_registry_core.helpers.auth_token import bearer_from_request, requester_sub_from_request
+from openg2p_registry_core.helpers.auth_token import (
+    bearer_from_request,
+    requester_sub_from_request,
+)
 from openg2p_registry_core.schemas import (
     ChangeRequestRequest,
     ChangeRequestResponse,
