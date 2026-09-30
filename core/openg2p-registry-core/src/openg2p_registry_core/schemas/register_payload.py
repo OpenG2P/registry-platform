@@ -137,7 +137,9 @@ class RegisterSummaryData(BaseModel):
     register_subject: Optional[str] = None
     has_image: bool
     register_icon: Optional[str] = None
+    # Records for a register; for an activity register, its contexts (e.g. crop seasons).
     total_record_count: int
+    register_purpose: str = "REGISTER"  # REGISTER | ACTIVITY
 
 
 class ChangeRequestSummaryData(BaseModel):

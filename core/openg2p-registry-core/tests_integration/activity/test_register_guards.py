@@ -58,3 +58,19 @@ async def test_activity_register_mnemonic_and_purpose_are_fixed(database):
         reject(record, None, "ACTIVITY")
     assert info.value.code == IDENTITY_FIXED
     reject(record, "Farmer2", "REGISTER")
+
+
+async def test_register_summary_lists_activity_registers(service, activity_types, database):
+    from .test_activity_service import planned
+
+    await service.append(planned(), "da1", "STAFF_PORTAL")
+    await service.append(planned(plot="LND-2"), "da1", "STAFF_PORTAL")
+    async with async_sessionmaker(database, expire_on_commit=False)() as session:
+        summary = await _register_service()._fetch_register_summary_data(session)
+    by_mnemonic = {s.register_mnemonic: s for s in summary}
+    # Record registers first, then activity registers; an activity register counts its contexts.
+    assert summary[-1].register_mnemonic == "FieldWork"
+    assert by_mnemonic["FieldWork"].register_purpose == "ACTIVITY"
+    assert by_mnemonic["FieldWork"].total_record_count == 2
+    assert by_mnemonic["TestFarmer"].register_purpose == "REGISTER"
+    assert "TestPlot" not in by_mnemonic  # a TABLE register, as before

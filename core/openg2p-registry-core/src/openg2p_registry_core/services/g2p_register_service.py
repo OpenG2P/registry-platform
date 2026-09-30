@@ -623,19 +623,30 @@ class G2PRegisterService(BaseService):
         session,
         data_policies: list[dict] | None = None,
     ) -> list[RegisterSummaryData]:
+        # Activity registers are registers too: they are listed (after the record
+        # registers) with their number of contexts — e.g. crop seasons — as the count.
         register_definitions: list[G2PRegisterDefinition] = (
             await session.execute(
                 select(G2PRegisterDefinition)
-                .where(G2PRegisterDefinition.register_purpose == RegisterPurposeEnum.REGISTER.value)
+                .where(G2PRegisterDefinition.register_purpose.in_(
+                    [RegisterPurposeEnum.REGISTER.value, RegisterPurposeEnum.ACTIVITY.value]
+                ))
+                .order_by(
+                    (G2PRegisterDefinition.register_purpose == RegisterPurposeEnum.ACTIVITY.value),
+                    G2PRegisterDefinition.register_rank,
+                )
             )
         ).scalars().all()
 
         register_summary_data_list: list[RegisterSummaryData] = []
 
         for register_definition in register_definitions:
-            total_record_count: int = await self._count_records_for_register(
-                register_definition, session, data_policies=data_policies
-            )
+            if register_definition.register_purpose == RegisterPurposeEnum.ACTIVITY.value:
+                total_record_count = await self._count_activity_contexts(register_definition, session)
+            else:
+                total_record_count: int = await self._count_records_for_register(
+                    register_definition, session, data_policies=data_policies
+                )
 
             register_summary_data: RegisterSummaryData = RegisterSummaryData(
                 register_id=register_definition.register_id,
@@ -643,7 +654,8 @@ class G2PRegisterService(BaseService):
                 register_subject=register_definition.register_subject,
                 has_image=register_definition.has_image,
                 register_icon=register_definition.register_icon,
-                total_record_count=total_record_count
+                total_record_count=total_record_count,
+                register_purpose=register_definition.register_purpose,
             )
             register_summary_data_list.append(register_summary_data)
 
@@ -651,6 +663,19 @@ class G2PRegisterService(BaseService):
 
 
 
+
+    @staticmethod
+    async def _count_activity_contexts(register_definition: G2PRegisterDefinition, session) -> int:
+        """An activity register's count on the dashboard: its contexts, e.g. crop seasons."""
+        from ..models import G2PActivityContext
+
+        return (
+            await session.execute(
+                select(func.count())
+                .select_from(G2PActivityContext)
+                .where(G2PActivityContext.register_id == register_definition.register_id)
+            )
+        ).scalar_one()
 
     async def _count_records_for_register(
         self,

@@ -27,7 +27,14 @@ import {
 } from '@/features/shared/permissions';
 import { TASK_ARTIFACT_FILTER_OPTIONS } from '@/features/approval/constants';
 import Can from '@/components/shared/Can';
-import ActivityRegisterLinks from '@/features/activity/components/ActivityRegisterLinks';
+import { useRbac } from '@/context/RbacContext';
+import { ACTIVITY_ACTIONS } from '@/features/shared/permissions';
+import { useActivityRegisters } from '@/features/activity/hooks/useActivityRegisters';
+import { activityRegisterPath, registerLabel } from '@/features/activity/utils/labels';
+
+// Activity registers share the Registers dropdown with record registers; their
+// option values carry this prefix so a search opens the activity register page.
+const ACTIVITY_OPTION_PREFIX = 'activity:';
 
 
 type ActiveStatsCard =
@@ -72,12 +79,24 @@ export default function Home() {
 
 
     const { registers } = useRegister();
+    const { can } = useRbac();
+    const { registers: activityRegisters } = useActivityRegisters(can(ACTIVITY_ACTIONS.view));
 
     const registerList =
         registers.map(r => ({
             value: r.register_mnemonic.toLowerCase(),
             label: t(r.register_subject),
         }));
+
+    // The Registers card lists activity registers too, after the record
+    // registers; intake forms apply to record registers only.
+    const registerCardList = [
+        ...registerList,
+        ...activityRegisters.map(r => ({
+            value: `${ACTIVITY_OPTION_PREFIX}${r.register_mnemonic.toLowerCase()}`,
+            label: `${registerLabel(r)} (${t('activity')})`,
+        })),
+    ];
 
     const taskArtifactOptions = TASK_ARTIFACT_FILTER_OPTIONS.map((opt) => ({
         value: opt.value,
@@ -107,12 +126,18 @@ export default function Home() {
         const query = params.toString();
 
         if (activeStatsCard === 'registers' || activeStatsCard === 'intake-form') {
+            const options = activeStatsCard === 'registers' ? registerCardList : registerList;
             const selected =
-                register && register !== 'select'
+                register && register !== 'select' && options.some(o => o.value === register)
                     ? register
-                    : registerList[0]?.value;
+                    : options[0]?.value;
 
             if (!selected) return;
+
+            if (selected.startsWith(ACTIVITY_OPTION_PREFIX)) {
+                router.push(activityRegisterPath(selected.slice(ACTIVITY_OPTION_PREFIX.length)));
+                return;
+            }
 
             const basePath =
                 activeStatsCard === 'registers'
@@ -198,8 +223,6 @@ export default function Home() {
             <div className="relative">
                 <div className="mx-auto flex max-w-6xl flex-col items-center px-4 sm:px-6 py-8 sm:py-10 lg:py-12 space-y-10 sm:space-y-12 lg:space-y-14">
 
-                    <ActivityRegisterLinks />
-
                     {/* stats cards */}
                     {useStatsCarousel ? (
                         <StatsCardsCarousel
@@ -246,14 +269,21 @@ export default function Home() {
                     >
                         <div className="relative border border-primary-second flex h-14 w-4/5 items-center rounded-[10px] bg-neutral-second overflow-visible">
 
-                            {(activeStatsCard === 'registers' || activeStatsCard === 'intake-form') &&
-                                registerList?.length > 0 && (
-                                    <SearchBarDropdown
-                                        options={registerList}
-                                        selected={selectedRegister}
-                                        onChange={setSelectedRegister}
-                                    />
-                                )}
+                            {activeStatsCard === 'registers' && registerCardList.length > 0 && (
+                                <SearchBarDropdown
+                                    options={registerCardList}
+                                    selected={selectedRegister}
+                                    onChange={setSelectedRegister}
+                                />
+                            )}
+
+                            {activeStatsCard === 'intake-form' && registerList?.length > 0 && (
+                                <SearchBarDropdown
+                                    options={registerList}
+                                    selected={selectedRegister}
+                                    onChange={setSelectedRegister}
+                                />
+                            )}
 
                             {activeStatsCard === 'messages' && (
                                 <SearchBarDropdown
