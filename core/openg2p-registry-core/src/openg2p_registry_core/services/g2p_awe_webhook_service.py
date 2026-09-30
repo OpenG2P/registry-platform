@@ -14,6 +14,7 @@ from openg2p_fastapi_common.context import get_async_session_maker
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..helpers.awe_webhook_signature import verify_awe_webhook_signature
+from ..helpers.notification import NotificationHelper, NotificationWorkflow
 from ..models import G2PAweReqEvent, G2PIntakeFormSubmission, G2PRegisterChangeRequest
 from ..models.enum import ApprovalStatusEnum
 from ..schemas.awe_webhook import AweWebhookEvent, AweWebhookDecisionResponse
@@ -115,6 +116,15 @@ class G2PAweWebhookService(BaseService):
                 )
 
             log_row = await self._upsert_webhook_event_log(session, event)
+            skip_change_request_approval_notify = False
+            if (
+                event.event_type == "request_approved"
+                and event.artifact_type == REGISTRY_CHANGE_REQUEST_ARTIFACT
+            ):
+                existing_change_request = await self._resolve_change_request(event, session)
+                skip_change_request_approval_notify = (
+                    existing_change_request.approval_status == ApprovalStatusEnum.APPROVED.value
+                )
 
             try:
                 if event.event_type in TERMINAL_EVENT_TYPES:
@@ -134,10 +144,53 @@ class G2PAweWebhookService(BaseService):
                 raise
 
             await session.commit()
+            await self._notify_change_request_approved(event, session)
+            await self._notify_change_request_rejected(event, session)
+            await self._notify_intake_terminal(event, session)
             return AweWebhookDecisionResponse(
                 event_id=event.event_id,
                 applied=True,
             )
+
+    async def _notify_change_request_approved(self, event: AweWebhookEvent, session: AsyncSession) -> None:
+        if (
+            event.artifact_type != REGISTRY_CHANGE_REQUEST_ARTIFACT
+            or event.event_type != "request_approved"
+        ):
+            return
+        change_request = await self._resolve_change_request(event, session)
+        await NotificationHelper.dispatch_change_request_notification(
+            change_request.change_request_id,
+            NotificationWorkflow.CHANGE_REQUEST_APPROVED,
+            session,
+        )
+
+    async def _notify_change_request_rejected(self, event: AweWebhookEvent, session: AsyncSession) -> None:
+        if (
+            event.artifact_type != REGISTRY_CHANGE_REQUEST_ARTIFACT
+            or event.event_type != "request_rejected"
+        ):
+            return
+        change_request = await self._resolve_change_request(event, session)
+        await NotificationHelper.dispatch_change_request_notification(
+            change_request.change_request_id,
+            NotificationWorkflow.CHANGE_REQUEST_REJECTED,
+            session,
+        )
+
+    async def _notify_intake_terminal(self, event: AweWebhookEvent, session: AsyncSession) -> None:
+        if event.artifact_type != REGISTRY_INTAKE_FORM_ARTIFACT:
+            return
+        workflow = {
+            "request_approved": NotificationWorkflow.INTAKE_FORM_SUBMISSION_APPROVED,
+            "request_rejected": NotificationWorkflow.INTAKE_FORM_SUBMISSION_REJECTED,
+        }.get(event.event_type)
+        if workflow is None:
+            return
+        submission = await self._resolve_intake_form_submission(event, session)
+        await NotificationHelper.dispatch_intake_form_notification(
+            submission.submission_id, workflow, session
+        )
 
     async def _update_status_summary(self, event: AweWebhookEvent, session: AsyncSession) -> None:
         if event.artifact_type not in (
