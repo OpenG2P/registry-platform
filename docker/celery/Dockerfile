@@ -2,7 +2,10 @@
 #
 # Runnable reference registry (platform + a minimal individual+household extension).
 # Bundles openg2p-registry-core + BOTH celery packages so a single image can run
-# as worker or beat (selected at runtime via CELERY_APP). Bundles the reference extension, so the image runs as-is.
+# as worker or beat (selected at runtime via CELERY_APP). Installs the
+# notification connector as well: change-request approve/ingest send lives in
+# registry-core, which celery also runs. Bundles the reference extension, so
+# the image runs as-is.
 # A variant registry builds FROM this image and selects its OWN model via REGISTRY_EXTENSION_MODULE (both coexist; no uninstall):
 #
 #     FROM openg2p/openg2p-registry-celery:<version>
@@ -14,6 +17,8 @@ FROM python:3.12.11-alpine3.22
 
 ARG FASTAPI_COMMON_REF=1.2.1
 ARG IAM_CORE_REF=1.4.2
+ARG NOTIFICATION_REPO=openg2p/notifications
+ARG NOTIFICATION_REF=develop
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
  && apk add --no-cache bash git gettext libpq-dev libffi-dev openssl-dev
@@ -30,6 +35,8 @@ COPY reference-extension /app/reference-extension
 RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
       "git+https://github.com/openg2p/iam@${IAM_CORE_REF}#subdirectory=iam-core" \
+      "git+https://github.com/${NOTIFICATION_REPO}@${NOTIFICATION_REF}#subdirectory=connector" \
+      "sqlalchemy[asyncio]>=2.0.20" \
       /app/core/openg2p-registry-core \
       /app/celery/openg2p-registry-celery-beat \
       /app/celery/openg2p-registry-celery-worker \
