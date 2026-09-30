@@ -155,7 +155,7 @@ spec:
                   key: {{ .Values.global.aweCallbackHmacSecretKey | quote }}
             {{- end }}
             - name: MINIO_ENDPOINT
-              value: {{ tpl .Values.global.minioHost $ | quote }}
+              value: {{ tpl .Values.global.garageHost $ | quote }}
             - name: MINIO_SECURE
               value: {{ .Values.global.minioSecure | quote }}
             - name: TEMPLATE_BUCKET_NAME
@@ -163,13 +163,13 @@ spec:
             - name: MINIO_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "common.tplvalues.render" (dict "value" .Values.global.minioSecret "context" $) | quote }}
-                  key: {{ include "common.tplvalues.render" (dict "value" .Values.global.minioAccessKey "context" $) | quote }}
+                  name: {{ include "common.tplvalues.render" (dict "value" .Values.global.garageSecret "context" $) | quote }}
+                  key: {{ include "common.tplvalues.render" (dict "value" .Values.global.garageAccessKey "context" $) | quote }}
             - name: MINIO_SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "common.tplvalues.render" (dict "value" .Values.global.minioSecret "context" $) | quote }}
-                  key: {{ include "common.tplvalues.render" (dict "value" .Values.global.minioSecretKey "context" $) | quote }}
+                  name: {{ include "common.tplvalues.render" (dict "value" .Values.global.garageSecret "context" $) | quote }}
+                  key: {{ include "common.tplvalues.render" (dict "value" .Values.global.garageSecretKey "context" $) | quote }}
           {{- if .Values.dbSeed.resources }}
           resources: {{- include "common.tplvalues.render" (dict "value" .Values.dbSeed.resources "context" $) | nindent 12 }}
           {{- end }}

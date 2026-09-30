@@ -40,11 +40,11 @@ global:
   redisInstallationName: '{{ .Release.Name }}-redis-master'
 
   # MinIO — commons-minio: root-user/root-password + readonly-user/readonly-password
-  minioSecret: commons-minio
-  minioAccessKey: root-user
-  minioSecretKey: root-password
-  minioReadonlyAccessKey: readonly-user
-  minioReadonlySecretKey: readonly-password
+  garageSecret: commons-garage-registry
+  garageAccessKey: root-user
+  garageSecretKey: root-password
+  garageReadonlyAccessKey: readonly-user
+  garageReadonlySecretKey: readonly-password
   # External MinIO S3 API endpoint. Must be reachable from end-user browsers
   # because the registry generates pre-signed S3 URLs that browsers follow
   # directly. Commons-base's Istio VirtualService exposes the S3 API at
@@ -54,6 +54,7 @@ global:
   # file to match their actual base domain. NOTE: `minio.<basedomain>` is
   # the *Console* UI — do NOT point S3 clients at it.
   minioHost: 'minio-api.{{ tpl .Values.global.baseDomain $ }}'
+  garageHost: 'garage.{{ .Release.Namespace }}.openg2p.org'
   # MinIO buckets — hard-set to match DocumentBucket enum values used by
   # the platform document handler (physical bucket name == enum value).
   # Catalog rows store bucket as 'templates' / 'documents' / 'default'.
@@ -552,7 +553,7 @@ partnerApi:
     REGISTRY_PARTNER_API_CONSENT_MANAGER_URL: '{{ tpl .Values.global.consentManagerUrl $ }}'
     REGISTRY_PARTNER_API_CONSENT_MANAGER_TIMEOUT: '{{ .Values.global.consentManagerTimeoutSeconds }}'
 
-    REGISTRY_PARTNER_API_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
+    REGISTRY_PARTNER_API_MINIO_ENDPOINT: '{{ tpl .Values.global.garageHost $ }}'
     REGISTRY_PARTNER_API_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
     # Match documentsBucketName so partner-served record-image URLs resolve.
     REGISTRY_PARTNER_API_MINIO_BUCKET_NAME: '{{ tpl .Values.global.documentsBucketName $ }}'
@@ -580,20 +581,20 @@ partnerApi:
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
     REGISTRY_PARTNER_API_MINIO_ACCESS_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioAccessKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageAccessKey $ }}'
     REGISTRY_PARTNER_API_MINIO_SECRET_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioSecretKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageSecretKey $ }}'
     REGISTRY_PARTNER_API_MINIO_READ_ACCESS_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioReadonlyAccessKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageReadonlyAccessKey $ }}'
     REGISTRY_PARTNER_API_MINIO_READ_SECRET_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioReadonlySecretKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageReadonlySecretKey $ }}'
     REGISTRY_PARTNER_API_OAUTH_CLIENT_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.authClientSecret $ }}'
@@ -733,7 +734,7 @@ beneApi:
 
     REGISTRY_BENE_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
-    REGISTRY_BENE_PORTAL_API_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
+    REGISTRY_BENE_PORTAL_API_MINIO_ENDPOINT: '{{ tpl .Values.global.garageHost $ }}'
     REGISTRY_BENE_PORTAL_API_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
     # DocumentBucket.TEMPLATES hard-sets the physical bucket to "templates".
     REGISTRY_BENE_PORTAL_API_MINIO_BUCKET_NAME: "templates"
@@ -744,20 +745,20 @@ beneApi:
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
     REGISTRY_BENE_PORTAL_API_MINIO_ACCESS_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioAccessKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageAccessKey $ }}'
     REGISTRY_BENE_PORTAL_API_MINIO_SECRET_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioSecretKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageSecretKey $ }}'
     REGISTRY_BENE_PORTAL_API_MINIO_READ_ACCESS_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioReadonlyAccessKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageReadonlyAccessKey $ }}'
     REGISTRY_BENE_PORTAL_API_MINIO_READ_SECRET_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioReadonlySecretKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageReadonlySecretKey $ }}'
 
   startupProbe:
     enabled: true
@@ -1303,7 +1304,7 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_AUTH_REFRESH_TOKEN_TTL_SECONDS: '{{ .Values.global.authRefreshTokenTtlSeconds }}'
     REGISTRY_STAFF_PORTAL_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
     REGISTRY_STAFF_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
-    REGISTRY_STAFF_PORTAL_API_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
+    REGISTRY_STAFF_PORTAL_API_MINIO_ENDPOINT: '{{ tpl .Values.global.garageHost $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
     # Record images (incl. db-seed uploads) live in documentsBucketName; this must
     # match so staff-portal presigned record-image URLs resolve.
@@ -1341,20 +1342,20 @@ staffApi:
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_ACCESS_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioAccessKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageAccessKey $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_SECRET_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioSecretKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageSecretKey $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_READ_ACCESS_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioReadonlyAccessKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageReadonlyAccessKey $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_READ_SECRET_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioReadonlySecretKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageReadonlySecretKey $ }}'
     REGISTRY_STAFF_PORTAL_API_AWE_CALLBACK_HMAC_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.aweCallbackHmacSecretName $ }}'
@@ -1514,7 +1515,7 @@ staffUi:
     APP_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
     APPLICATION_MNEMONIC: '{{ tpl .Values.global.authClientId $ }}'
     # Allow profile/document images from MinIO pre-signed URLs in the browser CSP.
-    CSP_SRC_IMG: 'self blob: data: https://{{ tpl .Values.global.minioHost $ }}'
+    CSP_SRC_IMG: 'self blob: data: https://{{ tpl .Values.global.garageHost $ }}'
     # Server-side calls from the Next.js Staff Portal UI pod to the Staff
     # Portal API stay inside the cluster — sibling K8s Service is named
     # "<release>-staff-portal-api" on port 80. Browser-side calls from the
@@ -1835,7 +1836,7 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_BATCH_SIZE: 2000
     REGISTRY_CELERY_WORKERS_WORKER_MAX_ATTEMPTS: 5
 
-    REGISTRY_CELERY_WORKERS_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
+    REGISTRY_CELERY_WORKERS_MINIO_ENDPOINT: '{{ tpl .Values.global.garageHost $ }}'
     REGISTRY_CELERY_WORKERS_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
     REGISTRY_CELERY_WORKERS_MINIO_BUCKET_NAME: '{{ tpl .Values.global.defaultBucketName $ }}'
     REGISTRY_CELERY_WORKERS_TEMPLATE_BUCKET_NAME: '{{ tpl .Values.global.templateBucketName $ }}'
@@ -1852,20 +1853,20 @@ celeryWorker:
   envVarsFrom:
     REGISTRY_CELERY_WORKERS_MINIO_ACCESS_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioAccessKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageAccessKey $ }}'
     REGISTRY_CELERY_WORKERS_MINIO_SECRET_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioSecretKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageSecretKey $ }}'
     REGISTRY_CELERY_WORKERS_MINIO_READ_ACCESS_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioReadonlyAccessKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageReadonlyAccessKey $ }}'
     REGISTRY_CELERY_WORKERS_MINIO_READ_SECRET_KEY:
       secretKeyRef:
-        name: '{{ tpl .Values.global.minioSecret $ }}'
-        key: '{{ tpl .Values.global.minioReadonlySecretKey $ }}'
+        name: '{{ tpl .Values.global.garageSecret $ }}'
+        key: '{{ tpl .Values.global.garageReadonlySecretKey $ }}'
     REGISTRY_CELERY_WORKERS_DB_PASSWORD:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
