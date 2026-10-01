@@ -182,15 +182,46 @@ def test_change_request_payload_uses_register_mnemonic():
         source_partner_id="partner",
         remarks=None,
         rejection_reason=None,
+        awe_request_id="awe-1",
+        awe_request_status_summary="pending@1",
+        deduplication_register_status="PASSED",
+        deduplication_register_failure_reason=None,
+        deduplication_change_request_status="PASSED",
+        deduplication_change_request_failure_reason=None,
     )
-    definition = SimpleNamespace(register_mnemonic="Individual")
-    session = SimpleNamespace(get=AsyncMock(side_effect=[change_request, definition]))
+    definition = SimpleNamespace(
+        register_mnemonic="Individual",
+        register_subject="Individuals",
+        register_description="Person registry",
+    )
+    section = SimpleNamespace(section_mnemonic="demographics")
 
-    payload = asyncio.run(change_request_payload("cr-1", session))
+    async def _get(model, key):
+        name = getattr(model, "__name__", str(model))
+        if "ChangeRequest" in name and not name.endswith("Payload"):
+            return change_request
+        if "RegisterDefinition" in name:
+            return definition
+        if "RegisterSection" in name:
+            return section
+        return None
+
+    session = SimpleNamespace(get=AsyncMock(side_effect=_get))
+
+    with patch(
+        "openg2p_registry_core.helpers.notification.resolve_record_display",
+        AsyncMock(return_value={"functional_record_id": "FN-9"}),
+    ):
+        payload = asyncio.run(change_request_payload("cr-1", session))
     assert payload["change_request_id"] == "cr-1"
+    assert payload["register_id"] == "reg-1"
     assert payload["register_mnemonic"] == "Individual"
-    assert "register_id" not in payload
-    assert session.get.await_count == 2
+    assert payload["register_subject"] == "Individuals"
+    assert payload["register_description"] == "Person registry"
+    assert payload["section_mnemonic"] == "demographics"
+    assert payload["functional_record_id"] == "FN-9"
+    assert payload["awe_request_id"] == "awe-1"
+    assert payload["deduplication_register_status"] == "PASSED"
 
 
 def test_dispatch_change_request_notification_loads_payload():
