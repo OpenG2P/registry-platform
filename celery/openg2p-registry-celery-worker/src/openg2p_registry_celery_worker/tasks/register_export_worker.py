@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import csv
 import json
@@ -17,6 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
 from openg2p_registry_core.helpers import get_document_handler
+from openg2p_registry_core.helpers.notification import NotificationWorkflow
 from openg2p_registry_core.helpers.register_export import (
     apply_register_export_sort,
     build_main_export_conditions,
@@ -455,6 +457,23 @@ def _process_export(session, queue_item):
         writer.close()
 
 
+def _notify_export(export_id: str, workflow) -> None:
+    """Notify the staff member who requested the export. A failed send is ignored."""
+    from openg2p_registry_core.helpers.notification import NotificationHelper
+
+    async def _run():
+        session_maker = Engine.get_async_session_maker()
+        async with session_maker() as session:
+            await NotificationHelper.dispatch_register_export_notification(
+                export_id, workflow, session
+            )
+
+    try:
+        asyncio.run(_run())
+    except Exception:
+        _logger.exception("export notification failed for %s", export_id)
+
+
 @celery_app.task(name="register_export_worker")
 def register_export_worker(export_id: str):
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
@@ -472,6 +491,7 @@ def register_export_worker(export_id: str):
             queue_item.export_status = ProcessStatusEnum.FAILED.value
             queue_item.export_latest_timestamp = datetime.now()
             session.commit()
+            _notify_export(export_id, NotificationWorkflow.REGISTER_EXPORT_FAILED)
             return
 
         queue_item.export_no_of_attempts += 1
@@ -495,6 +515,7 @@ def register_export_worker(export_id: str):
             queue_item.export_status = ProcessStatusEnum.COMPLETED.value
             queue_item.export_latest_timestamp = datetime.now()
             session.commit()
+            _notify_export(export_id, NotificationWorkflow.REGISTER_EXPORT_COMPLETED)
         except Exception as exc:
             session.rollback()
             queue_item = session.get(G2PRegisterExportDataQueue, export_id)
@@ -508,6 +529,8 @@ def register_export_worker(export_id: str):
                 else ProcessStatusEnum.PENDING.value
             )
             session.commit()
+            if queue_item.export_status == ProcessStatusEnum.FAILED.value:
+                _notify_export(export_id, NotificationWorkflow.REGISTER_EXPORT_FAILED)
             _logger.exception(
                 "Register export %s failed on attempt %s",
                 export_id,

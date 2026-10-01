@@ -15,7 +15,7 @@
 # Build context = repo root (so core/ and apis/ are reachable).
 FROM python:3.12.11-alpine3.22
 
-ARG FASTAPI_COMMON_REF=1.2.1
+ARG FASTAPI_COMMON_REF=1.2.2
 ARG IAM_CORE_REF=1.4.2
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \

@@ -8,6 +8,7 @@ _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
 from celery import Celery
+from openg2p_notification.app import Initializer as NotificationInitializer
 from openg2p_registry_core.helpers import (
     MasterDataClient,
     PartnerManagementClient,
@@ -47,6 +48,7 @@ class Initializer(BaseInitializer):
         WebsubHelper()
         PartnerManagementClient()
         MasterDataClient()
+        NotificationInitializer()
 
         # Services
         G2PRegisterService()

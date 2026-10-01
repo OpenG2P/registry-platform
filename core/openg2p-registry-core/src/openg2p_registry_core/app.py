@@ -4,6 +4,7 @@ import logging
 
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
 from openg2p_fastapi_common.crypto import CryptoFactory
+from openg2p_notification.app import Initializer as NotificationInitializer
 
 from .cache import init_cache
 from .config import Settings
@@ -168,6 +169,7 @@ class Initializer(BaseInitializer):
         ApplicationReferenceGenerator(_config.application_reference_format)
         CryptoFactory.get()
         AweHelper()
+        NotificationInitializer()
 
         # Factories
         G2PRegisterDomainFactory()

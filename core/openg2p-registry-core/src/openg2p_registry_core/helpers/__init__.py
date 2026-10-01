@@ -1,5 +1,7 @@
 from .awe_config import get_awe_settings
 from .awe_helper import AWEClientError, AweHelper
+from .notification import NotificationHelper, NotificationWorkflow
+from .registrant_contact import RegistrantContact, resolve_registrant_contact
 from .document import DocumentBucket, DocumentHandler, get_document_handler
 from .master_data import (
     MasterDataClient,

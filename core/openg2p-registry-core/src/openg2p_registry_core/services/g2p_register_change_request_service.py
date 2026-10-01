@@ -65,6 +65,7 @@ from .change_request_payload_utils import (
 from .g2p_section_document_reconcile_service import (
     G2PSectionDocumentReconcileService,
 )
+from ..helpers.notification import NotificationHelper, NotificationWorkflow
 from ..interfaces import G2PRegisterDomainFactory
 
 _logger = logging.getLogger("g2p-register-change-request-service")
@@ -185,6 +186,11 @@ class G2PRegisterChangeRequestService(BaseService):
             )
             await session.commit()
             await session.refresh(g2p_register_change_request)
+            await NotificationHelper.dispatch_change_request_notification(
+                g2p_register_change_request.change_request_id,
+                NotificationWorkflow.CHANGE_REQUEST_CREATED,
+                session,
+            )
 
             return g2p_register_change_request
 
@@ -301,6 +307,11 @@ class G2PRegisterChangeRequestService(BaseService):
             _logger.info("Approved change request: %s", change_request_id)
             await session.commit()
             await session.refresh(change_request)
+            await NotificationHelper.dispatch_change_request_notification(
+                change_request.change_request_id,
+                NotificationWorkflow.CHANGE_REQUEST_APPROVED,
+                session,
+            )
             return change_request
 
 
@@ -358,7 +369,6 @@ class G2PRegisterChangeRequestService(BaseService):
             session=session,
         )
         _logger.debug(f"Finished enqueuing score computations for change_request_id: {change_request_id}")
-            
 
         return change_request
 
@@ -757,6 +767,11 @@ class G2PRegisterChangeRequestService(BaseService):
             change_request.rejection_reason = reason
             await session.commit()
             await session.refresh(change_request)
+            await NotificationHelper.dispatch_change_request_notification(
+                change_request.change_request_id,
+                NotificationWorkflow.CHANGE_REQUEST_REJECTED,
+                session,
+            )
             return change_request
 
     async def validate_change_request_core(

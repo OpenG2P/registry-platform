@@ -263,6 +263,42 @@ questions:
   label: AWE Approver User Password
   group: AWE
 
+# Notifications
+- variable: global.notificationEnabled
+  description: Master switch for registry notifications. Off skips every send, even when a workflow is listed below.
+  type: boolean
+  default: true
+  label: Enable Notifications
+  group: Notifications
+
+- variable: global.notificationProvider
+  description: Notification provider used by the staff API and the Celery worker.
+  type: string
+  default: novu
+  label: Notification Provider
+  group: Notifications
+
+- variable: global.notificationProviderUrl
+  description: Base URL of the Novu API. In-cluster this is the commons Novu API service.
+  type: string
+  default: http://commons-novu-api:3000
+  label: Notification Provider URL
+  group: Notifications
+
+- variable: global.notificationWorkflows
+  description: JSON map of registry event key to Novu workflow id. An event is sent only when its key is listed here. Remove a key to turn that notification off. Novu workflow ids cannot contain dots.
+  type: string
+  default: '{"change_request.created":"change-request-created","change_request.approved":"change-request-approved","change_request.rejected":"change-request-rejected","intake_form.submission_created":"intake-form-submission-created","intake_form.submission_approved":"intake-form-submission-approved","intake_form.submission_rejected":"intake-form-submission-rejected","register_export.completed":"register-export-completed","register_export.failed":"register-export-failed"}'
+  label: Notification Workflows
+  group: Notifications
+
+- variable: global.staffPortalBaseUrl
+  description: Public staff-ui origin used in register-export notification links (for example https://farmer-registry.dev.openg2p.org). Locale is hardcoded as /en in the Novu workflow.
+  type: string
+  default: ""
+  label: Staff Portal Base URL
+  group: Notifications
+
 # ID Generator
 - variable: idgenerator.idGenerator.appConfig.idTypesNote
   description: "Default ID types: farmer (12 digits), household (10 digits). To add, remove, or modify ID types, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
