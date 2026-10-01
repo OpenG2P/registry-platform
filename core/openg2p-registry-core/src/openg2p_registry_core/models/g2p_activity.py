@@ -25,7 +25,7 @@ import uuid
 from datetime import datetime
 
 from openg2p_fastapi_common.models import BaseORMModel
-from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -418,6 +418,15 @@ class _G2PActivityAggregateBase(BaseORMModel):
     computed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)
     # The activity event that caused this computation.
     source_activity_id: Mapped[str] = mapped_column(String, nullable=True)
+    # Final: a period lock covers the whole period and every activity in it has
+    # been processed, so the figure can be paid on. Provisional again when the
+    # lock is reopened, or when a late change still alters the value.
+    is_final: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
+    # When the event that last changed the value was raised (not when it was
+    # processed): a value changed by an event raised after a lock is a late change.
+    value_changed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    finalised_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    finalised_by: Mapped[str] = mapped_column(String, nullable=True)
 
 
 class G2PActivityAggregate(_G2PActivityAggregateBase):

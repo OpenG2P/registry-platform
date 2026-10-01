@@ -66,6 +66,11 @@ class G2PActivityDomainService(BaseService):
     #   context_search_placeholder  hint in the context search box
     ui_hints: dict[str, Any] = {}
 
+    # Aggregate types that become final when a period lock (for all activity
+    # types) covers their whole period, e.g. a worker's monthly attendance once
+    # the month is closed. Others are never marked final.
+    final_on_period_lock: tuple[str, ...] = ()
+
     def build_context(
         self,
         activity_type: str,

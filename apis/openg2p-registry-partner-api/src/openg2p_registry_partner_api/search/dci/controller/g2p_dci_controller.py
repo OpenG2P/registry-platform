@@ -16,6 +16,7 @@ from ..helpers import (
     DciRequestResponseHelper,
     DciKeymanagerHelper,
     DciConsentHelper,
+    DciQueryHelper,
 )
 from ..services import G2PDciService
 from ....config import Settings
@@ -71,12 +72,15 @@ class G2PDciController(BaseController):
                     "signature verification (testing bypass; do not use in production)"
                 )
 
+            # --- 1b. Searches across subjects: allow-listed partners only ----
+            bulk_refs = self._authorise_bulk(header, message)
+
             # --- 2. Consent (authorisation) ---------------------------------
             # scopes_by_ref maps reference_id -> effective_data_scopes to clamp
             # the response to. None (whole map) => enforcement disabled, no clamp.
             scopes_by_ref: Optional[Dict[str, Optional[List[str]]]] = None
             if _config.consent_enforcement_enabled:
-                scopes_by_ref = await self._enforce_consent(raw_body, header, message)
+                scopes_by_ref = await self._enforce_consent(raw_body, header, message, bulk_refs)
             else:
                 _logger.warning(
                     "consent_enforcement_enabled=false — SKIPPING Consent Manager "
@@ -109,8 +113,33 @@ class G2PDciController(BaseController):
             error_response.signature = await self._sign_response(error_response)
             return error_response
 
+    @staticmethod
+    def _authorise_bulk(header: DciRequestHeader, message: DciSearchRequest) -> Dict[str, List[str]]:
+        """reference_id → allowed scopes for each search across subjects; rejects a partner not allow-listed.
+
+        A search across subjects has no single person's consent to check, so it
+        is allowed only for partners the registry operator configured, with
+        the scopes configured for them.
+        """
+        allowed = _config.dci_bulk_aggregate_partners or {}
+        bulk: Dict[str, List[str]] = {}
+        for item in message.search_request:
+            if not DciQueryHelper.is_bulk_aggregate_request(item.search_criteria):
+                continue
+            if header.sender_id not in allowed:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                    message=(
+                        f"reference_id '{item.reference_id}': searching aggregates without a subject_id "
+                        "is not permitted for this partner"
+                    ),
+                )
+            bulk[item.reference_id] = list(allowed[header.sender_id])
+        return bulk
+
     async def _enforce_consent(
-        self, raw_body: Dict[str, Any], header: DciRequestHeader, message: DciSearchRequest
+        self, raw_body: Dict[str, Any], header: DciRequestHeader, message: DciSearchRequest,
+        bulk_refs: Optional[Dict[str, List[str]]] = None,
     ) -> Dict[str, Optional[List[str]]]:
         """Validate the embedded consent object for each search item against the
         Consent Manager and return {reference_id -> effective_data_scopes}.
@@ -126,6 +155,9 @@ class G2PDciController(BaseController):
         scopes_by_ref: Dict[str, Optional[List[str]]] = {}
         for search_request_item in message.search_request:
             reference_id = search_request_item.reference_id
+            if bulk_refs and reference_id in bulk_refs:
+                scopes_by_ref[reference_id] = bulk_refs[reference_id]  # operator-configured, no per-person consent
+                continue
             raw_item = raw_by_ref.get(reference_id, {})
             consent_jws = self._extract_consent_jws(raw_item)
 

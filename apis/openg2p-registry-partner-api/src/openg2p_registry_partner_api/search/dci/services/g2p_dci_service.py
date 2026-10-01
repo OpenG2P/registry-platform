@@ -9,7 +9,7 @@ from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy import JSON, cast, literal, select, func, or_
+from sqlalchemy import JSON, cast, literal, select, func, or_, true
 from sqlalchemy.dialects.postgresql import JSONB
 
 from openg2p_registry_core.services import G2PRegisterHierarchicalService, G2PRegisterService
@@ -84,7 +84,9 @@ class G2PDciService(BaseService):
                 # in an expression, filters on the view's own fields (e.g. the
                 # crop year and season), so one synchronous call answers
                 # "what did this farmer sow this season".
-                subject_id, filters = DciQueryHelper.parse_subject_query(search_criteria)
+                subject_id, filters = DciQueryHelper.parse_subject_query(
+                    search_criteria, allow_missing_subject=is_aggregate
+                )
                 _, current_page, page_size, _ = self._get_registry_search_parameters(
                     search_criteria, parse_query=False
                 )
@@ -326,7 +328,11 @@ class G2PDciService(BaseService):
 
     async def _aggregate_search(self, register_mnemonic: str, register_id: str, subject_id: str,
                                 filters: Dict[str, Any], current_page: int, page_size: int):
-        """A subject's current aggregates, shaped by the register's dci_aggregate_record.
+        """Current aggregates, shaped by the register's dci_aggregate_record.
+
+        For one subject, or (subject_id None) across subjects: the controller
+        only lets allow-listed partners do that, and it must name the
+        aggregate type; pages are capped.
 
         The subject is matched on the aggregate's subject_id or
         subject_internal_record_id. ``filters`` may name aggregate_type,
@@ -340,7 +346,14 @@ class G2PDciService(BaseService):
             "period_key": G2PActivityAggregate.period_key,
             "period_start": G2PActivityAggregate.period_start,
             "period_end": G2PActivityAggregate.period_end,
+            "is_final": G2PActivityAggregate.is_final,
         }
+        if subject_id is None:
+            if "aggregate_type" not in filters:
+                DciQueryHelper._raise_invalid_request(
+                    "A search across subjects must name the aggregate_type."
+                )
+            page_size = min(page_size, int(_config.dci_bulk_aggregate_max_page_size))
         filters = dict(filters)
         for field_name in list(filters):
             if field_name not in columns:
@@ -350,19 +363,23 @@ class G2PDciService(BaseService):
         conditions = DciQueryHelper.translate_filters(filters, columns)
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
-            base = select(G2PActivityAggregate).where(
-                G2PActivityAggregate.register_id == register_id,
+            subject_condition = (
                 or_(
                     G2PActivityAggregate.subject_id == subject_id,
                     G2PActivityAggregate.subject_internal_record_id == subject_id,
-                ),
-                *conditions,
+                )
+                if subject_id is not None
+                else true()
+            )
+            base = select(G2PActivityAggregate).where(
+                G2PActivityAggregate.register_id == register_id, subject_condition, *conditions,
             )
             total_count = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
             rows = (
                 await session.execute(
                     base.order_by(
-                        G2PActivityAggregate.period_start.desc().nulls_last(), G2PActivityAggregate.aggregate_type
+                        G2PActivityAggregate.period_start.desc().nulls_last(), G2PActivityAggregate.aggregate_type,
+                        G2PActivityAggregate.subject_id,  # stable pages across subjects
                     )
                     .offset((current_page - 1) * page_size)
                     .limit(page_size)

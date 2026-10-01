@@ -419,6 +419,9 @@ class ActivityAggregateData(BaseModel):
     custom_dimensions: Optional[dict] = None
     computed_at: datetime
     source_activity_id: Optional[str] = None
+    is_final: bool = False  # a period lock covers it and every activity in it is processed
+    finalised_at: Optional[datetime] = None
+    finalised_by: Optional[str] = None
 
 
 class SubjectActivitiesData(BaseModel):

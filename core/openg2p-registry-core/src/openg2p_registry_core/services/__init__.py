@@ -43,3 +43,4 @@ from .g2p_activity_outbox_service import G2PActivityOutboxService
 from .g2p_activity_indicator_service import G2PActivityIndicatorService
 from .g2p_activity_odk_service import G2PActivityOdkService, OdkCentralClient
 from .g2p_activity_sample_service import G2PActivitySampleService
+from .g2p_activity_period_service import G2PActivityPeriodService

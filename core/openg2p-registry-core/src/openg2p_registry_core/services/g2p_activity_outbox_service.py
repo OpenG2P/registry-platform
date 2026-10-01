@@ -22,7 +22,7 @@ from datetime import datetime
 
 from openg2p_fastapi_common.context import dbengine
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -97,7 +97,25 @@ class G2PActivityOutboxService(BaseService):
                         row.status = ProcessStatusEnum.FAILED.value
                         row.last_error = str(error)[:2000]
                     row.attempts += 1
+                # Periods locked while these events were pending can now be final.
+                if done:
+                    await self._finalise_periods(session, {row.register_id for row in rows})
         return done
+
+    async def _finalise_periods(self, session, register_ids: set) -> None:
+        from .g2p_activity_period_service import G2PActivityPeriodService
+
+        periods = G2PActivityPeriodService.get_component() or G2PActivityPeriodService()
+        await session.flush()
+        for definition in await self.registry.list_registers(session):
+            if definition.register_id not in register_ids:
+                continue
+            try:
+                register = await self.registry.get_register(session, definition.register_mnemonic)
+            except G2PRegistryException:
+                continue
+            async with session.begin_nested():
+                await periods.finalise(session, register)
 
     async def _process(self, session, outbox: G2PActivityOutbox) -> None:
         definition = await session.get(G2PRegisterDefinition, outbox.register_id)
@@ -116,7 +134,7 @@ class G2PActivityOutboxService(BaseService):
             if enrichment:
                 await self._store_enrichment(session, register, activity, enrichment)
         for result in await domain.aggregate(session, register, activity, outbox.event_type) or []:
-            await self._store_aggregate(session, register, activity, result)
+            await self._store_aggregate(session, register, activity, result, event_at=outbox.created_at)
         hook = getattr(domain, "on_activity_event", None)
         if hook is not None:
             await hook(session, outbox.event_type, activity)
@@ -137,7 +155,7 @@ class G2PActivityOutboxService(BaseService):
         )
 
     @staticmethod
-    async def _store_aggregate(session, register, activity, result) -> None:
+    async def _store_aggregate(session, register, activity, result, event_at=None) -> None:
         now = datetime.utcnow()
         values = {
             "register_id": register.register_id,
@@ -160,12 +178,24 @@ class G2PActivityOutboxService(BaseService):
             "custom_dimensions": _json_ready(result.custom_dimensions),
             "computed_at": now,
             "source_activity_id": activity.activity_id,
+            "value_changed_at": event_at or now,
         }
         stmt = insert(G2PActivityAggregate).values(aggregate_id=str(uuid.uuid4()), **values)
+        # A final figure that is recomputed to a different value is no longer
+        # final (an activity outside the locked window still fed it).
+        unchanged = G2PActivityAggregate.__table__.c.aggregate_value == stmt.excluded.aggregate_value
         stmt = stmt.on_conflict_do_update(
             constraint="uq_activity_aggregate",
-            set_={key: stmt.excluded[key] for key in values if key not in (
-                "register_id", "subject_type", "subject_id", "aggregate_type", "period_key")},
+            set_={
+                **{key: stmt.excluded[key] for key in values if key not in (
+                    "register_id", "subject_type", "subject_id", "aggregate_type", "period_key", "value_changed_at")},
+                "value_changed_at": case(
+                    (unchanged, G2PActivityAggregate.__table__.c.value_changed_at), else_=stmt.excluded.value_changed_at
+                ),
+                "is_final": and_(G2PActivityAggregate.__table__.c.is_final, unchanged),
+                "finalised_at": case((unchanged, G2PActivityAggregate.__table__.c.finalised_at), else_=None),
+                "finalised_by": case((unchanged, G2PActivityAggregate.__table__.c.finalised_by), else_=None),
+            },
         ).returning(G2PActivityAggregate.aggregate_id)
         aggregate_id = (await session.execute(stmt)).scalar_one()
         await session.execute(

@@ -714,6 +714,12 @@ class G2PActivityService(BaseService):
 
     # =========================================================== period locks
 
+    @staticmethod
+    def _periods():
+        from .g2p_activity_period_service import G2PActivityPeriodService
+
+        return G2PActivityPeriodService.get_component() or G2PActivityPeriodService()
+
     async def lock_period(self, payload, actor: str) -> PeriodLockData:
         if payload.period_end < payload.period_start:
             raise _error(G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR, "period_end is before period_start")
@@ -731,6 +737,10 @@ class G2PActivityService(BaseService):
                 )
                 session.add(lock)
                 await session.flush()
+                if lock.activity_type is None:
+                    # Aggregates the lock covers become final (those still waiting
+                    # on the outbox worker are finalised after it processes them).
+                    await self._periods().finalise(session, register)
             return PeriodLockData.model_validate(lock, from_attributes=True)
 
     async def unlock_period(self, register_mnemonic: str, lock_id: str, reason: str, actor: str) -> PeriodLockData:
@@ -745,6 +755,8 @@ class G2PActivityService(BaseService):
                 lock.reopened_by = actor
                 lock.reopened_at = self.now()
                 lock.reopen_reason = reason
+                await session.flush()
+                await self._periods().unfinalise(session, lock)
             return PeriodLockData.model_validate(lock, from_attributes=True)
 
     async def list_period_locks(self, register_mnemonic: str) -> list[PeriodLockData]:

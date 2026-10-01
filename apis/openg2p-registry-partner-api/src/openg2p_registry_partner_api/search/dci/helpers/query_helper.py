@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from openg2p_registry_core.errors import G2PRegistryException
 
@@ -144,8 +144,19 @@ class DciQueryHelper:
             case _:
                 cls._raise_invalid_request(f"Unsupported operator '{op}'.")
 
+    @staticmethod
+    def is_bulk_aggregate_request(search_criteria: DciSearchCriteria) -> bool:
+        """Aggregates searched with no subject (an expression without subject_id)."""
+        record_type = str(search_criteria.reg_record_type or "")
+        if not record_type.lower().endswith("aggregate") or search_criteria.query_type != "expression":
+            return False
+        query = ((search_criteria.query.value or {}).get("expression") or {}).get("query") or {}
+        return "subject_id" not in query and "search_text" not in query
+
     @classmethod
-    def parse_subject_query(cls, search_criteria: DciSearchCriteria) -> tuple[str, Dict[str, Any]]:
+    def parse_subject_query(
+        cls, search_criteria: DciSearchCriteria, allow_missing_subject: bool = False
+    ) -> tuple[Optional[str], Dict[str, Any]]:
         """A query on an activity register's derived views (a subject's context state or aggregates).
 
         Returns the subject ID and the remaining filters, untranslated: the view
@@ -167,6 +178,8 @@ class DciQueryHelper:
         subject = query.pop("subject_id", None)
         if subject is None:
             subject = query.pop("search_text", None)  # legacy single-field form
+        if subject is None and allow_missing_subject:
+            return None, query
         if isinstance(subject, dict):
             if list(subject.keys()) != ["$eq"]:
                 cls._raise_invalid_request("subject_id supports only an exact value ($eq).")
