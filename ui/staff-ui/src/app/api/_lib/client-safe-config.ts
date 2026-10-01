@@ -166,15 +166,22 @@ class ClientSafeConfig {
 
     async getAll(): Promise<ClientSafeConfigShape> {
         const env = getServerEnv();
-        const notificationHmac = await getNotificationHmac();
+        const {
+            subscriberId,
+            subscriberHash,
+            subscriberEmail,
+            subscriberFirstName,
+        } = await getNotificationHmac();
         return {
             ...this.config,
             notificationProvider: env.notificationProvider,
             notificationApplicationIdentifier: env.notificationApplicationIdentifier,
             notificationBackendUrl: env.notificationBackendUrl,
             notificationWebsocketUrl: env.notificationWebsocketUrl,
-            subscriberId: notificationHmac.subscriberId,
-            subscriberHash: notificationHmac.subscriberHash,
+            subscriberId,
+            subscriberHash,
+            subscriberEmail,
+            subscriberFirstName,
         };
     }
 

@@ -16,11 +16,25 @@ export default function NotificationInbox() {
         <Inbox
             config={{
                 provider: config.notificationProvider,
-                subscriberId: config.subscriberId,
                 subscriberHash: config.subscriberHash,
                 applicationIdentifier: config.notificationApplicationIdentifier,
                 backendUrl: config.notificationBackendUrl,
                 socketUrl: config.notificationWebsocketUrl,
+                subscriber: {
+                    subscriberId: config.subscriberId,
+                    email: config.subscriberEmail,
+                    firstName: config.subscriberFirstName,
+                },
+            }}
+            theme={{
+                accent: "var(--color-primary-first)",
+                accentHover: "var(--color-primary-second)",
+                surface: "var(--color-neutral-second)",
+                surfaceMuted: "var(--color-secondary-first)",
+                text: "var(--color-neutral-first)",
+                textMuted: "var(--color-secondary-third)",
+                border: "var(--color-secondary-second)",
+                onAccent: "var(--color-neutral-second)",
             }}
             localization={{
                 notifications: t("notifications"),

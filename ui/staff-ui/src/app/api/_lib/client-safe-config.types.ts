@@ -41,4 +41,7 @@ export type ClientSafeConfigShape = {
     notificationWebsocketUrl?: string;
     subscriberId?: string;
     subscriberHash?: string;
+    subscriberEmail?: string;
+    subscriberFirstName?: string;
+    
 };
