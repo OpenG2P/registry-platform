@@ -1,4 +1,5 @@
 import importlib
+import json
 import logging
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Tuple
@@ -8,9 +9,10 @@ from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy import select, func, or_
+from sqlalchemy import JSON, cast, literal, select, func, or_
+from sqlalchemy.dialects.postgresql import JSONB
 
-from openg2p_registry_core.services import G2PRegisterService
+from openg2p_registry_core.services import G2PRegisterHierarchicalService, G2PRegisterService
 from openg2p_registry_core.helpers import TemplateHelper
 from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate, G2PRegistryDocument
 from openg2p_registry_core.models import ActivityStatusEnum, ActivityVerificationStatusEnum, RegisterPurposeEnum
@@ -69,46 +71,68 @@ class G2PDciService(BaseService):
                 else self._get_model_class(search_criteria.reg_type)
             )
 
-            query_result, current_page, page_size, sort_by = self._get_registry_search_parameters(
-                search_criteria, model_class
-            )
-
             aggregate_records = None
+            search_result_data = []
+            is_aggregate = is_activity and _is_aggregate_request(search_criteria.reg_record_type)
             state_type = (
                 await self._state_context_type(register_id, search_criteria.reg_record_type)
-                if is_activity and not _is_aggregate_request(search_criteria.reg_record_type)
+                if is_activity and not is_aggregate
                 else None
             )
-            if is_activity and _is_aggregate_request(search_criteria.reg_record_type):
-                # A subject's roll-ups (e.g. a farmer's season summary) rather
-                # than its activities — what an eligibility check reads.
-                aggregate_records, total_count = await self._aggregate_search(
-                    search_criteria.reg_type, register_id, query_result, current_page, page_size
+            if is_aggregate or state_type:
+                # A subject's derived views. The query names the subject and,
+                # in an expression, filters on the view's own fields (e.g. the
+                # crop year and season), so one synchronous call answers
+                # "what did this farmer sow this season".
+                subject_id, filters = DciQueryHelper.parse_subject_query(search_criteria)
+                _, current_page, page_size, _ = self._get_registry_search_parameters(
+                    search_criteria, parse_query=False
                 )
-                search_result_data = []
-            elif state_type:
-                # The subject's contexts' current state (e.g. each crop season:
-                # stage, area sown, yield, verified) from the projection.
-                aggregate_records, total_count = await self._state_search(
-                    search_criteria.reg_type, register_id, state_type, query_result, current_page, page_size
-                )
-                search_result_data = []
-            elif is_activity:
-                search_result_data, total_count = await self._activity_search(
-                    model_class, query_result, current_page, page_size, sort_by
-                )
-            elif query_result.filter_conditions:
-                search_result_data, total_count = await self._expression_search(
-                    model_class, query_result.filter_conditions, current_page, page_size, sort_by
-                )
+                if is_aggregate:
+                    # A subject's roll-ups (e.g. a farmer's season summary) rather
+                    # than its activities — what an eligibility check reads.
+                    aggregate_records, total_count = await self._aggregate_search(
+                        search_criteria.reg_type, register_id, subject_id, filters, current_page, page_size
+                    )
+                else:
+                    # The subject's contexts' current state (e.g. each crop season:
+                    # stage, area sown, yield, verified) from the projection.
+                    aggregate_records, total_count = await self._state_search(
+                        search_criteria.reg_type, register_id, state_type, subject_id, filters,
+                        current_page, page_size,
+                    )
             else:
-                search_result_data, total_count = await self.register_service.deep_search_in_a_register(
-                    register_id=register_id,
-                    search_text=query_result.search_text,
-                    current_page=current_page,
-                    page_size=page_size,
-                    sort_by=sort_by,
-                )
+                if is_activity and _names_subject(search_criteria):
+                    # One subject's activities, filtered on any of the activity's
+                    # plain fields (type, date, verification, promoted payload fields).
+                    subject_id, filters = DciQueryHelper.parse_subject_query(search_criteria)
+                    _, current_page, page_size, sort_by = self._get_registry_search_parameters(
+                        search_criteria, parse_query=False
+                    )
+                    query_result = DciQueryResult(filter_conditions=[
+                        model_class.subject_id == subject_id,
+                        *DciQueryHelper.translate_filters(filters, _plain_columns(model_class, exclude={"search_text"})),
+                    ])
+                else:
+                    query_result, current_page, page_size, sort_by = self._get_registry_search_parameters(
+                        search_criteria, model_class
+                    )
+                if is_activity:
+                    search_result_data, total_count = await self._activity_search(
+                        model_class, query_result, current_page, page_size, sort_by
+                    )
+                elif query_result.filter_conditions:
+                    search_result_data, total_count = await self._expression_search(
+                        register_id, model_class, query_result.filter_conditions, current_page, page_size, sort_by
+                    )
+                else:
+                    search_result_data, total_count = await self.register_service.deep_search_in_a_register(
+                        register_id=register_id,
+                        search_text=query_result.search_text,
+                        current_page=current_page,
+                        page_size=page_size,
+                        sort_by=sort_by,
+                    )
 
             reg_records = aggregate_records if aggregate_records is not None else [
                 self._render_reg_record_with_template(
@@ -155,8 +179,11 @@ class G2PDciService(BaseService):
         return dci_search_response_items
 
     async def _expression_search(
-        self, model_class, filter_conditions: list, current_page: int, page_size: int, sort_by: Optional[str]
+        self, register_id: str, model_class, filter_conditions: list, current_page: int, page_size: int,
+        sort_by: Optional[str],
     ) -> Tuple[List[DeepSearchResultData], int]:
+        """Exact-field search. Each record comes with its linked records (a farmer's land,
+        household, crops…), as an idtype-value search returns it, so one call gets the whole record."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             # Total count
@@ -182,14 +209,11 @@ class G2PDciService(BaseService):
 
             results = (await session.execute(query)).scalars().all()
 
+            definition = await self.register_service.validate_register_definition(register_id, session)
+            hierarchy = G2PRegisterHierarchicalService.get_component() or G2PRegisterHierarchicalService()
             search_results = []
             for record in results:
-                record_dict = record.to_dict()
-                for key, val in record_dict.items():
-                    if isinstance(val, datetime):
-                        record_dict[key] = val.isoformat()
-                    elif isinstance(val, date):
-                        record_dict[key] = val.isoformat()
+                record_dict = await hierarchy.enrich_record_hierarchy(definition, record, session)
                 search_results.append(DeepSearchResultData(**record_dict))
 
             return search_results, total_count
@@ -265,14 +289,18 @@ class G2PDciService(BaseService):
             ).scalar()
         return context_type if found else None
 
-    async def _state_search(self, register_mnemonic: str, register_id: str, context_type: str, query_result,
-                            current_page: int, page_size: int):
-        """A subject's contexts of one type, current state from the projection, shaped by the register."""
-        value = query_result.search_text
+    async def _state_search(self, register_mnemonic: str, register_id: str, context_type: str, subject_id: str,
+                            filters: Dict[str, Any], current_page: int, page_size: int):
+        """A subject's contexts of one type, current state from the projection, shaped by the register.
+
+        ``filters`` may name any of the projection's plain columns (e.g. crop_year,
+        season, crop, stage, context_status); JSON columns are not filterable.
+        """
         registry = G2PActivityRegistryService.get_component() or G2PActivityRegistryService()
         _, projection = registry.resolve_classes(register_mnemonic)
-        if not value or projection is None:
+        if projection is None:
             return [], 0
+        conditions = DciQueryHelper.translate_filters(filters, _plain_columns(projection))
         domain = registry.domain_service(register_mnemonic)
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
@@ -282,7 +310,8 @@ class G2PDciService(BaseService):
                 .where(
                     G2PActivityContext.register_id == register_id,
                     G2PActivityContext.context_type == context_type,
-                    projection.subject_id == value,
+                    projection.subject_id == subject_id,
+                    *conditions,
                 )
             )
             total_count = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
@@ -295,25 +324,39 @@ class G2PDciService(BaseService):
             ).scalars().all()
         return [domain.dci_state_record(_json_ready(row.to_dict())) for row in rows], total_count
 
-    async def _aggregate_search(self, register_mnemonic: str, register_id: str, query_result, current_page: int,
-                                page_size: int):
+    async def _aggregate_search(self, register_mnemonic: str, register_id: str, subject_id: str,
+                                filters: Dict[str, Any], current_page: int, page_size: int):
         """A subject's current aggregates, shaped by the register's dci_aggregate_record.
 
-        The subject is the idtype-value (or expression) search value, matched on
-        the aggregate's subject_id or subject_internal_record_id. Top-level keys
-        are what consent scopes clamp; the register maps them onto its scopes.
+        The subject is matched on the aggregate's subject_id or
+        subject_internal_record_id. ``filters`` may name aggregate_type,
+        period_key, period_start, period_end, or any custom dimension the
+        register sets (e.g. crop_year, season), compared as JSON values.
+        Top-level keys are what consent scopes clamp; the register maps them
+        onto its scopes.
         """
-        value = query_result.search_text
-        if not value:
-            return [], 0
+        columns = {
+            "aggregate_type": G2PActivityAggregate.aggregate_type,
+            "period_key": G2PActivityAggregate.period_key,
+            "period_start": G2PActivityAggregate.period_start,
+            "period_end": G2PActivityAggregate.period_end,
+        }
+        filters = dict(filters)
+        for field_name in list(filters):
+            if field_name not in columns:
+                # A custom dimension: a JSONB value, so compare the filter's values as JSON.
+                columns[field_name] = G2PActivityAggregate.custom_dimensions[field_name]
+                filters[field_name] = _as_jsonb(filters[field_name])
+        conditions = DciQueryHelper.translate_filters(filters, columns)
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             base = select(G2PActivityAggregate).where(
                 G2PActivityAggregate.register_id == register_id,
                 or_(
-                    G2PActivityAggregate.subject_id == value,
-                    G2PActivityAggregate.subject_internal_record_id == value,
+                    G2PActivityAggregate.subject_id == subject_id,
+                    G2PActivityAggregate.subject_internal_record_id == subject_id,
                 ),
+                *conditions,
             )
             total_count = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
             rows = (
@@ -391,8 +434,9 @@ class G2PDciService(BaseService):
         self,
         search_criteria: DciSearchCriteria,
         model_class=None,
-    ) -> Tuple[DciQueryResult, int, int, Optional[str]]:
-        query_result = DciQueryHelper.parse_query(search_criteria, model_class)
+        parse_query: bool = True,
+    ) -> Tuple[Optional[DciQueryResult], int, int, Optional[str]]:
+        query_result = DciQueryHelper.parse_query(search_criteria, model_class) if parse_query else None
 
         # Pagination
         current_page: int = 1
@@ -474,6 +518,32 @@ def _context_type_of(reg_record_type: Optional[str]) -> Optional[str]:
         return None
     local = str(reg_record_type).split(":")[-1]
     return re.sub(r"(?<!^)(?=[A-Z])", "_", local).upper() or None
+
+
+def _names_subject(search_criteria: DciSearchCriteria) -> bool:
+    """An expression query that names its subject (subject_id)."""
+    if search_criteria.query_type != "expression":
+        return False
+    query = ((search_criteria.query.value or {}).get("expression") or {}).get("query") or {}
+    return "subject_id" in query
+
+
+def _plain_columns(model, exclude: frozenset = frozenset()) -> Dict[str, Any]:
+    """A model's filterable columns by name: every column except JSON ones."""
+    return {
+        column.name: getattr(model, column.name)
+        for column in model.__table__.columns
+        if not isinstance(column.type, JSON) and column.name not in exclude
+    }
+
+
+def _as_jsonb(value):
+    """Filter values (a value, a list, or {operator: value}) as JSONB, to compare with a JSONB field."""
+    if isinstance(value, dict):
+        return {op: _as_jsonb(v) for op, v in value.items()}
+    if isinstance(value, list):
+        return [_as_jsonb(v) for v in value]
+    return cast(literal(json.dumps(value)), JSONB)
 
 
 def _json_ready(value):

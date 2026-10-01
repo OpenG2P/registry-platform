@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from openg2p_registry_core.errors import G2PRegistryException
@@ -103,10 +103,16 @@ class DciQueryHelper:
     def _build_condition(cls, column, op: str, value: Any, field_name: str):
         # Convert date strings for date columns
         col_type = str(column.type).upper()
-        if "DATE" in col_type and isinstance(value, str):
-            value = cls._parse_date(value, field_name)
-        elif "DATE" in col_type and isinstance(value, list):
-            value = [cls._parse_date(v, field_name) if isinstance(v, str) else v for v in value]
+        if "TIMESTAMP" in col_type or "DATETIME" in col_type:
+            parse = cls._parse_datetime
+        elif "DATE" in col_type:
+            parse = cls._parse_date
+        else:
+            parse = None
+        if parse and isinstance(value, str):
+            value = parse(value, field_name)
+        elif parse and isinstance(value, list):
+            value = [parse(v, field_name) if isinstance(v, str) else v for v in value]
 
         match op:
             case "$eq":
@@ -139,6 +145,56 @@ class DciQueryHelper:
                 cls._raise_invalid_request(f"Unsupported operator '{op}'.")
 
     @classmethod
+    def parse_subject_query(cls, search_criteria: DciSearchCriteria) -> tuple[str, Dict[str, Any]]:
+        """A query on an activity register's derived views (a subject's context state or aggregates).
+
+        Returns the subject ID and the remaining filters, untranslated: the view
+        decides which fields it can filter on.
+        * idtype-value: the subject ID only, as before.
+        * expression: ``subject_id`` (required, a value or ``{"$eq": value}``)
+          plus filters, e.g. ``{"subject_id": "FR-0007", "crop_year": 2019,
+          "season": "SEASON_MEHER", "crop": {"$in": ["CROP_WHEAT"]}}``.
+        """
+        query_type = search_criteria.query_type
+        if query_type not in cls.SUPPORTED_QUERY_TYPES:
+            cls._raise_invalid_request(
+                f"Unsupported query_type '{query_type}'. Supported query types are: expression, idtype-value."
+            )
+        query_value = search_criteria.query.value
+        if query_type == "idtype-value":
+            return cls._get_idtype_value_search_text(query_value), {}
+        query = dict(query_value.get("expression", {}).get("query", {}) or {})
+        subject = query.pop("subject_id", None)
+        if subject is None:
+            subject = query.pop("search_text", None)  # legacy single-field form
+        if isinstance(subject, dict):
+            if list(subject.keys()) != ["$eq"]:
+                cls._raise_invalid_request("subject_id supports only an exact value ($eq).")
+            subject = subject["$eq"]
+        return cls._validate_search_text(subject, "query.value.expression.query.subject_id"), query
+
+    @classmethod
+    def translate_filters(cls, query: Dict[str, Any], columns: Dict[str, Any]) -> list:
+        """Expression filters onto the given columns (name → SQLAlchemy column expression)."""
+        conditions = []
+        for field_name, operators in query.items():
+            column = columns.get(field_name)
+            if column is None:
+                cls._raise_invalid_request(
+                    f"Field '{field_name}' cannot be filtered here. Allowed fields: {sorted(columns)}"
+                )
+            if not isinstance(operators, dict):
+                conditions.append(column == operators)
+                continue
+            for op, value in operators.items():
+                if op not in MONGO_TO_SA_OPERATORS:
+                    cls._raise_invalid_request(
+                        f"Unsupported operator '{op}'. Supported operators: {sorted(MONGO_TO_SA_OPERATORS.keys())}"
+                    )
+                conditions.append(cls._build_condition(column, op, value, field_name))
+        return conditions
+
+    @classmethod
     def _parse_date(cls, value: str, field_name: str):
         try:
             return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
@@ -146,6 +202,19 @@ class DciQueryHelper:
             cls._raise_invalid_request(
                 f"Invalid date format for field '{field_name}': '{value}'. Use ISO format (YYYY-MM-DD)."
             )
+
+    @classmethod
+    def _parse_datetime(cls, value: str, field_name: str):
+        """ISO date or date-time, as naive UTC (how the registry stores timestamps)."""
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            cls._raise_invalid_request(
+                f"Invalid date-time for field '{field_name}': '{value}'. Use ISO format (YYYY-MM-DD[THH:MM:SS])."
+            )
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
 
     @classmethod
     def _get_idtype_value_search_text(cls, query_value: Dict[str, Any]) -> str:
