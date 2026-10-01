@@ -7,8 +7,9 @@ import { diffSectionChangeRecords } from './diffSectionChangeRecords';
 import { trackSectionChanges } from './sectionSnapshot';
 import {
   collectAllSectionFiles,
+  collectAllSectionFilesSync,
+  fingerprintSectionFiles,
   getSectionFileBlobPaths,
-  isFreshSectionFileEntry,
   stripSectionFileBlobs,
 } from './sectionFiles';
 
@@ -106,14 +107,22 @@ export const executeSectionSave = async ({
     currentSchemaData,
     fileOptions,
   );
-  // Existing stored docs are included for payload continuity; only fresh uploads
-  // should drive "file changed" / no-op detection.
-  const freshSectionFiles = sectionFiles.filter(isFreshSectionFileEntry);
   const blobPaths = getSectionFileBlobPaths(section, fileOptions);
+  const filesChanged =
+    JSON.stringify(
+      fingerprintSectionFiles(
+        collectAllSectionFilesSync(section, baselineSource, fileOptions),
+      ),
+    ) !==
+    JSON.stringify(
+      fingerprintSectionFiles(
+        collectAllSectionFilesSync(section, currentSchemaData, fileOptions),
+      ),
+    );
 
   if (
     JSON.stringify(baselineRecords) === JSON.stringify(newSchemaData) &&
-    freshSectionFiles.length === 0
+    !filesChanged
   ) {
     return { validated: true, saved: false, currentSchemaData };
   }
@@ -144,14 +153,14 @@ export const executeSectionSave = async ({
       isTable,
       internalRecordId,
       tableColumnKeys,
-      hasFileChanges: freshSectionFiles.length > 0,
+      hasFileChanges: filesChanged,
     });
 
-    if (records.length === 0 && freshSectionFiles.length === 0) {
+    if (records.length === 0 && !filesChanged) {
       return { validated: true, saved: false, currentSchemaData };
     }
 
-    if (records.length === 0 && freshSectionFiles.length > 0) {
+    if (records.length === 0 && filesChanged) {
       const currentRecord = fullCurrentRecords.find(
         (record) => typeof record === 'object' && record !== null,
       ) as Record<string, unknown> | undefined;

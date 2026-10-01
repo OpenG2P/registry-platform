@@ -25,7 +25,17 @@ export const WidgetFieldLabel = ({
       title={tooltip}
     >
       <span className="min-w-0 truncate">{translatedLabel}</span>
-      {required && <span className="ml-1 shrink-0 owt-field-required">*</span>}
+      {required && <RequiredAsterisk />}
     </label>
   );
 };
+
+export const RequiredAsterisk = () => (
+  <span className="ml-1 shrink-0 owt-field-required" aria-hidden="true">*</span>
+);
+
+export const isWidgetConfigRequired = (config: {
+  'widget-required'?: boolean;
+  'widget-data-validation'?: { required?: boolean };
+}): boolean =>
+  !!(config['widget-required'] || config['widget-data-validation']?.required);

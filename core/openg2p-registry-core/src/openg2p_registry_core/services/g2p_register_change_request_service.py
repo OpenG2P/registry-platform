@@ -1367,12 +1367,14 @@ class G2PRegisterChangeRequestService(BaseService):
 
     def _update_existing_record(self, existing, schema_data: dict, change_payload: dict, model_class) -> None:
         mapper = inspect(model_class)
-        for key, value in schema_data.items():
-            if key not in change_payload or key in {"internal_record_id", "edit_action"} or key not in mapper.columns:
+        skipped = {"internal_record_id", "edit_action"}
+        # Walk the CR payload so explicit nulls (for example delink) are applied
+        # even when schema.dict() omits None values.
+        for key, value in change_payload.items():
+            if key in skipped or key not in mapper.columns:
                 continue
-            # Empty/null parent link means omit, not clear the existing parent.
-            if key == "link_internal_record_id" and not value:
-                continue
+            if key in schema_data:
+                value = schema_data[key]
             value = self._normalize_model_value(value, key, mapper)
             setattr(existing, key, value)
 

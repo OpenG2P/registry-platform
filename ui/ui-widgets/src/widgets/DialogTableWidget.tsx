@@ -133,7 +133,7 @@ const DialogTableField = memo(function DialogTableField({
       'widget-required': shouldRequireWidget(
         col['widget-data-options'],
         dialogConditionValues,
-        col['widget-required'],
+        !!(col['widget-required'] || col['widget-data-validation']?.required),
       ),
     };
   }, [col, cellWidgetId, dialogConditionValues, isReadonly, widgetType]);
@@ -356,7 +356,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
       const isRequired = shouldRequireWidget(
         col['widget-data-options'],
         conditionValues,
-        col['widget-required'],
+        !!(col['widget-required'] || col['widget-data-validation']?.required),
       );
       const validationErrors = validateWidget(
         cellValue,
@@ -420,16 +420,21 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
   const deleteRow = useCallback(
     (rowIndex: number) => {
-      if (shouldSoftDeleteOnRemove) {
-        const newRows = [...rows];
-        newRows[rowIndex] = {
-          ...newRows[rowIndex],
-          edit_action: 'DELETE',
-        };
-        onChange(newRows);
+      const row = rows[rowIndex];
+      const addedInSession =
+        row?.edit_action === 'ADD' ||
+        !(typeof row?.internal_record_id === 'string' && row.internal_record_id.length > 0);
+
+      if (addedInSession || !shouldSoftDeleteOnRemove) {
+        onChange(rows.filter((_, i) => i !== rowIndex));
         return;
       }
-      onChange(rows.filter((_, i) => i !== rowIndex));
+      const newRows = [...rows];
+      newRows[rowIndex] = {
+        ...newRows[rowIndex],
+        edit_action: 'DELETE',
+      };
+      onChange(newRows);
     },
     [rows, onChange, shouldSoftDeleteOnRemove],
   );
@@ -545,7 +550,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                       style={{ color: 'var(--owt-widget-table-header-color)' }}
                       title={headerLabel}
                     >
-                      <span className="block truncate">{headerLabel}</span>
+                      <span className="block min-w-0 truncate">{headerLabel}</span>
                     </th>
                   );
                 })}
