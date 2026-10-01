@@ -8,6 +8,7 @@ from openg2p_registry_core.helpers.notification import (
     NotificationWorkflow,
     NotificationHelper,
     change_request_payload,
+    resolve_registry_name,
 )
 from openg2p_registry_core.helpers.registrant_contact import (
     RegistrantContact,
@@ -208,9 +209,15 @@ def test_change_request_payload_uses_register_mnemonic():
 
     session = SimpleNamespace(get=AsyncMock(side_effect=_get))
 
-    with patch(
-        "openg2p_registry_core.helpers.notification.resolve_record_display",
-        AsyncMock(return_value={"functional_record_id": "FN-9"}),
+    with (
+        patch(
+            "openg2p_registry_core.helpers.notification.resolve_record_display",
+            AsyncMock(return_value={"functional_record_id": "FN-9"}),
+        ),
+        patch(
+            "openg2p_registry_core.helpers.notification.resolve_registry_name",
+            AsyncMock(return_value="OpenG2P Demo Registry"),
+        ),
     ):
         payload = asyncio.run(change_request_payload("cr-1", session))
     assert payload["change_request_id"] == "cr-1"
@@ -218,6 +225,7 @@ def test_change_request_payload_uses_register_mnemonic():
     assert payload["register_mnemonic"] == "Individual"
     assert payload["register_subject"] == "Individuals"
     assert payload["register_description"] == "Person registry"
+    assert payload["registry_name"] == "OpenG2P Demo Registry"
     assert payload["section_mnemonic"] == "demographics"
     assert payload["functional_record_id"] == "FN-9"
     assert payload["awe_request_id"] == "awe-1"
@@ -392,3 +400,77 @@ def test_dispatch_skips_unmapped_workflow():
 
     asyncio.run(_run())
     send.assert_not_called()
+
+
+def test_resolve_registry_name_soft_loads_singleton():
+    config = SimpleNamespace(registry_name="National Social Registry")
+    result = SimpleNamespace(scalar_one_or_none=MagicMock(return_value=config))
+    session = SimpleNamespace(execute=AsyncMock(return_value=result))
+
+    name = asyncio.run(resolve_registry_name(session))
+    assert name == "National Social Registry"
+    session.execute.assert_awaited_once()
+
+
+def test_resolve_registry_name_soft_fails_on_error():
+    session = SimpleNamespace(execute=AsyncMock(side_effect=RuntimeError("db down")))
+    assert asyncio.run(resolve_registry_name(session)) is None
+
+
+def test_change_request_payload_keeps_register_subject_without_registry_name():
+    """Soft-fail resolve leaves registry_name None; register_subject still present."""
+    change_request = SimpleNamespace(
+        change_request_id="cr-2",
+        record_name="Ada",
+        register_id="reg-1",
+        tab_id=None,
+        section_id=None,
+        section_register_id=None,
+        internal_record_id="p1",
+        approval_status="PENDING",
+        no_of_verifications_required=1,
+        no_of_verifications_done=0,
+        created_by="staff",
+        created_at=None,
+        approved_by=None,
+        approved_at=None,
+        change_request_source=None,
+        source_partner_id=None,
+        remarks=None,
+        rejection_reason=None,
+        awe_request_id=None,
+        awe_request_status_summary=None,
+        deduplication_register_status=None,
+        deduplication_register_failure_reason=None,
+        deduplication_change_request_status=None,
+        deduplication_change_request_failure_reason=None,
+    )
+    definition = SimpleNamespace(
+        register_mnemonic="Individual",
+        register_subject="Individuals",
+        register_description=None,
+    )
+
+    async def _get(model, key):
+        name = getattr(model, "__name__", str(model))
+        if "ChangeRequest" in name:
+            return change_request
+        if "RegisterDefinition" in name:
+            return definition
+        return None
+
+    session = SimpleNamespace(get=AsyncMock(side_effect=_get))
+    with (
+        patch(
+            "openg2p_registry_core.helpers.notification.resolve_record_display",
+            AsyncMock(return_value={"functional_record_id": None}),
+        ),
+        patch(
+            "openg2p_registry_core.helpers.notification.resolve_registry_name",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        payload = asyncio.run(change_request_payload("cr-2", session))
+    assert "registry_name" in payload
+    assert payload["registry_name"] is None
+    assert payload["register_subject"] == "Individuals"

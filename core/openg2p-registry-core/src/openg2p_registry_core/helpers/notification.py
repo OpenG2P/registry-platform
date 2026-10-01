@@ -135,6 +135,24 @@ async def resolve_intake_form_mnemonic(
         return None
 
 
+async def resolve_registry_name(session) -> Optional[str]:
+    """Soft-load registry_name from the singleton G2PRegistryConfiguration row.
+
+    Missing rows or lookup errors yield None so registrant payloads still send.
+    """
+    try:
+        from sqlalchemy import select
+
+        from ..models import G2PRegistryConfiguration
+
+        result = await session.execute(select(G2PRegistryConfiguration))
+        config = result.scalar_one_or_none()
+        return getattr(config, "registry_name", None) if config else None
+    except Exception:  # noqa: BLE001
+        _logger.exception("resolve_registry_name failed")
+        return None
+
+
 async def resolve_record_display(
     session,
     *,
@@ -334,6 +352,7 @@ async def change_request_payload(change_request_id: str, session) -> dict[str, A
 
     register = await resolve_register_context(session, change_request.register_id)
     section_mnemonic = await resolve_section_mnemonic(session, change_request.section_id)
+    registry_name = await resolve_registry_name(session)
     record = await resolve_record_display(
         session,
         internal_record_id=change_request.internal_record_id,
@@ -345,6 +364,7 @@ async def change_request_payload(change_request_id: str, session) -> dict[str, A
         "change_request_id": change_request.change_request_id,
         "record_name": change_request.record_name or "your record",
         **register,
+        "registry_name": registry_name,
         "tab_id": change_request.tab_id,
         "section_id": change_request.section_id,
         "section_mnemonic": section_mnemonic,
@@ -394,6 +414,7 @@ async def intake_form_submission_payload(
 
     register = await resolve_register_context(session, submission.register_id)
     intake_form_mnemonic = await resolve_intake_form_mnemonic(session, submission.form_id)
+    registry_name = await resolve_registry_name(session)
 
     service = G2PIntakeFormDataService.get_component() or G2PIntakeFormDataService()
     sections = await service._build_section_payloads(submission, session)
@@ -421,6 +442,7 @@ async def intake_form_submission_payload(
         "application_reference": submission.application_reference,
         "record_name": service._extract_record_name(sections) or "your record",
         **register,
+        "registry_name": registry_name,
         "intake_form_mnemonic": intake_form_mnemonic,
         "form_id": submission.form_id,
         "internal_record_id": internal_record_id,
