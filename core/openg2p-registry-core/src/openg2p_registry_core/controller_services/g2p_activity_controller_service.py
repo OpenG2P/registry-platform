@@ -53,6 +53,8 @@ class G2PActivityControllerService(BaseService):
                         master_register_id=definition.master_register_id,
                         register_icon=definition.register_icon,
                         has_projection=projection is not None,
+                        context_fields=list(self.registry.domain_service(definition.register_mnemonic).context_fields),
+                        ui_hints=dict(self.registry.domain_service(definition.register_mnemonic).ui_hints),
                     )
                 )
             return result

@@ -9,6 +9,21 @@ export interface ActivityRegister {
     master_register_id?: string | null;
     register_icon?: string | null;
     has_projection: boolean;
+    /** Payload fields that define an activity's context; a correction may not change them. */
+    context_fields?: string[];
+    /** Presentation hints from the register's domain service; every key optional. */
+    ui_hints?: RegisterUiHints;
+}
+
+export interface RegisterUiHints {
+    /** Payload fields shown on an activity's row in lists. */
+    summary_fields?: string[];
+    /** Projection columns shown in the context list. */
+    context_columns?: string[];
+    /** Fields a new batch row copies from the row above (e.g. the period being recorded). */
+    batch_carry_fields?: string[];
+    search_placeholder?: string;
+    context_search_placeholder?: string;
 }
 
 /** One administrative unit of a location, from Master Data (e.g. {code: "ET04", name: "Oromia"}). */

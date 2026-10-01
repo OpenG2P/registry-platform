@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
+import { useRegisterHints } from "../hooks/useActivityRegisters";
 import type { Activity, ActivityType, PageInfo } from "../types";
 import { formatEc } from "../utils/ethiopianCalendar";
 import { displayValue, formatDateTime } from "../utils/labels";
@@ -23,11 +24,14 @@ interface Props {
 }
 
 const PAGE_SIZE = 20;
-const SUMMARY_FIELDS = ["farmer_id", "plot_id", "crop", "area_ha", "quantity_qt"];
 
 /** Activities as a filterable, paged list; a row opens the detail panel. */
 export default function ActivityList({ registerMnemonic, types, byType, contextId, subjectId, timeline, refreshKey }: Props) {
     const api = useActivityApi();
+    const { hints } = useRegisterHints(registerMnemonic);
+    // The register's summary fields; otherwise the first few plain payload fields.
+    const summaryFields = (a: Activity) => hints.summary_fields
+        ?? Object.keys(a.payload ?? {}).filter((f) => typeof a.payload[f] !== "object").slice(0, 4);
     const [rows, setRows] = useState<Activity[]>([]);
     const [page, setPage] = useState(1);
     const [info, setInfo] = useState<PageInfo | null>(null);
@@ -82,7 +86,7 @@ export default function ActivityList({ registerMnemonic, types, byType, contextI
                     <>
                         <input
                             aria-label="Search activities"
-                            placeholder="Search farmer, plot, crop…"
+                            placeholder={hints.search_placeholder ?? "Search…"}
                             className={`${selectClass} min-w-56`}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
@@ -142,7 +146,7 @@ export default function ActivityList({ registerMnemonic, types, byType, contextI
                                         {lowestLocation(a.geo_dimensions, activityLocationFallback(type, a.payload, a.display))}
                                     </td>
                                     <td className="px-4 py-3">
-                                        {SUMMARY_FIELDS.filter((f) => a.payload?.[f] !== undefined).map((f) => (
+                                        {summaryFields(a).filter((f) => a.payload?.[f] !== undefined).map((f) => (
                                             <span key={f} className="mr-3 whitespace-nowrap">{displayValue(type, f, a.payload[f], a.display)}</span>
                                         ))}
                                     </td>

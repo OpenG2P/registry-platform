@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "react-toastify";
 import type { Activity, ActivityInput, ActivityType, AppendResult, JsonValue } from "../types";
 import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
+import { useRegisterHints } from "../hooks/useActivityRegisters";
 import { useLatestActivity } from "../hooks/useLatestActivity";
 import { formatEc } from "../utils/ethiopianCalendar";
 import { prefillPayload } from "../utils/prefill";
@@ -36,6 +37,7 @@ interface Props {
  */
 export default function RecordActivity({ registerMnemonic, types, fixed = {}, contextId, subject, initialType, onRecorded }: Props) {
     const api = useActivityApi();
+    const { hints } = useRegisterHints(registerMnemonic);
     const [activityType, setActivityType] = useState(initialType ?? types[0]?.activity_type ?? "");
     const [occurredOn, setOccurredOn] = useState<string | undefined>(new Date().toISOString().slice(0, 10));
     const [rows, setRows] = useState<Record<string, JsonValue>[]>([{ ...fixed }]);
@@ -172,7 +174,7 @@ export default function RecordActivity({ registerMnemonic, types, fixed = {}, co
                 </button>
                 {!contextId && (
                     <button type="button" className="px-4 py-2 rounded-md border border-secondary-second text-sm"
-                        onClick={() => setRows([...rows, { ...fixed, ...Object.fromEntries(Object.entries(rows[rows.length - 1] ?? {}).filter(([k]) => ["crop_year", "season", "da_id"].includes(k))) }])}>
+                        onClick={() => setRows([...rows, { ...fixed, ...Object.fromEntries(Object.entries(rows[rows.length - 1] ?? {}).filter(([k]) => (hints.batch_carry_fields ?? []).includes(k))) }])}>
                         + Add another entry
                     </button>
                 )}

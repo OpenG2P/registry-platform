@@ -260,6 +260,8 @@ class ActivityRegisterData(BaseModel):
     master_register_id: Optional[str] = None
     register_icon: Optional[str] = None
     has_projection: bool = False
+    context_fields: list[str] = []  # payload fields a correction may not change
+    ui_hints: dict[str, Any] = {}  # presentation hints from the domain service (summary fields, columns…)
 
 
 class ActivityTypeData(BaseModel):

@@ -50,6 +50,22 @@ class ActivityAggregateResult:
 
 
 class G2PActivityDomainService(BaseService):
+    # Payload fields that define which context an activity belongs to (e.g. a
+    # crop season's plot, year, season and crop; an attendance day's worker and
+    # date). A correction keeps its context, so it may not change them: the
+    # staff UI locks them, and supersede rejects a change. Void and record anew
+    # to move an activity to another context.
+    context_fields: tuple[str, ...] = ()
+
+    # How the staff UI presents this register, so the platform UI holds no
+    # register-specific field names. All keys optional:
+    #   summary_fields        payload fields shown on an activity's row in lists
+    #   context_columns       projection columns shown in the context list
+    #   batch_carry_fields    fields a new batch row copies from the row above
+    #   search_placeholder    hint in the activity search box
+    #   context_search_placeholder  hint in the context search box
+    ui_hints: dict[str, Any] = {}
+
     def build_context(
         self,
         activity_type: str,

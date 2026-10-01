@@ -284,6 +284,20 @@ class G2PActivityService(BaseService):
         self._outbox(session, register, row, ActivityOutboxEventEnum.APPENDED.value)
         return row, CREATED
 
+    @staticmethod
+    def _require_same_context_fields(register, old, payload: dict) -> None:
+        """A correction stays in its context: the register's context fields may not change."""
+        before = old.payload or {}
+        changed = [
+            field for field in register.domain_service.context_fields
+            if field in payload and str(payload.get(field)) != str(before.get(field))
+        ]
+        if changed:
+            raise _error(
+                G2PRegistryErrorCodes.ACTIVITY_INVALID_STATE,
+                f"A correction cannot change {', '.join(changed)}: void this activity and record it again",
+            )
+
     async def supersede(self, register_mnemonic: str, activity_id: str, reason: str, actor: str, channel: str,
                         occurred_at: Optional[datetime] = None, occurred_on_ec: Optional[str] = None,
                         payload: Optional[dict] = None, idempotency_key: Optional[str] = None,
@@ -295,6 +309,8 @@ class G2PActivityService(BaseService):
                 old = await self._get_for_update(session, register, activity_id)
                 self._require_state(old, ActivityStatusEnum.ACTIVE.value)
                 await self.rules.check_period_lock(session, register.register_id, old.activity_type, old.occurred_at)
+                if payload is not None:
+                    self._require_same_context_fields(register, old, payload)
                 replacement = ActivityInput(
                     register_mnemonic=register_mnemonic,
                     activity_type=old.activity_type,
