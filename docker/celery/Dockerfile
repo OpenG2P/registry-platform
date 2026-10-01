@@ -15,7 +15,7 @@
 # Build context = repo root (so core/ and celery/ are reachable).
 FROM python:3.12.11-alpine3.22
 
-ARG FASTAPI_COMMON_REF=1.2.1
+ARG FASTAPI_COMMON_REF=1.2.2
 ARG IAM_CORE_REF=1.4.2
 ARG NOTIFICATION_REPO=openg2p/notifications
 ARG NOTIFICATION_REF=develop
@@ -36,7 +36,6 @@ RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
       "git+https://github.com/openg2p/iam@${IAM_CORE_REF}#subdirectory=iam-core" \
       "git+https://github.com/${NOTIFICATION_REPO}@${NOTIFICATION_REF}#subdirectory=connector" \
-      "sqlalchemy[asyncio]>=2.0.20" \
       /app/core/openg2p-registry-core \
       /app/celery/openg2p-registry-celery-beat \
       /app/celery/openg2p-registry-celery-worker \
