@@ -80,7 +80,7 @@ class Settings(ExtSettings):
     consent_manager_url: str = ""  # e.g. http://consent-manager-partner-api
     consent_manager_timeout: float = 5.0
     # This registry's data-controller ID in the Consent Manager (e.g.
-    # "farmer-registry"). Sent with every /validate so CM uses this registry's
+    # "social-registry"). Sent with every /validate so CM uses this registry's
     # grant in a consent that covers several registries.
     consent_data_controller: str = ""
 

@@ -30,7 +30,7 @@ class ActivityContextSpec(dict):
 class ActivityAggregateResult:
     """One roll-up value, returned by ``aggregate``; the platform stores it and keeps its history.
 
-    The subject may differ from the activity's (a farmer's season summary from a
+    The subject may differ from the activity's (a person's season summary from a
     plot's harvest). ``period_key`` is the domain's label for the period, with
     its date range for sorting and filtering. Leave ``geo_dimensions`` unset to
     have the platform copy the triggering activity's geography.
@@ -72,7 +72,7 @@ class G2PActivityDomainService(BaseService):
     final_on_period_lock: tuple[str, ...] = ()
 
     # Activity fields that hold another identifier of the subject (e.g. a
-    # farmer's Fayda FAN beside the farmer ID). A partner's consent names the
+    # person's Fayda FAN beside the register's own ID). A partner's consent names the
     # person by one identifier; a search by another is allowed only when the
     # register's own data links the two.
     subject_id_fields: tuple[str, ...] = ()

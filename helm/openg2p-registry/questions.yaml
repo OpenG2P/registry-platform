@@ -210,7 +210,7 @@ questions:
   group: DB Seed
 
 - variable: dbSeed.loadSampleData
-  description: Also load sample/demo data into the registry (farmers, households, lands, crops, livestock, farm inputs, membership and supporting tables). Off by default.
+  description: Also load sample/demo data into the registry (the variant's sample records and their supporting tables). Off by default.
   type: boolean
   label: Load Sample Data
   group: DB Seed
@@ -230,7 +230,7 @@ questions:
   group: DB Seed
 
 - variable: dbSeed.loadImages
-  description: Upload sample profile images to MinIO and link them to the seeded farmers. Requires Load Sample Data to be enabled.
+  description: Upload sample profile images to MinIO and link them to the seeded records. Requires Load Sample Data to be enabled.
   type: boolean
   label: Load Sample Images
   group: DB Seed
@@ -299,7 +299,7 @@ questions:
 
 # ID Generator
 - variable: idgenerator.idGenerator.appConfig.idTypesNote
-  description: "One functional-ID pool per register that mints IDs. Which pools are needed depends on the registry being installed — a single-register registry needs exactly one, and its pool name is that register's mnemonic in lowercase. Pools ACCUMULATE from three layers, because Helm merges maps and a parent cannot delete a subchart default: the id-generator subchart defaults (farmer, household), this chart's defaults (individual, household), and the installed registry's own. Seeing pools you do not recognise is therefore expected — an unused pool is an empty table that allocates nothing. Check only that YOUR register's pool is present. To add, remove or modify pools, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
+  description: "One functional-ID pool per register that mints IDs. Which pools are needed depends on the registry being installed — a single-register registry needs exactly one, and its pool name is that register's mnemonic in lowercase. Pools ACCUMULATE from three layers, because Helm merges maps and a parent cannot delete a subchart default: the id-generator subchart defaults, this chart's defaults (individual, household), and the installed registry's own. Seeing pools you do not recognise is therefore expected — an unused pool is an empty table that allocates nothing. Check only that YOUR register's pool is present. To add, remove or modify pools, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
   type: string
   label: ID Types Configuration
   group: ID Generator
@@ -332,7 +332,7 @@ questions:
   group: Sanity
 
 - variable: sanity.runE2e
-  description: Also run the full e2e. (1) Signed DCI + consent search — asserts a permitted, field-clamped result and that missing consent / bad signature are rejected. (2) Change request → AWE approval → applied change → version history → audit. This seeds test fixtures (a Keycloak user, a test farmer, a Partner Management key, a Consent Manager binding) and leaves them in place for inspection. Needs reachable PM, CM, AWE, Keycloak admin and the DBs, the enforcement switches ON, and the AWE issuer set to the external Keycloak URL. OFF by default; enable only on test environments.
+  description: Also run the full e2e. (1) Signed DCI + consent search — asserts a permitted, field-clamped result and that missing consent / bad signature are rejected. (2) Change request → AWE approval → applied change → version history → audit. This seeds test fixtures (a Keycloak user, a test record, a Partner Management key, a Consent Manager binding) and leaves them in place for inspection. Needs reachable PM, CM, AWE, Keycloak admin and the DBs, the enforcement switches ON, and the AWE issuer set to the external Keycloak URL. OFF by default; enable only on test environments.
   type: boolean
   default: false
   label: Sanity - Run Full E2E
@@ -360,7 +360,7 @@ questions:
   group: Sanity
 
 - variable: sanity.regType
-  description: Register type the e2e exercises. Must match a register this deployment actually ships — the reference registry is Individual; a variant overrides it (farmer-registry uses Farmer).
+  description: Register type the e2e exercises. Must match a register this deployment actually ships — the reference registry is Individual; a variant overrides it with its own register.
   type: string
   default: Individual
   label: Sanity - Register Type
@@ -437,7 +437,7 @@ questions:
 - variable: global.agentPortalHostname
   description: >-
     Public hostname of the Agent Portal UI. Defaults to
-    <release>-agent.<Base Domain> (e.g. fr-agent.trial.openg2p.org).
+    <release>-agent.<Base Domain> (e.g. registry-agent.trial.openg2p.org).
     This host is also registered as the redirect URI on the Keycloak
     agent-portal clients, so changing it here changes both.
   type: string

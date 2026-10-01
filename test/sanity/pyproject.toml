@@ -1,7 +1,7 @@
 [project]
-name = "openg2p-farmer-registry-sanity"
+name = "openg2p-registry-sanity"
 version = "0.1.0"
-description = "In-cluster sanity suite for the OpenG2P Farmer Registry partner-api (DCI + consent enforcement)"
+description = "In-cluster sanity suite for an OpenG2P registry partner-api (DCI + consent enforcement)"
 requires-python = ">=3.10"
 dependencies = [
   "pytest>=8",

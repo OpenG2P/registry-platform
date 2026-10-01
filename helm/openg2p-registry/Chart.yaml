@@ -7,8 +7,8 @@ description: |
   registration).
 
   This chart is published by the registry-platform and is the single source of
-  truth for registry deployment. A concrete registry (NSR, farmer, a customer
-  registry, ...) does NOT fork or wrap this chart — it installs it and supplies a
+  truth for registry deployment. A concrete registry (a social, farmer or
+  customer registry, ...) does NOT fork or wrap this chart — it installs it and supplies a
   small values overlay that points at its own extension images, hostname,
   registryVariant, seed image and (optionally) demo users. Everything variant-
   specific is values; the templates here are generic.
@@ -32,7 +32,6 @@ keywords:
   - openg2p
   - registry
   - social-registry
-  - farmer-registry
 
 home: https://openg2p.org
 icon: https://openg2p.github.io/openg2p-helm/openg2p-logo.png

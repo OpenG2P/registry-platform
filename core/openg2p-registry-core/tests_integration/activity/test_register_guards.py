@@ -53,11 +53,11 @@ async def test_activity_register_mnemonic_and_purpose_are_fixed(database):
         assert info.value.code == IDENTITY_FIXED
 
     # Nor can a record register become an activity register.
-    record = G2PRegisterDefinition(register_id="r", register_mnemonic="Farmer", register_purpose="REGISTER")
+    record = G2PRegisterDefinition(register_id="r", register_mnemonic="Person", register_purpose="REGISTER")
     with pytest.raises(G2PRegistryException) as info:
         reject(record, None, "ACTIVITY")
     assert info.value.code == IDENTITY_FIXED
-    reject(record, "Farmer2", "REGISTER")
+    reject(record, "Person2", "REGISTER")
 
 
 async def test_register_summary_lists_activity_registers(service, activity_types, database):
@@ -72,5 +72,5 @@ async def test_register_summary_lists_activity_registers(service, activity_types
     assert summary[-1].register_mnemonic == "FieldWork"
     assert by_mnemonic["FieldWork"].register_purpose == "ACTIVITY"
     assert by_mnemonic["FieldWork"].total_record_count == 2
-    assert by_mnemonic["TestFarmer"].register_purpose == "REGISTER"
-    assert "TestPlot" not in by_mnemonic  # a TABLE register, as before
+    assert by_mnemonic["TestPerson"].register_purpose == "REGISTER"
+    assert "TestParcel" not in by_mnemonic  # a TABLE register, as before

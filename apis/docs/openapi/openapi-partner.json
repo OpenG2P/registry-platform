@@ -1001,7 +1001,7 @@
               }
             ],
             "title": "Reg Record Type",
-            "description": "Registry record type, e.g. spdci-extensions-dci:Farmer"
+            "description": "Registry record type, e.g. spdci-extensions-dci:Individual"
           },
           "reg_records": {
             "items": {

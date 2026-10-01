@@ -10,7 +10,7 @@ import AggregateValues from "./AggregateValues";
 const inputClass = "border border-secondary-second rounded-md px-3 py-2 bg-neutral-second text-sm min-w-64";
 
 /**
- * The register's per-subject summaries (e.g. a farmer's season totals): search
+ * The register's per-subject summaries (e.g. a person's season totals): search
  * by subject ID, then open one summary to see how its values changed over time.
  */
 export default function Summaries({ registerMnemonic }: { registerMnemonic: string }) {
@@ -29,7 +29,7 @@ export default function Summaries({ registerMnemonic }: { registerMnemonic: stri
             <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); submit(); }}>
                 <label className="flex flex-col gap-1 text-sm font-medium">
                     Subject ID
-                    <input className={inputClass} placeholder="e.g. Farmer ID" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} />
+                    <input className={inputClass} placeholder="e.g. Person ID" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} />
                 </label>
                 <button type="submit" disabled={!subjectId.trim() || loading}
                     className="px-5 py-2 rounded-md bg-primary-first text-neutral-second text-sm disabled:opacity-50">

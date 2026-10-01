@@ -8,6 +8,11 @@ so a failed run can be inspected. See `TEARDOWN_SQL` for the removal statements.
 Nothing here may collide with seeded sample data: the `SANITY` marker never
 appears in openg2p-data demography, and the ids are fixed UUIDs so a re-run
 updates rather than duplicates.
+
+The names are a contract: inherited harness modules import them by name, and a
+variant overlay replaces this file with its own values under the SAME names (see
+tests/test_contract.py). The pre-rename FARMER_* names are still accepted as
+deprecated aliases (see sanity/legacy_names.py).
 """
 
 # Marker embedded in search_text — the DCI query the e2e sends looks for exactly
@@ -18,16 +23,16 @@ SEARCH_MARKER = "SANITYE2E"
 CREATED_BY = "sanity-e2e"
 
 # Fixed so a re-run is idempotent (ON CONFLICT DO UPDATE) rather than additive.
-FARMER_INTERNAL_ID = "00000000-5a11-4e2e-8000-000000000001"
-FARMER_FUNCTIONAL_ID = "SANITY-FARMER-0001"
-FARMER_FOUNDATIONAL_ID = "SANITY-UIN-0001"
+RECORD_INTERNAL_ID = "00000000-5a11-4e2e-8000-000000000001"
+RECORD_FUNCTIONAL_ID = "SANITY-INDIVIDUAL-0001"
+RECORD_FOUNDATIONAL_ID = "SANITY-UIN-0001"
 
-# The injected farmer's demographics. The e2e asserts these exact values come
+# The injected record's demographics. The e2e asserts these exact values come
 # back through the DCI template, so they must stay in sync with the assertions.
-FARMER = {
+RECORD = {
     "first_name": "Sanity",
     "middle_name": "E2E",
-    "last_name": "Testfarmer",
+    "last_name": "Testperson",
     "gender": "FEMALE",
     "birth_date": "1990-01-01",
     "marital_status": "SINGLE",
@@ -36,7 +41,7 @@ FARMER = {
 }
 
 # The field the change-request test edits. `middle_name` is a free-text field
-# that lives in a real, editable UI section (farmer personal-identification), so
+# that lives in a real, editable UI section (individual demographic details), so
 # the change-request API accepts it — and the DCI test does not assert it, so
 # changing it cannot break the data-sharing assertions.
 CR_FIELD = "middle_name"
@@ -49,7 +54,7 @@ CR_VALUE_UPDATED = "SANITYMOD"
 # functional_record_id IS a search-text field, so searching for it survives an
 # approved change request — which is why the DCI search targets it, not the
 # manual marker.
-SEARCH_TOKEN = FARMER_FUNCTIONAL_ID
+SEARCH_TOKEN = RECORD_FUNCTIONAL_ID
 
 # The suite's OWN Keycloak identity, provisioned by sanity.keycloak_seed with a
 # NON-temporary password. The shipped demo users cannot be used: keycloak-init
@@ -69,19 +74,19 @@ AWE_RULE_MARKER = "sanity-e2e"
 # Statements that remove everything the suite created. Not run automatically —
 # provided so an operator can clean an environment on demand.
 #
-# Registry rows are keyed on internal_record_id, not created_by: the farmer row
+# Registry rows are keyed on internal_record_id, not created_by: the record row
 # carries created_by='sanity-e2e' (set by our SQL), but the change-request and
 # history rows are stamped by the registry with the *user's display name*
 # ("Sanity E2E"), so internal_record_id is the one reliable marker across all
 # three tables.
 TEARDOWN_SQL = {
     "registry": [
-        f"DELETE FROM g2p_register_history_individuals WHERE internal_record_id = '{FARMER_INTERNAL_ID}';",
-        f"DELETE FROM g2p_register_change_requests WHERE internal_record_id = '{FARMER_INTERNAL_ID}';",
-        f"DELETE FROM g2p_register_individuals WHERE internal_record_id = '{FARMER_INTERNAL_ID}';",
+        f"DELETE FROM g2p_register_history_individuals WHERE internal_record_id = '{RECORD_INTERNAL_ID}';",
+        f"DELETE FROM g2p_register_change_requests WHERE internal_record_id = '{RECORD_INTERNAL_ID}';",
+        f"DELETE FROM g2p_register_individuals WHERE internal_record_id = '{RECORD_INTERNAL_ID}';",
     ],
     "awe": [
-        # Orphaned approval requests/tasks for the sanity farmer's change requests
+        # Orphaned approval requests/tasks for the sanity record's change requests
         # (run BEFORE the registry deletes, while the CR ids are still resolvable),
         # then the approver rule the suite added.
         f"DELETE FROM approver_rule WHERE rule_value::text LIKE '%{AWE_RULE_MARKER}%';",

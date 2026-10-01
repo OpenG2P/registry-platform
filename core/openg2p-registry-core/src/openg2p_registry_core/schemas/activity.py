@@ -202,7 +202,7 @@ class SubjectActivitiesPayload(BaseModel):
     """Activities about one record of this registry, across every activity register.
 
     Finds activities whose subject is the record, and (with include_descendants)
-    those whose subject is one of its child records — a farmer's plots.
+    those whose subject is one of its child records — a person's plots.
     """
 
     subject_internal_record_id: str

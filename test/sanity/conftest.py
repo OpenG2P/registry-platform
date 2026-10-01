@@ -23,7 +23,7 @@ def cfg() -> Config:
 
 @pytest.fixture(scope="session")
 def partner_client(cfg):
-    # The Farmer Registry PARTNER api (DCI search) — the PEP under test.
+    # The registry PARTNER api (DCI search) — the PEP under test.
     with httpx.Client(base_url=cfg.partner_base_url, verify=cfg.verify_tls, timeout=30) as c:
         yield c
 
@@ -57,8 +57,8 @@ def seeded(cfg):
 
 
 @pytest.fixture(scope="session")
-def farmer_seeded(cfg):
-    """Ensure the sanity test farmer exists in the registry.
+def record_seeded(cfg):
+    """Ensure the sanity test record exists in the registry.
 
     Injected by SQL rather than an API: every staff-portal-api register write is
     a change request, and the DCI tests need a record that already exists in an
@@ -71,11 +71,18 @@ def farmer_seeded(cfg):
     if not cfg.run_e2e:
         pytest.skip("SANITY_RUN_E2E not enabled")
     if not cfg.registry_dsn:
-        pytest.skip("registry DB not configured — cannot inject the sanity farmer")
+        pytest.skip("registry DB not configured — cannot inject the sanity record")
     try:
         return data_seed.ensure_seeded(cfg)
     except Exception as exc:  # noqa: BLE001
         pytest.fail(f"could not inject the sanity record: {exc}", pytrace=False)
+
+
+@pytest.fixture(scope="session")
+def farmer_seeded(record_seeded):
+    """Deprecated alias of `record_seeded`, for variant overlays written against
+    the pre-rename name (see sanity/legacy_names.py)."""
+    return record_seeded
 
 
 @pytest.fixture(scope="session")

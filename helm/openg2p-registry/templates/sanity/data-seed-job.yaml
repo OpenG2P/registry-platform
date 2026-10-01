@@ -1,6 +1,6 @@
 {{- if and .Values.sanity.enabled .Values.sanity.runE2e -}}
 # Deploy-time seeding of the sanity e2e's OWN test data:
-#   * the sanity farmer, injected straight into the registry DB. Injected rather
+#   * the sanity record, injected straight into the registry DB. Injected rather
 #     than reused from the sample data so the e2e also passes on installs with
 #     dbSeed.loadSampleData=false; injected by SQL rather than an API because
 #     every staff-portal-api register write is a change request, and the DCI

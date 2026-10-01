@@ -3523,7 +3523,7 @@ class G2PRegisterService(BaseService):
         Get implementation class for a register based on its mnemonic.
         
         Args:
-            register_mnemonic: The register mnemonic (e.g., "Farmer", "Score")
+            register_mnemonic: The register mnemonic (e.g., "Individual", "Score")
             register_purpose: The register purpose (e.g., "CORE_TABLE", "REGISTER")
                           If None, will try extensions first, then core
             
@@ -3645,17 +3645,17 @@ class G2PRegisterService(BaseService):
         Get the internal_record_ids to query for history records by traversing 
         down the register hierarchy from subject to section.
         
-        Example: For Farmer (subject) → Lands → Crops (section)
-        - Given farmer's internal_record_id
-        - Returns all crop internal_record_ids belonging to that farmer
+        Example: For Individual (subject) → Lands → Crops (section)
+        - Given the individual's internal_record_id
+        - Returns all crop internal_record_ids belonging to that individual
         
         Kept as transitional fallback for history rows that predate
         subject_internal_record_id stamping.
         
         Args:
             section_register_id: The register ID of the section (e.g., Crops)
-            subject_internal_record_id: The subject record's internal_record_id (e.g., Farmer's ID)
-            subject_register_id: The subject register ID (e.g., Farmer register)
+            subject_internal_record_id: The subject record's internal_record_id (e.g., the individual's ID)
+            subject_register_id: The subject register ID (e.g., Individual register)
             session: Database session
             
         Returns:

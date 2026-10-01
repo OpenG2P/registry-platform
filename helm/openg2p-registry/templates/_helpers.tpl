@@ -252,8 +252,10 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.failOnError | quote }}
 - name: SANITY_READINESS_TIMEOUT
   value: {{ .Values.sanity.readinessTimeout | quote }}
+# The sanity partner's consent must be for this registry's data controller: the
+# partner API sends it to CM, which denies a consent for any other controller.
 - name: SANITY_CONTROLLER_ID
-  value: {{ .Values.sanity.controllerId | quote }}
+  value: {{ (tpl (.Values.global.consentDataController | default "") $) | default .Values.sanity.controllerId | quote }}
 - name: SANITY_CM_AUDIENCE
   value: {{ .Values.sanity.cmAudience | quote }}
 - name: SANITY_DCI_SENDER_ID
@@ -270,8 +272,12 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.dataScopes | quote }}
 - name: SANITY_DENIED_SCOPES
   value: {{ .Values.sanity.deniedScopes | quote }}
+{{- $sanityRegisterId := .Values.sanity.registerId | default .Values.sanity.farmerRegisterId | default "a0000000-0000-4000-8000-000000000001" }}
+- name: SANITY_REGISTER_ID
+  value: {{ $sanityRegisterId | quote }}
+# Deprecated: same value under the old env name, for sanity images built on an older base.
 - name: SANITY_FARMER_REGISTER_ID
-  value: {{ .Values.sanity.farmerRegisterId | quote }}
+  value: {{ $sanityRegisterId | quote }}
 - name: SANITY_CR_TAB_ID
   value: {{ .Values.sanity.crTabId | quote }}
 - name: SANITY_CR_SECTION_ID
@@ -363,7 +369,7 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.aweAdminClientId | quote }}
 - name: SANITY_AWE_ADMIN_ROLE
   value: {{ .Values.sanity.aweAdminRole | quote }}
-# Registry DB — inject the sanity farmer, and read it back to assert the change
+# Registry DB — inject the sanity record, and read it back to assert the change
 # request was applied and that version history was written.
 - name: SANITY_REGISTRY_PGHOST
   value: {{ .Values.global.postgresqlHost | quote }}

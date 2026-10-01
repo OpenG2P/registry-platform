@@ -1,7 +1,7 @@
 """Change request -> AWE approval -> applied change -> version history -> audit.
 
 The flow under test:
-  1. raise a change request on the sanity farmer via staff-portal-api;
+  1. raise a change request on the sanity record via staff-portal-api;
   2. AWE starts a workflow from the register's bound approval policy;
   3. approve each stage through the **AWE proxy**;
   4. AWE posts an HMAC-signed decision webhook back to the registry;
@@ -40,9 +40,9 @@ def _field_value(cfg):
         cfg.registry_dsn,
         f'SELECT "{fixtures.CR_FIELD}" AS v FROM "public"."g2p_register_individuals" '
         f'WHERE "internal_record_id" = %s',
-        (fixtures.FARMER_INTERNAL_ID,),
+        (fixtures.RECORD_INTERNAL_ID,),
     )
-    assert rows, f"sanity farmer {fixtures.FARMER_INTERNAL_ID} not found"
+    assert rows, f"sanity record {fixtures.RECORD_INTERNAL_ID} not found"
     return rows[0]["v"]
 
 
@@ -56,21 +56,21 @@ def _wait_until(predicate, timeout, interval=3):
 
 
 @pytest.fixture(scope="module")
-def change_request(cfg, staff_client, farmer_seeded, awe_approver):
+def change_request(cfg, staff_client, record_seeded, awe_approver):
     """Raise a CR that changes CR_FIELD, and return its id."""
     from sanity.steplog import note
     note(f"staff-portal-api login OK as '{cfg.staff_username}'; sanity approver registered on the AWE stages")
     note(f"raising change request: set {fixtures.CR_FIELD}={fixtures.CR_VALUE_UPDATED!r} on record "
-         f"{fixtures.FARMER_INTERNAL_ID} (register={cfg.reg_type}, tab={cfg.cr_tab_id}, section={cfg.cr_section_id})")
+         f"{fixtures.RECORD_INTERNAL_ID} (register={cfg.reg_type}, tab={cfg.cr_tab_id}, section={cfg.cr_section_id})")
     payload = {
-        "register_id": cfg.farmer_register_id,
+        "register_id": cfg.register_id,
         "tab_id": cfg.cr_tab_id,
         "section_id": cfg.cr_section_id,
-        "section_register_id": cfg.farmer_register_id,
-        "internal_record_id": fixtures.FARMER_INTERNAL_ID,
+        "section_register_id": cfg.register_id,
+        "internal_record_id": fixtures.RECORD_INTERNAL_ID,
         "change_payload": [
             {
-                "internal_record_id": fixtures.FARMER_INTERNAL_ID,
+                "internal_record_id": fixtures.RECORD_INTERNAL_ID,
                 "edit_action": "UPDATE",
                 fixtures.CR_FIELD: fixtures.CR_VALUE_UPDATED,
             }
@@ -215,18 +215,18 @@ def test_version_history_retains_the_previous_record(cfg, staff_client, change_r
 
     def _has_history():
         nonlocal rows
-        rows = db.query(cfg.registry_dsn, _HISTORY, (fixtures.FARMER_INTERNAL_ID,))
+        rows = db.query(cfg.registry_dsn, _HISTORY, (fixtures.RECORD_INTERNAL_ID,))
         return bool(rows)
 
     assert _wait_until(_has_history, timeout=cfg.awe_settle_timeout), (
-        "no history row for the sanity farmer after approval — history is written by "
+        "no history row for the sanity record after approval — history is written by "
         "insert_into_register_history during approve, so its absence means the change "
         "was never applied through the approval path"
     )
 
     versions = staff_client.get_number_of_versions({
-        "register_id": cfg.farmer_register_id,
-        "internal_record_id": fixtures.FARMER_INTERNAL_ID,
+        "register_id": cfg.register_id,
+        "internal_record_id": fixtures.RECORD_INTERNAL_ID,
         "tab_id": cfg.cr_tab_id,
     })
     body = (versions.get("response_body") or {}).get("response_payload") or versions

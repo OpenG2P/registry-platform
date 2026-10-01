@@ -25,7 +25,7 @@ def _days_ago(days: int) -> datetime:
 def planned(plot="LND-1", season="MEHER", days=30, **extra):
     return ActivityInput(
         register_mnemonic=REG, activity_type="PLANNED", occurred_at=_days_ago(days),
-        subject_type="FARMER_ID", subject_id="FR-1", payload={"plot_id": plot, "season": season, **extra},
+        subject_type="PERSON_ID", subject_id="P-1", payload={"plot_id": plot, "season": season, **extra},
     )
 
 
@@ -34,14 +34,14 @@ def sown(plot="LND-1", season="MEHER", crop="TEFF", area=1.5, days=20, **kwargs)
     payload.update(kwargs.pop("payload", {}))
     return ActivityInput(
         register_mnemonic=REG, activity_type="SOWN", occurred_at=_days_ago(days),
-        subject_type="FARMER_ID", subject_id="FR-1", payload=payload, **kwargs,
+        subject_type="PERSON_ID", subject_id="P-1", payload=payload, **kwargs,
     )
 
 
 def harvested(plot="LND-1", season="MEHER", days=1):
     return ActivityInput(
         register_mnemonic=REG, activity_type="HARVESTED", occurred_at=_days_ago(days),
-        subject_type="FARMER_ID", subject_id="FR-1", payload={"plot_id": plot, "season": season},
+        subject_type="PERSON_ID", subject_id="P-1", payload={"plot_id": plot, "season": season},
     )
 
 
@@ -192,7 +192,7 @@ async def test_supersede_void_and_projection(service, activity_types, database):
     assert float(area) == 1.2
 
     assert await _code(service.void(REG, corrected.activity_id, "", "sup1")) == "ACT-ERR-016"
-    voided = await service.void(REG, corrected.activity_id, "entered for the wrong farmer", "sup1")
+    voided = await service.void(REG, corrected.activity_id, "entered for the wrong person", "sup1")
     assert voided.status == "VOIDED"
     async with database.connect() as conn:
         stage = (await conn.execute(text("SELECT stage FROM g2p_activity_projection_field_works"))).scalar()
@@ -260,7 +260,7 @@ async def test_search_timeline_and_work_list(service, activity_types):
     timeline = await service.timeline(REG, items[0].context_id, None)
     assert [a.activity_type for a in timeline] == ["PLANNED", "SOWN"]
 
-    found, total = await service.search(SearchActivitiesPayload(register_mnemonic=REG, subject_id="FR-1"), None)
+    found, total = await service.search(SearchActivitiesPayload(register_mnemonic=REG, subject_id="P-1"), None)
     assert total == 6
 
 

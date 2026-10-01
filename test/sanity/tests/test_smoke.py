@@ -1,6 +1,6 @@
 import pytest
 
-# Liveness + wiring for the Farmer Registry partner-api (the PEP). No auth, no
+# Liveness + wiring for the registry partner-api (the PEP). No auth, no
 # data created — runs on every install/upgrade.
 
 

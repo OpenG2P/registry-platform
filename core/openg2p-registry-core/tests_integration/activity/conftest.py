@@ -81,7 +81,7 @@ class G2PActivityDomainServiceFieldWork(G2PActivityDomainService):
             # Long ago on purpose: samples may predate the type's backdating limit.
             return ActivityInput(
                 register_mnemonic="FieldWork", activity_type=kind, idempotency_key=f"sample:{key}",
-                occurred_at=datetime(2020, 1, 1), subject_type="FARMER_ID", subject_id="FR-S1",
+                occurred_at=datetime(2020, 1, 1), subject_type="PERSON_ID", subject_id="P-S1",
                 payload={"plot_id": "LND-S1", "season": "MEHER", **payload},
             )
 
@@ -131,21 +131,21 @@ class G2PActivityDomainServiceFieldWork(G2PActivityDomainService):
         ).scalar()
         return [
             ActivityAggregateResult(
-                subject_type=activity.subject_type or "FARMER_ID", subject_id=activity.subject_id,
+                subject_type=activity.subject_type or "PERSON_ID", subject_id=activity.subject_id,
                 aggregate_type="AREA_SOWN", period_key=season, aggregate_value={"area_sown_ha": total},
             )
         ]
 
 
-# Two record registers in the same instance: a farmer and the farmer's plots,
+# Two record registers in the same instance: a person and the person's parcels,
 # for activities whose subject is a local record.
-class G2PRegisterTestFarmer(G2PRegister, G2PGeo):
-    __tablename__ = "g2p_register_test_farmers"
+class G2PRegisterTestPerson(G2PRegister, G2PGeo):
+    __tablename__ = "g2p_register_test_persons"
     __table_args__ = {"extend_existing": True}
 
 
-class G2PRegisterTestPlot(G2PRegister, G2PGeo):
-    __tablename__ = "g2p_register_test_plots"
+class G2PRegisterTestParcel(G2PRegister, G2PGeo):
+    __tablename__ = "g2p_register_test_parcels"
     __table_args__ = {"extend_existing": True}
 
 
@@ -155,8 +155,8 @@ models_module = types.ModuleType("openg2p_registry_extensions.register_domain.mo
 services_module = types.ModuleType("openg2p_registry_extensions.register_domain.services")
 models_module.G2PActivityFieldWork = G2PActivityFieldWork
 models_module.G2PActivityProjectionFieldWork = G2PActivityProjectionFieldWork
-models_module.G2PRegisterTestFarmer = G2PRegisterTestFarmer
-models_module.G2PRegisterTestPlot = G2PRegisterTestPlot
+models_module.G2PRegisterTestPerson = G2PRegisterTestPerson
+models_module.G2PRegisterTestParcel = G2PRegisterTestParcel
 services_module.G2PActivityDomainServiceFieldWork = G2PActivityDomainServiceFieldWork
 sys.modules.update(
     {
@@ -168,8 +168,8 @@ sys.modules.update(
 )
 
 REGISTER_ID = "reg-fieldwork"
-FARMER_REGISTER_ID = "reg-test-farmer"
-PLOT_REGISTER_ID = "reg-test-plot"
+PERSON_REGISTER_ID = "reg-test-person"
+PARCEL_REGISTER_ID = "reg-test-parcel"
 
 SOWN_SCHEMA = {
     "type": "object",
@@ -238,8 +238,8 @@ async def _prepare_database():
         G2PActivityAggregate,
         G2PActivityAggregateHistory,
         G2PActivityParticipant,
-        G2PRegisterTestFarmer,
-        G2PRegisterTestPlot,
+        G2PRegisterTestPerson,
+        G2PRegisterTestParcel,
     ):
         await model.create_migrate()
     partitions = G2PActivityPartitionService()
@@ -258,8 +258,8 @@ async def _prepare_database():
             {"id": REGISTER_ID},
         )
         for register_id, mnemonic, purpose, master in (
-            (FARMER_REGISTER_ID, "TestFarmer", "REGISTER", None),
-            (PLOT_REGISTER_ID, "TestPlot", "TABLE", FARMER_REGISTER_ID),
+            (PERSON_REGISTER_ID, "TestPerson", "REGISTER", None),
+            (PARCEL_REGISTER_ID, "TestParcel", "TABLE", PERSON_REGISTER_ID),
         ):
             await conn.execute(
                 text(
@@ -286,20 +286,20 @@ async def _prepare_database():
         now = "now() AT TIME ZONE 'utc'"
         await conn.execute(
             text(
-                "INSERT INTO g2p_register_test_farmers (internal_record_id, functional_record_id, record_name, "
+                "INSERT INTO g2p_register_test_persons (internal_record_id, functional_record_id, record_name, "
                 f"created_by, created_at, last_approved_at, last_approved_by, record_status, "
                 f"geo_lowest_level_value_id) VALUES "
-                f"('farmer-1', 'FR-1', 'Almaz', 't', {now}, {now}, 't', 'ACTIVE', 'W2'), "
-                f"('farmer-2', 'FR-2', 'Bekele', 't', {now}, {now}, 't', 'ACTIVE', NULL)"
+                f"('person-1', 'P-1', 'Almaz', 't', {now}, {now}, 't', 'ACTIVE', 'W2'), "
+                f"('person-2', 'P-2', 'Bekele', 't', {now}, {now}, 't', 'ACTIVE', NULL)"
             )
         )
         await conn.execute(
             text(
-                "INSERT INTO g2p_register_test_plots (internal_record_id, link_internal_record_id, record_name, "
+                "INSERT INTO g2p_register_test_parcels (internal_record_id, link_internal_record_id, record_name, "
                 f"created_by, created_at, last_approved_at, last_approved_by, record_status, "
                 f"geo_lowest_level_value_id) VALUES "
-                f"('plot-1', 'farmer-1', 'Plot one', 't', {now}, {now}, 't', 'ACTIVE', NULL), "
-                f"('plot-2', 'farmer-2', 'Plot two', 't', {now}, {now}, 't', 'ACTIVE', 'W3')"
+                f"('parcel-1', 'person-1', 'Parcel one', 't', {now}, {now}, 't', 'ACTIVE', NULL), "
+                f"('parcel-2', 'person-2', 'Parcel two', 't', {now}, {now}, 't', 'ACTIVE', 'W3')"
             )
         )
         await conn.execute(
@@ -392,7 +392,7 @@ async def activity_types(database):
                         "crop": {"kind": "ATTRIBUTE", "attribute": "CROP", "mode": "STRICT"},
                         "plot_id": {
                             "kind": "EXTERNAL",
-                            "system": "farmer-registry.land",
+                            "system": "land-registry.parcel",
                             "mode": "LENIENT",
                             "temporary_prefix": "TMP-",
                         },

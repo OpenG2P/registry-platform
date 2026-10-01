@@ -22,7 +22,7 @@ load_sample_data.py, so seeded registry rows resolve to these master-data ids.
 
 Names are not unique (villages/wards repeat), so the unique key is the path id, not
 the mnemonic. Inserts use ON CONFLICT DO NOTHING on the primary key, so re-running
-(e.g. on a Helm post-upgrade hook, or from both NSR and farmer against a shared
+(e.g. on a Helm post-upgrade hook, or from several registries against a shared
 master_data DB) is idempotent.
 
 DB connection uses a SEPARATE env set (MD_PG*) so it never collides with the

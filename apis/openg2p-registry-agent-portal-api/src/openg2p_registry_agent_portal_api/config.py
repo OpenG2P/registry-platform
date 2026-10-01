@@ -11,7 +11,7 @@ class VcDefinition(BaseModel):
     """One issuable credential type.
 
     The Registry Platform owns the *shape* of this contract; each manifestation
-    (NSR, Farmer Registry, …) supplies the values, because the claim fields
+    (e.g. a social, farmer or worker registry) supplies the values, because the claim fields
     differ per registry.
     """
 
@@ -33,7 +33,7 @@ class VcDefinition(BaseModel):
     # claim-169 has no identifier key of its own, so the registry's own id rides
     # in the generic "Data" attribute (see the qrSettings comment in the chart).
     # The PLATFORM cannot name it: this API serves every manifestation, and the
-    # id is a Farmer ID here, something else in the next registry. Each
+    # id is a household ID in one registry, something else in the next. Each
     # manifestation supplies the label; unset, the verification screen shows the
     # neutral "ID".
     qr_data_label: Optional[str] = None

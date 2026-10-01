@@ -214,7 +214,7 @@ global:
   consentManagerTimeoutSeconds: 5
   # This registry's data-controller ID in the Consent Manager, sent with every
   # /validate so CM uses this registry's grant in a consent covering several
-  # registries. Defaults to the registry variant (farmer-registry, crop-sown-registry).
+  # registries. Defaults to the registry variant (global.registryVariant).
   consentDataController: '{{ .Values.global.registryVariant }}'
   # Used only by the sanity e2e (to seed the shared test partner):
   #  * PM staff-portal-api (onboard + approve the partner key)
@@ -356,8 +356,8 @@ dbSeed:
   # Load sample/demo data into the registry (disabled by default)
   loadSampleData: false
   # Upload sample profile images (500 colored-initials avatars) to MinIO
-  # and update g2p_register_farmers.record_image_document_id. Requires
-  # loadSampleData=true (individuals must exist first).
+  # and set record_image_document_id on the seeded records. Requires
+  # loadSampleData=true (the records must exist first).
   loadImages: false
   # Upload flat Jinja templates from the db-seed image to MinIO after SQL seed
   loadTemplates: true
@@ -836,8 +836,8 @@ beneApi:
 # (`agent`), their own portal, their own permission. A staff token grants
 # nothing here.
 #
-# Turning it on additionally needs, from the MANIFESTATION (NSR, Farmer
-# Registry, …) because the claim fields differ per registry:
+# Turning it on additionally needs, from the MANIFESTATION (e.g. a social,
+# farmer or worker registry) because the claim fields differ per registry:
 #   * a read-only VC view keyed on internal_record_id (see vcDefinitions[].view)
 #   * its vcDefinitions entries
 #   * the SVG card design (svgConfigMap)
@@ -2223,11 +2223,6 @@ sanity:
   # green; a dependency that IS configured and then breaks now fails.
   failOnError: true
   readinessTimeout: 180
-  # The consent object's audience (== the CM binding audience) + the registry's
-  # controller id (== data_controller). Kept stable so the binding is reused.
-  # Variant-neutral: this is the PLATFORM's fixture, and every variant inherits
-  # it. They were named for the farmer registry, which is where they were first
-  # written, not because anything farmer-specific reads them.
   # ── Agent Portal / VC issuance ──────────────────────────────────────────
   # The VC tests skip unless the Agent Portal is enabled AND an agent password
   # is supplied: the agent realm is provisioned outside this chart, so the suite
@@ -2237,6 +2232,8 @@ sanity:
   # National (foundational) ID the VC e2e issues against.
   vcNationalId: TEST_SANITY_VC_0001
 
+  # The consent object's audience (== the CM binding audience) + the registry's
+  # controller id (== data_controller). Kept stable so the binding is reused.
   cmAudience: OPENG2P_SANITY_PARTNER
   controllerId: openg2p-sanity-controller
   # DCI envelope sender id — PARTNER_<UPPER> must equal the PM partner reference
@@ -2259,17 +2256,15 @@ sanity:
   # a scope naming anything else silently clamps every record to {}. There is no
   # sub-field granularity — a scope carries everything nested under it. The values
   # below are the reference Individual register's; a variant that ships a
-  # different template must override them (farmer-registry does).
+  # different template must override them.
   dataScopes: "demographic_info"
   # Scopes deliberately NOT consented to; the e2e asserts these never come back.
   deniedScopes: "member_identifier"
-  # The reference Individual register (must match g2p_register_definitions.sql).
-  # Used to find the register's bound AWE change-request policy and to raise the
-  # CR. NB the KEY is still named farmerRegisterId — renaming it means changing
-  # the SANITY_FARMER_REGISTER_ID env in _helpers.tpl, cfg.farmer_register_id in
-  # the sanity suite, and farmer-registry's override, so it is left for a
-  # coordinated change rather than half-renamed here.
-  farmerRegisterId: a0000000-0000-4000-8000-000000000001
+  # The register the CR is raised against — used to find its bound AWE
+  # change-request policy. Empty = the reference Individual register
+  # (a0000000-0000-4000-8000-000000000001, g2p_register_definitions.sql).
+  # Deprecated: the old key sanity.farmerRegisterId is still honoured when this is empty.
+  registerId: ""
   # UI coordinates the change-request payload carries. Optional — set if the
   # deployment's metadata requires a specific tab/section.
   crTabId: "individual_info_tab"

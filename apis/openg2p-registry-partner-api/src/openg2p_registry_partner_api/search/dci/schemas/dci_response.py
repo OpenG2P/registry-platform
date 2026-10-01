@@ -45,13 +45,13 @@ class DciSearchResultData(BaseModel):
         default=None,
         description=(
             "Register mnemonic echoed from the search request (`g2p_register_definitions.register_mnemonic`), "
-            "e.g. Farmer, Household, Individual."
+            "e.g. Individual, Household, …"
         ),
     )
 
     reg_record_type: Optional[str] = Field(
         default=None,
-        description="Registry record type, e.g. spdci-extensions-dci:Farmer",
+        description="Registry record type, e.g. spdci-extensions-dci:Individual",
     )
 
     reg_records: List[Dict[str, Any]] = Field(

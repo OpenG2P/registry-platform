@@ -5,21 +5,21 @@ Each activity type declares ``reference_rules`` per payload field::
     {"crop":     {"kind": "ATTRIBUTE", "attribute": "CROP_COMMODITY", "mode": "STRICT"},
      "woreda":   {"kind": "GEO", "mode": "STRICT"},
      "cluster_id": {"kind": "LOCAL_RECORD", "register": "Cluster", "match": "functional_record_id"},
-     "plot_id":  {"kind": "EXTERNAL", "system": "farmer-registry.land", "mode": "LENIENT",
+     "plot_id":  {"kind": "EXTERNAL", "system": "land-registry.parcel", "mode": "LENIENT",
                   "pattern": "^[A-Z0-9-]+$", "temporary_prefix": "TMP-", "lookup": false}}
 
 An EXTERNAL rule with ``"lookup": false`` checks the format only and never asks
 the other system (status FORMAT_CHECKED, no warning).
 
 Two options apply to LOCAL_RECORD rules, for an activity register that sits in
-the same registry as the records it is about (e.g. crop seasons inside the
-Farmer Registry):
+the same registry as the records it is about (e.g. crop seasons inside a
+registry that also holds the plots):
 
 * ``"subject": true`` — the referenced record is the activity's subject; the
   platform fills the subject fields, including the record's ancestors, so the
   record's profile (and its parents' profiles) list the activity;
 * ``"belongs_to": "<field>"`` — the referenced record must be a child of the
-  record in ``<field>`` (e.g. the plot must belong to the farmer). STRICT
+  record in ``<field>`` (e.g. the plot must belong to the person). STRICT
   rejects a mismatch, LENIENT warns.
 
 Modes: STRICT rejects an unresolved value, LENIENT accepts it with a warning,
@@ -193,7 +193,7 @@ class G2PActivityReferenceService(BaseService):
         return None
 
     async def ancestor_record_ids(self, session, register_mnemonic: Optional[str], internal_record_id: str) -> list:
-        """The internal_record_ids of a record's parents, nearest first (a plot's farmer, and so on)."""
+        """The internal_record_ids of a record's parents, nearest first (a plot's owner, and so on)."""
         if not register_mnemonic or not internal_record_id:
             return []
         try:

@@ -94,7 +94,7 @@ _BINARY_KEYS = frozenset({"Binary Image", "Face", "Right Iris", "Left Iris", "Vo
 #
 # What that id is CALLED belongs to the manifestation, not here: this module is
 # part of the Registry Platform and serves every registry built on it, so a
-# "Farmer ID" label would be wrong for all but one of them. Callers pass the
+# "Household ID" label would be wrong for all but one of them. Callers pass the
 # label from their VC definition (`qr_data_label`); this neutral default is what
 # shows when none is configured.
 DATA_LABEL = "ID"

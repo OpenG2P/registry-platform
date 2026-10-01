@@ -9,7 +9,7 @@ yield by woreda. The location is taken, in order, from:
    else the conventional ``geo_lowest_level_value_id`` field — where the activity
    says it happened (e.g. the plot's woreda);
 2. the subject, when it is a record of this registry: that record's location,
-   else its nearest ancestor's (a plot without one takes its farmer's);
+   else its nearest ancestor's (a plot without one takes its owner's);
 3. the activity's context: the location of its latest activity that has one, so
    later stages of a crop season need not repeat the plot's location.
 
@@ -166,7 +166,7 @@ class G2PActivityGeoService(BaseService):
 
 
 def common_dimensions(many: list[Optional[dict[str, Any]]]) -> Optional[dict]:
-    """The levels every one of several locations shares, top down (e.g. a farmer's plots in one zone)."""
+    """The levels every one of several locations shares, top down (e.g. a person's plots in one zone)."""
     present = [dims for dims in many if dims]
     if not present:
         return None

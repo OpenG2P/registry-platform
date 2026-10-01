@@ -61,11 +61,11 @@ class G2PActivity(BaseORMModel):
     context_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
 
     # Who or what the activity is about. subject_type names the identifier
-    # scheme (e.g. FARMER_ID, FAYDA_FAN, LOCAL_RECORD); subject_internal_record_id
+    # scheme (e.g. NATIONAL_ID, FAYDA_FAN, LOCAL_RECORD); subject_internal_record_id
     # is set only when the subject is a record in a register of this instance,
     # with subject_register_mnemonic naming that register. The record's
-    # ancestors (e.g. the farmer owning a plot) are kept as they were when the
-    # activity was written, so a farmer's profile finds its plots' activities.
+    # ancestors (e.g. the person owning a plot) are kept as they were when the
+    # activity was written, so a person's profile finds its plots' activities.
     subject_type: Mapped[str] = mapped_column(String, nullable=True)
     subject_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     subject_internal_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
@@ -161,13 +161,13 @@ class G2PActivityType(BaseORMModel):
     requires_verification: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Reference rules per payload field:
     # {"crop": {"kind": "ATTRIBUTE", "attribute": "CROP_COMMODITY", "mode": "STRICT"},
-    #  "plot_id": {"kind": "EXTERNAL", "system": "farmer-registry.land", "mode": "LENIENT", "pattern": "^LND-"}}
+    #  "plot_id": {"kind": "EXTERNAL", "system": "land-registry.parcel", "mode": "LENIENT", "pattern": "^LND-"}}
     reference_rules: Mapped[dict] = mapped_column(JSONB, nullable=True)
     # Payload date fields entered in the Ethiopian calendar, converted on write.
     ethiopian_date_fields: Mapped[list] = mapped_column(JSONB, nullable=True)
     # Who takes part, by role, each read from a payload field and typed by that
     # field's reference rule (or an explicit "register" / "system"):
-    # {"farmer": {"field": "farmer_id", "primary": true}, "plot": {"field": "plot_id"}}
+    # {"person": {"field": "person_id", "primary": true}, "plot": {"field": "plot_id"}}
     participant_roles: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
 
@@ -324,8 +324,8 @@ class G2PActivityOdkForm(BaseORMModel):
     via {"value": ...}, or a path with a transform via {"path": ..., "transform": ...}:
 
         {"activity_type": {"value": "SOWN"},
-         "subject_type": {"value": "FARMER_ID"},
-         "subject_id": "farmer/farmer_id",
+         "subject_type": {"value": "PERSON_ID"},
+         "subject_id": "person/person_id",
          "occurred_on_ec": {"path": "sowing/sowing_date_ec"},
          "payload": {"plot_id": "plot/plot_id", "crop": "sowing/crop",
                      "area_ha": {"path": "sowing/area", "transform": "number"},
@@ -402,7 +402,7 @@ class _G2PActivityAggregateBase(BaseORMModel):
 
     register_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     # The subject the roll-up is about, which need not be an activity's own
-    # subject (e.g. a farmer's season summary across all of the farmer's plots).
+    # subject (e.g. a person's season summary across all of the person's plots).
     subject_type: Mapped[str] = mapped_column(String, nullable=False)
     subject_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     subject_internal_record_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
@@ -456,7 +456,7 @@ class G2PActivityAggregateHistory(_G2PActivityAggregateBase):
 class G2PActivityParticipant(BaseORMModel):
     """Who took part in an activity, by role — always typed.
 
-    One row per role per activity: the farmer, the plot, the veterinarian, the
+    One row per role per activity: the person, the plot, the veterinarian, the
     cluster. A participant is either a record of a register in this registry
     (``ref_kind`` LOCAL, ``ref_register``, with its ``internal_record_id`` when
     resolved) or an identifier held by another system (EXTERNAL, ``ref_system``).
@@ -477,7 +477,7 @@ class G2PActivityParticipant(BaseORMModel):
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ref_kind: Mapped[str] = mapped_column(String, nullable=False)  # LOCAL | EXTERNAL
     ref_register: Mapped[str] = mapped_column(String, nullable=True)  # LOCAL: register mnemonic
-    ref_system: Mapped[str] = mapped_column(String, nullable=True)  # EXTERNAL: e.g. farmer-registry.farmer
+    ref_system: Mapped[str] = mapped_column(String, nullable=True)  # EXTERNAL: e.g. civil-registry.person
     ref_id: Mapped[str] = mapped_column(String, nullable=False)
     internal_record_id: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)

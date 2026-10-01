@@ -1,4 +1,4 @@
-"""Idempotent injection of the sanity test farmer into the registry database.
+"""Idempotent injection of the sanity test record into the registry database.
 
 Why SQL and not an API:
   * every staff-portal-api register write is a **change request** — using it to
@@ -8,7 +8,7 @@ Why SQL and not an API:
     search is deterministic.
 
 Why the test data is injected at all rather than reusing seeded sample data:
-the sample farmers are only present when `dbSeed.loadSampleData=true`, which a
+the sample records are only present when `dbSeed.loadSampleData=true`, which a
 production install turns off — the e2e must not depend on them.
 
 **`search_text` is written explicitly.** On the ORM it is auto-populated by
@@ -50,23 +50,23 @@ _CREATED_AT = "2026-01-01 00:00:00"
 
 
 def _row():
-    f = fixtures.FARMER
+    f = fixtures.RECORD
     full_name = f"{f['first_name']} {f['last_name']}"
     # The marker must be inside search_text — that is the only column the DCI
     # search matches on.
     search_text = " ".join([
         fixtures.SEARCH_MARKER,
-        fixtures.FARMER_FUNCTIONAL_ID,
+        fixtures.RECORD_FUNCTIONAL_ID,
         full_name,
         f["gender"],
         f["birth_date"],
     ])
     return (
-        fixtures.FARMER_INTERNAL_ID, fixtures.FARMER_FUNCTIONAL_ID,
+        fixtures.RECORD_INTERNAL_ID, fixtures.RECORD_FUNCTIONAL_ID,
         full_name, fixtures.CREATED_BY, _CREATED_AT,
         _CREATED_AT, fixtures.CREATED_BY,
         search_text, "ACTIVE",
-        fixtures.FARMER_FOUNDATIONAL_ID, f["first_name"],
+        fixtures.RECORD_FOUNDATIONAL_ID, f["first_name"],
         f["last_name"], full_name,
         f["gender"], f["birth_date"], f["marital_status"], f["education_level"],
         f["language_code"], _CREATED_AT, fixtures.CR_VALUE_INITIAL,
@@ -74,7 +74,7 @@ def _row():
 
 
 def ensure_seeded(cfg) -> str:
-    """Insert (or reset) the sanity farmer. Returns "seeded"."""
+    """Insert (or reset) the sanity record. Returns "seeded"."""
     from . import db
 
     db.execute(cfg.registry_dsn, _UPSERT, _row())
@@ -93,9 +93,9 @@ def main() -> int:
     try:
         status = ensure_seeded(cfg)
     except Exception as exc:  # noqa: BLE001
-        print(f"[data-seed] FAILED to seed farmer '{fixtures.FARMER_FUNCTIONAL_ID}': {exc}")
+        print(f"[data-seed] FAILED to seed record '{fixtures.RECORD_FUNCTIONAL_ID}': {exc}")
         return 1
-    print(f"[data-seed] farmer '{fixtures.FARMER_FUNCTIONAL_ID}': {status}")
+    print(f"[data-seed] record '{fixtures.RECORD_FUNCTIONAL_ID}': {status}")
     return 0
 
 

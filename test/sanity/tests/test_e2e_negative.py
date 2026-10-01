@@ -38,7 +38,7 @@ def _posture(partner_client, cfg, priv):
 
 
 @pytest.mark.e2e
-def test_search_without_consent_is_rejected(partner_client, cfg, priv, seeded, farmer_seeded):
+def test_search_without_consent_is_rejected(partner_client, cfg, priv, seeded, record_seeded):
     if _posture(partner_client, cfg, priv).get("consent_enforcement") != "enabled":
         pytest.skip("consent enforcement disabled — a no-consent request is not rejected")
 
@@ -50,7 +50,7 @@ def test_search_without_consent_is_rejected(partner_client, cfg, priv, seeded, f
 
 @pytest.mark.e2e
 def test_search_with_unverifiable_signature_is_rejected(
-    partner_client, cfg, priv, seeded, farmer_seeded
+    partner_client, cfg, priv, seeded, record_seeded
 ):
     """Sign with a key that Partner Management does not hold for this partner.
 
@@ -71,7 +71,7 @@ def test_search_with_unverifiable_signature_is_rejected(
 
 @pytest.mark.e2e
 def test_search_with_wrong_consent_audience_is_rejected(
-    partner_client, cfg, priv, seeded, farmer_seeded
+    partner_client, cfg, priv, seeded, record_seeded
 ):
     """A consent object whose `aud` matches no CM binding must be denied.
 
@@ -84,7 +84,7 @@ def test_search_with_wrong_consent_audience_is_rejected(
 
     import dataclasses
 
-    bogus = dataclasses.replace(cfg, cm_audience="FR_SANITY_NO_SUCH_AUDIENCE")
+    bogus = dataclasses.replace(cfg, cm_audience="OPENG2P_SANITY_NO_SUCH_AUDIENCE")
     resp = _post_search(partner_client, build_search_envelope(bogus, priv, with_consent=True))
     assert _status(resp) == "rjct", (
         f"expected 'rjct' for a consent bound to an unknown audience, got: {resp.get('header')}"

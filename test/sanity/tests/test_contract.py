@@ -8,7 +8,7 @@ WHY THIS EXISTS
     still imports `fixtures.<SYMBOL>`.
 
     So `fixtures.py` is not a private file — it is a CONTRACT. Renaming a symbol
-    in an overlay (e.g. FARMER_FOUNDATIONAL_ID -> INDIVIDUAL_FOUNDATIONAL_ID)
+    in an overlay (e.g. RECORD_FOUNDATIONAL_ID -> INDIVIDUAL_FOUNDATIONAL_ID)
     leaves the inherited modules referencing a name that no longer exists, and
     every e2e test dies with `AttributeError: module 'sanity.fixtures' has no
     attribute ...` at collection time.
@@ -18,10 +18,11 @@ WHY THIS EXISTS
     `fixtures.<SYMBOL>` reference in the assembled image against the fixtures
     module actually present.
 
-    NB the FARMER_* names are historical — they were the reference registry's
-    when the platform was extracted. They mean "the seeded sanity record" and
-    carry whatever register the variant deploys. Keep them; do not rename them in
-    an overlay.
+    The contract names are RECORD_*: "the seeded sanity record", carrying
+    whatever register the variant deploys. The pre-rename names
+    (sanity/legacy_names.py FIXTURE_ALIASES) are still honoured as deprecated
+    aliases — defining either name of a pair satisfies the contract, and
+    sanity/__init__.py makes both resolve at import time.
 """
 
 import ast
@@ -30,6 +31,7 @@ import pathlib
 import pytest
 
 from sanity import fixtures
+from sanity.legacy_names import FIXTURE_ALIASES
 
 APP = pathlib.Path(__file__).resolve().parent.parent
 
@@ -42,6 +44,10 @@ def _defined() -> set:
             names |= {t.id for t in node.targets if isinstance(t, ast.Name)}
         elif isinstance(node, ast.FunctionDef):
             names.add(node.name)
+    # Either name of a (deprecated, current) pair satisfies the other.
+    for old, new in FIXTURE_ALIASES.items():
+        if old in names or new in names:
+            names |= {old, new}
     return names
 
 
@@ -76,9 +82,19 @@ def test_fixtures_overlay_satisfies_the_inherited_harness():
         "sanity/fixtures.py does not satisfy the inherited harness. Missing "
         f"{sorted(missing)}.\n"
         + "\n".join(f"  {s} is referenced by {', '.join(f)}" for s, f in sorted(missing.items()))
-        + "\n\nA variant overlay must KEEP the platform's fixture symbol names — "
-        "the inherited modules import them by name. Change the values, not the names."
+        + "\n\nA variant overlay must KEEP the platform's fixture symbol names "
+        "(RECORD_*, ...) — the inherited modules import them by name. Change the "
+        "values, not the names."
     )
     # and the module really imports (catches syntax/typo breaks early)
     for sym in referenced:
         assert hasattr(fixtures, sym), f"sanity.fixtures has no attribute {sym!r}"
+
+
+@pytest.mark.smoke
+def test_deprecated_fixture_names_resolve_to_the_current_ones():
+    """Deprecated fixture names and current names resolve to the same values."""
+    for old, new in FIXTURE_ALIASES.items():
+        assert getattr(fixtures, old) == getattr(fixtures, new), (
+            f"sanity.fixtures.{old} (deprecated) and .{new} differ"
+        )

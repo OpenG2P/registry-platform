@@ -21,13 +21,13 @@ from .test_activity_service import REG, planned
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 ROLES = {
-    "plot": {"field": "plot_ref", "primary": True},
-    "farmer": {"field": "farmer_ref"},
+    "parcel": {"field": "parcel_ref", "primary": True},
+    "person": {"field": "person_ref"},
     "inspector": {"field": "inspector_id"},
 }
 RULES = {
-    "plot_ref": {"kind": "LOCAL_RECORD", "register": "TestPlot", "match": "internal_record_id", "mode": "STRICT"},
-    "farmer_ref": {"kind": "LOCAL_RECORD", "register": "TestFarmer", "match": "functional_record_id",
+    "parcel_ref": {"kind": "LOCAL_RECORD", "register": "TestParcel", "match": "internal_record_id", "mode": "STRICT"},
+    "person_ref": {"kind": "LOCAL_RECORD", "register": "TestPerson", "match": "functional_record_id",
                    "mode": "STRICT"},
     "inspector_id": {"kind": "EXTERNAL", "system": "staff-registry", "mode": "LENIENT", "lookup": False},
 }
@@ -52,30 +52,30 @@ def inspection(**payload):
 
 async def test_participants_are_typed_and_searchable(service, activity_types, database):
     await _add_inspection_type(database)
-    data, _ = await service.append(inspection(plot_ref="plot-1", farmer_ref="FR-1"), "da1", "STAFF_PORTAL")
+    data, _ = await service.append(inspection(parcel_ref="parcel-1", person_ref="P-1"), "da1", "STAFF_PORTAL")
     # The inspector came as a participant and filled its payload field.
     assert data.payload["inspector_id"] == "STAFF-9"
     by_role = {p.role: p for p in data.participants}
-    assert by_role["plot"].is_primary and by_role["plot"].ref_kind == "LOCAL"
-    assert by_role["plot"].ref_register == "TestPlot" and by_role["plot"].internal_record_id == "plot-1"
-    assert by_role["farmer"].internal_record_id == "farmer-1"
+    assert by_role["parcel"].is_primary and by_role["parcel"].ref_kind == "LOCAL"
+    assert by_role["parcel"].ref_register == "TestParcel" and by_role["parcel"].internal_record_id == "parcel-1"
+    assert by_role["person"].internal_record_id == "person-1"
     assert by_role["inspector"].ref_kind == "EXTERNAL" and by_role["inspector"].ref_system == "staff-registry"
 
     found, total = await service.search(
         SearchActivitiesPayload(register_mnemonic=REG, participant_id="STAFF-9", participant_role="inspector"), None)
     assert total == 1 and found[0].activity_id == data.activity_id
     _, none = await service.search(
-        SearchActivitiesPayload(register_mnemonic=REG, participant_id="STAFF-9", participant_role="farmer"), None)
+        SearchActivitiesPayload(register_mnemonic=REG, participant_id="STAFF-9", participant_role="person"), None)
     assert none == 0
-    # The farmer's profile finds it through the farmer role, not the subject.
+    # The person's profile finds it through the person role, not the subject.
     [group] = await service.subject_activities(
-        SubjectActivitiesPayload(subject_internal_record_id="farmer-1", include_descendants=False))
+        SubjectActivitiesPayload(subject_internal_record_id="person-1", include_descendants=False))
     assert [a.activity_id for a in group.activities] == [data.activity_id]
 
     with pytest.raises(G2PRegistryException) as unknown:
         await service.append(ActivityInput(
             register_mnemonic=REG, activity_type="INSPECTED", occurred_at=datetime.utcnow(),
-            payload={"plot_ref": "plot-1"}, participants=[ParticipantInput(role="vet", id="V1")]), "da1", "S")
+            payload={"parcel_ref": "parcel-1"}, participants=[ParticipantInput(role="vet", id="V1")]), "da1", "S")
     assert unknown.value.code == "ACT-ERR-004"
 
 

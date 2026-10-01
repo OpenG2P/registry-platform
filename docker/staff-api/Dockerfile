@@ -5,7 +5,7 @@
 # fastapi-common / iam-core runtime, AND the reference extension, and defaults
 # ENV REGISTRY_EXTENSION_MODULE to it — so `helm install` runs it as-is.
 #
-# A variant registry (NSR, farmer, a customer) builds FROM this image, adds its
+# A variant registry (social, farmer, a customer's) builds FROM this image, adds its
 # own extension, and points the env var at it (both coexist, no uninstall):
 #
 #     FROM openg2p/openg2p-registry-staff-api:<version>

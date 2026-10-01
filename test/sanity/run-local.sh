@@ -16,6 +16,12 @@
 #
 #   NS=trial RELEASE=fr ./run-local.sh --e2e
 #
+# Register-shaped settings (SANITY_DCI_REG_TYPE, SANITY_DCI_REG_RECORD_TYPE,
+# SANITY_DCI_SEARCH_TEXT, SANITY_DATA_SCOPES, SANITY_DENIED_SCOPES,
+# SANITY_REGISTER_ID, SANITY_CR_TAB_ID, SANITY_CR_SECTION_ID) are not set here
+# and default to the platform's reference Individual register. For a variant,
+# export its values (its chart's sanity.* overrides) before running.
+#
 # Requires: kubectl (context already pointing at the cluster), python3, and the
 # suite's deps:  pip install -e .   (from this directory)
 #
@@ -29,7 +35,7 @@
 set -euo pipefail
 
 NS="${NS:-trial}"
-RELEASE="${RELEASE:-fr}"
+RELEASE="${RELEASE:-registry}"
 COMMONS="${COMMONS:-commons}"
 COMMONS_SVC="${COMMONS_SVC:-commons-services}"
 REALM="${REALM:-staff}"

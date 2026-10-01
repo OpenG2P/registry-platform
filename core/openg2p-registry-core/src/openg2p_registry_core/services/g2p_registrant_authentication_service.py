@@ -39,8 +39,8 @@ def _resolve_register_model(register_mnemonic: str):
 
     Resolved through SQLAlchemy's mapper registry rather than by importing a
     fixed module path. `G2PRegister` is abstract and each manifestation defines
-    its own concrete table in its OWN package -- the Farmer Registry ships
-    `openg2p_registry_farmer_extension`, not the `openg2p_registry_extensions`
+    its own concrete table in its OWN package -- e.g. a variant ships
+    `openg2p_registry_<variant>_extension`, not the `openg2p_registry_extensions`
     that the rest of this codebase imports by name and that is installed
     nowhere. That import raised ModuleNotFoundError on every call; the caller
     caught it, degraded foundational_id to "", and every authentication then

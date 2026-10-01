@@ -66,7 +66,7 @@ spec:
             - name: APP_URL
               value: {{ printf "https://%s" (tpl .Values.global.registryHostname $) | quote }}
             # Human-readable name of THIS registry in the IAM tile. Values-driven
-            # so a variant chart (farmer, NSR, ...) names itself correctly — the
+            # so a variant chart (e.g. a farmer or social registry) names itself correctly — the
             # payload file lives in this chart and a wrapper cannot override it.
             - name: APP_DESCRIPTION
               value: {{ tpl (.Values.iamRegister.applicationDescription | default "OpenG2P Registry") $ | quote }}

@@ -88,7 +88,7 @@ class G2PDciService(BaseService):
                 # A subject's derived views. The query names the subject and,
                 # in an expression, filters on the view's own fields (e.g. the
                 # crop year and season), so one synchronous call answers
-                # "what did this farmer sow this season".
+                # "what did this person sow this season".
                 subject_id, filters = DciQueryHelper.parse_subject_query(
                     search_criteria, allow_missing_subject=is_aggregate
                 )
@@ -96,7 +96,7 @@ class G2PDciService(BaseService):
                     search_criteria, parse_query=False
                 )
                 if is_aggregate:
-                    # A subject's roll-ups (e.g. a farmer's season summary) rather
+                    # A subject's roll-ups (e.g. a person's season summary) rather
                     # than its activities — what an eligibility check reads.
                     aggregate_records, total_count = await self._aggregate_search(
                         search_criteria.reg_type, register_id, subject_id, filters, current_page, page_size
@@ -206,8 +206,8 @@ class G2PDciService(BaseService):
         self, register_id: str, model_class, filter_conditions: list, current_page: int, page_size: int,
         sort_by: Optional[str],
     ) -> Tuple[List[DeepSearchResultData], int]:
-        """Exact-field search. Each record comes with its linked records (a farmer's land,
-        household, crops…), as an idtype-value search returns it, so one call gets the whole record."""
+        """Exact-field search. Each record comes with its linked records (a person's land,
+        household, …), as an idtype-value search returns it, so one call gets the whole record."""
         session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
         async with session_maker() as session:
             # Total count
@@ -429,8 +429,8 @@ class G2PDciService(BaseService):
 
     async def _require_subject_link(self, register_mnemonic: str, searched: Optional[str], consent_subject: str):
         """Activity register: the searched subject is the consented person, or the
-        register's own data links the two (its subject_id_fields, e.g. a farmer
-        ID recorded with the farmer's Fayda FAN)."""
+        register's own data links the two (its subject_id_fields, e.g. a register
+        ID recorded with the person's Fayda FAN)."""
         if searched and searched == consent_subject:
             return
         denied = G2PRegistryException(

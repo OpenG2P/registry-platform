@@ -9,7 +9,7 @@
 #
 # NOT here: load_sample_data.py / upload_images.py. Sample data is written against
 # a specific register's tables and seed JSON, so each variant ships its own pair
-# (see farmer-registry and national-social-registry). The entrypoint keeps the
+# (see the variant repos). The entrypoint keeps the
 # LOAD_SAMPLE_DATA / LOAD_IMAGES hooks and errors clearly if they are enabled on
 # an image that carries no loader.
 #
@@ -69,7 +69,7 @@ COPY reference-extension/src/openg2p_registry_reference_extension/templates/    
 # Generic machinery only. load_sample_data.py and upload_images.py are NOT here:
 # they are written against a specific register's schema (which tables to INSERT,
 # which seed JSON to read), so they belong to the variant that declares those
-# tables — farmer-registry and NSR each ship their own. This image installs with
+# tables — each variant ships its own. This image installs with
 # loadSampleData=false and no seed-data, and the entrypoint reports a clear error
 # if the flag is turned on without a variant loader present.
 COPY docker/db-seed/entrypoint.sh /seed/entrypoint.sh

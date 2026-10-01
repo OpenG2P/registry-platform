@@ -6,7 +6,7 @@ reference extension (individual + household), and defaults
 `REGISTRY_EXTENSION_MODULE` to it — so the images run as-is (that's what
 `helm install openg2p-registry` deploys).
 
-A concrete registry (NSR, farmer-registry, a customer registry) does **not** copy
+A concrete registry (a social, farmer or customer registry) does **not** copy
 these Dockerfiles or re-install the platform — it builds a thin image `FROM` the
 matching image and adds only its own domain model.
 
@@ -65,14 +65,14 @@ COPY <ext>/src/<pkg>/awe_meta_data/ /seed/awe_meta_data/
 COPY <ext>/src/<pkg>/templates/     /seed/templates/
 ```
 
-See `farmer-registry/docker/` for a complete worked example.
+See any variant repo's `docker/` (e.g. national-social-registry, farmer-registry) for a complete worked example.
 
 ## Deployment
 
 The single Helm chart `helm/openg2p-registry` (published from this repo) deploys
 any registry. With no overlay it runs the reference registry; a variant supplies
 a small values overlay pointing at its own images. See that chart and
-`farmer-registry/deployment/values.yaml`.
+a variant's values overlay.
 
 ## Notes
 

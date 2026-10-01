@@ -453,7 +453,7 @@ class G2PActivityService(BaseService):
         """Activities about a record of this registry, per activity register, newest first.
 
         With include_descendants, also those about its child records (a
-        farmer's plots), found through the ancestors stamped on each activity.
+        person's plots), found through the ancestors stamped on each activity.
         """
         record_id = payload.subject_internal_record_id
         statuses = payload.statuses or [ActivityStatusEnum.ACTIVE.value]

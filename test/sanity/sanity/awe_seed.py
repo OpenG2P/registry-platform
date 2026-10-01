@@ -5,9 +5,9 @@ for why the shipped demo users cannot be used), and the shipped policy names
 only those demo users — so without this the sanity user would never be offered a
 task.
 
-Approach — **additive, not an override.** The chart ships an active Farmer
-change-request policy (`registry.change_request.farmer`, bound at REGISTER
-scope, currently two stages owned by alex.carter / nina.patel). Rather than seed
+Approach — **additive, not an override.** The registry ships an active
+change-request policy for the register (e.g. `registry.change_request.individual`,
+bound at REGISTER scope, currently two stages owned by alex.carter / nina.patel). Rather than seed
 a competing policy and rebind the register to it — which would silently change
 behaviour for real change requests — this adds one extra `approver_rule` per
 stage naming the sanity user. The shipped rules stay untouched, so:
@@ -58,11 +58,11 @@ ON CONFLICT ("id") DO UPDATE SET "rule_value" = EXCLUDED."rule_value", "updated_
 
 
 def policy_key_for_register(cfg) -> str:
-    rows = db.query(cfg.registry_dsn, _POLICY_FOR_REGISTER, (cfg.farmer_register_id,))
+    rows = db.query(cfg.registry_dsn, _POLICY_FOR_REGISTER, (cfg.register_id,))
     if not rows:
         raise RuntimeError(
             f"no REGISTER-scoped registry.change_request policy bound to register "
-            f"{cfg.farmer_register_id} — AWE would no-op and the CR would never "
+            f"{cfg.register_id} — AWE would no-op and the CR would never "
             f"reach a workflow"
         )
     return rows[0]["policy_key"]
@@ -76,7 +76,7 @@ def stages(cfg, policy_key):
 
 
 def ensure_approver(cfg) -> str:
-    """Add the sanity user as an approver on every stage of the Farmer CR policy."""
+    """Add the sanity user as an approver on every stage of the register's CR policy."""
     policy_key = policy_key_for_register(cfg)
     stage_rows = stages(cfg, policy_key)
     rule_value = json.dumps({"user_id": cfg.staff_username, "tag": fixtures.AWE_RULE_MARKER})
