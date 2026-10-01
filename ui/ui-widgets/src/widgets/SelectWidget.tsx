@@ -64,14 +64,12 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
         />
         <div className="flex-1 min-w-0">
           <select
-            // value={value || ''}
-            // onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
             value={value === undefined || value === null ? '' : String(value)}
             onChange={(e) => {
               const rawValue = e.target.value;
 
               if (rawValue === '') {
-                onChange(undefined);
+                  onChange(null);
                 return;
               }
 
