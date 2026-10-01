@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Tuple
 
+from openg2p_registry_core.errors import G2PRegistryException
 from openg2p_registry_core.schemas import DeepSearchResultData
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine
@@ -21,6 +22,7 @@ from openg2p_registry_core.services import G2PActivityRegistryService
 from openg2p_registry_core.helpers.ethiopian_calendar import format_ethiopian_date
 
 from ..schemas import (
+    DciSearchStatusReasonCode,
     DciSearchResponseItem,
     DciSearchCriteria,
     DciRequestHeader,
@@ -48,6 +50,7 @@ class G2PDciService(BaseService):
         header: DciRequestHeader,
         message: DciSearchRequest,
         consent_scopes_by_ref: Optional[Dict[str, Optional[List[str]]]] = None,
+        consent_subjects_by_ref: Optional[Dict[str, str]] = None,
     ) -> List[DciSearchResponseItem]:
         # consent_scopes_by_ref maps reference_id -> effective_data_scopes the
         # response must be clamped to (the PEP field-level enforcement). It is
@@ -73,6 +76,8 @@ class G2PDciService(BaseService):
 
             aggregate_records = None
             search_result_data = []
+            subject_id = None
+            query_result = None
             is_aggregate = is_activity and _is_aggregate_request(search_criteria.reg_record_type)
             state_type = (
                 await self._state_context_type(register_id, search_criteria.reg_record_type)
@@ -135,6 +140,23 @@ class G2PDciService(BaseService):
                         page_size=page_size,
                         sort_by=sort_by,
                     )
+
+            # The consent names one person: what is returned must be theirs.
+            consent_subject = (consent_subjects_by_ref or {}).get(search_request_item.reference_id)
+            if consent_subject:
+                if is_activity:
+                    searched = subject_id or (query_result.search_text if query_result else None)
+                    if searched or not is_aggregate:
+                        await self._require_subject_link(search_criteria.reg_type, searched, consent_subject)
+                    # A text search can match other subjects' activities: all must be the searched one's.
+                    if any(self._deep_search_result_data_to_dict(d).get("subject_id") != searched
+                           for d in search_result_data):
+                        raise G2PRegistryException(
+                            code=DciSearchStatusReasonCode.SEARCH_CRITERIA_INVALID.value,
+                            message="The consent's subject is not the person searched",
+                        )
+                else:
+                    self._require_records_of_subject(search_result_data, consent_subject)
 
             reg_records = aggregate_records if aggregate_records is not None else [
                 self._render_reg_record_with_template(
@@ -391,6 +413,51 @@ class G2PDciService(BaseService):
             domain.dci_aggregate_record(_json_ready({c.name: getattr(row, c.name) for c in row.__table__.columns}))
             for row in rows
         ], total_count
+
+    def _require_records_of_subject(self, search_result_data, consent_subject: str) -> None:
+        """Entity register: every returned record must be the consented person's
+        (its foundational ID or functional ID is the consent's subject)."""
+        for datum in search_result_data:
+            record = self._deep_search_result_data_to_dict(datum)
+            identifiers = {str(record.get(key)) for key in ("foundational_id", "functional_record_id")
+                           if record.get(key) not in (None, "")}
+            if consent_subject not in identifiers:
+                raise G2PRegistryException(
+                    code=DciSearchStatusReasonCode.SEARCH_CRITERIA_INVALID.value,
+                    message="The consent's subject is not the person searched",
+                )
+
+    async def _require_subject_link(self, register_mnemonic: str, searched: Optional[str], consent_subject: str):
+        """Activity register: the searched subject is the consented person, or the
+        register's own data links the two (its subject_id_fields, e.g. a farmer
+        ID recorded with the farmer's Fayda FAN)."""
+        if searched and searched == consent_subject:
+            return
+        denied = G2PRegistryException(
+            code=DciSearchStatusReasonCode.SEARCH_CRITERIA_INVALID.value,
+            message="The consent's subject is not the person searched",
+        )
+        if not searched:
+            raise denied
+        registry = G2PActivityRegistryService.get_component() or G2PActivityRegistryService()
+        model, _ = registry.resolve_classes(register_mnemonic)
+        fields = [
+            getattr(model, name) for name in registry.domain_service(register_mnemonic).subject_id_fields
+            if model is not None and hasattr(model, name)
+        ]
+        if not fields:
+            raise denied
+        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        async with session_maker() as session:
+            linked = (
+                await session.execute(
+                    select(model.activity_id)
+                    .where(model.subject_id == searched, or_(*[field == consent_subject for field in fields]))
+                    .limit(1)
+                )
+            ).scalar()
+        if not linked:
+            raise denied
 
     @staticmethod
     def _clamp_record_fields(record: Dict[str, Any], allowed_scopes: List[str]) -> Dict[str, Any]:

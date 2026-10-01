@@ -100,6 +100,13 @@ questions:
   label: Consent Manager URL
   group: Consent & Partner API
 
+- variable: global.consentDataController
+  description: This registry's data-controller ID in the Consent Manager. A consent covering several registries has one grant per controller; the registry validates its own. Defaults to the registry variant.
+  type: string
+  default: '{{ .Values.global.registryVariant }}'
+  label: Consent data controller
+  group: Consent & Partner API
+
 - variable: beneApi.enabled
   description: Install Beneficiary Portal API
   type: boolean

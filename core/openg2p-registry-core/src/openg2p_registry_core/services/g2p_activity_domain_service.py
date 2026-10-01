@@ -71,6 +71,12 @@ class G2PActivityDomainService(BaseService):
     # the month is closed. Others are never marked final.
     final_on_period_lock: tuple[str, ...] = ()
 
+    # Activity fields that hold another identifier of the subject (e.g. a
+    # farmer's Fayda FAN beside the farmer ID). A partner's consent names the
+    # person by one identifier; a search by another is allowed only when the
+    # register's own data links the two.
+    subject_id_fields: tuple[str, ...] = ()
+
     def build_context(
         self,
         activity_type: str,

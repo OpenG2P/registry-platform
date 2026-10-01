@@ -79,8 +79,9 @@ class G2PDciController(BaseController):
             # scopes_by_ref maps reference_id -> effective_data_scopes to clamp
             # the response to. None (whole map) => enforcement disabled, no clamp.
             scopes_by_ref: Optional[Dict[str, Optional[List[str]]]] = None
+            subjects_by_ref: Optional[Dict[str, str]] = None
             if _config.consent_enforcement_enabled:
-                scopes_by_ref = await self._enforce_consent(raw_body, header, message, bulk_refs)
+                scopes_by_ref, subjects_by_ref = await self._enforce_consent(raw_body, header, message, bulk_refs)
             else:
                 _logger.warning(
                     "consent_enforcement_enabled=false — SKIPPING Consent Manager "
@@ -88,8 +89,11 @@ class G2PDciController(BaseController):
                 )
 
             # --- 3. Search (with field clamp when enforcing) ----------------
+            # The consent's subject must be who is searched: checked against the
+            # results (or the register's identifier links) per item.
             dci_search_response_items: list[DciSearchResponseItem] = await self.g2p_dci_service.search(
-                signature, header, message, consent_scopes_by_ref=scopes_by_ref
+                signature, header, message, consent_scopes_by_ref=scopes_by_ref,
+                consent_subjects_by_ref=subjects_by_ref,
             )
 
             dci_search_response_env: DciSearchResponseEnvelope = (
@@ -140,7 +144,7 @@ class G2PDciController(BaseController):
     async def _enforce_consent(
         self, raw_body: Dict[str, Any], header: DciRequestHeader, message: DciSearchRequest,
         bulk_refs: Optional[Dict[str, List[str]]] = None,
-    ) -> Dict[str, Optional[List[str]]]:
+    ) -> tuple[Dict[str, Optional[List[str]]], Dict[str, str]]:
         """Validate the embedded consent object for each search item against the
         Consent Manager and return {reference_id -> effective_data_scopes}.
 
@@ -153,6 +157,7 @@ class G2PDciController(BaseController):
         }
 
         scopes_by_ref: Dict[str, Optional[List[str]]] = {}
+        subjects_by_ref: Dict[str, str] = {}
         for search_request_item in message.search_request:
             reference_id = search_request_item.reference_id
             if bulk_refs and reference_id in bulk_refs:
@@ -174,8 +179,19 @@ class G2PDciController(BaseController):
                     ).strip(),
                 )
             scopes_by_ref[reference_id] = decision.get("effective_data_scopes") or []
+            subject = decision.get("subject_id")
+            subject_value = subject.get("value") if isinstance(subject, dict) else subject
+            if not subject_value:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                    message=f"Consent for reference_id '{reference_id}' names no subject",
+                )
+            subjects_by_ref[reference_id] = str(subject_value)
+            on_behalf_of = (header.meta or {}).get("on_behalf_of")
+            if on_behalf_of:
+                _logger.info("Search by '%s' on behalf of '%s'", header.sender_id, on_behalf_of)
 
-        return scopes_by_ref
+        return scopes_by_ref, subjects_by_ref
 
     @staticmethod
     def _extract_consent_jws(raw_item: Dict[str, Any]) -> Optional[str]:

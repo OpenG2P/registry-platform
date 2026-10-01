@@ -212,6 +212,10 @@ global:
   # part of commons-services (service name commons-services-cm-*), matching PM.
   consentManagerUrl: 'http://commons-services-cm-partner-api'
   consentManagerTimeoutSeconds: 5
+  # This registry's data-controller ID in the Consent Manager, sent with every
+  # /validate so CM uses this registry's grant in a consent covering several
+  # registries. Defaults to the registry variant (farmer-registry, crop-sown-registry).
+  consentDataController: '{{ .Values.global.registryVariant }}'
   # Used only by the sanity e2e (to seed the shared test partner):
   #  * PM staff-portal-api (onboard + approve the partner key)
   #  * CM staff-portal-api (create the partner binding + policy)
@@ -551,6 +555,7 @@ partnerApi:
     REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
     REGISTRY_PARTNER_API_CONSENT_MANAGER_URL: '{{ tpl .Values.global.consentManagerUrl $ }}'
     REGISTRY_PARTNER_API_CONSENT_MANAGER_TIMEOUT: '{{ .Values.global.consentManagerTimeoutSeconds }}'
+    REGISTRY_PARTNER_API_CONSENT_DATA_CONTROLLER: '{{ tpl .Values.global.consentDataController $ }}'
 
     REGISTRY_PARTNER_API_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
     REGISTRY_PARTNER_API_MINIO_SECURE: '{{ .Values.global.minioSecure }}'

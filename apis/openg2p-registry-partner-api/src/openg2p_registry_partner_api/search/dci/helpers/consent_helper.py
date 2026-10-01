@@ -69,6 +69,8 @@ class DciConsentHelper(BaseService):
             "consent_jws": consent_jws,
             "partner_id": sender_id,
         }
+        if _config.consent_data_controller:
+            body["data_controller"] = _config.consent_data_controller
         if request_context:
             body["request_context"] = request_context
 
