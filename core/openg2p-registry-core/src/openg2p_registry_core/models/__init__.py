@@ -132,4 +132,5 @@ from .g2p_activity import (
     G2PActivityEnrichment,
     G2PActivityAggregate,
     G2PActivityAggregateHistory,
+    G2PActivityParticipant,
 )

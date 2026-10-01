@@ -39,6 +39,7 @@ class Settings(ExtSettings):
     # Activity registers (seconds). Scheduled straight onto the worker tasks.
     activity_outbox_frequency: Optional[int] = None                          # default: default_beat_producer_frequency
     activity_odk_pull_frequency: int = 300
+    activity_sample_data_frequency: int = 120
     activity_reconcile_frequency: int = 24 * 60 * 60
     activity_partition_frequency: int = 24 * 60 * 60
 

@@ -31,7 +31,7 @@ from .g2p_registrant_authentication_service import G2PRegistrantAuthenticationSe
 from .g2p_awe_policy_configuration_service import G2PAwePolicyConfigurationService
 from .g2p_awe_integration_service import G2PAweIntegrationService
 from .g2p_awe_webhook_service import G2PAweWebhookService
-from .g2p_activity_domain_service import G2PActivityDomainService, ActivityContextSpec, ActivityAggregateResult
+from .g2p_activity_domain_service import G2PActivityDomainService, ActivityContextSpec, ActivityAggregateResult, SampleStep
 from .g2p_activity_geo_service import G2PActivityGeoService, common_dimensions
 from .g2p_activity_registry_service import G2PActivityRegistryService, ActivityRegister
 from .g2p_activity_reference_service import G2PActivityReferenceService
@@ -42,3 +42,4 @@ from .g2p_activity_service import G2PActivityService
 from .g2p_activity_outbox_service import G2PActivityOutboxService
 from .g2p_activity_indicator_service import G2PActivityIndicatorService
 from .g2p_activity_odk_service import G2PActivityOdkService, OdkCentralClient
+from .g2p_activity_sample_service import G2PActivitySampleService

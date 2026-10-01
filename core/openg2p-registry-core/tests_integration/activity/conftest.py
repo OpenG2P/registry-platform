@@ -67,8 +67,29 @@ class G2PActivityDomainServiceFieldWork(G2PActivityDomainService):
                 "subject_type": subject_type,
                 "subject_id": subject_id,
                 "attributes": {"plot_id": payload["plot_id"], "season": payload["season"]},
+                "replaces_context_id": payload.get("replaces"),
             }
         return None
+
+    async def sample_activities(self, register):
+        from datetime import datetime
+
+        from openg2p_registry_core.schemas.activity import ActivityInput
+        from openg2p_registry_core.services import SampleStep
+
+        def step(kind, key, days_ago, **payload):
+            # Long ago on purpose: samples may predate the type's backdating limit.
+            return ActivityInput(
+                register_mnemonic="FieldWork", activity_type=kind, idempotency_key=f"sample:{key}",
+                occurred_at=datetime(2020, 1, 1), subject_type="FARMER_ID", subject_id="FR-S1",
+                payload={"plot_id": "LND-S1", "season": "MEHER", **payload},
+            )
+
+        return [
+            SampleStep(step("PLANNED", "plan", 400)),
+            SampleStep(step("SOWN", "sow", 300, crop="TEFF", area_ha=1.0, woreda="W1"), verify=True,
+                       correction={"reason": "Sample: area remeasured", "payload": {"area_ha": 1.2}}),
+        ]
 
     def project(self, context, activities):
         stage = activities[-1].activity_type
@@ -196,6 +217,7 @@ async def _prepare_database():
         G2PActivityEnrichment,
         G2PActivityAggregate,
         G2PActivityAggregateHistory,
+        G2PActivityParticipant,
         G2PRegisterDefinition,
     )
     from openg2p_registry_core.services import G2PActivityPartitionService
@@ -215,6 +237,7 @@ async def _prepare_database():
         G2PActivityEnrichment,
         G2PActivityAggregate,
         G2PActivityAggregateHistory,
+        G2PActivityParticipant,
         G2PRegisterTestFarmer,
         G2PRegisterTestPlot,
     ):
@@ -340,6 +363,7 @@ async def activity_types(database):
             "g2p_activity_enrichments",
             "g2p_activity_aggregates",
             "g2p_activity_aggregate_history",
+            "g2p_activity_participants",
         ):
             # TRUNCATE bypasses the append-only row trigger, as intended for tests.
             await conn.execute(text(f"TRUNCATE {table}"))

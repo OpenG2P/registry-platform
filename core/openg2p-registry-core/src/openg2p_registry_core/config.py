@@ -105,6 +105,10 @@ class Settings(IamSettings):
     activity_odk_password: str = ""
     activity_odk_page_size: int = 250
     activity_odk_timeout_seconds: int = 60
+    # Load each activity register's sample activities (from its extension's
+    # sample_activities hook) once, through the normal write path. Off by default;
+    # a demo install turns it on for the Celery worker.
+    activity_load_sample_data: bool = False
 
     # AWE (Approval Workflow Engine) client
     awe_enabled: bool = False

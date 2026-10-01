@@ -165,6 +165,10 @@ class G2PActivityType(BaseORMModel):
     reference_rules: Mapped[dict] = mapped_column(JSONB, nullable=True)
     # Payload date fields entered in the Ethiopian calendar, converted on write.
     ethiopian_date_fields: Mapped[list] = mapped_column(JSONB, nullable=True)
+    # Who takes part, by role, each read from a payload field and typed by that
+    # field's reference rule (or an explicit "register" / "system"):
+    # {"farmer": {"field": "farmer_id", "primary": true}, "plot": {"field": "plot_id"}}
+    participant_roles: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
 
 class G2PActivityContext(BaseORMModel):
@@ -188,6 +192,10 @@ class G2PActivityContext(BaseORMModel):
     closed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     closed_by: Mapped[str] = mapped_column(String, nullable=True)
     close_reason: Mapped[str] = mapped_column(Text, nullable=True)
+    # A context that takes the place of an earlier one, e.g. a crop season whose
+    # crop was changed: the new one names the old, which is closed and points back.
+    replaces_context_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    replaced_by_context_id: Mapped[str] = mapped_column(String, nullable=True)
 
 
 class G2PActivityPeriodLock(BaseORMModel):
@@ -300,6 +308,9 @@ class G2PActivityProjection(BaseORMModel):
     # The context's location as named levels (see G2PActivity.geo_dimensions),
     # from its latest activity that has one. Indicators group by "geo:<level>".
     geo_dimensions: Mapped[dict] = mapped_column(JSONB, nullable=True)
+    # Copied from the context (see G2PActivityContext).
+    replaces_context_id: Mapped[str] = mapped_column(String, nullable=True)
+    replaced_by_context_id: Mapped[str] = mapped_column(String, nullable=True)
 
     def to_dict(self) -> dict:
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -431,3 +442,33 @@ class G2PActivityAggregateHistory(_G2PActivityAggregateBase):
 
     history_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     aggregate_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+
+
+class G2PActivityParticipant(BaseORMModel):
+    """Who took part in an activity, by role — always typed.
+
+    One row per role per activity: the farmer, the plot, the veterinarian, the
+    cluster. A participant is either a record of a register in this registry
+    (``ref_kind`` LOCAL, ``ref_register``, with its ``internal_record_id`` when
+    resolved) or an identifier held by another system (EXTERNAL, ``ref_system``).
+    Indexed so "everything plot L1 or vet V789 took part in" is a direct query.
+    """
+
+    __tablename__ = "g2p_activity_participants"
+    __table_args__ = (
+        Index("ix_activity_participant_ref", "ref_id", "role"),
+        Index("ix_activity_participant_record", "internal_record_id"),
+    )
+
+    participant_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    register_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    activity_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    activity_type: Mapped[str] = mapped_column(String, nullable=False)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    ref_kind: Mapped[str] = mapped_column(String, nullable=False)  # LOCAL | EXTERNAL
+    ref_register: Mapped[str] = mapped_column(String, nullable=True)  # LOCAL: register mnemonic
+    ref_system: Mapped[str] = mapped_column(String, nullable=True)  # EXTERNAL: e.g. farmer-registry.farmer
+    ref_id: Mapped[str] = mapped_column(String, nullable=False)
+    internal_record_id: Mapped[str] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=_utcnow)

@@ -23,7 +23,7 @@ const str = (value: JsonValue | undefined): string | undefined =>
 const BASE = new Set([
     "context_id", "context_key", "subject_type", "context_status", "activity_count", "last_activity_id",
     "last_activity_type", "last_occurred_at", "last_recorded_at", "projected_at", "geo_code_hierarchy_json",
-    "geo_lowest_level_value_id", "geo_dimensions",
+    "geo_lowest_level_value_id", "geo_dimensions", "replaces_context_id", "replaced_by_context_id",
 ]);
 
 /**

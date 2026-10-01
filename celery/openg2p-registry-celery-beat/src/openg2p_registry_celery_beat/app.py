@@ -37,6 +37,13 @@ celery_app.conf.beat_schedule = {
         "options": {"queue": _config.worker_queue},
         "schedule": _config.activity_odk_pull_frequency,
     },
+    # Off unless the worker's activity_load_sample_data is on; then it loads each
+    # register's samples once and is a no-op afterwards.
+    "activity_sample_data_worker": {
+        "task": "activity_sample_data_worker",
+        "options": {"queue": _config.worker_queue},
+        "schedule": _config.activity_sample_data_frequency,
+    },
     "activity_reconcile_worker": {
         "task": "activity_reconcile_worker",
         "options": {"queue": _config.worker_queue},

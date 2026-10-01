@@ -161,6 +161,25 @@ export default function ActivityDetail({ registerMnemonic, activity, type, onCha
                     </section>
                 )}
 
+                {!!activity.participants?.length && (
+                    <section>
+                        <h3 className="font-medium mb-2">Participants</h3>
+                        <dl className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-4 gap-y-2 text-sm">
+                            {activity.participants.map((p) => (
+                                <div key={`${p.role}:${p.ref_id}`} className="contents">
+                                    <dt className="opacity-70">{humanize(p.role)}{p.is_primary ? " (primary)" : ""}</dt>
+                                    <dd>
+                                        {p.ref_id}{" "}
+                                        <span className="opacity-70">
+                                            · {p.ref_kind === "LOCAL" ? `${p.ref_register ?? "this registry"} record` : p.ref_system ?? "external"}
+                                        </span>
+                                    </dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </section>
+                )}
+
                 <section>
                     <h3 className="font-medium mb-2">Checks</h3>
                     <ul className="text-sm flex flex-col gap-1">

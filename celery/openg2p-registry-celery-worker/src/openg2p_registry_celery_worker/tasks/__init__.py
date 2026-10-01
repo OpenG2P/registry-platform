@@ -20,4 +20,5 @@ from .activity_worker import (
     activity_reconcile_worker,
     activity_partition_worker,
     activity_odk_pull_worker,
+    activity_sample_data_worker,
 )

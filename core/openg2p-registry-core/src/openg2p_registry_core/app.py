@@ -123,6 +123,7 @@ from .models import (
     G2PActivityEnrichment,
     G2PActivityAggregate,
     G2PActivityAggregateHistory,
+    G2PActivityParticipant,
 )
 from .services import (
     G2PDataModelService,
@@ -386,6 +387,7 @@ class Initializer(BaseInitializer):
             await G2PActivityEnrichment.create_migrate()
             await G2PActivityAggregate.create_migrate()
             await G2PActivityAggregateHistory.create_migrate()
+            await G2PActivityParticipant.create_migrate()
             await migrate_activity_core_tables()
             await migrate_activity_tables()
 
@@ -418,6 +420,7 @@ async def migrate_activity_core_tables() -> None:
         G2PActivityType, G2PActivityContext, G2PActivityPeriodLock, G2PActivityIdempotencyKey, G2PActivityOutbox,
         G2PActivityTemporaryReference, G2PActivityIndicator, G2PActivityOdkForm, G2PActivityOdkFailure,
         G2PActivityTypeSchema, G2PActivityEnrichment, G2PActivityAggregate, G2PActivityAggregateHistory,
+        G2PActivityParticipant,
     ):
         await partitions.add_missing_columns(model)
     await partitions.ensure_activity_type_versioning()

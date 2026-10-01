@@ -13,6 +13,15 @@ from typing import Any, Optional
 from openg2p_fastapi_common.service import BaseService
 
 
+@dataclass
+class SampleStep:
+    """One sample activity, and what to do with it once recorded."""
+
+    activity: Any  # ActivityInput
+    verify: bool = False  # verify it (when its type requires verification)
+    correction: Optional[dict[str, Any]] = None  # {"reason": ..., "payload": {...}}: supersede it
+
+
 class ActivityContextSpec(dict):
     """What ``build_context`` returns: context_key plus optional context_type, subject and attributes."""
 
@@ -148,6 +157,17 @@ class G2PActivityDomainService(BaseService):
             "location": aggregate.get("geo_dimensions"),
             "dimensions": aggregate.get("custom_dimensions"),
         }
+
+    # ------------------------------------------------------------- samples
+
+    async def sample_activities(self, register) -> list["SampleStep"]:
+        """Sample activities for a demo install, in order (see G2PActivitySampleService).
+
+        Every step's activity must carry an idempotency key, so loading is
+        exactly-once. Return [] while what the samples refer to is not ready
+        yet; the loader asks again on its next run.
+        """
+        return []
 
     def now(self) -> datetime:
         return datetime.utcnow()

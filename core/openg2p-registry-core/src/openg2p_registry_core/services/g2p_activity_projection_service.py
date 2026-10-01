@@ -36,6 +36,8 @@ _BASE_COLUMNS = {
     "projected_at",
     "geo_code_hierarchy_json",
     "geo_dimensions",
+    "replaces_context_id",
+    "replaced_by_context_id",
 }
 
 
@@ -70,6 +72,8 @@ class G2PActivityProjectionService(BaseService):
             subject_type=context.subject_type,
             subject_id=context.subject_id,
             context_status=context.status,
+            replaces_context_id=context.replaces_context_id,
+            replaced_by_context_id=context.replaced_by_context_id,
             activity_count=len(activities),
             last_activity_id=latest.activity_id,
             last_activity_type=latest.activity_type,
