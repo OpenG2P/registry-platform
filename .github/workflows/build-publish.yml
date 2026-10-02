@@ -132,7 +132,7 @@ jobs:
               {
                 "arg": "FASTAPI_COMMON_REF",
                 "repo": "https://github.com/openg2p/openg2p-fastapi-common",
-                "ref": "1.2.1"
+                "ref": "1.2"
               },
               {
                 "arg": "IAM_CORE_REF",
@@ -149,7 +149,7 @@ jobs:
               {
                 "arg": "FASTAPI_COMMON_REF",
                 "repo": "https://github.com/openg2p/openg2p-fastapi-common",
-                "ref": "1.2.1"
+                "ref": "1.2"
               },
               {
                 "arg": "IAM_CORE_REF",
@@ -166,7 +166,7 @@ jobs:
               {
                 "arg": "FASTAPI_COMMON_REF",
                 "repo": "https://github.com/openg2p/openg2p-fastapi-common",
-                "ref": "1.2.1"
+                "ref": "1.2"
               },
               {
                 "arg": "IAM_CORE_REF",
@@ -183,7 +183,7 @@ jobs:
               {
                 "arg": "FASTAPI_COMMON_REF",
                 "repo": "https://github.com/openg2p/openg2p-fastapi-common",
-                "ref": "1.2.1"
+                "ref": "1.2"
               },
               {
                 "arg": "IAM_CORE_REF",
