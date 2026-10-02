@@ -26,7 +26,7 @@ FROM python:3.12.11-alpine3.22
 # so there is no REGISTRY_PLATFORM_REF here — this image IS the platform. In CI
 # the central pipeline (openg2p-packaging @v1) resolves these refs to commit
 # SHAs before the build and records them as `org.openg2p.pin.<arg>` OCI labels.
-ARG FASTAPI_COMMON_REF=1.2.1
+ARG FASTAPI_COMMON_REF=1.2
 ARG IAM_CORE_REF=1.4.2
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
