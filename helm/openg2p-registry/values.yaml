@@ -1771,6 +1771,19 @@ celeryBeat:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
 
+  # Wait until Redis answers before starting. A worker that starts first gets
+  # "connection refused", reconnects, reports ready, and then never consumes its
+  # queue (seen on fresh installs where Redis comes up a few seconds later).
+  initContainers:
+    - name: redis-checker
+      image: redis:7-alpine
+      imagePullPolicy: IfNotPresent
+      command: ['sh', '-c']
+      args:
+        - >-
+          until [ "$(redis-cli -h {{ tpl .Values.global.redisInstallationName $ }} -p 6379 ping 2>/dev/null)" = "PONG" ];
+          do echo "waiting for redis"; sleep 2; done
+
   postgresCheckerInit:
     enabled: true
     image:
@@ -1884,6 +1897,34 @@ celeryWorker:
         name: '{{ tpl .Values.global.pmSeedClientId $ }}'
         key: client_secret
         optional: true
+
+  # Wait until Redis answers before starting. A worker that starts first gets
+  # "connection refused", reconnects, reports ready, and then never consumes its
+  # queue (seen on fresh installs where Redis comes up a few seconds later).
+  initContainers:
+    - name: redis-checker
+      image: redis:7-alpine
+      imagePullPolicy: IfNotPresent
+      command: ['sh', '-c']
+      args:
+        - >-
+          until [ "$(redis-cli -h {{ tpl .Values.global.redisInstallationName $ }} -p 6379 ping 2>/dev/null)" = "PONG" ];
+          do echo "waiting for redis"; sleep 2; done
+
+  # A worker can stay "Running" while it consumes nothing; Kubernetes only knows
+  # the process is alive. Ask the worker itself: if it stops answering a Celery
+  # ping, it is restarted.
+  livenessProbe:
+    enabled: true
+    exec:
+      command:
+        - sh
+        - -c
+        - celery -A "$CELERY_APP" inspect ping -d "celery@$HOSTNAME" --timeout 10 2>/dev/null | grep -q OK
+    initialDelaySeconds: 90
+    periodSeconds: 60
+    timeoutSeconds: 30
+    failureThreshold: 3
 
   postgresCheckerInit:
     enabled: true
