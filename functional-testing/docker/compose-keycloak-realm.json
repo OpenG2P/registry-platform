@@ -1,0 +1,136 @@
+{
+  "realm": "staff",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+  "accessTokenLifespan": 1800,
+  "clients": [
+    {
+      "clientId": "registry-staff-portal",
+      "name": "Registry Staff Portal",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "func-gate-client-secret",
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": ["http://localhost:3000/*", "http://127.0.0.1:3000/*", "*"],
+      "webOrigins": ["*"],
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "protocolMappers": [
+        {
+          "name": "audience-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "registry-staff-portal",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "awe-admin-portal",
+      "name": "AWE Admin Portal",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "func-gate-awe-admin-secret",
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect"
+    },
+    {
+      "clientId": "partner-management",
+      "name": "Partner Management Admin",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "func-gate-pm-admin-secret",
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "consent-manager",
+      "name": "Consent Manager Admin",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "func-gate-cm-admin-secret",
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    }
+  ],
+  "roles": {
+    "client": {
+      "registry-staff-portal": [
+        { "name": "Operations Administrator", "composite": false },
+        { "name": "Technical Administrator", "composite": false },
+        { "name": "Registrar", "composite": false },
+        { "name": "Verifier", "composite": false },
+        { "name": "Approver", "composite": false }
+      ],
+      "awe-admin-portal": [
+        { "name": "AWE_ADMIN", "composite": false }
+      ],
+      "partner-management": [
+        { "name": "partner_manager", "composite": false }
+      ],
+      "consent-manager": [
+        { "name": "CONSENT_MANAGER_ADMIN", "composite": false },
+        { "name": "CONSENT_MANAGER_APPROVER", "composite": false }
+      ]
+    }
+  },
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "User",
+      "email": "admin@functional.invalid",
+      "credentials": [
+        { "type": "password", "value": "admin", "temporary": false }
+      ],
+      "clientRoles": {
+        "registry-staff-portal": [
+          "Operations Administrator",
+          "Technical Administrator"
+        ],
+        "awe-admin-portal": ["AWE_ADMIN"]
+      }
+    },
+    {
+      "username": "func-ft-e2e",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Functional",
+      "lastName": "Tester",
+      "email": "func-ft-e2e@functional.invalid",
+      "credentials": [
+        { "type": "password", "value": "func-ft-e2e-pass", "temporary": false }
+      ],
+      "requiredActions": [],
+      "clientRoles": {
+        "registry-staff-portal": [
+          "Operations Administrator",
+          "Technical Administrator"
+        ],
+        "awe-admin-portal": ["AWE_ADMIN"]
+      }
+    }
+  ]
+}

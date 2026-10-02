@@ -68,7 +68,8 @@ class G2PIngestionConfigurationService(BaseService):
                 key_path_for_signature=pattern_payload.key_path_for_signature,
                 key_path_for_signature_payload=pattern_payload.key_path_for_signature_payload,
                 is_list=pattern_payload.is_list,
-                key_path_for_list_elements=pattern_payload.key_path_for_list_elements,
+                # Column is NOT NULL; default empty when not a list payload
+                key_path_for_list_elements=pattern_payload.key_path_for_list_elements or "",
             )
             session.add(pattern)
             await session.commit()
