@@ -67,6 +67,16 @@ COPY <ext>/src/<pkg>/templates/     /seed/templates/
 
 See any variant repo's `docker/` (e.g. national-social-registry, farmer-registry) for a complete worked example.
 
+Seeding writes only the registry's own database (and AWE's), never Master Data.
+A variant loader that needs Master Data (geography, the country pack's sample
+people, a code list) reads it through MDS's API with `/seed/mds_client.py`
+(`from mds_client import MdsClient`), authenticating with Keycloak
+client-credentials as the registry's own client; the chart's db-seed Job passes
+`MDS_API_URL`, `MDS_TOKEN_URL`, `MDS_CLIENT_ID` and `MDS_CLIENT_SECRET`. No seed
+job gets Master Data database credentials. Register forms do not pin the
+country's geo levels: a `geo-hierarchy` widget gets them from Master Data at
+runtime.
+
 ## Deployment
 
 The single Helm chart `helm/openg2p-registry` (published from this repo) deploys

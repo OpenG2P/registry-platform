@@ -35,6 +35,7 @@ Render Env values section
 
 {{- define "partnerApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "partnerApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -75,6 +76,7 @@ Render Env values section
 
 {{- define "beneApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "beneApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -115,6 +117,7 @@ Render Env values section
 
 {{- define "staffApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "staffApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -155,6 +158,7 @@ Render Env values section
 
 {{- define "celeryBeat.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "celeryBeat.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -195,6 +199,7 @@ Render Env values section
 
 {{- define "celeryWorker.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "celeryWorker.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -235,6 +240,7 @@ Render Env values section
 
 {{- define "staffUi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "staffUi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -484,6 +490,7 @@ a distinct audience with their own realm, so they get their own component.
 
 {{- define "agentPortalApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "agentPortalApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -514,4 +521,21 @@ pod env at request time so one image serves every environment.
   valueFrom: {{- include "common.tplvalues.render" ( dict "value" $v "context" $ ) | nindent 4}}
 {{- end }}
 {{- end }}
+{{- end -}}
+
+{{/*
+Master Data database settings (*_MASTER_DATA_DB_*) only when the registry reads
+MDS's database directly (global.masterDataReadMode = db, the rollback). In api
+mode (the default) every Master Data read goes through MDS's API, so the pods get
+no MDS database credentials at all. Removes the keys from the given (copied) map.
+*/}}
+{{- define "registry.dropMasterDataDbEnv" -}}
+{{- $envVars := .envVars -}}
+{{- if ne (lower (toString (.global.masterDataReadMode | default "api"))) "db" -}}
+{{- range $k := keys $envVars -}}
+{{- if contains "_MASTER_DATA_DB_" $k -}}
+{{- $_ := unset $envVars $k -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}

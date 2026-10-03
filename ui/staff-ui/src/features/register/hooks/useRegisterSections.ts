@@ -13,6 +13,7 @@ import { useSectionSave } from "./useSectionSave";
 import { useRbac } from "@/context/RbacContext";
 import { CHANGE_REQUEST_ACTIONS } from "@/features/shared/permissions";
 import { buildSectionsDataMap } from "@/features/shared/utils";
+import { withRuntimeGeoLevels } from "@/shared/utils/geoWidgets";
 
 export const useRegisterSections = (onChangeRequestCreated: () => void) => {
     const router = useRouter();
@@ -89,7 +90,8 @@ export const useRegisterSections = (onChangeRequestCreated: () => void) => {
 
                 const section_id = section.section_id;
                 const section_register_id = section.section_register_id ?? sectionData?.section_register_id ?? section.register_id;
-                const section_ui_schema = section.section_ui_schema ?? sectionData?.section_ui_schema;
+                // Location widgets take the geography's levels from Master Data at runtime.
+                const section_ui_schema = withRuntimeGeoLevels(section.section_ui_schema ?? sectionData?.section_ui_schema);
                 const register_purpose = section.register_purpose ?? sectionData?.register_purpose;
                 const register_relation = section.register_relation ?? sectionData?.register_relation;
 

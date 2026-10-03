@@ -215,20 +215,6 @@ questions:
   label: Load Sample Data
   group: DB Seed
 
-- variable: dbSeed.syncGeoWidgets
-  description: Match this register's geo dropdowns to the hierarchy Master Data actually holds. An extension hard-codes its level names and how many there are; a country whose pack disagrees gets dropdowns that silently return nothing. Leave off to keep the metadata the extension shipped.
-  type: boolean
-  default: false
-  label: Match Geo Dropdowns to Country
-  group: DB Seed
-
-- variable: dbSeed.loadGeoData
-  description: "LEGACY. Loads a five-level country..village hierarchy into Master Data from a CSV, keyed by slug-paths. Leave OFF: Master Data seeds its own geography from a country pack keyed by P-code, and enabling this writes a second hierarchy over it in a different id space. Only for a deployment with no country pack."
-  type: boolean
-  default: false
-  label: Load Legacy Geo Data (deprecated)
-  group: DB Seed
-
 - variable: dbSeed.loadImages
   description: Upload sample profile images to MinIO and link them to the seeded records. Requires Load Sample Data to be enabled.
   type: boolean
@@ -262,7 +248,7 @@ questions:
 
 # Master Data
 - variable: global.masterDataReadMode
-  description: "How the registry reads Master Data (code lists, geography, sample people). 'api' (recommended) reads through MDS's catalogue API — versioned and cached, follows MDS's change feed, keeps serving the last good data if MDS is briefly unreachable, and records on each activity the list and geography versions it was checked against. 'db' reads MDS's database directly, as before — a rollback switch that records no versions."
+  description: "How the registry reads Master Data (code lists, geography, sample people). 'api' (recommended) reads through MDS's catalogue API — versioned and cached, follows MDS's change feed, keeps serving the last good data if MDS is briefly unreachable, and records on each activity the list and geography versions it was checked against. 'db' reads MDS's database directly, as before — a rollback switch that records no versions; only in this mode do the services get Master Data database settings (global.masterDataDB*)."
   type: enum
   options:
     - api

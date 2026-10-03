@@ -53,8 +53,8 @@ That was learned the hard way, twice:
     On a production install, seeded empty and loaded by the country afterwards,
     there is nothing to measure: every view was created with no geo columns at
     all, and looked fine because the views existed. Depth and level labels now
-    come from Master Data's g2p_geo_levels, which knows the country before the
-    first record does.
+    come from Master Data (its geo levels, read through MDS's API), which
+    knows the country before the first record does.
 
   * The TREE was discovered by counting which parent a child's links resolve
     into. Same failure, same install: no rows, no edges, every entity emitted
@@ -461,45 +461,32 @@ def mds_geo_levels(log):
     measure. Every view came out with no geo columns at all — and looked fine,
     because the views existed.
 
-    Master Data holds the country pack and is seeded before the registry (the
-    db-seed job depends on it), so it always knows the answer, whether or not a
-    single record has been registered.
+    Master Data holds the country pack and is seeded before the registry, so it
+    always knows the answer, whether or not a single record has been registered.
 
-    Ordered by walking parent -> child, never by level_id: the ids are opaque
-    and their sort order is not the hierarchy.
+    Read through MDS's API (``/catalogue/get_geo_levels``, via mds_client.py and
+    the MDS_* env), never its database: this is the only thing read from Master
+    Data, and only at generation time. The views it creates read nothing but the
+    registry's own tables — each record's geo_code_hierarchy_json, unpacked by
+    position — plus <prefix>geo_levels, a VALUES list of the level names taken
+    here. Ordered by walking parent -> child, never by level_id: the ids are
+    opaque and their sort order is not the hierarchy.
     """
-    host = os.environ.get("MDS_PGHOST") or os.environ.get("PGHOST", "localhost")
     try:
-        conn = psycopg2.connect(
-            host=host,
-            port=int(os.environ.get("MDS_PGPORT", os.environ.get("PGPORT", 5432))),
-            dbname=os.environ.get("MDS_DB", "master_data"),
-            user=os.environ.get("MDS_PGUSER", os.environ.get("PGUSER", "")),
-            password=os.environ.get("MDS_PGPASSWORD", os.environ.get("PGPASSWORD")),
-        )
-    except psycopg2.Error as exc:
-        log(f"[reporting] cannot reach Master Data at {host}: {exc}")
+        from mds_client import MdsClient, MdsError
+    except ImportError as exc:
+        log(f"[reporting] mds_client.py is not available ({exc}) — no hierarchy")
+        return []
+    client = MdsClient.from_env()
+    if client is None:
+        log("[reporting] MDS_API_URL is not set — cannot read the hierarchy")
         return []
     try:
-        with conn.cursor() as c:
-            c.execute("SELECT level_id, level_mnemonic, parent_level_id "
-                      "FROM g2p_geo_levels")
-            rows = c.fetchall()
-    except psycopg2.Error as exc:
-        log(f"[reporting] Master Data has no geo hierarchy: {exc}")
+        levels = client.geo_levels()
+    except MdsError as exc:
+        log(f"[reporting] cannot read the geo hierarchy from Master Data: {exc}")
         return []
-    finally:
-        conn.close()
-
-    by_parent = {}
-    for level_id, mnemonic, parent in rows:
-        by_parent.setdefault(parent, []).append((level_id, mnemonic))
-    order, cursor = [], None
-    while by_parent.get(cursor):
-        level_id, mnemonic = by_parent[cursor][0]
-        order.append(mnemonic)
-        cursor = level_id
-    return order
+    return [str(level.get("level_mnemonic") or level.get("level_id")) for level in levels]
 
 
 def view_columns(cur, view) -> set:
@@ -1110,7 +1097,7 @@ def main() -> int:
             f"{' > '.join(levels)}")
     else:
         log("[reporting] WARNING: no hierarchy from Master Data — views will "
-            "carry no geography. Check MDS_PGHOST / MDS_DB.")
+            "carry no geography. Check MDS_API_URL / MDS_TOKEN_URL / MDS_CLIENT_ID.")
 
     tables = register_tables(cur)
     definitions = register_definitions(cur)

@@ -19,10 +19,13 @@ global:
   registryDBSecret: '{{ .Release.Name }}'
   registryDBUserPasswordKey: '{{ .Release.Name }}-db-user'
 
-  # Master Data DB credentials — must match the values set by the
-  # openg2p-commons-services chart (release `commons-services`). Commons
-  # uses plain DB names (no release-name prefix) since only one Master
-  # Data instance is expected per environment.
+  # Master Data DB credentials — used ONLY when masterDataReadMode is 'db' (the
+  # rollback to direct reads of MDS's database); in 'api' mode (the default) the
+  # services get no MDS database settings at all, and the db-seed Job never
+  # does (seed scripts read Master Data through its API). Must match the
+  # openg2p-commons-services chart (release `commons-services`). Commons uses
+  # plain DB names (no release-name prefix) since only one Master Data instance
+  # is expected per environment.
   masterDataDB: 'master_data'
   masterDataDBPort: 5432
   masterDataDBUser: 'master_data_user'
@@ -256,7 +259,8 @@ global:
   #         geography versions its references were checked against;
   #   db  — the old direct reads of MDS's database (masterDataDB* above). A
   #         rollback switch; it records no versions.
-  # The MD DB settings stay either way: db mode and the db-seed Job use them.
+  # The *_MASTER_DATA_DB_* env vars below are rendered into the pods only in db
+  # mode (see the *.envVars helpers in templates/_helpers.tpl).
   masterDataReadMode: 'api'
   # Pin every Master Data read to a catalogue release (e.g. '2027.1'): all lists
   # and the geography at the versions the release pins. Empty reads the latest
@@ -353,27 +357,6 @@ global:
 # from openg2p-registry-gen2-extensions.
 dbSeed:
   enabled: true
-  # LEGACY. Loads a five-level country->village hierarchy into the master_data DB
-  # from openg2p-data/geo/geo.csv, keyed by slug-paths like
-  # "kamuntu/kilima/karamu/uzima/billyu".
-  #
-  # Off, and it should stay off. Master Data seeds its own geography from a
-  # country pack now (geoSeed.countryPack there), keyed by P-code — so turning
-  # this on writes a SECOND hierarchy over the first, in a different id space and
-  # with a fixed depth of five levels that only describes Kamuntu. Ethiopia has
-  # four, ending at woreda.
-  #
-  # It is no longer needed for sample data either: load_sample_data.py reads the
-  # hierarchy and the sample people from Master Data directly, whatever country
-  # and however many levels it holds.
-  #
-  # Kept only for a deployment that still has no Master Data country pack.
-  loadGeoData: false
-  # Match the register's geo dropdowns to the hierarchy Master Data holds.
-  # An extension's UI metadata names its levels and fixes their number; a
-  # country whose pack disagrees gets dropdowns that silently return nothing.
-  # Off by default so an existing deployment keeps the metadata it shipped.
-  syncGeoWidgets: false
   # Load sample/demo data into the registry (disabled by default)
   loadSampleData: false
   # Upload sample profile images (500 colored-initials avatars) to MinIO
