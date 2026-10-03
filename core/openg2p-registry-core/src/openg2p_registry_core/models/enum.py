@@ -140,7 +140,7 @@ class ActivityOutboxEventEnum(StrEnum):
 class ReferenceKindEnum(StrEnum):
     # A record in a register of this registry instance.
     LOCAL_RECORD = "LOCAL_RECORD"
-    # A value of a code list (g2p_attribute_values).
+    # A value of a Master Data code list (read through MDS's catalogue API).
     ATTRIBUTE = "ATTRIBUTE"
     # A geo level value from Master Data.
     GEO = "GEO"

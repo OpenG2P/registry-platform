@@ -260,6 +260,31 @@ questions:
   label: DB Seed Image Tag
   group: DB Seed
 
+# Master Data
+- variable: global.masterDataReadMode
+  description: "How the registry reads Master Data (code lists, geography, sample people). 'api' (recommended) reads through MDS's catalogue API — versioned and cached, follows MDS's change feed, keeps serving the last good data if MDS is briefly unreachable, and records on each activity the list and geography versions it was checked against. 'db' reads MDS's database directly, as before — a rollback switch that records no versions."
+  type: enum
+  options:
+    - api
+    - db
+  default: api
+  label: Master Data Read Mode
+  group: Master Data
+
+- variable: global.catalogueRelease
+  description: "Pin every Master Data read to a catalogue release (e.g. 2027.1): all code lists and the geography at the versions the release pins, so the registry does not change when a newer version is published. Leave empty to read the latest published versions. Only used in 'api' read mode; a list the release does not pin is read at its latest version."
+  type: string
+  default: ""
+  label: Pinned Catalogue Release
+  group: Master Data
+  show_if: "global.masterDataReadMode=api"
+
+- variable: global.masterDataApiUrl
+  description: Internal URL of the Master Data API (the registry's backend and the Staff Portal UI call it).
+  type: string
+  label: Master Data API URL
+  group: Master Data
+
 # AWE
 - variable: global.aweEnabled
   description: Enable AWE integration on staff-portal-api and seed AWE DB from db-seed job

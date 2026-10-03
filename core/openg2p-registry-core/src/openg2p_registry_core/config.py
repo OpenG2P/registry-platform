@@ -62,7 +62,32 @@ class Settings(IamSettings):
     # In-process TTL for partner lookups (0 disables). Avoids one PM call per ingest row.
     partner_mgmt_cache_seconds: int = 300
 
-    # Master Data Database Configuration
+    # Master Data (MDS) — how code lists, geography and sample people are read.
+    #   "api" (default): through MDS's catalogue API (helpers/master_data_client.py),
+    #                    cached by version, following MDS's change feed;
+    #   "db":            the old direct reads of MDS's current-state tables
+    #                    (master_data_db_* below) — a rollback switch.
+    master_data_read_mode: str = "api"
+    master_data_api_url: str = "http://commons-services-master-data-api"
+    # Keycloak client-credentials grant for server-to-server calls (also from the
+    # Celery worker, where there is no user). Empty token URL: no token is sent.
+    master_data_token_url: str = ""
+    master_data_client_id: str = ""
+    master_data_client_secret: str = ""
+    master_data_timeout_seconds: float = 10.0
+    # How often the change feed is checked for newly published versions (the
+    # longest a new version goes unnoticed), and the longest a resolved "latest"
+    # is trusted without being re-checked even if the feed said nothing.
+    master_data_poll_seconds: float = 30.0
+    master_data_latest_max_age_seconds: float = 900.0
+    # Cache bounds: list versions (one list at one version each) and geography units.
+    master_data_cache_max_list_versions: int = 512
+    master_data_cache_max_geo_units: int = 50000
+    # Pin every catalogue read to this release (e.g. "2027.1"); empty reads the
+    # latest published versions. A list the release does not pin is read at latest.
+    catalogue_release: str = ""
+
+    # Master Data Database Configuration (master_data_read_mode = "db", and db-seed)
     master_data_db_driver: str = "postgresql+asyncpg"
     master_data_db_username: str = "postgres"
     master_data_db_password: str = "postgres"

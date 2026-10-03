@@ -9,6 +9,7 @@ from openg2p_fastapi_common.service import BaseService
 from fastapi_cache.decorator import cache
 
 from ..engine import get_engines
+from ..helpers.master_data_client import master_data_read_mode
 from ..config import Settings
 
 _logger = logging.getLogger('g2p-geo-hierarchy-service')
@@ -17,9 +18,11 @@ _config = Settings.get_config(strict=False)
 
 class G2PGeoHierarchyService(BaseService):
     """
-    Service for fetching and caching geo hierarchy data from master-data-db.
-    
-    The geo hierarchy is stored in two tables:
+    Service for fetching and caching geo hierarchy data from Master Data.
+
+    Read through MDS's catalogue API (master_data_read_mode = "api", the
+    default: ``get_geo_unit`` with its ancestors, cached by geography version)
+    or, as a rollback, from MDS's current-state tables ("db"):
     - g2p_geo_levels: Defines the hierarchy levels (e.g., state, district, taluk)
     - g2p_geo_level_values: Contains actual values with parent references
     """
@@ -48,7 +51,37 @@ class G2PGeoHierarchyService(BaseService):
         """
         if not level_value_id:
             return None
-            
+        if master_data_read_mode() == "api":
+            return await self._hierarchy_from_api(level_value_id)
+        return await self._hierarchy_from_db(level_value_id)
+
+    @staticmethod
+    async def _hierarchy_from_api(level_value_id: str) -> Optional[dict]:
+        """The unit's chain from MDS's catalogue API, at the geography version in effect.
+
+        Only a unit in use (ACTIVE, as are its ancestors) is found — the same as the
+        current-state tables the db mode reads, which hold no retired units: this
+        is filled when a record's location is set, i.e. for new data.
+        """
+        from ..helpers.master_data_client import get_master_data_client
+
+        chain = await get_master_data_client().geo_unit(level_value_id)
+        if chain is None or not chain.active:
+            _logger.warning(f"Geo level value not found: {level_value_id}")
+            return None
+        return {
+            "hierarchy": [
+                {
+                    "level_mnemonic": unit.level_mnemonic,
+                    "level_value_mnemonic": unit.name,
+                    "level_value_id": unit.unit_id,
+                }
+                for unit in chain.units
+            ]
+        }
+
+    @staticmethod
+    async def _hierarchy_from_db(level_value_id: str) -> Optional[dict]:
         master_data_engine = get_engines().get("db_engine_master_data")
         if not master_data_engine:
             _logger.warning("master-data-db engine not configured")

@@ -112,6 +112,15 @@ class G2PActivity(BaseORMModel):
     # stored here; they are resolved when read.
     reference_checks: Mapped[dict] = mapped_column(JSONB, nullable=True)
     rule_warnings: Mapped[list] = mapped_column(JSONB, nullable=True)
+    # The Master Data catalogue versions the references were checked against
+    # when written: {"lists": {"CROP_COMMODITY": 4}, "geo": 3} (list versions by
+    # the rule's list code; the geography version of GEO references and of
+    # geo_dimensions). Lets a code be resolved exactly as it was meant, and a
+    # unit be mapped to today's geography through MDS's crosswalk. Null when
+    # nothing was looked up, or when Master Data is read from its database
+    # (master_data_read_mode = "db"). Added to existing tables by the
+    # add-missing-columns migration.
+    catalogue_versions: Mapped[dict] = mapped_column(JSONB, nullable=True)
 
     search_text: Mapped[str] = mapped_column(Text, nullable=True)
 

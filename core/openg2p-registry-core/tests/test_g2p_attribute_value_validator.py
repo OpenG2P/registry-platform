@@ -14,6 +14,10 @@ _SERVICE_PATH = (
 )
 
 
+_CLIENT_PATH = _SERVICE_PATH.parents[1] / "helpers/master_data_client.py"
+_STUB_PATH = _SERVICE_PATH.parents[1] / "testing/master_data_stub.py"
+
+
 class _Code:
     value = ("REQUEST_VALIDATION_ERROR", "REQ-VAL-001")
 
@@ -34,12 +38,14 @@ def validator_module():
         f"{package}.config",
         f"{package}.engine",
         f"{package}.errors",
+        f"{package}.helpers",
+        f"{package}.helpers.master_data_client",
         "openg2p_fastapi_common",
         "openg2p_fastapi_common.service",
     ]
     previous = {name: sys.modules.get(name) for name in module_names}
 
-    for name in (package, f"{package}.services"):
+    for name in (package, f"{package}.services", f"{package}.helpers"):
         module = ModuleType(name)
         module.__path__ = []  # type: ignore[attr-defined]
         sys.modules[name] = module
@@ -55,6 +61,7 @@ def validator_module():
     settings = SimpleNamespace(
         validate_attribute_values=True,
         cache_expires_in_seconds=5,
+        master_data_read_mode="db",
     )
     config.Settings = SimpleNamespace(get_config=lambda strict=False: settings)
     sys.modules[f"{package}.config"] = config
@@ -67,6 +74,12 @@ def validator_module():
     errors.G2PRegistryErrorCodes = SimpleNamespace(REQUEST_VALIDATION_ERROR=_Code())
     errors.G2PRegistryException = G2PRegistryException
     sys.modules[f"{package}.errors"] = errors
+
+    client_name = f"{package}.helpers.master_data_client"
+    client_spec = importlib.util.spec_from_file_location(client_name, _CLIENT_PATH)
+    client_module = importlib.util.module_from_spec(client_spec)
+    sys.modules[client_name] = client_module
+    client_spec.loader.exec_module(client_module)
 
     service_name = f"{package}.services.g2p_attribute_value_validator"
     spec = importlib.util.spec_from_file_location(service_name, _SERVICE_PATH)
@@ -223,3 +236,33 @@ async def test_code_cache_refreshes_after_ttl(validator_module, monkeypatch):
     await validator._load()
 
     assert execute.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_api_mode_reads_active_codes_through_the_catalogue(validator_module):
+    """master_data_read_mode=api: codes come from the catalogue client; a retired code is rejected."""
+    spec = importlib.util.spec_from_file_location("_validator_mds_stub", _STUB_PATH)
+    stubs = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(stubs)
+    clients = sys.modules["_attribute_validator_test_core.helpers.master_data_client"]
+
+    stub = stubs.CatalogueStub()
+    stub.publish_list("CROP_COMMODITY", [{"value_code": "WHEAT"}, {"value_code": "MAIZE"}])
+    stub.retire_values("CROP_COMMODITY", ["MAIZE"])
+    client = clients.MasterDataClient(
+        clients.MasterDataClientConfig(
+            base_url=stubs.BASE_URL, token_url=stubs.TOKEN_URL, client_id="c", client_secret="secret"
+        ),
+        transport=stub.transport(),
+    )
+    previous = clients.set_master_data_client(client)
+    validator_module._config.master_data_read_mode = "api"
+    try:
+        validator = validator_module.G2PAttributeValueValidator()
+        assert await validator._load() == {"CROP_COMMODITY": {"WHEAT"}}
+        await validator.validate_records([{"commodity": "WHEAT"}], field_map={"commodity": "CROP_COMMODITY"})
+        with pytest.raises(G2PRegistryException, match="MAIZE"):
+            await validator.validate_records([{"commodity": "MAIZE"}], field_map={"commodity": "CROP_COMMODITY"})
+    finally:
+        validator_module._config.master_data_read_mode = "db"
+        clients.set_master_data_client(previous)

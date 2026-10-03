@@ -28,6 +28,8 @@ def get_engine():
     """
     Returns a dictionary containing database engines for different databases.
     - db_engine_master_data: Engine for master-data-db (attributes, geography).
+      Used only when master_data_read_mode = "db" (the rollback); the default
+      reads Master Data through its catalogue API (helpers/master_data_client.py).
     """
     db_datasource_master_data = construct_db_datasource(
         _config.master_data_db_driver,

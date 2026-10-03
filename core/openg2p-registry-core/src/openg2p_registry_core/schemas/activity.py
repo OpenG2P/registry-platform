@@ -324,6 +324,8 @@ class ActivityData(BaseModel):
     columns: dict[str, Any] = Field(default_factory=dict)  # promoted typed columns
     reference_checks: Optional[dict] = None
     rule_warnings: Optional[list] = None
+    # Master Data versions the references were checked against: {"lists": {CODE: n}, "geo": n}
+    catalogue_versions: Optional[dict] = None
     display: dict[str, Any] = Field(default_factory=dict)  # resolved reference labels
     geo_dimensions: Optional[dict] = None  # where it happened, as named Master Data levels
     enrichment: Optional[dict] = None  # derived or external data, added asynchronously

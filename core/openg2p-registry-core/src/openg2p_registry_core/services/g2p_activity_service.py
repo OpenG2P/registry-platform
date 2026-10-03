@@ -69,7 +69,7 @@ from ..schemas.activity import (
 )
 from .g2p_activity_geo_service import G2PActivityGeoService
 from .g2p_activity_projection_service import G2PActivityProjectionService
-from .g2p_activity_reference_service import G2PActivityReferenceService
+from .g2p_activity_reference_service import CatalogueVersions, G2PActivityReferenceService
 from .g2p_activity_registry_service import ActivityRegister, G2PActivityRegistryService
 from .g2p_activity_rule_service import G2PActivityRuleService, active_filter
 
@@ -211,8 +211,9 @@ class G2PActivityService(BaseService):
         payload = self._convert_ethiopian_dates(type_row, payload)
         payload = domain.enrich_payload(type_row.activity_type, payload) or payload
         self.rules.validate_payload(type_row.payload_schema, payload)
+        versions = CatalogueVersions()
         payload, checks, warnings = await self.references.check_references(
-            session, register.register_id, type_row, payload, domain
+            session, register.register_id, type_row, payload, domain, versions
         )
         activity = await self._with_subject(session, type_row, activity, payload)
         ancestors = await self.references.ancestor_record_ids(
@@ -231,7 +232,7 @@ class G2PActivityService(BaseService):
                 context_activities = [a for a in context_activities if a.activity_id != superseding.activity_id]
             warnings += self.rules.check_context_rules(type_row, payload, context_activities, occurred_at)
         warnings += domain.validate(type_row.activity_type, payload, context_activities) or []
-        geo_dimensions = await self.geo.resolve(session, register, type_row, activity, payload, context)
+        geo_dimensions = await self.geo.resolve(session, register, type_row, activity, payload, context, versions)
 
         model = register.activity_model
         row = model(
@@ -261,6 +262,7 @@ class G2PActivityService(BaseService):
             ),
             payload=payload,
             geo_dimensions=geo_dimensions,
+            catalogue_versions=versions.as_json(),
             reference_checks=checks or None,
             rule_warnings=warnings or None,
             **self._promoted_columns(model, payload),
@@ -828,7 +830,10 @@ class G2PActivityService(BaseService):
         display = {}
         try:
             type_row = await self.registry.get_activity_type(session, register.register_id, row.activity_type)
-            display = await self.references.display_labels(session, type_row, row.payload or {}, register.domain_service)
+            display = await self.references.display_labels(
+                session, type_row, row.payload or {}, register.domain_service,
+                getattr(row, "catalogue_versions", None),
+            )
         except G2PRegistryException:
             pass  # type deactivated since: still return the activity
         enrichment = await session.get(G2PActivityEnrichment, row.activity_id)

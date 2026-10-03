@@ -248,6 +248,27 @@ global:
 
   # Master Data API internal URL
   masterDataApiUrl: 'http://commons-services-master-data-api'
+  # How the registry's backend reads Master Data (code lists, geography, sample
+  # people):
+  #   api — through MDS's catalogue API (the default): versioned reads, cached by
+  #         version, refreshed from MDS's change feed, last good data served when
+  #         MDS is briefly unreachable; each activity records the list and
+  #         geography versions its references were checked against;
+  #   db  — the old direct reads of MDS's database (masterDataDB* above). A
+  #         rollback switch; it records no versions.
+  # The MD DB settings stay either way: db mode and the db-seed Job use them.
+  masterDataReadMode: 'api'
+  # Pin every Master Data read to a catalogue release (e.g. '2027.1'): all lists
+  # and the geography at the versions the release pins. Empty reads the latest
+  # published versions. A list the release does not pin is read at its latest.
+  catalogueRelease: ''
+  # Server-to-server calls to MDS authenticate with Keycloak's client-credentials
+  # grant as this registry's own confidential client (authClientId, secret in
+  # authClientSecret) — also from the Celery worker, which has no user. The
+  # token must come from the PUBLIC issuer URL: MDS (iam-core) matches the
+  # token's `iss` against the staff realm's login provider, which is registered
+  # under keycloakBaseUrl.
+  masterDataTokenUrl: '{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token'
 
   # ID Generator
   # Public hostname (used by browser/external callers via Istio VirtualService).
@@ -533,6 +554,12 @@ partnerApi:
     REGISTRY_PARTNER_API_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     REGISTRY_PARTNER_API_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_PARTNER_API_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_PARTNER_API_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_PARTNER_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_PARTNER_API_KEYMANAGER_API_BASE_URL: "{{ .Values.global.keymanagerInstallationName }}/v1/keymanager"
     REGISTRY_PARTNER_API_KEYMANAGER_API_TIMEOUT: 10
@@ -583,6 +610,10 @@ partnerApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_PARTNER_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
@@ -735,6 +766,12 @@ beneApi:
     REGISTRY_BENE_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_BENE_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_BENE_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_BENE_PORTAL_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_BENE_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -747,6 +784,10 @@ beneApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_BENE_PORTAL_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
@@ -1074,6 +1115,12 @@ agentPortalApi:
     REGISTRY_AGENT_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_AGENT_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_AGENT_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_AGENT_PORTAL_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_AGENT_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -1147,6 +1194,10 @@ agentPortalApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
 
   pdf:
     title: "Beneficiary Credential"
@@ -1287,6 +1338,12 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_STAFF_PORTAL_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_STAFF_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -1344,6 +1401,10 @@ staffApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
@@ -1748,6 +1809,12 @@ celeryBeat:
     REGISTRY_CELERY_BEAT_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_CELERY_BEAT_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_CELERY_BEAT_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_CELERY_BEAT_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_CELERY_BEAT_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_CELERY_BEAT_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_CELERY_BEAT_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_CELERY_BEAT_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_CELERY_BEAT_CELERY_BROKER_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
     REGISTRY_CELERY_BEAT_CELERY_BACKEND_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
@@ -1770,6 +1837,10 @@ celeryBeat:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
+    REGISTRY_CELERY_BEAT_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
 
   # Wait until Redis answers before starting. A worker that starts first gets
   # "connection refused", reconnects, reports ready, and then never consumes its
@@ -1845,6 +1916,12 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_CELERY_WORKERS_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_CELERY_WORKERS_CELERY_BROKER_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
     REGISTRY_CELERY_WORKERS_CELERY_BACKEND_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
@@ -1892,6 +1969,10 @@ celeryWorker:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.pmSeedClientId $ }}'

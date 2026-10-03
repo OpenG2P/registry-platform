@@ -8,6 +8,15 @@ Set ACTIVITY_TEST_DB_URL (default postgresql+asyncpg://postgres:postgres@localho
 to a disposable database; the public schema is dropped and recreated. Tests are
 skipped when the database is not reachable.
 
+Master Data is read the way MASTER_DATA_READ_MODE says (default ``api``):
+
+* ``api`` — through the catalogue API client, against an in-memory stand-in for
+  MDS (openg2p_registry_core.testing.master_data_stub) holding the same lists and
+  geography as the tables below;
+* ``db``  — directly from MDS's tables, created in this same test database.
+
+    MASTER_DATA_READ_MODE=db pytest tests_integration/activity
+
     docker run -d --name rp-activity-pg -e POSTGRES_PASSWORD=postgres \\
         -e POSTGRES_DB=registry_test -p 55432:5432 postgres:16
 """
@@ -28,6 +37,32 @@ from openg2p_fastapi_common.context import dbengine
 DB_URL = os.environ.get(
     "ACTIVITY_TEST_DB_URL", "postgresql+asyncpg://postgres:postgres@localhost:55432/registry_test"
 )
+READ_MODE = os.environ.get("MASTER_DATA_READ_MODE", "api").strip().lower()
+
+# Master Data's data for these tests: the same rows go into MDS's current-state
+# tables (db mode) and into the catalogue stand-in (api mode).
+# A small country: XK > R1 Alpha > Z1 North (W1 Lake, W2 Hill) and Z2 South (W3 Plain).
+GEO_LEVELS = [
+    {"level_id": "l0", "level_mnemonic": "country", "parent_level_id": None},
+    {"level_id": "l1", "level_mnemonic": "region", "parent_level_id": "l0"},
+    {"level_id": "l2", "level_mnemonic": "zone", "parent_level_id": "l1"},
+    {"level_id": "l3", "level_mnemonic": "woreda", "parent_level_id": "l2"},
+]
+GEO_VALUES = [
+    {"level_value_id": v, "level_id": lvl, "level_value_mnemonic": name, "parent_level_value_id": parent}
+    for v, lvl, name, parent in (
+        ("XK", "l0", "Kamuntu", None), ("R1", "l1", "Alpha", "XK"), ("Z1", "l2", "North", "R1"),
+        ("Z2", "l2", "South", "R1"), ("W1", "l3", "Lake", "Z1"), ("W2", "l3", "Hill", "Z1"),
+        ("W3", "l3", "Plain", "Z2"),
+    )
+]
+ATTRIBUTES = [{"attribute_id": "attr-crop", "attribute_code": "CROP", "attribute_display": "Crop",
+               "is_hierarchical": False}]
+ATTRIBUTE_VALUES = [
+    {"value_id": f"val-{code}", "attribute_id": "attr-crop", "value_code": code, "value_display": display,
+     "sort_order": 0}
+    for code, display in (("TEFF", "Teff"), ("MAIZE", "Maize"))
+]
 
 # ---------------------------------------------------------------- test extension
 
@@ -271,18 +306,15 @@ async def _prepare_database():
                 ),
                 {"id": register_id, "m": mnemonic, "p": purpose, "master": master},
             )
-        # Master Data's geography tables, with a small country:
-        # XK > R1 Alpha > Z1 North (W1 Lake, W2 Hill) and Z2 South (W3 Plain).
+        # Master Data's geography tables (see GEO_LEVELS / GEO_VALUES).
         await conn.execute(text("CREATE TABLE g2p_geo_levels (level_id varchar PRIMARY KEY, "
                                 "level_mnemonic varchar, parent_level_id varchar)"))
         await conn.execute(text("CREATE TABLE g2p_geo_level_values (level_value_id varchar PRIMARY KEY, "
                                 "level_id varchar, level_value_mnemonic varchar, parent_level_value_id varchar)"))
-        await conn.execute(text("INSERT INTO g2p_geo_levels VALUES ('l0','country',NULL), ('l1','region','l0'), "
-                                "('l2','zone','l1'), ('l3','woreda','l2')"))
-        await conn.execute(text(
-            "INSERT INTO g2p_geo_level_values VALUES ('XK','l0','Kamuntu',NULL), ('R1','l1','Alpha','XK'), "
-            "('Z1','l2','North','R1'), ('Z2','l2','South','R1'), ('W1','l3','Lake','Z1'), ('W2','l3','Hill','Z1'), "
-            "('W3','l3','Plain','Z2')"))
+        await conn.execute(text("INSERT INTO g2p_geo_levels VALUES (:level_id, :level_mnemonic, :parent_level_id)"),
+                           GEO_LEVELS)
+        await conn.execute(text("INSERT INTO g2p_geo_level_values VALUES (:level_value_id, :level_id, "
+                                ":level_value_mnemonic, :parent_level_value_id)"), GEO_VALUES)
         now = "now() AT TIME ZONE 'utc'"
         await conn.execute(
             text(
@@ -318,18 +350,34 @@ async def _prepare_database():
         await conn.execute(
             text(
                 "INSERT INTO g2p_attributes (attribute_id, attribute_code, attribute_display, is_hierarchical) "
-                "VALUES ('attr-crop', 'CROP', 'Crop', false)"
-            )
+                "VALUES (:attribute_id, :attribute_code, :attribute_display, :is_hierarchical)"
+            ),
+            ATTRIBUTES,
         )
-        for code, display in (("TEFF", "Teff"), ("MAIZE", "Maize")):
-            await conn.execute(
-                text(
-                    "INSERT INTO g2p_attribute_values (value_id, attribute_id, value_code, value_display, sort_order) "
-                    "VALUES (:id, 'attr-crop', :code, :display, 0)"
-                ),
-                {"id": f"val-{code}", "code": code, "display": display},
-            )
+        await conn.execute(
+            text(
+                "INSERT INTO g2p_attribute_values (value_id, attribute_id, value_code, value_display, sort_order) "
+                "VALUES (:value_id, :attribute_id, :value_code, :value_display, :sort_order)"
+            ),
+            ATTRIBUTE_VALUES,
+        )
+    use_master_data(READ_MODE)
     return engine
+
+
+def use_master_data(mode: str):
+    """Read Master Data the given way; in api mode through a fresh stand-in. Returns the stand-in (or None)."""
+    from openg2p_registry_core.config import Settings
+    from openg2p_registry_core.helpers.master_data_client import set_master_data_client
+    from openg2p_registry_core.testing.master_data_stub import stub_from_tables
+
+    Settings.get_config(strict=False).master_data_read_mode = mode
+    if mode != "api":
+        set_master_data_client(None)
+        return None
+    stub = stub_from_tables(ATTRIBUTES, ATTRIBUTE_VALUES, GEO_LEVELS, GEO_VALUES)
+    set_master_data_client(stub.client(poll_seconds=0))
+    return stub
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
