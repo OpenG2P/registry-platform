@@ -18,6 +18,41 @@ interface Props {
     intakeForm?: boolean;
 }
 
+const MESSAGE_MAX_LENGTH = 100;
+
+const statusClassMap: Record<string, string> = {
+    open: 'text-amber-500',
+    claimed: 'text-amber-500',
+    completed: 'text-toast-success',
+    cancelled: 'text-toast-failed',
+};
+
+function Field({
+    label,
+    value,
+    valueClassName = 'text-neutral-first',
+    multiline = false,
+}: {
+    label: string;
+    value: string;
+    valueClassName?: string;
+    multiline?: boolean;
+}) {
+    return (
+        <div className="min-w-0">
+            <div className="text-[16px] leading-tight text-neutral-first/50">{label}</div>
+            <div
+                className={`mt-1 text-[15px] font-medium leading-snug ${
+                    multiline ? 'break-words whitespace-pre-wrap' : 'truncate'
+                } ${valueClassName}`}
+                title={value}
+            >
+                {value}
+            </div>
+        </div>
+    );
+}
+
 export default function ApprovalCard({
     task,
     isPending,
@@ -47,6 +82,8 @@ export default function ApprovalCard({
     const hasDecision = Boolean(task.decision_action);
     const decisionApproved = task.decision_action === 'approve';
     const displayDate = task.completed_at || task.created_at;
+    const statusClass = statusClassMap[task.status.toLowerCase()] ?? 'text-neutral-first';
+    const messageText = task.decision_comment?.trim() || '—';
 
     const handleAction = async (action: 'approve' | 'reject') => {
         setSubmittingAction(action);
@@ -58,11 +95,9 @@ export default function ApprovalCard({
     };
 
     return (
-        <div className="bg-secondary-second rounded-[10px] p-6 space-y-3">
-            <div className="font-normal text-[14px] text-neutral-first/50">{t('assigned_to')}</div>
-
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 relative">
+        <div className="flex min-h-[188px] w-full flex-col rounded-[10px] bg-secondary-second p-3 sm:min-h-[220px] sm:p-4">
+            <div className="flex shrink-0 items-center gap-3">
+                <div className="relative h-10 w-10 shrink-0">
                     <Image
                         src="/images/common/verified_person.png"
                         alt="approver"
@@ -70,95 +105,91 @@ export default function ApprovalCard({
                         className="rounded-full object-cover"
                     />
                 </div>
-                <div className="flex flex-col">
-                    <span className="text-[20px] font-medium text-neutral-first">
+                <div className="min-w-0 flex-1">
+                    <div
+                        className="truncate text-[18px] font-medium text-neutral-first"
+                        title={assigneeDisplay}
+                    >
                         {assigneeDisplay}
-                        {isCurrentUser && (
-                            <span className="ml-2 text-[14px] text-neutral-first/50">{t('you')}</span>
-                        )}
-                    </span>
-                    <span className="text-[14px] text-neutral-first/50 font-normal">
-                        {formatDateTime(displayDate)}
-                    </span>
-                </div>
-            </div>
-
-            <div className="flex justify-between pr-10">
-                <div>
-                    <div className="text-[14px] font-normal text-neutral-first/50 mb-1">{t('stage')}</div>
-                    <div className="text-[16px] text-neutral-first font-normal">
-                        {task.stage_order}
                     </div>
-                </div>
-
-                <div>
-                    <div className="text-[14px] font-normal text-neutral-first/50 mb-1">{t('status')}</div>
-                    <div className="text-[16px] text-neutral-first font-normal capitalize">{task.status}</div>
+                    <div className="truncate text-[14px] text-neutral-first/50">
+                        {formatDateTime(displayDate)}
+                    </div>
                 </div>
             </div>
 
             {showActionForm ? (
-                <>
-                    <div>
-                        <div className="text-[14px] font-medium text-neutral-first/50 mb-1">{t('message')}</div>
-                        <textarea
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            rows={2}
-                            placeholder={t('type_your_message')}
-                            disabled={isInteractionDisabled}
-                            readOnly={approvalDecisionBlocked}
-                            className="w-full border border-black/25 rounded-[10px] p-2 text-sm resize-none focus:outline-none bg-white disabled:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                <div className="mt-3 flex min-h-0 flex-1 flex-col">
+                    <div className="grid grid-cols-2 gap-x-3">
+                        <Field label={t('stage')} value={String(task.stage_order)} />
+                        <Field
+                            label={t('status')}
+                            value={task.status}
+                            valueClassName={`capitalize ${statusClass}`}
                         />
                     </div>
 
-                    <div className="flex items-center gap-4 pt-2">
-                        <button
-                            type="button"
+                    <div className="mt-2 pt-1 text-left">
+                        <div className="mb-1 text-[16px] leading-tight text-neutral-first/50">{t('message')}</div>
+                        <textarea
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value.slice(0, MESSAGE_MAX_LENGTH))}
+                            maxLength={MESSAGE_MAX_LENGTH}
+                            rows={3}
+                            placeholder={t('type_your_message')}
                             disabled={isInteractionDisabled}
-                            onClick={() => handleAction('reject')}
-                            className="px-4 py-1.5 text-[14px] font-medium rounded-[10px] bg-neutral-second text-neutral-first/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {submittingAction === 'reject' ? t('loading') : t('reject')}
-                        </button>
-                        <button
-                            type="button"
-                            disabled={isInteractionDisabled}
-                            onClick={() => handleAction('approve')}
-                            className="px-4 py-1.5 text-[14px] font-medium rounded-[10px] bg-neutral-first text-neutral-second disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {submittingAction === 'approve' ? t('loading') : t('approve')}
-                        </button>
-                    </div>
-                </>
-            ) : (
-                <>
-                    {(task.decision_comment || hasDecision) && (
-                        <div>
-                            <div className="text-[14px] font-normal text-neutral-first/50 mb-1">
-                                {t('message')}
-                            </div>
-                            <div className="text-[16px] text-neutral-first font-normal whitespace-pre-wrap">
-                                {task.decision_comment?.trim() || '—'}
-                            </div>
+                            readOnly={approvalDecisionBlocked}
+                            className="min-h-[4.25rem] w-full resize-none rounded-[8px] border border-black/20 bg-white p-2 text-left text-[16px] leading-snug break-words focus:outline-none disabled:cursor-not-allowed disabled:bg-white disabled:opacity-50"
+                        />
+                        <div className="mt-1 text-left text-[12px] text-neutral-first/40">
+                            {comment.length}/{MESSAGE_MAX_LENGTH}
                         </div>
-                    )}
-
-                    {hasDecision && (
-                        <div>
-                            <div className="text-[14px] font-normal text-neutral-first/50 mb-1">
-                                {t('action')}
-                            </div>
-                            <div
-                                className={`text-[16px] font-medium ${
-                                    decisionApproved ? 'text-toast-success' : 'text-toast-failed'
-                                }`}
+                        <div className="mt-2 flex items-center justify-end gap-2">
+                            <button
+                                type="button"
+                                disabled={isInteractionDisabled}
+                                onClick={() => handleAction('reject')}
+                                className="rounded-[8px] bg-neutral-second px-4 py-1.5 text-[14px] font-medium text-neutral-first/50 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                                {decisionApproved ? t('approve') : t('reject')}
-                            </div>
+                                {submittingAction === 'reject' ? t('loading') : t('reject')}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isInteractionDisabled}
+                                onClick={() => handleAction('approve')}
+                                className="rounded-[8px] bg-neutral-first px-4 py-1.5 text-[14px] font-medium text-neutral-second disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {submittingAction === 'approve' ? t('loading') : t('approve')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="mt-3 flex min-h-0 flex-1 flex-col">
+                    <div className="grid grid-cols-3 gap-x-3">
+                        <Field label={t('stage')} value={String(task.stage_order)} />
+                        <Field
+                            label={t('status')}
+                            value={task.status}
+                            valueClassName={`capitalize ${statusClass}`}
+                        />
+                        {hasDecision && (
+                            <Field
+                                label={t('action')}
+                                value={decisionApproved ? t('approve') : t('reject')}
+                                valueClassName={
+                                    decisionApproved ? 'text-toast-success' : 'text-toast-failed'
+                                }
+                            />
+                        )}
+                    </div>
+
+                    {(task.decision_comment || hasDecision) && (
+                        <div className="mt-2 pt-1 text-left">
+                            <Field label={t('message')} value={messageText} multiline />
                         </div>
                     )}
-                </>
+                </div>
             )}
         </div>
     );

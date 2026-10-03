@@ -26,10 +26,8 @@ export type LanguageConfig = {
     domain_translation?: Record<string, string> | null;
 };
 export type ClientSafeConfigShape = {
-    partnerImportExportEnable: boolean;
     verifyServiceUrl: string;
     vpClientId: string;
-    pageSize: number;
     registryName: string;
     registryLogo: string;
     registryFavicon: string;

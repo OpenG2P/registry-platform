@@ -29,6 +29,7 @@ importlib.invalidate_caches()
 from openg2p_registry_core.errors import G2PRegistryException
 from openg2p_registry_core.helpers.partner_management import (
     PartnerManagementClient,
+    canonical_partner_id,
     partner_reference_id,
 )
 
@@ -218,6 +219,101 @@ def test_require_active_partner_caches_staff_lookup():
         second = asyncio.run(client.require_active_partner("PARTNER_ACME"))
     assert first.partner_id == second.partner_id == "PARTNER_ACME"
     assert partner_gets["n"] == 2  # raw 404 + mapped 200; second call is cached
+
+
+def test_lookup_active_partner_returns_none_on_miss():
+    cfg = _staff_cfg()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == "http://kc/token":
+            return httpx.Response(200, json={"access_token": "tok"})
+        return httpx.Response(404)
+
+    client = PartnerManagementClient()
+    with (
+        patch(
+            "openg2p_registry_core.helpers.partner_management.get_partner_mgmt_settings",
+            return_value=cfg,
+        ),
+        patch(
+            "openg2p_registry_core.helpers.partner_management.httpx.AsyncClient",
+            _patched_client(handler),
+        ),
+    ):
+        partner = asyncio.run(client.lookup_active_partner("ghost"))
+    assert partner is None
+
+
+def test_canonical_partner_id_keeps_staff_mnemonic_when_unconfigured():
+    client = PartnerManagementClient()
+    with patch(
+        "openg2p_registry_core.helpers.partner_management.PartnerManagementClient.get_component",
+        return_value=client,
+    ), patch(
+        "openg2p_registry_core.helpers.partner_management.get_partner_mgmt_settings",
+        return_value=_empty_cfg(),
+    ):
+        result = asyncio.run(canonical_partner_id("Registry Staff Portal UI"))
+    assert result == "Registry Staff Portal UI"
+
+
+def test_canonical_partner_id_uses_pm_id_when_found():
+    cfg = _staff_cfg()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == "http://kc/token":
+            return httpx.Response(200, json={"access_token": "tok"})
+        if str(request.url).endswith("/partners/PARTNER_ACME"):
+            return httpx.Response(
+                200,
+                json={"partner_id": "PARTNER_ACME", "name": "Acme", "status": "active"},
+            )
+        return httpx.Response(404)
+
+    client = PartnerManagementClient()
+    with (
+        patch(
+            "openg2p_registry_core.helpers.partner_management.PartnerManagementClient.get_component",
+            return_value=client,
+        ),
+        patch(
+            "openg2p_registry_core.helpers.partner_management.get_partner_mgmt_settings",
+            return_value=cfg,
+        ),
+        patch(
+            "openg2p_registry_core.helpers.partner_management.httpx.AsyncClient",
+            _patched_client(handler),
+        ),
+    ):
+        result = asyncio.run(canonical_partner_id("acme"))
+    assert result == "PARTNER_ACME"
+
+
+def test_canonical_partner_id_keeps_original_on_miss():
+    cfg = _staff_cfg()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == "http://kc/token":
+            return httpx.Response(200, json={"access_token": "tok"})
+        return httpx.Response(404)
+
+    client = PartnerManagementClient()
+    with (
+        patch(
+            "openg2p_registry_core.helpers.partner_management.PartnerManagementClient.get_component",
+            return_value=client,
+        ),
+        patch(
+            "openg2p_registry_core.helpers.partner_management.get_partner_mgmt_settings",
+            return_value=cfg,
+        ),
+        patch(
+            "openg2p_registry_core.helpers.partner_management.httpx.AsyncClient",
+            _patched_client(handler),
+        ),
+    ):
+        result = asyncio.run(canonical_partner_id("Registry Staff Portal UI"))
+    assert result == "Registry Staff Portal UI"
 
 
 def test_require_active_partner_cache_can_be_disabled():

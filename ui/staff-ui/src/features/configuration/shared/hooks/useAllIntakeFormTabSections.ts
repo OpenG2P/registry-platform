@@ -16,7 +16,8 @@ export function useAllIntakeFormTabSections(page?: number, pageSize?: number, ta
                 page_size: pageSize,
                 tab_id: tabId
             })
-        }
+        },
+        enabled: !!tabId,
     });
 
     return {

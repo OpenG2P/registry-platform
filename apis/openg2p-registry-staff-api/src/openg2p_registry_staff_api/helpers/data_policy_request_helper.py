@@ -1,16 +1,6 @@
-from fastapi import Request
-
-from iam_core.user_auth.middleware.data_policy import (
-    STATE_KEY_DATA_POLICY_MNEMONICS,
-    STATE_KEY_DATA_POLICIES,
+from openg2p_registry_core.helpers.data_policy_request_helper import (
+    get_data_policies,
+    get_data_policy_mnemonics,
 )
 
-
-def get_data_policy_mnemonics(request: Request) -> list[str]:
-    """Read the DP_ policy mnemonics extracted from the token by DataPolicyMiddleware."""
-    return list(getattr(request.state, STATE_KEY_DATA_POLICY_MNEMONICS, []) or [])
-
-
-def get_data_policies(request: Request) -> list[dict]:
-    """Read the complete data policies retrieved from IAM by DataPolicyMiddleware."""
-    return list(getattr(request.state, STATE_KEY_DATA_POLICIES, []) or [])
+__all__ = ["get_data_policies", "get_data_policy_mnemonics"]

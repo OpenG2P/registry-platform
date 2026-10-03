@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar } from '@/components/shared';
-import { useFetch, usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import { useAllIntakeForms } from '@/features/configuration/shared/hooks/useAllIntakeForms';
@@ -19,22 +18,25 @@ const IntakeFormPage = () => {
     const t = useTranslations();
     const router = useRouter();
     const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = usePageSize();
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
     const [modalType, setModalType] = useState<'add' | 'edit' | 'view' | null>(null);
     const [showPopup, setShowPopup] = useState(false);
     const [selectedItem, setSelectedItem] = useState<any>(null);
     const { execute: deleteIntakeForm } = useFetch();
 
-    const { config } = useRuntimeConfig();
-
     const { can } = useRbac();
     const canCreate = can(CONFIGURATION_INTAKE_FORM_ACTIONS.edit);
 
-    const { intake_forms, pagination, loading, refresh } = useAllIntakeForms(currentPage, config.pageSize);
+    const { intake_forms, pagination, loading, refresh } = useAllIntakeForms(currentPage, pageSize);
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: intake_forms?.length || 0,
     });
 

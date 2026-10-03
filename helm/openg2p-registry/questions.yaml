@@ -581,7 +581,9 @@ questions:
     audience. Derived from the Certify Hostname above — set that instead, and
     only override here if Certify's allowed-audiences was customised.
   type: string
-  default: https://<certify-hostname>/v1/certify/issuance/credential
+  # Same templated default as values.yaml, so leaving it untouched keeps the
+  # hostname derivation instead of writing a literal placeholder into values.
+  default: 'https://{{ tpl .Values.global.certifyHostname $ }}'
   label: Certify Proof Audience
   group: VC Issuance
   show_if: agentPortalApi.vcIssuance.enabled=true

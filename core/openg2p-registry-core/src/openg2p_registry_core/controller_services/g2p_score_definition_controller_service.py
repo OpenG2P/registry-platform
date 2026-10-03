@@ -1,9 +1,7 @@
 import logging
 from typing import Tuple
 
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.schemas import G2PPaginationResponse
 from openg2p_fastapi_common.service import BaseService
 
@@ -34,7 +32,7 @@ class G2PScoreDefinitionControllerService(BaseService):
         page_size = pagination.page_size
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             score_definitions_data, total = await g2p_score_compute_service.get_score_definitions_for_register(
                 register_id=register_id,
@@ -59,7 +57,7 @@ class G2PScoreDefinitionControllerService(BaseService):
         payload = create_score_definition_request.request_body.request_payload
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             score_definition_data: ScoreDefinitionData = await g2p_score_compute_service.create_score_definition(
                 register_id=payload.register_id,
@@ -77,7 +75,7 @@ class G2PScoreDefinitionControllerService(BaseService):
         payload = update_score_definition_request.request_body.request_payload
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             score_definition_data = await g2p_score_compute_service.update_score_definition(
                 score_definition_id=payload.score_definition_id,
@@ -95,7 +93,7 @@ class G2PScoreDefinitionControllerService(BaseService):
         payload = delete_score_definition_request.request_body.request_payload
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             deleted_id = await g2p_score_compute_service.delete_score_definition(
                 score_definition_id=payload.score_definition_id,

@@ -5,23 +5,25 @@
 # of time, and lets multiple registry instances coexist (each registers under
 # its own Keycloak client_id == application_mnemonic).
 #
-# Runs as a post-install/post-upgrade hook AFTER keycloak-init (so the
-# per-release client + client_secret exist). The Keycloak client may still be
-# provisioning when this starts, so the token/register steps retry.
+# Hook annotations come from values (not hardcoded) because Rancher/commons
+# skip Helm hooks — null iamRegister.annotations there so this Job is applied
+# as a regular resource. Revision suffix lets upgrades create a fresh Job
+# (Job specs are immutable). Token/register steps retry while Keycloak/IAM
+# finish coming up.
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-iam-register
+  name: {{ .Release.Name }}-{{ .Chart.Name }}-iam-register-{{ .Release.Revision }}
   labels:
     app.kubernetes.io/name: iam-register
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-  annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "20"
-    helm.sh/hook-delete-policy: before-hook-creation
+  {{- with .Values.iamRegister.annotations }}
+  annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   backoffLimit: {{ .Values.iamRegister.backoffLimit | default 5 }}
+  ttlSecondsAfterFinished: {{ .Values.iamRegister.ttlSecondsAfterFinished | default 600 }}
   template:
     metadata:
       labels:
@@ -65,6 +67,12 @@ spec:
               value: {{ tpl .Values.global.authClientId $ | quote }}
             - name: APP_URL
               value: {{ printf "https://%s" (tpl .Values.global.registryHostname $) | quote }}
+            - name: APP_API_URL
+              {{- if .Values.iamRegister.apiUrl }}
+              value: {{ tpl .Values.iamRegister.apiUrl $ | quote }}
+              {{- else }}
+              value: {{ printf "https://%s" (tpl .Values.staffApi.hostname $) | quote }}
+              {{- end }}
             # Human-readable name of THIS registry in the IAM tile. Values-driven
             # so a variant chart (e.g. a farmer or social registry) names itself correctly — the
             # payload file lives in this chart and a wrapper cannot override it.
@@ -82,9 +90,10 @@ spec:
           args:
             - |
               set -eu
-              echo "Building registration payload for ${APP_MNEMONIC} -> ${APP_URL}"
+              echo "Building registration payload for ${APP_MNEMONIC} -> ${APP_URL} (api ${APP_API_URL})"
               sed -e "s|__APPLICATION_MNEMONIC__|${APP_MNEMONIC}|g" \
                   -e "s|__APPLICATION_URL__|${APP_URL}|g" \
+                  -e "s|__API_URL__|${APP_API_URL}|g" \
                   -e "s|__APPLICATION_DESCRIPTION__|${APP_DESCRIPTION}|g" \
                   /payload/payload.json > /tmp/body.json
 
@@ -159,5 +168,5 @@ spec:
       volumes:
         - name: payload
           configMap:
-            name: {{ .Release.Name }}-iam-register-payload
+            name: {{ .Release.Name }}-{{ .Chart.Name }}-iam-register-payload
 {{- end }}

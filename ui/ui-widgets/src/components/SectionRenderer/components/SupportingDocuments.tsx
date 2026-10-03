@@ -26,7 +26,7 @@ export const SupportingDocuments = ({
 }: SupportingDocumentsProps) => {
   const { t } = useWidgetContext();
 
-  if (documents.length === 0) return null;
+  if (mode === 'IntakeForm' || documents.length === 0) return null;
 
   const title = t?.('common.supportedDocuments') || 'Supported Documents';
 

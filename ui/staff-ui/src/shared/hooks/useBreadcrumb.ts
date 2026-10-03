@@ -11,7 +11,6 @@ interface BreadcrumbItem {
 
 interface BreadcrumbOptions {
     registerType?: string;
-    functionalRecordId?: string | null;
     recordName?: string | null;
     internalRecordId?: string | null;
     changeId?: string;
@@ -27,17 +26,14 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
     const tabsCtx = useContext(RegisterTabsContext);
 
     const currentRegister = registerCtx?.currentRegister;
-    const activeTab = tabsCtx?.activeTab;
     const activeTabId = tabsCtx?.activeTabId;
 
     const searchParams = useSearchParams();
     const {
         registerType,
-        functionalRecordId,
         recordName,
         internalRecordId,
         changeId,
-        includeActiveTab = false,
         includeChangeRequest = false,
         customItems = [],
         rootItem,
@@ -57,27 +53,32 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
                 href: `/register/${registerType}${search ? `?${search}` : ''}`,
             });
 
-            if (internalRecordId && activeTab) {
-                const recordLabel = includeActiveTab
-                    ? `${recordName} - ${functionalRecordId} - ${t(activeTab.tab_label) ?? activeTab.tab_label}`
-                    : `${recordName} - ${functionalRecordId}`;
+            if (internalRecordId && recordName?.trim()) {
                 items.push({
-                    label: recordLabel,
+                    label: recordName,
                     href: `/register/${registerType}/${internalRecordId}${search ? `?${search}` : ''}`,
                 });
             }
 
             if (includeChangeRequest && internalRecordId) {
+                const params = new URLSearchParams();
+                if (activeTabId) params.set('tab', activeTabId);
+                if (recordName?.trim()) params.set('record_name', recordName.trim());
+                const qs = params.toString();
                 items.push({
                     label: t('change_request') ?? 'Change Request',
-                    href: `/register/${registerType}/${internalRecordId}/change-request${activeTabId ? `?tab=${activeTabId}` : ''}`,
+                    href: `/register/${registerType}/${internalRecordId}/change-request${qs ? `?${qs}` : ''}`,
                 });
             }
 
             if (changeId && internalRecordId) {
+                const params = new URLSearchParams();
+                if (activeTabId) params.set('tab', activeTabId);
+                if (recordName?.trim()) params.set('record_name', recordName.trim());
+                const qs = params.toString();
                 items.push({
-                    label: changeId,
-                    href: `/register/${registerType}/${internalRecordId}/change-request/${changeId}${activeTabId ? `?tab=${activeTabId}` : ''}`,
+                    label: recordName?.trim() || "",
+                    href: `/register/${registerType}/${internalRecordId}/change-request/${changeId}${qs ? `?${qs}` : ''}`,
                 });
             }
         }
@@ -88,12 +89,9 @@ export function useBreadcrumb(options: BreadcrumbOptions) {
     }, [
         currentRegister,
         registerType,
-        functionalRecordId,
         internalRecordId,
         changeId,
-        includeActiveTab,
         includeChangeRequest,
-        activeTab,
         activeTabId,
         customItems,
         rootItem,

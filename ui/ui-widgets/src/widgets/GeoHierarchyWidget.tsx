@@ -3,6 +3,7 @@ import { useWidgetContext } from '../components/WidgetProvider';
 import { BaseWidgetConfig } from '../types';
 import { useGeoHierarchy } from '../hooks/useGeoHierarchy';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
+import { owtFieldInputClass } from '../theme';
 import {
   GeoFormStep,
   GeoLevel,
@@ -15,11 +16,11 @@ interface GeoHierarchyWidgetProps {
 }
 
 const selectClassName = (showError: boolean, disabled: boolean) =>
-  `w-full sm:w-[180px] max-w-full h-[30px] px-3 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-    showError
-      ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-      : 'border-gray-300'
-  } ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`;
+  owtFieldInputClass({
+    error: showError,
+    disabled,
+    className: 'w-full sm:w-[180px] max-w-full h-[30px] px-3 owt-shadow-sm',
+  });
 
 function resolveDisplayValue(
   levelId: string,
@@ -52,7 +53,7 @@ function ReadonlyLevelRow({
   return (
     <div className="mb-[10px] SelectDisplayWidget flex flex-col sm:flex-row sm:items-start">
       <div
-        className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
+        className="text-base owt-field-label font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
         style={{ fontFamily: 'Roboto, sans-serif' }}
         title={level.level_mnemonic}
       >
@@ -60,7 +61,7 @@ function ReadonlyLevelRow({
       </div>
       <div className="flex-1">
         <div
-          className="text-base text-gray-900 font-medium"
+          className="text-base owt-text font-medium"
           style={{ fontFamily: 'Roboto, sans-serif' }}
           title={displayValue}
         >
@@ -107,20 +108,23 @@ function renderFormSteps({
       const level = step.level;
       const levelOptions = options[level.level_id] || [];
       const isLoading = loadingLevelId === level.level_id;
-      const disabled = !isEnabled || loadingLevels || isLoading;
+      const parentId = level.parent_level_id;
+      const parentUnselected = Boolean(parentId) && !selectedValues[parentId ?? ''];
+      const disabled = !isEnabled || loadingLevels || isLoading || parentUnselected;
       const levelHasValue = Boolean(selectedValues[level.level_id]);
       const showLevelError =
-        (isRequired && !isComplete && !levelHasValue) ||
-        (touched && hasError && !levelHasValue);
+        !parentUnselected &&
+        ((isRequired && !isComplete && !levelHasValue) ||
+          (touched && hasError && !levelHasValue));
       const label = formatLevelLabel(level.level_mnemonic);
 
       return (
         <div key={step.key} className="mb-[10px]">
           <div className="flex flex-col sm:flex-row sm:items-start">
             <WidgetFieldLabel
-              className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+              className="text-base font-medium owt-field-label md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
               label={label}
-              required={isRequired && (!isComplete || levelHasValue)}
+              required={isRequired}
             />
             <div className="flex-1 min-w-0">
               <select
@@ -153,19 +157,21 @@ function renderFormSteps({
       ? encodeGeoSelectValue(chosen.level_id, selectedValues[chosen.level_id])
       : '';
     const forkLoading = step.levels.some((level) => loadingLevelId === level.level_id);
-    const disabled = !isEnabled || loadingLevels || forkLoading;
+    const parentUnselected = !selectedValues[step.parentLevel.level_id];
+    const disabled = !isEnabled || loadingLevels || forkLoading || parentUnselected;
     const showLevelError =
-      (isRequired && !isComplete && !encodedValue) ||
-      (touched && hasError && !encodedValue);
+      !parentUnselected &&
+      ((isRequired && !isComplete && !encodedValue) ||
+        (touched && hasError && !encodedValue));
 
     return (
       <div key={step.key} className="mb-[10px]">
         <div className="flex flex-col sm:flex-row sm:items-start">
-          <WidgetFieldLabel
-            className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
-            label={formatLevelLabel(activeLevel.level_mnemonic)}
-            required={isRequired && (!isComplete || Boolean(encodedValue))}
-          />
+            <WidgetFieldLabel
+              className="text-base font-medium owt-field-label md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+              label={formatLevelLabel(activeLevel.level_mnemonic)}
+              required={isRequired}
+            />
           <div className="flex-1 min-w-0">
             <select
               value={encodedValue}
@@ -284,7 +290,7 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
                   className="hidden lg:block absolute right-0 top-0 w-px"
                   style={{
                     bottom: '5px',
-                    backgroundColor: 'var(--owt-color-primary, #F5BB1A)',
+                    backgroundColor: 'var(--owt-color-primary)',
                   }}
                 />
               )}
@@ -332,13 +338,13 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
       {isReadonly ? readonlyContent : editContent}
 
       {loadingLevels && levels.length === 0 && (
-        <p className="text-sm text-gray-500 mb-[10px]">{t?.('common.loadingOptions')}</p>
+        <p className="text-sm owt-text-muted mb-[10px]">{t?.('common.loading')}</p>
       )}
 
-      {geoError && <p className="text-red-500 text-sm mb-[10px]">{geoError}</p>}
+      {geoError && <p className="owt-field-error text-sm mb-[10px]">{geoError}</p>}
 
       {!isReadonly && touched && hasError && (
-        <p className="text-red-500 text-sm mb-[10px]">
+        <p className="owt-field-error text-sm mb-[10px]">
           {error[0] || 'This field is required'}
         </p>
       )}

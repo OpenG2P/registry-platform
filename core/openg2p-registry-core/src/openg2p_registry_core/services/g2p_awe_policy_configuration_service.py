@@ -2,10 +2,13 @@ import logging
 import uuid
 from typing import List
 
-from openg2p_fastapi_common.context import dbengine
+from fastapi_cache import FastAPICache
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import (
@@ -33,7 +36,7 @@ class G2PAwePolicyConfigurationService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[AwePolicyConfigurationData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             query = (
                 select(G2PRegistryAwePolicyConfiguration)
@@ -53,7 +56,7 @@ class G2PAwePolicyConfigurationService(BaseService):
             return [AwePolicyConfigurationData.model_validate(r) for r in rows], total_items
 
     async def get_awe_policy_configuration(self, awe_policy_config_id: str) -> List[AwePolicyConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row = await self._get_configuration_or_error(awe_policy_config_id, session)
             return [AwePolicyConfigurationData.model_validate(row)]
@@ -68,7 +71,7 @@ class G2PAwePolicyConfigurationService(BaseService):
         policy_key: str,
         context_field_names: list | None,
     ) -> List[AwePolicyConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_exists(register_id, session)
             scope_enum = self._parse_and_validate_scope(policy_scope, intake_form_id, section_id)
@@ -99,7 +102,7 @@ class G2PAwePolicyConfigurationService(BaseService):
         policy_key: str | None,
         context_field_names: list | None,
     ) -> List[AwePolicyConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row = await self._get_configuration_or_error(awe_policy_config_id, session)
 
@@ -135,7 +138,7 @@ class G2PAwePolicyConfigurationService(BaseService):
             return [AwePolicyConfigurationData.model_validate(row)]
 
     async def delete_awe_policy_configuration(self, awe_policy_config_id: str) -> List[AwePolicyConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row = await self._get_configuration_or_error(awe_policy_config_id, session)
             data = AwePolicyConfigurationData.model_validate(row)

@@ -8,17 +8,15 @@ import { useRouter } from '@/i18n/navigation';
 import { TopBar } from '@/components/shared';
 import { IncomingMessageCardSkeleton, IncomingMessageList } from '@/features/messages/components';
 import { useIncomingMessagesList } from '@/features/messages/hooks/useIncomingMessagesList';
-import { usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePagination, usePageSize } from '@/shared/hooks';
 
 export default function IncomingMessagesPage() {
     const router = useRouter();
     const t = useTranslations();
-    const { config } = useRuntimeConfig();
+    const pageSize = usePageSize();
 
     const searchParams = useSearchParams();
     const searchQuery = searchParams.get('search') || undefined;
-    const pageSize = config.pageSize || 10;
 
     const {
         messages,

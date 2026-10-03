@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar } from '@/components/shared';
-import { useFetch, usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import Can from '@/components/shared/Can';
@@ -38,6 +37,11 @@ const OutgestTopicsPage = () => {
     const t = useTranslations();
 
     const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = usePageSize();
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
     const [modalType, setModalType] = useState<'add' | 'edit' | 'view' | null>(null);
     const [selectedItem, setSelectedItem] = useState<OutgestTopic | null>(null);
     const [showPopup, setShowPopup] = useState(false);
@@ -102,19 +106,17 @@ const OutgestTopicsPage = () => {
         setSelectedItem(null);
     };
 
-    const { config } = useRuntimeConfig();
-
     const { can } = useRbac();
     const canCreate = can(CONFIGURATION_OUTGESTION_TOPICS_ACTIONS.create)
     const canEdit = can(CONFIGURATION_OUTGESTION_TOPICS_ACTIONS.edit);
 
-    const { topics, pagination, loading, refresh } = useAllOutgestTopics(currentPage, config.pageSize);
+    const { topics, pagination, loading, refresh } = useAllOutgestTopics(currentPage, pageSize);
 
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: topics.length,
     });
 

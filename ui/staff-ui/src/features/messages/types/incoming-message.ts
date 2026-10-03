@@ -32,7 +32,7 @@ export interface IncomingMessage {
 
     semantic_pattern_id?: string;
     template_id?: string;
-    template_file_id?: string;
+    template_document_id?: string;
 
     pipeline_action?: string | null;
 

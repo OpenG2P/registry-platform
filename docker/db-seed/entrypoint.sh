@@ -62,11 +62,12 @@ run_sql_files() {
   fi
 
   echo "[db-seed] Running ${label} on ${db_name}@${db_host}:${db_port} ..."
-  PGHOST="$db_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user" PGPASSWORD="$db_password"
-  export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+  # Prefix PG* for this psql only. Exporting would leak AWE DSN into later
+  # Python loaders that read PGDATABASE as the registry.
   for f in $sql_files; do
     echo "[db-seed]   -> $(basename "$f")"
-    psql -v ON_ERROR_STOP=0 -f "$f"
+    PGHOST="$db_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user" PGPASSWORD="$db_password" \
+      psql -v ON_ERROR_STOP=0 -f "$f"
   done
   echo "[db-seed] ${label} completed."
 }
@@ -90,9 +91,14 @@ run_callback_secret() {
   AWE_CALLBACK_SECRET_ID="${AWE_CALLBACK_SECRET_ID:-registry}"
   echo "[db-seed]   -> callback_secret (AWE DB, from template) id=${AWE_CALLBACK_SECRET_ID} caller_service=${AWE_CALLBACK_CALLER_SERVICE}"
   export AWE_CALLBACK_HMAC_SECRET AWE_CALLBACK_SECRET_ID AWE_CALLBACK_CALLER_SERVICE
-  PGHOST="${AWE_PGHOST}" PGPORT="${AWE_PGPORT:-5432}" PGDATABASE="${AWE_PGDATABASE}" \
-    PGUSER="${AWE_PGUSER}" PGPASSWORD="${AWE_PGPASSWORD}" \
-    envsubst '${AWE_CALLBACK_HMAC_SECRET} ${AWE_CALLBACK_SECRET_ID} ${AWE_CALLBACK_CALLER_SERVICE}' < "$tpl" | psql -v ON_ERROR_STOP=0 -f -
+  # The PG* overrides must sit on psql, the LAST command of the pipeline. Put on
+  # envsubst they only scope that command, and psql inherits the registry PG*
+  # values: the callback_secret row then lands in the registry DB and AWE
+  # rejects every webhook signature.
+  envsubst '${AWE_CALLBACK_HMAC_SECRET} ${AWE_CALLBACK_SECRET_ID} ${AWE_CALLBACK_CALLER_SERVICE}' < "$tpl" \
+    | PGHOST="${AWE_PGHOST}" PGPORT="${AWE_PGPORT:-5432}" PGDATABASE="${AWE_PGDATABASE}" \
+      PGUSER="${AWE_PGUSER}" PGPASSWORD="${AWE_PGPASSWORD}" \
+      psql -v ON_ERROR_STOP=0 -f -
 }
 
 echo "============================================="

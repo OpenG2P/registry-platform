@@ -22,6 +22,7 @@ export function useScoreDefinitions(
                 pageSize,
             }),
         },
+        enabled: !!registerId,
     });
 
     const scoreDefinitions = [...(data?.scoreDefinitions ?? [])].sort((a, b) =>

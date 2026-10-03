@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar } from '@/components/shared';
 import { useAllSemanticPatterns, useIncomingSemanticPattern } from '@/features/configuration/shared';
-import { usePagination, useFetch } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePagination, useFetch, usePageSize } from '@/shared/hooks';
 import { useTranslations } from 'next-intl';
 import { IncomingSemanticPattern } from '@/features/configuration/shared/hooks/useAllSemanticPatterns';
 import { toast } from 'react-toastify';
@@ -19,19 +18,23 @@ const SemanticPatternsPage = () => {
     const t = useTranslations();
     const [modalType, setModalType] = useState<'add' | 'edit' | 'view' | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = usePageSize();
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
     const [showPopup, setShowPopup] = useState(false);
     const [selectedItem, setSelectedItem] = useState<IncomingSemanticPattern | null>(null);
 
-    const { config } = useRuntimeConfig();
     const { can } = useRbac();
-    const { semanticPatterns, pagination, loading, refresh } = useAllSemanticPatterns(currentPage, config.pageSize);
+    const { semanticPatterns, pagination, loading, refresh } = useAllSemanticPatterns(currentPage, pageSize);
     const { selectedSemanticPattern, fetchSemanticPattern } = useIncomingSemanticPattern();
     const { execute: deletePattern } = useFetch();
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: semanticPatterns.length,
     });
 

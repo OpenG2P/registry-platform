@@ -1,17 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useFetch } from '@/shared/hooks';
-
-interface OutgoingMessage {
-    outgest_id: string;
-    queued_datetime: string;
-    source_register: string;
-    record_id: string;
-    source_change_request_id: string;
-    topic_resolution: string;
-    topic_resolution_datetime: string;
-    number_of_topics_resolved: number;
-    topic_names: string[];
-}
+import { OutgoingMessage } from '@/features/messages/types';
 
 interface UseOutgoingMessagesListOptions {
     pageSize?: number;
@@ -27,6 +16,10 @@ export function useOutgoingMessagesList({
     enabled = true,
 }: UseOutgoingMessagesListOptions) {
     const [currentPage, setCurrentPage] = useState(initialPage);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize, searchText]);
 
     const { data, loading } = useFetch<any>({
         url: '/api/outgoing-message/get/list',

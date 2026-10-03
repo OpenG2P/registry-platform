@@ -1,9 +1,13 @@
 "use client";
 
+import { useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
+import { SlidersHorizontal } from "lucide-react";
 import { FilterConfig, FilterRule } from "@/features/filter/types";
 import { SearchBar } from "@/components/ui";
 import { useTranslations } from "next-intl";
+import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import FilterDropdown from "./FilterDropdown";
 
 const OPERATOR_KEYS: Record<string, string> = {
     eq: "filter_operator_eq",
@@ -22,6 +26,8 @@ const OPERATOR_KEYS: Record<string, string> = {
     between: "filter_operator_between",
 };
 
+const VISIBLE_FILTER_COUNT = 2;
+
 interface SelectedFiltersProps {
     appliedFilters: FilterRule[];
     filterConfig: FilterConfig[];
@@ -31,6 +37,10 @@ interface SelectedFiltersProps {
     searchPlaceholder?: string;
     onSearch?: (value: string) => void;
     pxClass?: string;
+    showFilters?: boolean;
+    filterLoading?: boolean;
+    onApplyFilters?: (filters: FilterRule[]) => void;
+    leading?: ReactNode;
 }
 
 export default function SelectedFilters({
@@ -41,10 +51,26 @@ export default function SelectedFilters({
     searchValue = '',
     searchPlaceholder,
     onSearch,
-    pxClass
+    pxClass,
+    showFilters = false,
+    filterLoading = false,
+    onApplyFilters,
+    leading,
 }: SelectedFiltersProps) {
     const t = useTranslations();
     const resolvedSearchPlaceholder = searchPlaceholder || t('search');
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [moreOpen, setMoreOpen] = useState(false);
+    const filterRef = useRef<HTMLDivElement>(null);
+    const moreRef = useRef<HTMLDivElement>(null);
+
+    useClickOutside(filterRef, () => setFilterOpen(false), filterOpen);
+    useClickOutside(moreRef, () => setMoreOpen(false), moreOpen);
+
+    const handleApplyFilters = (filters: FilterRule[]) => {
+        onApplyFilters?.(filters);
+        setFilterOpen(false);
+    };
 
     const getFilterLabel = (rule: FilterRule) => {
         const config = filterConfig.find((f) => f.field_name === rule.field_name);
@@ -61,10 +87,42 @@ export default function SelectedFilters({
         return `${t(config?.display_label || '')}: ${t(OPERATOR_KEYS[rule.operator] ?? rule.operator)} ${valueLabel || ''}`;
     };
 
+    const visibleFilters = appliedFilters.slice(0, VISIBLE_FILTER_COUNT);
+    const hiddenCount = Math.max(0, appliedFilters.length - VISIBLE_FILTER_COUNT);
+
+    const renderChip = (filter: FilterRule, index: number, truncate = false) => (
+        <div
+            key={`${filter.field_name}-${index}`}
+            className="h-8.5 flex items-center bg-primary-first/25 rounded-[10px] px-3 gap-2 text-neutral-first/50 text-[14px] font-normal leading-normal max-w-full"
+        >
+            <span className={truncate ? 'truncate max-w-55' : ''} title={getFilterLabel(filter)}>
+                {getFilterLabel(filter)}
+            </span>
+            <button
+                type="button"
+                onClick={() => {
+                    removeFilter(index);
+                    if (appliedFilters.length - 1 <= VISIBLE_FILTER_COUNT) {
+                        setMoreOpen(false);
+                    }
+                }}
+                aria-label={t('remove')}
+                className="shrink-0"
+            >
+                <Image src="/images/common/close.png" width={16} height={16} alt={t('common.remove')} />
+            </button>
+        </div>
+    );
+
     return (
         <div className="bg-neutral-second px-4 py-4 mb-2 flex items-center rounded-[10px] gap-4">
-            <div className="flex flex-wrap items-center gap-4 flex-1">
-                <span className="w-27.5 font-normal text-[16px] text-neutral-first pl-1 truncate" title={t('selected_filters')}>
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+                {leading ? (
+                    <div className="flex items-center shrink-0 pr-4 border-r border-secondary-second -ml-2 sm:ml-0 lg:ml-2">
+                        {leading}
+                    </div>
+                ) : null}
+                <span className="w-27.5 shrink-0 font-normal text-[16px] text-neutral-first pl-1 truncate" title={t('selected_filters')}>
                     {t('selected_filters')}
                 </span>
 
@@ -73,43 +131,83 @@ export default function SelectedFilters({
                         {t('none')}
                     </div>
                 ) : (
-                    appliedFilters.map((filter, index) => (
-                        <div
-                            key={index}
-                            className="h-8.5 flex items-center bg-primary-first/25 rounded-[10px] px-3 gap-2 text-neutral-first/50 text-[14px] font-normal leading-normal"
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {visibleFilters.map((filter, index) => renderChip(filter, index, true))}
+                        {hiddenCount > 0 ? (
+                            <div className="relative shrink-0" ref={moreRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => setMoreOpen((open) => !open)}
+                                    className="h-8.5 px-3 rounded-[10px] bg-primary-first/25 text-[14px] font-medium text-primary-second whitespace-nowrap"
+                                >
+                                    {t.has('n_more')
+                                        ? t('n_more', { count: hiddenCount })
+                                        : `+${hiddenCount} more`}
+                                </button>
+                                {moreOpen ? (
+                                    <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-80 max-h-72 overflow-y-auto modal-scroll bg-neutral-second border border-primary-second rounded-[10px] shadow-lg p-3 flex flex-col gap-2">
+                                        {appliedFilters.slice(VISIBLE_FILTER_COUNT).map((filter, offset) =>
+                                            renderChip(filter, offset + VISIBLE_FILTER_COUNT),
+                                        )}
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setMoreOpen(false);
+                                clearAllFilters();
+                            }}
+                            className="text-primary-second text-sm shrink-0 whitespace-nowrap"
                         >
-                            <span>{getFilterLabel(filter)}</span>
-                            <button
-                                onClick={() => removeFilter(index)}
-                                aria-label={t('remove')}
-                            >
-                                <Image src="/images/common/close.png" width={16} height={16} alt={t('common.remove')} />
-                            </button>
-                        </div>
-                    ))
-                )}
-
-                {appliedFilters.length > 0 && (
-                    <button
-                        onClick={clearAllFilters}
-                        className="text-primary-second text-sm"
-                    >
-                        {t('clear_all')}
-                    </button>
+                            {t('clear_all')}
+                        </button>
+                    </div>
                 )}
             </div>
 
             {onSearch && (
-                <div className="ml-auto shrink-0 border border-primary-second rounded-[10px] h-8.5 flex items-center bg-neutral-second">
-                    <SearchBar
-                        placeholder={resolvedSearchPlaceholder}
-                        category=""
-                        searchValue={searchValue}
-                        iconSize={16}
-                        onSearch={onSearch}
-                        pxClass={pxClass}
-                        textClass="text-[16px]"
-                    />
+                <div className="relative ml-auto shrink-0" ref={filterRef}>
+                    <div className="w-[360px] border border-primary-second rounded-[10px] h-8.5 flex items-center bg-neutral-second">
+                        {showFilters && (
+                            <button
+                                type="button"
+                                aria-label={t.has('filters') ? t('filters') : 'Filter'}
+                                aria-expanded={filterOpen}
+                                disabled={filterLoading}
+                                onClick={() => setFilterOpen((open) => !open)}
+                                className="h-full flex items-center pl-2.5 pr-2 border-r border-primary-second/40 text-neutral-first disabled:opacity-50"
+                            >
+                                <SlidersHorizontal size={16} strokeWidth={2.5} />
+                            </button>
+                        )}
+                        <SearchBar
+                            placeholder={resolvedSearchPlaceholder}
+                            category=""
+                            searchValue={searchValue}
+                            iconSize={16}
+                            onSearch={onSearch}
+                            pxClass={pxClass}
+                            textClass="text-[16px]"
+                        />
+                    </div>
+
+                    {filterOpen && !filterLoading && (
+                        <>
+                            <div className="absolute left-[12px] top-[calc(100%+8px-9px)] z-[60] bg-neutral-second border-t border-r border-primary-first w-[20px] h-[20px] -rotate-45 rounded-[2px] shadow-[0_0_4px_0_rgba(0,0,0,0.25)] [clip-path:polygon(-20px_-20px,_40px_-20px,_40px_40px)]" />
+                            <div className="absolute right-0 top-[calc(100%+8px)] z-50">
+                                <div className="relative z-10">
+                                    <FilterDropdown
+                                        onApply={handleApplyFilters}
+                                        onClose={() => setFilterOpen(false)}
+                                        appliedFilters={appliedFilters}
+                                        filterConfig={filterConfig}
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>

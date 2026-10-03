@@ -132,6 +132,10 @@ class PartnerManagementClient(BaseService):
     def _keys_configured(self, cfg: Any) -> bool:
         return bool((getattr(cfg, "partner_mgmt_api_url", "") or "").strip())
 
+    def is_configured(self, cfg: Any | None = None) -> bool:
+        cfg = cfg or self._settings()
+        return self._admin_configured(cfg) or self._keys_configured(cfg)
+
     def _timeout(self, cfg: Any) -> float:
         return float(getattr(cfg, "partner_mgmt_timeout_seconds", 5.0) or 5.0)
 
@@ -211,7 +215,10 @@ class PartnerManagementClient(BaseService):
             return RegisteredPartner(partner_id=partner_id, status="active")
         return None
 
-    async def require_active_partner(self, sender_or_mnemonic: str) -> RegisteredPartner:
+    async def lookup_active_partner(
+        self, sender_or_mnemonic: str
+    ) -> Optional[RegisteredPartner]:
+        """Return an active Partner Management partner, or None if missing/inactive."""
         mapped = partner_reference_id(sender_or_mnemonic)
         candidates = []
         raw = (sender_or_mnemonic or "").strip()
@@ -220,6 +227,9 @@ class PartnerManagementClient(BaseService):
         if mapped and mapped not in candidates:
             candidates.append(mapped)
 
+        if not candidates:
+            return None
+
         cfg = self._settings()
         ttl = self._cache_ttl(cfg)
 
@@ -227,15 +237,10 @@ class PartnerManagementClient(BaseService):
             for candidate in candidates:
                 hit, cached = self._cache_get(candidate)
                 if hit:
-                    if cached is None:
-                        self._not_registered()
                     return cached
 
-        if not self._admin_configured(cfg) and not self._keys_configured(cfg):
-            partner_id = mapped or raw
-            if not partner_id:
-                self._not_registered()
-            return RegisteredPartner(partner_id=partner_id)
+        if not self.is_configured(cfg):
+            return RegisteredPartner(partner_id=mapped or raw)
 
         async with httpx.AsyncClient() as client:
             for candidate in candidates:
@@ -253,4 +258,30 @@ class PartnerManagementClient(BaseService):
                     return partner
 
         self._cache_put(candidates, None, ttl)
-        self._not_registered()
+        return None
+
+    async def require_active_partner(self, sender_or_mnemonic: str) -> RegisteredPartner:
+        partner = await self.lookup_active_partner(sender_or_mnemonic)
+        if partner is None:
+            self._not_registered()
+        assert partner is not None
+        return partner
+
+
+async def canonical_partner_id(sender_or_mnemonic: str | None) -> str | None:
+    """Resolve a stored sender/mnemonic to the Partner Management partner_id.
+
+    Unconfigured PM, missing records, and staff UI mnemonics keep the original
+    string. Ingest still uses ``require_active_partner`` and rejects those.
+    """
+    if not sender_or_mnemonic:
+        return sender_or_mnemonic
+    client = PartnerManagementClient.get_component()
+    if client is None:
+        client = PartnerManagementClient()
+    if not client.is_configured():
+        return sender_or_mnemonic
+    partner = await client.lookup_active_partner(sender_or_mnemonic)
+    if partner is None:
+        return sender_or_mnemonic
+    return partner.partner_id

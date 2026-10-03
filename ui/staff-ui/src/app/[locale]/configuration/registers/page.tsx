@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar } from '@/components/shared';
 import { RegistersConfigView } from '@/features/configuration/registers';
 import { useAllRegister } from '@/features/configuration/shared';
-import { usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { CONFIGURATION_REGISTERS_ACTIONS } from '@/features/shared/permissions';
 import { useTranslations } from 'next-intl';
@@ -14,19 +13,21 @@ const RegistersConfigurationPage = () => {
     const t = useTranslations();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = usePageSize();
 
-    // Env. variable config
-    const { config } = useRuntimeConfig();
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
 
     const { can } = useRbac();
     const canCreate = can(CONFIGURATION_REGISTERS_ACTIONS.create);
 
-    const { registers, pagination, loading, refresh } = useAllRegister(currentPage, config.pageSize);
+    const { registers, pagination, loading, refresh } = useAllRegister(currentPage, pageSize);
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: registers.length,
     });
 

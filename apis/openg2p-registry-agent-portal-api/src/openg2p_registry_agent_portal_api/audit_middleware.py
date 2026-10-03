@@ -161,6 +161,10 @@ class AuditMiddleware(BaseHTTPMiddleware):
         self._state_key = state_key
         self._audit_anonymous_failures = audit_anonymous_failures
         self._client: httpx.AsyncClient | None = None
+        # Strong references to in-flight emissions: the event loop keeps only
+        # weak references to tasks, so an unreferenced task can be collected
+        # before it runs.
+        self._tasks: set[asyncio.Task] = set()
 
         if self._enabled:
             _logger.info(
@@ -260,7 +264,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
             event = self._build_event(
                 request, response, status_code, actor, route, raised
             )
-            asyncio.create_task(self._emit(event))
+            task = asyncio.create_task(self._emit(event))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
         except Exception:
             _logger.exception("AuditMiddleware: failed to build event; skipping")
 

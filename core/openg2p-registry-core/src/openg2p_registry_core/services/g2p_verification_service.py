@@ -2,11 +2,9 @@ import logging
 import uuid
 from datetime import datetime
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PIntakeFormSubmission, G2PRegisterChangeRequest, G2PRegisterVerification
 from ..schemas import AddVerificationPayload, VerificationData
@@ -26,7 +24,7 @@ class G2PRegisterVerificationService(BaseService):
     ) -> tuple[list[VerificationData], int]:
         """Get verifications for either a change request or an intake_form (exactly one target)."""
         self._validate_target_ids(change_request_id, submission_id)
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             if change_request_id:
@@ -63,7 +61,7 @@ class G2PRegisterVerificationService(BaseService):
         """Add verification for either change_request_id or submission_id (exactly one target)."""
         submission_id = getattr(payload, "submission_id", None)
         self._validate_target_ids(payload.change_request_id, submission_id)
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         verified_by = payload.verified_by
 
         async with session_maker() as session:

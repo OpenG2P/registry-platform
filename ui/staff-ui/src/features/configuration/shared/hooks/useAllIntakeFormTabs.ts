@@ -16,7 +16,8 @@ export function useAllIntakeFormTabs(page?: number, pageSize?: number, intakeFor
                 page_size: pageSize,
                 form_id: intakeFormId
             })
-        }
+        },
+        enabled: !!intakeFormId,
     });
 
     return {

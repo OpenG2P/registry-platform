@@ -8,3 +8,12 @@ export function tSchema(t: TFn | undefined, value?: string | null): string {
 
   return t?.(value, { defaultValue: value }) ?? value;
 }
+
+export function toTitleCase(value: string): string {
+  const normalized = value.trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  if (!normalized) return '';
+  return normalized
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}

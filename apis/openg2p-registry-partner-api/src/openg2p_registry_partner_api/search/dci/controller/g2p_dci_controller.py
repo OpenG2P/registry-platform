@@ -19,6 +19,7 @@ from ..helpers import (
     DciQueryHelper,
 )
 from ..services import G2PDciService
+from ....audit_context import set_audit_actor, set_audit_outcome
 from ....config import Settings
 
 _config = Settings.get_config()
@@ -71,6 +72,11 @@ class G2PDciController(BaseController):
                     "signature_validation_enabled=false — SKIPPING DCI envelope "
                     "signature verification (testing bypass; do not use in production)"
                 )
+            # The sender is proven only when its signature was checked.
+            set_audit_actor(
+                request, header.sender_id, verified=_config.signature_validation_enabled,
+                name=header.sender_uri,
+            )
 
             # --- 1b. Searches across subjects: allow-listed partners only ----
             bulk_refs = self._authorise_bulk(header, message)
@@ -112,6 +118,10 @@ class G2PDciController(BaseController):
             _logger.error(f"Error in search: {str(error_exception)}")
             error_response: DciSearchResponseEnvelope = self.request_response_helper.construct_error_response(
                 error_exception, dci_search_request_env
+            )
+            set_audit_outcome(
+                request, "failure",
+                reason=str(getattr(error_response.header, "status_reason_code", None) or "rjct"),
             )
             self._stamp_enforcement_meta(error_response)
             error_response.signature = await self._sign_response(error_response)

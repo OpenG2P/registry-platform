@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
                 tab_id: body.tab_id,
                 section_id: body.section_id,
                 internal_record_id: body.internal_record_id,
-                edit_action: body.edit_action,
                 change_payload: body.section_records,
                 documents: body.documents,
             },

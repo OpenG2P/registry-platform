@@ -16,7 +16,8 @@ export function useConfigTabs(registerId: string, page: number = 1, pageSize: nu
                 current_page: page,
                 page_size: pageSize
             })
-        }
+        },
+        enabled: !!registerId,
     });
 
     // Ascending order

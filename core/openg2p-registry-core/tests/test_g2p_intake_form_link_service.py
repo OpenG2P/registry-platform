@@ -18,12 +18,28 @@ _CORE_SRC = Path(__file__).resolve().parents[1] / "src" / "openg2p_registry_core
 _SERVICE_PATH = _CORE_SRC / "services" / "g2p_intake_form_link_service.py"
 
 
+# Stub modules live in sys.modules only while the service file is loaded, then
+# the previous entries come back. Left in place (or written onto the real
+# packages) they leak into every test module collected afterwards.
+_SAVED_MODULES: dict = {}
+
+
 def _ensure_pkg(name: str) -> ModuleType:
-    if name not in sys.modules:
+    if name not in _SAVED_MODULES:
+        _SAVED_MODULES[name] = sys.modules.get(name)
         mod = ModuleType(name)
         mod.__path__ = []  # type: ignore[attr-defined]
         sys.modules[name] = mod
     return sys.modules[name]
+
+
+def _restore_modules() -> None:
+    for name, previous in _SAVED_MODULES.items():
+        if previous is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
+    _SAVED_MODULES.clear()
 
 
 def _load_link_service_module():
@@ -103,15 +119,19 @@ def _load_link_service_module():
         _SERVICE_PATH,
     )
     module = importlib.util.module_from_spec(spec)
+    _SAVED_MODULES.setdefault(spec.name, sys.modules.get(spec.name))
     sys.modules[spec.name] = module
     assert spec.loader is not None
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        _restore_modules()
     return module
 
 
 _mod = _load_link_service_module()
 G2PIntakeFormLinkService = _mod.G2PIntakeFormLinkService
-G2PRegistryException = sys.modules["openg2p_registry_core.errors"].G2PRegistryException
+G2PRegistryException = _mod.G2PRegistryException
 
 FakeBase = declarative_base()
 

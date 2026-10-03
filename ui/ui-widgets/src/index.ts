@@ -15,11 +15,25 @@ export { WidgetProvider, useWidgetContext } from './components/WidgetProvider';
 export { PanelRenderer } from './components/PanelRenderer';
 export { SectionRenderer } from './components/SectionRenderer';
 export type { SectionChanges, SectionRendererProps } from './components/SectionRenderer';
+export {
+  SECTION_FILE_TAG,
+  isFreshSectionFileEntry,
+} from './components/SectionRenderer/utils/sectionFiles';
+export type {
+  SectionFileEntry,
+  SectionFileStoredEntry,
+  SectionFileTag,
+  SectionFileUploadEntry,
+} from './components/SectionRenderer/utils/sectionFiles';
+export {
+  isStoredDocumentRef,
+} from './utils/storedDocument';
+export type { StoredDocumentRef } from './utils/storedDocument';
 export { SectionsContainer } from './components/SectionsContainer';
 export type { SectionMode, SectionsContainerProps, SectionsFormHandle } from './components/SectionsContainer';
 
 export { SectionBuilder } from './components/SectionBuilder';
-export type { SectionBuilderProps } from './components/SectionBuilder';
+export type { SectionBuilderProps, BuilderNotifyType } from './components/SectionBuilder';
 export { JSONEditorPanel } from './components/SectionBuilder';
 export { VisualBuilderPanel } from './components/SectionBuilder';
 export { SectionTree } from './components/SectionBuilder';
@@ -28,6 +42,8 @@ export { PropertyEditor } from './components/SectionBuilder';
 
 import './registry/defaultWidgets';
 export { widgetRegistry } from './registry/WidgetRegistry';
+export { WIDGET_TYPES, getWidgetCategory, createDefaultWidgetConfig } from './registry/widgetTypes';
+export type { WidgetType } from './registry/widgetTypes';
 export type { WidgetRegistryEntry } from './types';
 export { registerDefaultWidgets } from './registry/defaultWidgets';
 
@@ -52,7 +68,7 @@ export type {
   WidgetThemeButton,
   WidgetThemeWidget,
 } from './theme';
-export { defaultTheme, resolveTheme } from './theme';
+export { themeToCSSVariables, owtFieldInputClass } from './theme';
 export { useWidgetTheme } from './hooks/useWidgetTheme';
 
 export { translateUISchema, translateWidgetConfig, translatePanelConfig } from './utils/schemaTranslation';

@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy import Date as SQLDate, inspect, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from openg2p_registry_core.interfaces import G2PRegisterDomainFactory
 from openg2p_registry_core.models import (
     ApprovalStatusEnum,
     ChangeRequestSourceEnum,
@@ -22,6 +23,9 @@ from openg2p_registry_core.models import (
     IntakeFormStatusEnum,
     ProcessStatusEnum,
     RegisterPurposeEnum,
+)
+from openg2p_registry_core.services.g2p_intake_register_section_map_service import (
+    G2PIntakeRegisterSectionMapService,
 )
 from openg2p_registry_core.services.g2p_outgest_fanout_service import fanout_outgest_rows
 from openg2p_registry_core.services.g2p_register_hierarchical_service import (
@@ -43,12 +47,10 @@ except ImportError:
     G2PCompletionScoreService = None
 
 _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
-_DOMAIN_FACTORY_MODULE = "openg2p_registry_extensions.register_domain.factory"
-_DOMAIN_FACTORY_CLASS = "G2PRegisterDomainFactory"
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
-_async_engine = Engine.get_async_engine()
+_session_maker = Engine.get_async_session_maker()
 _loop = asyncio.new_event_loop()
 asyncio.set_event_loop(_loop)
 
@@ -59,7 +61,7 @@ def intake_form_register_ingest_worker(submission_id: str) -> None:
 
 
 async def _process_submission_async(submission_id: str) -> None:
-    session_maker = async_sessionmaker(bind=_async_engine, expire_on_commit=False)
+    session_maker = _session_maker
     try:
         async with session_maker() as session:
             async with session.begin():
@@ -68,24 +70,34 @@ async def _process_submission_async(submission_id: str) -> None:
         async with session_maker() as session:
             async with session.begin():
                 submission = await _get_submission(submission_id, session)
+                map_service = G2PIntakeRegisterSectionMapService()
+                mappings = await map_service.map_form_sections(
+                    submission.form_id, submission.register_id, session
+                )
                 sections = await _get_unique_form_sections(submission.form_id, session)
-                # docs ingestion with register-level section dedupe
                 documents_by_register = await _get_submission_documents_by_register(
-                    submission.submission_id, session
+                    submission.submission_id,
+                    submission.register_id,
+                    map_service,
+                    session,
                 )
                 subject_internal_record_id = await _resolve_submission_subject_internal_record_id(
                     submission, sections, session
                 )
                 inserted_records: list[tuple[G2PRegisterDefinition, object]] = []
+                rows_by_register: dict[str, list[object]] = {}
+                history_class_by_register: dict[str, object] = {}
                 for section in sections:
                     register_definition, intake_class, register_class, history_class = await _resolve_classes(
                         section.section_register_id,
                         session,
                     )
+                    history_class_by_register[section.section_register_id] = history_class
                     intake_rows = await _get_intake_rows(intake_class, submission.submission_id, session)
                     register_documents = documents_by_register.get(
                         section.section_register_id, []
                     )
+                    register_rows: list[object] = []
                     for intake_row in intake_rows:
                         register_row = await _insert_register_row(
                             submission,
@@ -94,19 +106,7 @@ async def _process_submission_async(submission_id: str) -> None:
                             register_class,
                             session,
                         )
-                        row_subject_id = subject_internal_record_id or (
-                            register_row.internal_record_id
-                            if section.section_register_id == submission.register_id
-                            else None
-                        )
-                        await _insert_history_row(
-                            submission,
-                            section,
-                            register_row,
-                            history_class,
-                            session,
-                            subject_internal_record_id=row_subject_id,
-                        )
+                        register_rows.append(register_row)
                         if register_documents:
                             await _upsert_live_documents(
                                 submission,
@@ -116,6 +116,26 @@ async def _process_submission_async(submission_id: str) -> None:
                             )
                         await _run_post_ingest_hook(register_definition, register_row, session)
                         inserted_records.append((register_definition, register_row))
+                    rows_by_register[section.section_register_id] = register_rows
+
+                for mapping in mappings:
+                    history_class = history_class_by_register.get(mapping.section_register_id)
+                    if history_class is None:
+                        continue
+                    for register_row in rows_by_register.get(mapping.section_register_id, []):
+                        row_subject_id = subject_internal_record_id or (
+                            register_row.internal_record_id
+                            if mapping.section_register_id == submission.register_id
+                            else None
+                        )
+                        await _insert_history_row(
+                            submission,
+                            mapping,
+                            register_row,
+                            history_class,
+                            session,
+                            subject_internal_record_id=row_subject_id,
+                        )
                 await _fanout_outgest_rows(submission, inserted_records, session)
                 _mark_processed(submission)
                 
@@ -205,14 +225,11 @@ async def _get_intake_rows(intake_class, submission_id: str, session) -> list[ob
 
 async def _get_submission_documents_by_register(
     submission_id: str,
+    subject_register_id: str,
+    map_service: G2PIntakeRegisterSectionMapService,
     session,
 ) -> dict[str, list[tuple[str, str, str]]]:
-    """Map section_register_id -> list of (document_id, label, section_id).
-
-    Documents are stored against the UI section they were uploaded on. Ingest
-    dedupes form sections by register, so lookup must be by register otherwise 
-    docs might be dropped on dedupe.
-    """
+    """Map section_register_id -> list of (document_id, label, register section_id)."""
     document_rows = (
         await session.execute(
             select(G2PIntakeFormSubmissionDocument).where(
@@ -229,12 +246,12 @@ async def _get_submission_documents_by_register(
             select(G2PRegisterSection).where(G2PRegisterSection.section_id.in_(section_ids))
         )
     ).scalars().all()
-    section_to_register = {section.section_id: section.section_register_id for section in sections}
+    sections_by_id = {section.section_id: section for section in sections}
 
     documents_by_register: dict[str, list[tuple[str, str, str]]] = {}
     for row in document_rows:
-        register_id = section_to_register.get(row.section_id)
-        if not register_id:
+        intake_section = sections_by_id.get(row.section_id)
+        if not intake_section:
             _logger.warning(
                 "Skipping intake document %s: section %s not found for submission %s",
                 row.document_id,
@@ -242,8 +259,12 @@ async def _get_submission_documents_by_register(
                 submission_id,
             )
             continue
-        documents_by_register.setdefault(register_id, []).append(
-            (row.document_id, row.label, row.section_id)
+        mapping = await map_service.map_intake_section_to_register(
+            intake_section, subject_register_id, session
+        )
+        register_section_id = mapping.register_section_id if mapping else row.section_id
+        documents_by_register.setdefault(intake_section.section_register_id, []).append(
+            (row.document_id, row.label, register_section_id)
         )
     return documents_by_register
 
@@ -381,7 +402,7 @@ async def _resolve_submission_subject_internal_record_id(
 
 async def _insert_history_row(
     submission: G2PIntakeFormSubmission,
-    section: G2PRegisterSection,
+    mapping,
     register_row,
     history_class,
     session,
@@ -389,7 +410,7 @@ async def _insert_history_row(
 ) -> None:
     history_data = _build_history_row_data(
         submission,
-        section,
+        mapping,
         register_row,
         history_class,
         subject_internal_record_id=subject_internal_record_id,
@@ -399,7 +420,7 @@ async def _insert_history_row(
 
 def _build_history_row_data(
     submission: G2PIntakeFormSubmission,
-    section: G2PRegisterSection,
+    mapping,
     register_row,
     history_class,
     subject_internal_record_id: str | None = None,
@@ -407,12 +428,12 @@ def _build_history_row_data(
     history_data = {
         "history_record_id": str(uuid.uuid4()),
         "internal_record_id": register_row.internal_record_id,
-        "tab_id": submission.form_id,
-        "section_id": section.section_id,
+        "tab_id": mapping.register_tab_id,
+        "section_id": mapping.register_section_id,
         "change_request_id": None,
         "submission_id": submission.submission_id,
-        "change_request_source": ChangeRequestSourceEnum.STAFF_PORTAL.value,
-        "is_primary_section": section.section_register_id == submission.register_id,
+        "change_request_source": ChangeRequestSourceEnum.INTAKE_FORM.value,
+        "is_primary_section": mapping.section_register_id == submission.register_id,
         "created_by": submission.created_by,
         "created_at": submission.first_created_at,
         "approved_by": submission.approved_by or "system",
@@ -485,12 +506,8 @@ def _convert_date_strings_to_objects(data_dict: dict, model_class) -> dict:
 
 def _get_domain_service_by_register_mnemonic(register_mnemonic: str):
     try:
-        module = importlib.import_module(_DOMAIN_FACTORY_MODULE)
-        domain_factory_class = getattr(module, _DOMAIN_FACTORY_CLASS)
-        g2p_registry_domain_factory = domain_factory_class.get_component()
-        if not g2p_registry_domain_factory:
-            g2p_registry_domain_factory = domain_factory_class()
-        return g2p_registry_domain_factory.get_domain_service(register_mnemonic)
+        domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
+        return domain_factory.get_domain_service(register_mnemonic)
     except Exception as error:
         _logger.warning(
             "Unable to resolve domain service for register mnemonic '%s': %s",
@@ -526,6 +543,7 @@ async def _fanout_outgest_rows(
             changed_at=submission.approved_at or datetime.now(),
             approved_by=submission.approved_by,
             approved_at=submission.approved_at,
+            changed_by_partner_id=submission.partner_id,
             hierarchical_service=hierarchical_service,
         )
 

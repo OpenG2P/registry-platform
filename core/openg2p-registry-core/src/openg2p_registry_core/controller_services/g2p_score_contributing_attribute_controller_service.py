@@ -1,9 +1,7 @@
 import logging
 from typing import Tuple
 
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.schemas import G2PPaginationResponse
 from openg2p_fastapi_common.service import BaseService
 
@@ -33,7 +31,7 @@ class G2PScoreContributingAttributeControllerService(BaseService):
         page_size = pagination.page_size
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             rows, total = await g2p_score_compute_service.get_score_contributing_attributes_for_definition(
                 score_definition_id=payload.score_definition_id,
@@ -64,7 +62,7 @@ class G2PScoreContributingAttributeControllerService(BaseService):
         )
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row = await g2p_score_compute_service.create_score_contributing_attribute(
                 score_definition_id=payload.score_definition_id,
@@ -82,7 +80,7 @@ class G2PScoreContributingAttributeControllerService(BaseService):
         payload = request.request_body.request_payload
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row = await g2p_score_compute_service.update_score_contributing_attribute(
                 contributing_attribute_id=payload.contributing_attribute_id,
@@ -103,7 +101,7 @@ class G2PScoreContributingAttributeControllerService(BaseService):
         contributing_attribute_id = request.request_body.request_payload.contributing_attribute_id
 
         g2p_score_compute_service = G2PScoreComputeService.get_component()
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             deleted_id = await g2p_score_compute_service.delete_score_contributing_attribute(
                 contributing_attribute_id=contributing_attribute_id,

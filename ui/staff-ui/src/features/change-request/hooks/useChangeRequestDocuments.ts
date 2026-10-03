@@ -1,16 +1,7 @@
 import { useFetch } from '@/shared/hooks';
+import type { UploadedDocument } from '@/features/shared/types/document';
 
-export interface ChangeRequestDocument {
-    document_id: string;
-    document_store_id: string;
-    bucket: string;
-    source_filename: string;
-    created_by: string;
-    created_at: string;
-    presigned_url: string;
-    section_id: string;
-    label: string;
-}
+export type ChangeRequestDocument = UploadedDocument;
 
 export function useChangeRequestDocuments(
     changeRequestId?: string,

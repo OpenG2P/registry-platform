@@ -33,7 +33,7 @@ def alg_for_key(priv) -> str:
 
 
 def _canonical(payload: dict) -> bytes:
-    # MUST match openg2p_fastapi_common.utils.crypto.PyJWTCryptoHelper._canonical
+    # MUST match openg2p_fastapi_common.crypto.PyJWTCryptoHelper._canonical
     return orjson.dumps(payload, option=orjson.OPT_SORT_KEYS)
 
 

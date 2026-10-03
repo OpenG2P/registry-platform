@@ -1,15 +1,15 @@
 import logging
 from datetime import datetime
-from typing import Dict, Tuple, Optional, List
+from typing import Callable, Dict, Tuple, Optional, List
 import uuid
 from copy import deepcopy
 
+from jsonpath_ng import parse as jsonpath_parse
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..helpers import PartnerManagementClient, PatternMatcher
 from ..helpers.partner_management import RegisteredPartner
@@ -33,9 +33,11 @@ class G2PIngestService(BaseService):
         *,
         register_id: Optional[str] = None,
         intake_form_id: Optional[str] = None,
+        on_partner: Optional[Callable[[str], None]] = None,
     ) -> Tuple[str, Optional[str]]:
+        """on_partner, if given, is told the sending partner's id once it is identified (for audit)."""
         _logger.info("Starting data ingestion with received request")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             data_model: DataModel = await self._get_data_model(ingest_data, data_model_mnemonic, session)
@@ -44,6 +46,11 @@ class G2PIngestService(BaseService):
                 data_model.data_model_id, ingest_data, session
             )
             _logger.debug("Matched incoming model signature pattern")
+            if on_partner is not None:
+                try:
+                    on_partner(incoming_partner.partner_id)
+                except Exception:
+                    _logger.warning("on_partner callback failed", exc_info=True)
             _logger.debug("Verified request partner")
 
             message_id = self._match_message_id_pattern(ingest_data, incoming_model_key_path)
@@ -265,6 +272,22 @@ class G2PIngestService(BaseService):
             ingest_data_payloads.append(payload_copy)
 
         return ingest_data_payloads
+
+    @staticmethod
+    def _get_ingest_data_list_elements_path_expr(
+        incoming_model_key_path: IncomingModelKeyPath, ingest_data: Dict
+    ):
+        """The list at key_path_for_list_elements, and its parsed JSONPath (for update)."""
+        try:
+            jsonpath_expr = jsonpath_parse(incoming_model_key_path.key_path_for_list_elements)
+        except Exception as e:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                message=G2PRegistryErrorCodes.INVALID_REQUEST.value[0],
+            ) from e
+        matches = jsonpath_expr.find(ingest_data)
+        elements = matches[0].value if matches else None
+        return elements, jsonpath_expr
 
     async def _get_semantic_pattern_id(
         self, register_id: str, intake_form_id: str, data_model_id: str, session: Session

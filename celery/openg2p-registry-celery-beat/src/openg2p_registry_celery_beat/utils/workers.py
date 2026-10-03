@@ -17,3 +17,4 @@ class Workers:
     DEDUPLICATION_INTAKE_FORMS_VS_REGISTER_WORKER = "deduplication_intake_forms_vs_register_worker"
     DEDUPLICATION_INTAKE_FORMS_VS_INTAKE_FORMS_WORKER = "deduplication_intake_forms_vs_intake_forms_worker"
     IMPORT_FILE_PROCESS_WORKER = "import_file_process_worker"
+    REGISTER_EXPORT_WORKER = "register_export_worker"

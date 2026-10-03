@@ -1,9 +1,9 @@
 import logging
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import G2PRegistryDocument
 
@@ -21,7 +21,7 @@ class G2PTemplateService(BaseService):
     async def delete_template_file(self, document_id: str) -> None:
         from .g2p_document_service import G2PDocumentService
 
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Ensure it is a TEMPLATES catalog entry before hard-delete
             await G2PDocumentService.get_component().get_template_document(

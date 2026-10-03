@@ -1,72 +1,47 @@
+const COLUMN_DIVIDER = 'sm:border-l sm:border-secondary-third/70';
+
 const ChangeRequestHeaderSkeleton = () => {
     return (
-        <div className="rounded-[10px] bg-primary-first/20 px-10 py-5 flex flex-col border border-dashed border-primary-second animate-pulse">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <InfoSectionSkeleton />
-                <VerificationStatsSkeleton />
+        <div className="rounded-[10px] border border-dashed border-primary-second bg-primary-first/20 px-4 py-4 animate-pulse sm:px-6 md:px-10 md:py-5">
+            <div className="grid grid-cols-1 items-stretch gap-y-4 sm:grid-cols-2 sm:gap-y-6 xl:grid-cols-4 xl:gap-y-0">
+                <KeyValueColumnSkeleton className="xl:pr-6" />
+                <KeyValueColumnSkeleton className={`${COLUMN_DIVIDER} sm:px-6`} />
+                <KeyValueColumnSkeleton className="xl:border-l xl:border-secondary-third/70 xl:px-6" />
                 <AttachedDocumentsSkeleton />
-            </div>
-
-            <div className="my-4 border-t-2 border-primary-first" />
-
-            <div className="flex items-center gap-4">
-                <div className="h-9 w-35 bg-secondary-first rounded-[10px]" />
-                <div className="h-9 w-35 bg-neutral-first/20 rounded-[10px]" />
             </div>
         </div>
     );
 };
 
-export default ChangeRequestHeaderSkeleton
+export default ChangeRequestHeaderSkeleton;
 
-
-const InfoSectionSkeleton = () => {
+const KeyValueColumnSkeleton = ({ className = '' }: { className?: string }) => {
     return (
-        <div className="space-y-2 text-[16px]">
-            <div className="h-6 w-45 bg-neutral-first/30 rounded" />
-
+        <div className={`flex h-full min-w-0 flex-col space-y-2 ${className}`}>
             {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex gap-2">
-                    <div className="h-4.5 w-30 bg-neutral-first/20 rounded" />
-                    <div className="h-4.5 w-35 bg-neutral-first/50 rounded" />
+                <div key={i} className="flex w-full gap-0">
+                    <div className="h-4.5 w-1/2 pr-2">
+                        <div className="h-4.5 w-full max-w-28 rounded bg-neutral-first/20" />
+                    </div>
+                    <div className="h-4.5 w-1/2">
+                        <div className="h-4.5 w-full max-w-32 rounded bg-neutral-first/50" />
+                    </div>
                 </div>
             ))}
         </div>
     );
 };
 
-
-const VerificationStatsSkeleton = () => {
-    return (
-        <div className="space-y-2 text-[16px]">
-            <div className="h-6 w-30 bg-transparent" />
-
-            <div className="border-l-2 border-primary-first pl-6 space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex gap-2">
-                        <div className="h-4.5 w-50 bg-neutral-first/20 rounded" />
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-
 const AttachedDocumentsSkeleton = () => {
     return (
-        <div className="space-y-2 text-[16px]">
-            <div className="pl-6 flex items-center gap-2">
-                <div className="h-6 w-35 bg-neutral-first/30 rounded" />
+        <div className={`flex h-full min-w-0 flex-col space-y-2 ${COLUMN_DIVIDER} sm:pl-6`}>
+            <div className="flex items-center gap-1">
+                <div className="h-4.5 w-40 rounded bg-neutral-first/50" />
+                <div className="h-3.5 w-3.5 rounded bg-neutral-first/30" />
             </div>
-
-            <div className="border-l-2 border-primary-first pl-6 flex flex-col gap-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                        <div className="h-4.5 w-40 bg-neutral-first/20 rounded" />
-                    </div>
-                ))}
-            </div>
+            {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-4.5 w-36 rounded bg-neutral-first/20" />
+            ))}
         </div>
     );
 };

@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TopBar } from '@/components/shared';
-import { useFetch, usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import AddDataModelModal from '@/features/configuration/data-models/AddDataModelModal';
@@ -30,6 +29,11 @@ const DataModelsConfigurationPage = () => {
     const t = useTranslations();
     const [modalType, setModalType] = useState<'add' | 'edit' | 'view' | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = usePageSize();
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
     const [showPopup, setShowPopup] = useState(false);
     const [selectedItem, setSelectedItem] = useState<DataModel | null>(null);
 
@@ -73,17 +77,15 @@ const DataModelsConfigurationPage = () => {
         setSelectedItem(null);
     };
 
-    const { config } = useRuntimeConfig();
-
     const { can } = useRbac();
     const canCreate = can(CONFIGURATION_DATA_MODELS_ACTIONS.create)
 
-    const { dataModels, pagination, loading, refresh } = useAllDataModels(currentPage, config.pageSize || 100);
+    const { dataModels, pagination, loading, refresh } = useAllDataModels(currentPage, pageSize);
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: dataModels.length,
     });
 

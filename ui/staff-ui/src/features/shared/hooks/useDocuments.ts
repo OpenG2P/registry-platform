@@ -2,22 +2,11 @@
 
 import { useFetch } from '@/shared/hooks';
 import { useCallback, useState } from 'react';
-
-export type SharedDocument = {
-    document_id: string;
-    document_store_id: string;
-    bucket: string;
-    source_filename: string;
-    created_by: string;
-    created_at: string;
-    presigned_url: string;
-    section_id: string;
-    label: string;
-};
+import type { UploadedDocument } from '../types/document';
 
 export function useDocuments() {
-    const { execute, loading, error } = useFetch<SharedDocument[]>();
-    const [documents, setDocuments] = useState<SharedDocument[]>([]);
+    const { execute, loading, error } = useFetch<UploadedDocument[]>();
+    const [documents, setDocuments] = useState<UploadedDocument[]>([]);
 
     const getDocuments = useCallback(async (documentIds: string[]) => {
         const ids = documentIds.filter(Boolean);

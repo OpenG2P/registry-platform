@@ -146,7 +146,12 @@ class DciQueryHelper:
 
     @staticmethod
     def is_bulk_aggregate_request(search_criteria: DciSearchCriteria) -> bool:
-        """Aggregates searched with no subject (an expression without subject_id)."""
+        """Aggregates searched with no subject (an expression without a subject_id/search_text key).
+
+        Must agree with parse_subject_query(allow_missing_subject=True): only a
+        request this returns True for may run without a subject, and only after
+        the bulk partner allow-list check.
+        """
         record_type = str(search_criteria.reg_record_type or "")
         if not record_type.lower().endswith("aggregate") or search_criteria.query_type != "expression":
             return False
@@ -175,11 +180,19 @@ class DciQueryHelper:
         if query_type == "idtype-value":
             return cls._get_idtype_value_search_text(query_value), {}
         query = dict(query_value.get("expression", {}).get("query", {}) or {})
-        subject = query.pop("subject_id", None)
-        if subject is None:
-            subject = query.pop("search_text", None)  # legacy single-field form
-        if subject is None and allow_missing_subject:
+        # A subject is "missing" only when the key is absent — the same rule as
+        # is_bulk_aggregate_request, which decides whether a search across
+        # subjects needs the bulk allow-list instead of a person's consent. A
+        # present but null/empty subject_id (or {"$eq": null}) is an invalid
+        # request, never "all subjects".
+        if "subject_id" in query:
+            subject = query.pop("subject_id")
+        elif "search_text" in query:
+            subject = query.pop("search_text")  # legacy single-field form
+        elif allow_missing_subject:
             return None, query
+        else:
+            subject = None
         if isinstance(subject, dict):
             if list(subject.keys()) != ["$eq"]:
                 cls._raise_invalid_request("subject_id supports only an exact value ($eq).")

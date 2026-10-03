@@ -40,13 +40,7 @@
             }
           },
           "widget-data-format": {
-            "imageSize": 120,
-            "nameColor": "#ED7C22",
-            "statusColors": {
-              "active": "#16A34A",
-              "inactive": "#D97706",
-              "archived": "#6B7280"
-            }
+            "imageSize": 120
           }
         }
       ]

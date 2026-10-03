@@ -6,6 +6,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from openg2p_registry_core.interfaces import G2PIdGeneratorFactory
 from openg2p_registry_core.models import (
     G2PFunctionalIdGenerationQueue,
     G2PRegisterDefinition,
@@ -112,11 +113,7 @@ def _get_register_class(register_mnemonic: str):
 
 
 def _resolve_prefix_suffix(register_record, register_mnemonic: str):
-    factory_module = importlib.import_module("openg2p_registry_extensions.register_domain.factory")
-    factory_class = getattr(factory_module, "G2PIdGeneratorFactory")
-    id_generator_factory = factory_class.get_component()
-    if not id_generator_factory:
-        id_generator_factory = factory_class()
+    id_generator_factory = G2PIdGeneratorFactory.get_component() or G2PIdGeneratorFactory()
 
     id_generator_service = id_generator_factory.get_id_generator()
     if not id_generator_service:

@@ -4,11 +4,9 @@ from datetime import datetime
 from typing import Optional
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
 from sqlalchemy import select, inspect as sa_inspect
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from ..models import (
     G2PCompletionScoreComputationQueue,
     G2PRegisterDefinition,
@@ -237,7 +235,7 @@ class G2PCompletionScoreService(BaseService):
         computes score, upserts g2p_register_section_completion_score, marks queue COMPLETED.
         Raises on failure so the worker can apply retry logic.
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             queue_row: G2PCompletionScoreComputationQueue = await session.get(
                 G2PCompletionScoreComputationQueue, queue_id
@@ -347,7 +345,7 @@ class G2PCompletionScoreService(BaseService):
             return score
 
     async def mark_failure(self, queue_id: str, error_code: str) -> None:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             queue_row: G2PCompletionScoreComputationQueue = await session.get(
                 G2PCompletionScoreComputationQueue, queue_id
@@ -367,7 +365,7 @@ class G2PCompletionScoreService(BaseService):
     async def get_ideal_completion_score_for_register(
         self, register_id: str
     ) -> IdealRegisterScoreData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             sections = (
                 (
@@ -392,7 +390,7 @@ class G2PCompletionScoreService(BaseService):
     async def get_ideal_completion_score_for_section(
         self, section_id: str
     ) -> IdealSectionScoreData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section: G2PRegisterSection = await session.get(
                 G2PRegisterSection, section_id
@@ -409,7 +407,7 @@ class G2PCompletionScoreService(BaseService):
     async def get_computed_completion_score_for_section(
         self, register_id: str, internal_record_id: str, section_id: str
     ) -> SectionCompletionScoreData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             row: G2PRegisterSectionCompletionScore = (
                 await session.execute(
@@ -440,7 +438,7 @@ class G2PCompletionScoreService(BaseService):
     async def get_computed_completion_score_for_record(
         self, register_id: str, internal_record_id: str
     ) -> RecordCompletionScoreData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             section_rows = (
                 (

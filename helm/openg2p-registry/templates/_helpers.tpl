@@ -36,6 +36,7 @@ Render Env values section
 {{- define "partnerApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "partnerApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -77,6 +78,7 @@ Render Env values section
 {{- define "beneApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "beneApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -118,6 +120,7 @@ Render Env values section
 {{- define "staffApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "staffApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -159,6 +162,7 @@ Render Env values section
 {{- define "celeryBeat.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "celeryBeat.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -200,6 +204,7 @@ Render Env values section
 {{- define "celeryWorker.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "celeryWorker.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -241,6 +246,7 @@ Render Env values section
 {{- define "staffUi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "staffUi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -491,6 +497,7 @@ a distinct audience with their own realm, so they get their own component.
 {{- define "agentPortalApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
 {{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "agentPortalApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -535,6 +542,31 @@ no MDS database credentials at all. Removes the keys from the given (copied) map
 {{- range $k := keys $envVars -}}
 {{- if contains "_MASTER_DATA_DB_" $k -}}
 {{- $_ := unset $envVars $k -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Drop env vars that reference AWE-only Secrets when AWE is disabled.
+
+The callback HMAC Secret (`global.aweCallbackHmacSecretName`) is only minted by
+templates/awe-callback-hmac-secret.yaml when `global.aweEnabled` is true. A
+component's `envVarsFrom` that still references it non-optionally would leave
+the pod in CreateContainerConfigError, so with AWE off every `*_AWE_CALLBACK_HMAC_SECRET`
+entry (and any other entry whose secretKeyRef names that Secret) is removed.
+*/}}
+{{- define "registry.dropAweSecretEnv" -}}
+{{- $envVars := .envVars -}}
+{{- if not .global.aweEnabled -}}
+{{- range $k, $v := $envVars -}}
+{{- if contains "_AWE_CALLBACK_HMAC_SECRET" $k -}}
+{{- $_ := unset $envVars $k -}}
+{{- else if kindIs "map" $v -}}
+{{- $ref := get $v "secretKeyRef" -}}
+{{- if and (kindIs "map" $ref) (contains "aweCallbackHmacSecretName" (toString (get $ref "name"))) -}}
+{{- $_ := unset $envVars $k -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}

@@ -58,6 +58,12 @@ const widgetSlice = createSlice({
       }
       state.values = merged;
     },
+
+    /** Full replace of values (section revert / reset). Unlike setValues, does not merge. */
+    replaceValues: (state, action: PayloadAction<Record<string, WidgetValue>>) => {
+      state.values = action.payload;
+    },
+    
     setError: (
       state,
       action: PayloadAction<{ widgetId: string; errors: string[] }>
@@ -101,6 +107,7 @@ const widgetSlice = createSlice({
 export const {
   setValue,
   setValues,
+  replaceValues,
   setError,
   setTouched,
   setLoading,

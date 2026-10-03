@@ -7,9 +7,7 @@ export async function POST(request: NextRequest) {
         targetEndpoint: "/documents/upload_documents",
         transformResponse: (responseBody) => {
             const payload = responseBody.response_payload || {};
-            // Backend may return uploaded_documents (change-request shape)
-            // or documents (configuration shape) depending on the request context
-            return payload.uploaded_documents ?? payload.documents ?? [];
+            return payload.documents ?? [];
         },
     });
 }

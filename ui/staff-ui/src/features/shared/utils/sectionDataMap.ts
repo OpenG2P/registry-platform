@@ -2,6 +2,7 @@ import type { RegisterFlattenedRecord } from "@/features/register/types";
 import { UploadedDocument } from "../types";
 
 type RecordDocument = {
+    document_id?: string;
     label?: string;
     presigned_url?: string;
     source_filename?: string;
@@ -20,32 +21,33 @@ export const toSnakeCase = (value: string) =>
         .replace(/[^a-z0-9]+/g, "_")
         .replace(/^_+|_+$/g, "");
 
-export function mapRecordDocuments(documents: unknown): Record<string, string> {
-    if (!Array.isArray(documents)) return {};
 
-    return Object.fromEntries(
-        (documents as RecordDocument[])
-            .filter((doc) => !!doc?.label && !!doc?.presigned_url && !!doc?.source_filename)
-            .flatMap(({ label, presigned_url, source_filename }) => {
-                const key = toSnakeCase(label as string);
+export function mapRecordDocuments(documents: unknown): Record<string, unknown> {
+  if (!Array.isArray(documents)) return {};
 
-                return [
-                    [key, presigned_url as string],
-                    [`${key}_source_filename`, source_filename as string],
-                ];
-            })
-    );
+  return Object.fromEntries(
+    (documents as RecordDocument[])
+      .filter((doc) => !!doc?.label && !!doc?.document_id && !!doc?.presigned_url)
+      .map((doc) => [
+        toSnakeCase(doc.label as string),
+        {
+          label: doc.label,
+          document_id: doc.document_id,
+          presigned_url: doc.presigned_url,
+          source_filename: doc.source_filename,
+        },
+      ])
+  );
 }
 
 export function withMappedDocuments(
     records: RegisterFlattenedRecord[],
-    documents?: UploadedDocument[] | null,
+    documents?: UploadedDocument[],
 ): RegisterFlattenedRecord[] {
     return records.map((record) => {
-        const source =
-            documents !== undefined
-                ? documents
-                : (record as { documents?: unknown }).documents;
+        const source = Array.isArray(documents)
+            ? documents
+            : (record as { documents?: unknown }).documents;
         return {
             ...record,
             documents: mapRecordDocuments(source),
@@ -56,8 +58,8 @@ export function withMappedDocuments(
 export function buildSectionDataMap(
     sectionRegisterId: string,
     records: RegisterFlattenedRecord[] | undefined | null,
-    documents: UploadedDocument[] | null,
-    isList: boolean
+    isList: boolean,
+    documents?: UploadedDocument[],
 ): SectionDataMap | undefined {
     if (!records?.length) return undefined;
 

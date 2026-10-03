@@ -32,7 +32,7 @@ export const ConfigLayout = ({ children, activeOption }: ConfigLayoutProps) => {
             <div className="mt-4">
                 <ConfigSidebar activeOption={activeOption} />
             </div>
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-h-0">
                 {children}
             </div>
         </div>

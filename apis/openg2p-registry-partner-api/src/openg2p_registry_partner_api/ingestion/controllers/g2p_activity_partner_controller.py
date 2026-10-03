@@ -22,6 +22,7 @@ from openg2p_registry_core.schemas.activity import ActivityInput, AppendActivity
 from openg2p_registry_core.services import G2PActivityService
 from pydantic import BaseModel, Field
 
+from ...audit_context import set_audit_actor, set_audit_outcome
 from ...config import Settings
 from ...search.dci.helpers import DciKeymanagerHelper
 
@@ -116,17 +117,7 @@ class G2PActivityPartnerController(BaseController):
 
     async def append_activities(self, envelope: PartnerActivityEnvelope, request: Request) -> PartnerActivityResponse:
         try:
-            raw_body: dict[str, Any] = await request.json()
-            if _config.signature_validation_enabled:
-                if not envelope.signature:
-                    raise G2PRegistryException(
-                        code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1], message="signature is required"
-                    )
-                await self.keymanager_helper.validate_signature(
-                    envelope.signature, raw_body.get("header") or {}, raw_body.get("message") or {}
-                )
-            else:
-                _logger.warning("signature_validation_enabled=false — accepting unsigned partner activities")
+            await self._authenticate(envelope.signature, request, envelope.header.sender_id)
 
             partner = envelope.header.sender_id
             results = await self.activities.append_many(
@@ -140,21 +131,26 @@ class G2PActivityPartnerController(BaseController):
             )
             failed = sum(1 for result in results if result.outcome == "FAILED")
             status = "SUCCESS" if not failed else ("FAILED" if failed == len(results) else "PARTIAL")
+            if failed:
+                set_audit_outcome(request, "failure", reason=status)
             return PartnerActivityResponse(message_id=envelope.header.message_id, status=status, results=results)
         except G2PRegistryException as error:
+            set_audit_outcome(request, "failure", reason=error.code)
             return PartnerActivityResponse(
                 message_id=envelope.header.message_id, status="ERROR",
                 error_code=error.code, error_message=error.message,
             )
         except Exception as error:
             _logger.error("Partner activity append failed: %s", error)
+            set_audit_outcome(request, "failure", reason=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1])
             return PartnerActivityResponse(
                 message_id=envelope.header.message_id, status="ERROR",
                 error_code=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1],
                 error_message=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[0],
             )
 
-    async def _authenticate(self, signature: Optional[str], request: Request) -> None:
+    async def _authenticate(self, signature: Optional[str], request: Request, sender_id: Optional[str]) -> None:
+        """Verify the envelope signature; then record the partner as the audit actor."""
         raw_body: dict[str, Any] = await request.json()
         if _config.signature_validation_enabled:
             if not signature:
@@ -165,17 +161,27 @@ class G2PActivityPartnerController(BaseController):
                 signature, raw_body.get("header") or {}, raw_body.get("message") or {}
             )
         else:
-            _logger.warning("signature_validation_enabled=false — accepting unsigned partner corrections")
+            _logger.warning("signature_validation_enabled=false — accepting an unsigned partner message")
+        set_audit_actor(request, sender_id, verified=_config.signature_validation_enabled)
 
     async def correct_activities(
         self, envelope: PartnerCorrectionEnvelope, request: Request
     ) -> PartnerCorrectionResponse:
         try:
-            await self._authenticate(envelope.signature, request)
+            await self._authenticate(envelope.signature, request, envelope.header.sender_id)
         except G2PRegistryException as error:
+            set_audit_outcome(request, "failure", reason=error.code)
             return PartnerCorrectionResponse(
                 message_id=envelope.header.message_id, status="ERROR",
                 error_code=error.code, error_message=error.message,
+            )
+        except Exception:
+            _logger.exception("Partner correction authentication failed")
+            set_audit_outcome(request, "failure", reason=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1])
+            return PartnerCorrectionResponse(
+                message_id=envelope.header.message_id, status="ERROR",
+                error_code=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1],
+                error_message=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[0],
             )
         partner = envelope.header.sender_id
         results = []
@@ -185,13 +191,16 @@ class G2PActivityPartnerController(BaseController):
             except G2PRegistryException as error:
                 results.append(PartnerCorrectionResult(
                     index=index, outcome="FAILED", error_code=error.code, error_message=error.message))
-            except Exception as error:  # keep going; report the item
+            except Exception:  # keep going; report the item
                 _logger.exception("Partner correction %s failed", index)
                 results.append(PartnerCorrectionResult(
                     index=index, outcome="FAILED",
-                    error_code=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1], error_message=str(error)))
+                    error_code=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1],
+                    error_message=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[0]))
         failed = sum(1 for r in results if r.outcome == "FAILED")
         status = "SUCCESS" if not failed else ("FAILED" if failed == len(results) else "PARTIAL")
+        if failed:
+            set_audit_outcome(request, "failure", reason=status)
         return PartnerCorrectionResponse(message_id=envelope.header.message_id, status=status, results=results)
 
     async def _correct(self, index: int, correction: PartnerActivityCorrection, partner: str):

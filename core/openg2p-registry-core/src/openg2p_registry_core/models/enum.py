@@ -83,7 +83,18 @@ class ProcessStatusEnum(StrEnum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     PROCESSED = "PROCESSED"
+    COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
+
+class ExportFormatEnum(StrEnum):
+    XLSX = "XLSX"
+    ZIP_CSV = "ZIP_CSV"
+
+
+class ExportSelectionModeEnum(StrEnum):
+    SELECTED = "SELECTED"
+    SEARCH_FILTER = "SEARCH_FILTER"
 
 
 class RecordStatusEnum(StrEnum):
@@ -189,4 +200,10 @@ class DocumentBucket(StrEnum):
     DEFAULT = "default"
     TEMPLATES = "templates"
     DOCUMENTS = "documents"
-    DATA_IMPORT_FILES = "data_import_files"
+    IMPORT_FILES = "import-files"
+    EXPORT_FILES = "export-files"
+
+
+class DocumentHistoryEventTypeEnum(StrEnum):
+    ADD = "ADD"
+    REMOVE = "REMOVE"

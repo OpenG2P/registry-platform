@@ -7,11 +7,11 @@ export const STATIC_INPUT_MECHANISMS = [
     {
         mechanism_id: 'import-file',
         mechanism_type: 'IMPORT_FILE' as const,
-        labelKey: 'file_import',
+        labelKey: 'import_from_file',
     },
     {
         mechanism_id: 'vc',
         mechanism_type: 'VERIFIABLE_CREDENTIAL' as const,
-        labelKey: 'vc',
+        labelKey: 'import_from_vc',
     },
 ] as const;

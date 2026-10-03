@@ -20,12 +20,22 @@ export const WidgetFieldLabel = ({
 
   return (
     <label
-      className={`flex items-baseline min-w-0 max-w-full ${className}`}
+      className={`flex items-baseline min-w-0 max-w-full owt-field-label ${className}`}
       style={{ fontFamily: 'Roboto, sans-serif' }}
       title={tooltip}
     >
       <span className="min-w-0 truncate">{translatedLabel}</span>
-      {required && <span className="ml-1 shrink-0 text-red-500">*</span>}
+      {required && <RequiredAsterisk />}
     </label>
   );
 };
+
+export const RequiredAsterisk = () => (
+  <span className="ml-1 shrink-0 owt-field-required" aria-hidden="true">*</span>
+);
+
+export const isWidgetConfigRequired = (config: {
+  'widget-required'?: boolean;
+  'widget-data-validation'?: { required?: boolean };
+}): boolean =>
+  !!(config['widget-required'] || config['widget-data-validation']?.required);

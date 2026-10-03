@@ -50,3 +50,6 @@ from .intake_form_metadata import *
 from .registrant_auth import *
 
 from .activity import *  # noqa: F401,F403
+from .register_export_payload import *
+from .register_export_request import *
+from .register_export_response import *

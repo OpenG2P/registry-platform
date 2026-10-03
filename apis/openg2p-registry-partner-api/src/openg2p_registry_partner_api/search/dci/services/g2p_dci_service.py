@@ -7,9 +7,8 @@ from typing import Optional, List, Dict, Any, Tuple
 from openg2p_registry_core.errors import G2PRegistryException
 from openg2p_registry_core.schemas import DeepSearchResultData
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
-from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy import JSON, cast, literal, select, func, or_, true
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -37,7 +36,6 @@ from ....config import Settings
 
 _logger = logging.getLogger("g2p-dci-service")
 _config = Settings.get_config()
-_engine = dbengine.get()
 
 class G2PDciService(BaseService):
     def __init__(self, **kwargs):
@@ -74,11 +72,17 @@ class G2PDciService(BaseService):
                 else self._get_model_class(search_criteria.reg_type)
             )
 
+            # Consent enforcement is on when the controller passed the subjects map
+            # (even an empty one); then every item either names its consented
+            # subject or is an allow-listed search across subjects.
+            consent_enforced = consent_subjects_by_ref is not None
+            consent_subject = (consent_subjects_by_ref or {}).get(search_request_item.reference_id)
             aggregate_records = None
             search_result_data = []
             subject_id = None
             query_result = None
             is_aggregate = is_activity and _is_aggregate_request(search_criteria.reg_record_type)
+            _require_consent_subject_or_bulk(consent_enforced, consent_subject, search_criteria, is_aggregate)
             state_type = (
                 await self._state_context_type(register_id, search_criteria.reg_record_type)
                 if is_activity and not is_aggregate
@@ -92,6 +96,12 @@ class G2PDciService(BaseService):
                 subject_id, filters = DciQueryHelper.parse_subject_query(
                     search_criteria, allow_missing_subject=is_aggregate
                 )
+                if subject_id is None and consent_subject:
+                    # A consent names one person: never answer for all subjects under it.
+                    raise G2PRegistryException(
+                        code=DciSearchStatusReasonCode.SEARCH_CRITERIA_INVALID.value,
+                        message="subject_id is required for a search under a person's consent",
+                    )
                 _, current_page, page_size, _ = self._get_registry_search_parameters(
                     search_criteria, parse_query=False
                 )
@@ -141,22 +151,23 @@ class G2PDciService(BaseService):
                         sort_by=sort_by,
                     )
 
-            # The consent names one person: what is returned must be theirs.
-            consent_subject = (consent_subjects_by_ref or {}).get(search_request_item.reference_id)
+            # The consent names one person: what is returned must be theirs. This
+            # check runs whatever the search returned (even nothing): the searched
+            # subject itself must be the consented one.
             if consent_subject:
                 if is_activity:
                     searched = subject_id or (query_result.search_text if query_result else None)
-                    if searched or not is_aggregate:
-                        await self._require_subject_link(search_criteria.reg_type, searched, consent_subject)
+                    # Raises when nothing was searched for (no subject) or it is not the consented person.
+                    await self._require_subject_link(search_criteria.reg_type, searched, consent_subject)
                     # A text search can match other subjects' activities: all must be the searched one's.
                     if any(self._deep_search_result_data_to_dict(d).get("subject_id") != searched
-                           for d in search_result_data):
+                           for d in (search_result_data or [])):
                         raise G2PRegistryException(
                             code=DciSearchStatusReasonCode.SEARCH_CRITERIA_INVALID.value,
                             message="The consent's subject is not the person searched",
                         )
                 else:
-                    self._require_records_of_subject(search_result_data, consent_subject)
+                    self._require_records_of_subject(search_result_data or [], consent_subject)
 
             reg_records = aggregate_records if aggregate_records is not None else [
                 self._render_reg_record_with_template(
@@ -208,7 +219,7 @@ class G2PDciService(BaseService):
     ) -> Tuple[List[DeepSearchResultData], int]:
         """Exact-field search. Each record comes with its linked records (a person's land,
         household, …), as an idtype-value search returns it, so one call gets the whole record."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Total count
             count_query = select(func.count()).select_from(
@@ -243,7 +254,7 @@ class G2PDciService(BaseService):
             return search_results, total_count
 
     async def _is_activity_register(self, register_mnemonic: str) -> bool:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             purpose = (
                 await session.execute(
@@ -273,7 +284,7 @@ class G2PDciService(BaseService):
                     model_class.search_text.ilike(f"%{query_result.search_text}%"),
                 )
             )
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             base = select(model_class).where(*conditions)
             total_count = (await session.execute(select(func.count()).select_from(base.subquery()))).scalar() or 0
@@ -299,7 +310,7 @@ class G2PDciService(BaseService):
         context_type = _context_type_of(reg_record_type)
         if not context_type:
             return None
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             found = (
                 await session.execute(
@@ -326,7 +337,7 @@ class G2PDciService(BaseService):
             return [], 0
         conditions = DciQueryHelper.translate_filters(filters, _plain_columns(projection))
         domain = registry.domain_service(register_mnemonic)
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             base = (
                 select(projection)
@@ -383,7 +394,7 @@ class G2PDciService(BaseService):
                 columns[field_name] = G2PActivityAggregate.custom_dimensions[field_name]
                 filters[field_name] = _as_jsonb(filters[field_name])
         conditions = DciQueryHelper.translate_filters(filters, columns)
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             subject_condition = (
                 or_(
@@ -447,7 +458,7 @@ class G2PDciService(BaseService):
         ]
         if not fields:
             raise denied
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             linked = (
                 await session.execute(
@@ -541,7 +552,7 @@ class G2PDciService(BaseService):
         return query_result, current_page, page_size, sort_by
 
     async def _get_register_id(self, register_mnemonic: str) -> str:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             register_id: str = (
                 await session.execute(
@@ -552,7 +563,7 @@ class G2PDciService(BaseService):
             return register_id
 
     async def _get_data_model_id(self) -> str:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             data_model_id: str = (
                 await session.execute(
@@ -564,7 +575,7 @@ class G2PDciService(BaseService):
 
     async def _get_template_store_id(self, register_id: str, data_model_id: str) -> tuple[str, object]:
         """Resolve outgoing template document_id → (document_store_id, bucket)."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             result = await session.execute(
                 select(
@@ -602,6 +613,24 @@ def _context_type_of(reg_record_type: Optional[str]) -> Optional[str]:
         return None
     local = str(reg_record_type).split(":")[-1]
     return re.sub(r"(?<!^)(?=[A-Z])", "_", local).upper() or None
+
+
+def _require_consent_subject_or_bulk(
+    consent_enforced: bool, consent_subject: Optional[str], search_criteria: DciSearchCriteria,
+    is_aggregate: bool,
+) -> None:
+    """Under consent enforcement an item without a consented subject may only be an
+    activity register's aggregate search across subjects (no subject_id key), which the controller has
+    already put through the bulk partner allow-list. Anything else is refused, so
+    a missing consent subject can never widen a search."""
+    if not consent_enforced or consent_subject:
+        return
+    if is_aggregate and DciQueryHelper.is_bulk_aggregate_request(search_criteria):
+        return
+    raise G2PRegistryException(
+        code=DciSearchStatusReasonCode.SEARCH_CRITERIA_INVALID.value,
+        message="The search names no consented subject",
+    )
 
 
 def _names_subject(search_criteria: DciSearchCriteria) -> bool:

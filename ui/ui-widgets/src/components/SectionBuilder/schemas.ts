@@ -1,27 +1,7 @@
-/**
- * JSON Schema definitions for Section Builder validation
- * These schemas are used by json-edit-react to provide validation and constraints
- */
+import { WIDGET_TYPES } from '../../registry/widgetTypes';
 
-export const WIDGET_TYPES = [
-  'text',
-  'textarea',
-  'number',
-  'boolean',
-  'date',
-  'datetime',
-  'select',
-  'radio',
-  'checkbox',
-  'file',
-  'table',
-  'phone',
-  'display',
-  'profile',
-  'geo-hierarchy',
-  'register-lookup',
-  'parent-lookup',
-] as const;
+export { WIDGET_TYPES } from '../../registry/widgetTypes';
+export type { WidgetType } from '../../registry/widgetTypes';
 
 export const ORIENTATIONS = ['horizontal', 'vertical'] as const;
 
@@ -57,9 +37,6 @@ export const BOOLEAN_REPRESENTATIONS = ['true-false', 'yes-no', 'on-off', 'custo
 
 export const BOOLEAN_CONTROL_TYPES = ['checkbox', 'radio', 'toggle'] as const;
 
-/**
- * Base widget schema - common properties for all widgets
- */
 const baseWidgetSchema = {
   type: 'object' as const,
   properties: {
@@ -262,33 +239,7 @@ const baseWidgetSchema = {
       properties: {
         action: {
           type: 'string' as const,
-          enum: ['show', 'hide', 'enable', 'disable', 'require'],
-        },
-        actions: {
-          type: 'array' as const,
-          description: 'Sequential conditional rules (enable/disable first, then require)',
-          items: {
-            type: 'object' as const,
-            properties: {
-              action: {
-                type: 'string' as const,
-                enum: ['show', 'hide', 'enable', 'disable', 'require'],
-              },
-              condition: {
-                type: 'object' as const,
-                properties: {
-                  field: { type: 'string' as const },
-                  operator: {
-                    type: 'string' as const,
-                    enum: CONDITION_OPERATORS,
-                  },
-                  value: {},
-                },
-                required: ['field', 'operator'],
-              },
-            },
-            required: ['action'],
-          },
+          enum: ['show', 'hide', 'enable', 'disable'],
         },
         condition: {
           type: 'object' as const,
@@ -304,10 +255,6 @@ const baseWidgetSchema = {
         },
         minDate: { type: 'string' as const },
         maxDate: { type: 'string' as const },
-        minDateField: { type: 'string' as const },
-        maxDateField: { type: 'string' as const },
-        minDateMessage: { type: 'string' as const },
-        maxDateMessage: { type: 'string' as const },
         showCalendar: { type: 'boolean' as const },
       },
       description: 'Widget options and conditional logic',
@@ -330,10 +277,6 @@ const baseWidgetSchema = {
         type: 'object' as const,
         properties: {
           'column-key': { type: 'string' as const },
-          'column-group': {
-            type: 'string' as const,
-            description: 'Groups dialog-table columns in a shared inner grid so conditional fields do not displace other rows',
-          },
           'widget-label': { type: 'string' as const },
           widget: { type: 'string' as const },
           'widget-type': { type: 'string' as const },
@@ -371,29 +314,6 @@ const baseWidgetSchema = {
       minimum: 1,
       description: 'Number of columns to span',
     },
-    'widget-lookup-config': {
-      type: 'object' as const,
-      properties: {
-        search_placeholder: {
-          type: 'string' as const,
-          description: 'Placeholder text for the popup search input',
-        },
-        page_size: {
-          type: 'number' as const,
-          minimum: 1,
-          description: 'Number of records per page in search results',
-        },
-        action_label: {
-          type: 'string' as const,
-          description: 'Label for the empty-state search button (default: Select {widget-label})',
-        },
-        select_record_label: {
-          type: 'string' as const,
-          description: 'Label for the apply button in the lookup popup (default: Select {widget-label})',
-        },
-      },
-      description: 'Lookup widget configuration (register-lookup / parent-lookup)',
-    },
     'widget-item': {
       type: 'object' as const,
       description: 'Item template for array widgets',
@@ -411,9 +331,6 @@ const baseWidgetSchema = {
   required: ['widget', 'widget-id'],
 };
 
-/**
- * Panel schema
- */
 export const panelSchema = {
   type: 'object' as const,
   properties: {
@@ -474,9 +391,6 @@ export const panelSchema = {
   },
 };
 
-/**
- * Section schema
- */
 export const sectionSchema = {
   type: 'object' as const,
   properties: {
@@ -528,9 +442,6 @@ export const sectionSchema = {
   required: ['section-id', 'panels'],
 };
 
-/**
- * Get schema for a specific context (section, panel, or widget)
- */
 export function getSchemaForContext(context: 'section' | 'panel' | 'widget'): any {
   switch (context) {
     case 'section':

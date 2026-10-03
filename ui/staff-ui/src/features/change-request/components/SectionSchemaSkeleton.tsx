@@ -1,8 +1,10 @@
 const ChangeRequestValuesTabsSkeleton = () => {
     return (
-        <div className="mt-7.5">
-            <div className="ml-7.5">
-                <div className="px-8 py-2 text-[18px] font-medium rounded-t-[10px] bg-primary-first/50 w-50 h-11 animate-pulse" />
+        <div>
+            <div className="flex flex-wrap gap-2 sm:ml-7.5">
+                <div className="h-10 w-36 animate-pulse rounded-t-[10px] bg-primary-first/50 sm:h-11 sm:w-50" />
+                <div className="h-10 w-32 animate-pulse rounded-t-[10px] bg-secondary-second sm:h-11 sm:w-44" />
+                <div className="h-10 w-36 animate-pulse rounded-t-[10px] bg-secondary-second sm:h-11 sm:w-48" />
             </div>
 
             <div className="flex flex-col gap-4">

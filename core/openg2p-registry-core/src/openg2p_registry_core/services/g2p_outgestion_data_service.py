@@ -1,11 +1,9 @@
 import logging
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
 from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
 from ..models import (
     DataModel,
     G2PRegisterDefinition,
@@ -24,7 +22,7 @@ _logger = logging.getLogger("g2p-outgestion-data-service")
 class G2POutgestionDataService(BaseService):
     async def get_outgestion_summary_data(self) -> OutgestionSummaryData:
         _logger.info("Fetching outgestion summary data through service")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             no_of_messages: int = (
@@ -60,7 +58,7 @@ class G2POutgestionDataService(BaseService):
         filter_by: dict = None,
     ) -> tuple[list[OutgestionDataSearchResultData], int]:
         _logger.info("Searching in outgestion data through service")
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
 
         async with session_maker() as session:
             return await self._search_in_outgestion_data(

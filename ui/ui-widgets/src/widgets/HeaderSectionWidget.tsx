@@ -29,12 +29,6 @@ interface HeaderSectionWidgetProps {
   config: BaseWidgetConfig;
 }
 
-const DEFAULT_STATUS_COLORS: Record<string, string> = {
-  active: '#16A34A',
-  inactive: '#D97706',
-  archived: '#6B7280',
-};
-
 const DEFAULT_LABELS: Record<string, string> = {
   functionalId: 'Functional Record ID',
   status: 'Record Status',
@@ -288,11 +282,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
 
   const format = (widgetConfig['widget-data-format'] || {}) as Record<string, any>;
   const imageSize = format.imageSize || 120;
-  const nameColor = format.nameColor || 'var(--owt-color-primary-dark, #F07B1A)';
-  const statusColors: Record<string, string> = {
-    ...DEFAULT_STATUS_COLORS,
-    ...(format.statusColors || {}),
-  };
 
   const updateFieldValue = useCallback(
     (fieldKey: string, newValue: any) => {
@@ -311,9 +300,6 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
     );
     return opt ? opt.label : String(statusValue);
   }, [statusValue, statusOptions]);
-
-  const statusColor =
-    statusColors[String(statusValue).toLowerCase()] || 'var(--owt-color-text-muted, #6B7280)';
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -390,8 +376,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-score-ring {
           --ring-size: 54px;
           --ring-thickness: 7px;
-          --ring-color: var(--owt-color-primary-dark, #F07B1A);
-          --ring-track: rgba(2, 6, 23, 0.10);
+          --ring-color: var(--owt-color-primary-dark);
+          --ring-track: var(--owt-color-border-light);
           width: var(--ring-size);
           height: var(--ring-size);
           border-radius: 50%;
@@ -408,7 +394,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           position: absolute;
           inset: var(--ring-thickness);
           border-radius: 50%;
-          background: var(--owt-color-bg, #FFFFFF);
+          background: var(--owt-color-bg);
         }
 
         .${cls} .hdr-score-value {
@@ -419,7 +405,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           justify-content: center;
           font-size: 20px;
           font-weight: 700;
-          color: var(--owt-color-text, #011627);
+          color: var(--owt-color-text);
           font-family: Roboto, sans-serif;
         }
 
@@ -428,8 +414,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           height: ${imageSize}px;
           border-radius: 8px;
           object-fit: cover;
-          background-color: var(--owt-color-border-light, #e5e7eb);
-          border: 2px solid var(--owt-color-border, #d1d5db);
+          background-color: var(--owt-color-border-light);
+          border: 2px solid var(--owt-color-border);
           flex-shrink: 0;
         }
 
@@ -437,8 +423,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           width: ${imageSize}px;
           height: ${imageSize}px;
           border-radius: 8px;
-          background-color: var(--owt-color-border-light, #e5e7eb);
-          border: 2px solid var(--owt-color-border, #d1d5db);
+          background-color: var(--owt-color-border-light);
+          border: 2px solid var(--owt-color-border);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -464,7 +450,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           position: absolute;
           inset: 0;
           border-radius: 8px;
-          background: rgba(0, 0, 0, 0.55);
+          background: var(--owt-color-overlay);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -485,8 +471,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           padding: 5px 14px;
           border: none;
           border-radius: 4px;
-          background: rgba(255, 255, 255, 0.92);
-          color: #374151;
+          background: var(--owt-color-bg);
+          color: var(--owt-color-text);
           font-size: 0.7rem;
           font-weight: 500;
           cursor: pointer;
@@ -496,11 +482,11 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         }
 
         .${cls} .hdr-avatar-action:hover {
-          background: #fff;
+          background: var(--owt-color-bg);
         }
 
         .${cls} .hdr-avatar-action--delete {
-          color: #DC2626;
+          color: var(--owt-color-error);
         }
 
         .${cls} .hdr-info {
@@ -514,7 +500,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-name {
           font-size: 1.25rem;
           font-weight: 600;
-          color: ${nameColor};
+          color: var(--owt-color-primary-dark);
           line-height: 1.4;
           word-wrap: break-word;
         }
@@ -529,7 +515,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-field-label {
           width: 50%;
           flex: 0 0 50%;
-          color: rgba(0, 0, 0, 0.5);
+          color: var(--owt-color-text-muted);
           font-weight: 400;
           white-space: nowrap;
           overflow: hidden;
@@ -540,7 +526,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-field-value {
           width: 50%;
           flex: 0 0 50%;
-          color: var(--owt-color-text, #111827);
+          color: var(--owt-color-text);
           font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
@@ -553,11 +539,24 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           border-radius: 4px;
           font-size: 0.75rem;
           font-weight: 600;
-          color: #fff;
+          color: var(--owt-color-bg);
+          background-color: var(--owt-color-text-muted);
           max-width: 100%;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        .${cls} .hdr-status-badge[data-status="active"] {
+          background-color: var(--owt-color-success);
+        }
+
+        .${cls} .hdr-status-badge[data-status="inactive"] {
+          background-color: var(--owt-color-warning);
+        }
+
+        .${cls} .hdr-status-badge[data-status="archived"] {
+          background-color: var(--owt-color-text-muted);
         }
 
         .${cls} .hdr-meta-row {
@@ -570,7 +569,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-meta-label {
           width: 50%;
           flex: 0 0 50%;
-          color: rgba(0, 0, 0, 0.5);
+          color: var(--owt-color-text-muted);
           font-weight: 400;
           white-space: nowrap;
           overflow: hidden;
@@ -581,7 +580,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-meta-value {
           width: 50%;
           flex: 0 0 50%;
-          color: var(--owt-color-text, #111827);
+          color: var(--owt-color-text);
           font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
@@ -591,45 +590,45 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-select {
           height: 32px;
           padding: 0 8px;
-          border: 1px solid var(--owt-widget-input-border, #d1d5db);
+          border: 1px solid var(--owt-widget-input-border);
           border-radius: 6px;
           font-size: 0.875rem;
           font-family: Roboto, sans-serif;
-          background: var(--owt-widget-input-bg, #fff);
+          background: var(--owt-widget-input-bg);
           min-width: 140px;
-          color: var(--owt-btn-primary-color, #374151);
+          color: var(--owt-btn-primary-color);
         }
         .${cls} .hdr-select:focus {
           outline: none;
-          border-color: var(--owt-widget-input-focus-border, #F07B1A);
-          box-shadow: 0 0 0 2px rgba(237, 124, 34, 0.15);
+          border-color: var(--owt-widget-input-focus-border);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--owt-color-primary-accent) 15%, transparent);
         }
 
         .${cls} .hdr-input {
           height: 32px;
           padding: 0 8px;
-          border: 1px solid var(--owt-widget-input-border, #d1d5db);
+          border: 1px solid var(--owt-widget-input-border);
           border-radius: 6px;
           font-size: 0.875rem;
           font-family: Roboto, sans-serif;
-          background: var(--owt-widget-input-bg, #fff);
+          background: var(--owt-widget-input-bg);
           min-width: 140px;
-          color: var(--owt-btn-primary-color, #374151);
+          color: var(--owt-btn-primary-color);
         }
         .${cls} .hdr-input:focus {
           outline: none;
-          border-color: var(--owt-widget-input-focus-border, #F07B1A);
-          box-shadow: 0 0 0 2px rgba(237, 124, 34, 0.15);
+          border-color: var(--owt-widget-input-focus-border);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--owt-color-primary-accent) 15%, transparent);
         }
 
         .${cls} .hdr-input--error {
-          border-color: var(--owt-color-danger, #DC2626);
-          box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12);
+          border-color: var(--owt-color-danger);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--owt-color-error) 12%, transparent);
         }
 
         .${cls} .hdr-error-text {
           margin-left: calc(0px);
-          color: var(--owt-color-danger, #DC2626);
+          color: var(--owt-color-danger);
           font-size: 0.75rem;
           line-height: 1.2;
           font-weight: 500;
@@ -721,7 +720,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
                 statusLabel ? (
                   <span
                     className="hdr-status-badge"
-                    style={{ backgroundColor: statusColor }}
+                    data-status={String(statusValue).toLowerCase()}
                     title={statusLabel}
                   >
                     {statusLabel}

@@ -4,6 +4,7 @@ from .document import DocumentBucket, DocumentHandler, get_document_handler
 from .partner_management import (
     PartnerManagementClient,
     RegisteredPartner,
+    canonical_partner_id,
     get_partner_mgmt_settings,
     partner_reference_id,
 )
