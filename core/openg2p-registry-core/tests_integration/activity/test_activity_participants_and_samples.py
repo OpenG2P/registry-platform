@@ -109,3 +109,22 @@ async def test_samples_load_once_through_the_write_path(service, activity_types,
         ("PLANNED", "ACTIVE"), ("SOWN", "SUPERSEDED"), ("SOWN", "ACTIVE")]
     assert rows[1].verification_status == "VERIFIED" and float(rows[2].area_ha) == 1.2
     assert {r.channel for r in rows} == {"SYSTEM"} and rows[0].recorded_by == "sample-data"
+
+
+async def test_sample_loading_is_serialised_by_an_advisory_lock(service, activity_types, database):
+    loader = G2PActivitySampleService()
+    key = {"key": "activity-samples:" + REG}
+    async with database.connect() as holder:
+        await holder.execute(text("SELECT pg_advisory_lock(hashtext(:key))"), key)
+        try:
+            # the beat task skips a register another process is loading
+            assert await loader.load(REG, wait_for_lock=False) == 0
+        finally:
+            await holder.execute(text("SELECT pg_advisory_unlock(hashtext(:key))"), key)
+    async with database.connect() as conn:
+        assert await conn.scalar(text("SELECT count(*) FROM g2p_activity_field_works")) == 0
+    # free again: strict loading records them, and released its own lock afterwards
+    assert (await loader.load_all(strict=True))[REG] == 3
+    async with database.connect() as conn:
+        assert await conn.scalar(text(
+            "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted")) == 0

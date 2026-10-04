@@ -2103,6 +2103,27 @@ celeryWorker:
     create: false
     name: ""
 
+  # Sample activities (demo installs). Setting
+  #   envVars.REGISTRY_CELERY_WORKERS_ACTIVITY_LOAD_SAMPLE_DATA: "true"
+  # (with dbSeed.enabled) adds the `<release>-activity-samples` post-install/
+  # post-upgrade hook Job (templates/activity-samples/job.yaml, weight 20: after
+  # db-seed, before sanity). It runs this worker's image with this worker's env,
+  # waits for db-seed's activity types (REGISTRY_CELERY_WORKERS_ACTIVITY_SAMPLES_WAIT_SECONDS,
+  # default 600), loads every activity register's samples and FAILS the release
+  # if any register's samples cannot be loaded — its log names each register and
+  # the error (e.g. a code missing from a Master Data list). The beat task
+  # activity_sample_data_worker remains as an idempotent backstop; a per-register
+  # advisory lock stops the two loading the same samples at once.
+  activitySamplesJob:
+    backoffLimit: 0
+    activeDeadlineSeconds: 1800
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
+
 redis:
   enabled: true
   architecture: standalone

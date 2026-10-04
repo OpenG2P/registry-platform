@@ -45,3 +45,9 @@ class Settings(ExtSettings):
     # Import File Configuration
     import_file_sender_id: str = "Staff Portal"
     import_file_signature: str = "signature"
+
+    # Install-time sample activities (python -m openg2p_registry_celery_worker.load_activity_samples,
+    # run by the chart's activity-samples hook Job): how long to wait for db-seed's
+    # activity types to appear, and how often to look.
+    activity_samples_wait_seconds: int = 600
+    activity_samples_poll_seconds: int = 10
