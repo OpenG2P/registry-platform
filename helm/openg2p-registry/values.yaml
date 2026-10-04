@@ -42,24 +42,23 @@ global:
   # Redis
   redisInstallationName: '{{ .Release.Name }}-redis-master'
 
-  # MinIO — commons-minio: root-user/root-password + readonly-user/readonly-password
+  # Object store: the commons Garage (S3-compatible; it replaced MinIO). The
+  # value names keep their historical `minio*` spelling. Credentials come from
+  # the `commons-minio` Secret, which the commons Garage init job writes
+  # (root-user/root-password read-write, readonly-user/readonly-password).
   minioSecret: commons-minio
   minioAccessKey: root-user
   minioSecretKey: root-password
   minioReadonlyAccessKey: readonly-user
   minioReadonlySecretKey: readonly-password
-  # External MinIO S3 API endpoint. Must be reachable from end-user browsers
-  # because the registry generates pre-signed S3 URLs that browsers follow
-  # directly. Commons-base's Istio VirtualService exposes the S3 API at
-  # `minio-api.<basedomain>` (apiHost in commons-base values.yaml). The
-  # default below is a placeholder using the namespace + openg2p.org —
-  # OPERATORS MUST override this in `questions.yaml` / Rancher UI / values
-  # file to match their actual base domain. NOTE: `minio.<basedomain>` is
-  # the *Console* UI — do NOT point S3 clients at it.
-  minioHost: 'minio-api.{{ tpl .Values.global.baseDomain $ }}'
-  # MinIO buckets — hard-set to match DocumentBucket enum values used by
-  # the platform document handler (physical bucket name == enum value).
-  # Catalog rows store bucket as 'templates' / 'documents' / 'default'.
+  # S3 API endpoint, host:port without scheme. Garage is reached in-cluster
+  # (it has no UI and no public route). Pre-signed document URLs are signed for
+  # this same host, so they resolve only inside the cluster.
+  minioHost: 'commons-garage:3900'
+  # Buckets — hard-set to match DocumentBucket enum values used by the
+  # platform document handler (physical bucket name == enum value). The
+  # handler also uses 'import-files' and 'export-files'. All five must exist in
+  # Garage (the commons Garage init job creates them).
   defaultBucketName: 'default'
   templateBucketName: 'templates'
   # Registrant photos / record images land in the documents bucket and are
@@ -67,7 +66,8 @@ global:
   # is variant-specific (upload_images.py ships in a variant's db-seed image, not
   # this one) because the images belong to that variant's sample records.
   documentsBucketName: 'documents'
-  minioSecure: true
+  # In-cluster Garage speaks plain HTTP.
+  minioSecure: false
 
   # Security & Authentication
   keymanagerInstallationName: commons-services-keymanager
@@ -1616,8 +1616,8 @@ staffUi:
     APP_MNEMONIC: '{{ .Release.Name }}-ui'
     APP_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
     APPLICATION_MNEMONIC: '{{ tpl .Values.global.authClientId $ }}'
-    # Allow profile/document images from MinIO pre-signed URLs in the browser CSP.
-    CSP_SRC_IMG: 'self blob: data: https://{{ tpl .Values.global.minioHost $ }}'
+    # Allow profile/document images from object-store (Garage) pre-signed URLs in the browser CSP.
+    CSP_SRC_IMG: 'self blob: data: {{ ternary "https" "http" .Values.global.minioSecure }}://{{ tpl .Values.global.minioHost $ }}'
     # Server-side calls from the Next.js Staff Portal UI pod to the Staff
     # Portal API stay inside the cluster — sibling K8s Service is named
     # "<release>-staff-portal-api" on port 80. Browser-side calls from the

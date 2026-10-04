@@ -5,7 +5,7 @@ questions:
   description: >-
     The DNS domain every OpenG2P hostname in this environment sits under. Every
     other hostname on this form defaults to a name under it — the registry, the
-    Agent Portal, Keycloak, MinIO, eSignet, Certify, the ID generator and the
+    Agent Portal, Keycloak, eSignet, Certify, the ID generator and the
     cookie domain — so on a non-openg2p.org deployment set this ONE value and the
     rest follow. Override an individual hostname below only where it genuinely
     differs. Do not include a scheme or a trailing slash.
@@ -32,9 +32,17 @@ questions:
   group: General
 
 - variable: global.minioHost
-  description: "External MinIO S3 API endpoint reachable from end-user browsers (the registry generates pre-signed S3 URLs that browsers follow directly). Use the API hostname exposed by commons-base, NOT the Console hostname. Example: minio-api.<namespace>.openg2p.org (do not include scheme or trailing slash). MinIO is assumed to be served over HTTPS via the Istio gateway."
+  description: "Object store (Garage, S3-compatible) API endpoint as host:port, no scheme. Default is the in-cluster commons Garage service: commons-garage:3900."
   type: string
-  label: MinIO S3 API Host
+  default: "commons-garage:3900"
+  label: Object Store (Garage) S3 API Host
+  group: General
+
+- variable: global.minioSecure
+  description: "Use HTTPS to reach the object store. Off for the in-cluster Garage service."
+  type: boolean
+  default: false
+  label: Object Store Uses HTTPS
   group: General
 
 - variable: keycloak-init.enabled
@@ -216,15 +224,15 @@ questions:
   group: DB Seed
 
 - variable: dbSeed.loadImages
-  description: Upload sample profile images to MinIO and link them to the seeded records. Requires Load Sample Data to be enabled.
+  description: Upload sample profile images to the object store (Garage) and link them to the seeded records. Requires Load Sample Data to be enabled.
   type: boolean
   label: Load Sample Images
   group: DB Seed
 
 - variable: dbSeed.loadTemplates
-  description: Upload Jinja templates from the db-seed image to MinIO after SQL seed (object key = filename). Requires MinIO to be reachable at global.minioHost.
+  description: Upload Jinja templates from the db-seed image to the object store (Garage) after SQL seed (object key = filename). Requires it to be reachable at global.minioHost.
   type: boolean
-  label: Load Templates to MinIO
+  label: Load Templates to Object Store
   group: DB Seed
 
 - variable: dbSeed.optionalSeeds
