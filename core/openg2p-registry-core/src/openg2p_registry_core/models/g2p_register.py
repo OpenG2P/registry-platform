@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, Index, Date, event
+from sqlalchemy import Boolean, Date, DateTime, Float, Index, Integer, String, Text, event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, validates
 from openg2p_fastapi_common.models import BaseORMModel
@@ -69,6 +69,18 @@ class G2PRegister(BaseORMModel):
             index_name = f"idx_{cls.__tablename__}_search_text_trigram"
             idx = Index(index_name, cls.search_text, postgresql_using='gin', postgresql_ops={'search_text': 'gin_trgm_ops'})
             idx._set_parent(cls.__table__, allow_replacements=True)
+
+            export_active_index = Index(
+                f"idx_{cls.__tablename__}_export_active",
+                cls.last_approved_at.desc(),
+                cls.internal_record_id,
+                postgresql_where=(
+                    cls.record_status == RecordStatusEnum.ACTIVE.value
+                ),
+            )
+            export_active_index._set_parent(
+                cls.__table__, allow_replacements=True
+            )
             
             # Register event listeners for automatic search_text and record_name population
             @event.listens_for(cls, "before_insert")
@@ -148,9 +160,9 @@ class G2PPerson(BaseORMModel):
 class G2PGeo(BaseORMModel):
     __abstract__ = True
 
-    latitude: Mapped[str] = mapped_column(String, nullable=True)
-    longitude: Mapped[str] = mapped_column(String, nullable=True)
-    altitude: Mapped[str] = mapped_column(String, nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    altitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     plus_code: Mapped[str] = mapped_column(String, nullable=True, index=True)
     address_line_1: Mapped[str] = mapped_column(String, nullable=True)
     address_line_2: Mapped[str] = mapped_column(String, nullable=True)
@@ -163,7 +175,7 @@ class G2PGeo(BaseORMModel):
     def update_geo_hierarchy(self, _key: str, value: str) -> str:
         """
         Automatically populate geo_code_hierarchy_json when geo_lowest_level_value_id is set.
-        Fetches the hierarchy from master-data-db with caching.
+        Fetches the hierarchy from the Master Data API with caching.
         """
         if value:
             from ..services import G2PGeoHierarchyService

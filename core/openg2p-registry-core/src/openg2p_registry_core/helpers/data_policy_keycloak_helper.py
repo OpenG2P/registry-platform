@@ -13,8 +13,7 @@ from typing import Any
 import httpx
 
 from ..config import Settings
-from ..errors.exceptions import G2PRegistryException
-from ..errors.codes import G2PRegistryErrorCodes
+from ..errors import G2PRegistryException, G2PRegistryErrorCodes
 
 _logger = logging.getLogger("g2p-data-policy-keycloak")
 

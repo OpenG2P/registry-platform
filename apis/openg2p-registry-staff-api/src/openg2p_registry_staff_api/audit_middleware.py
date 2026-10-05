@@ -17,6 +17,12 @@ Audit policy (v2):
   Anonymous + outcome 2xx (legitimate public endpoint)      | NO
   Anonymous + outcome non-2xx, audit_anonymous_failures=true| YES (anon)
   Health probes / OpenAPI surfaces / OPTIONS preflight      | NO
+  Service caller (request.state.audit_actor set), any outcome| YES
+
+Server-to-server endpoints that authenticate without a JWT (e.g. the AWE
+decision webhook, HMAC-signed) set `request.state.audit_actor` to a service
+actor dict once the caller is verified, so their successful calls are
+audited too.
 
 For 403 (Forbidden) responses the JWT was definitely valid (ResolvePermissionMiddleware
 validated it before raising the perms error), so we decode the bearer
@@ -147,6 +153,10 @@ class AuditMiddleware(BaseHTTPMiddleware):
         self._state_key = state_key
         self._audit_anonymous_failures = audit_anonymous_failures
         self._client: httpx.AsyncClient | None = None
+        # Strong references to in-flight emissions: the event loop keeps only
+        # weak references to tasks, so an unreferenced task can be collected
+        # before it runs.
+        self._tasks: set[asyncio.Task] = set()
 
         if self._enabled:
             _logger.info(
@@ -207,6 +217,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
     def _maybe_emit(self, request: Request, response, raised) -> None:
         """Decide whether to emit, build the event, fire-and-forget."""
         principal = getattr(request.state, self._state_key, None)
+        service_actor = getattr(request.state, "audit_actor", None)
+        if not isinstance(service_actor, dict):
+            service_actor = None
 
         # If the inner stack raised, treat this as outcome=failure / 500.
         # The actor may still be available (auth ran successfully and a
@@ -220,8 +233,8 @@ class AuditMiddleware(BaseHTTPMiddleware):
             is_success = 200 <= status_code < 300
 
         # Audit decision
-        if principal is not None:
-            pass  # authenticated — always audit
+        if principal is not None or service_actor is not None:
+            pass  # authenticated (user or verified service caller) — always audit
         elif (not is_success) and self._audit_anonymous_failures:
             pass  # rejected anonymous — audit per v2 policy
         else:
@@ -229,11 +242,17 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         try:
             route = self._match_route(request)
-            actor = self._build_actor(request, principal, response, status_code)
+            actor = (
+                self._build_actor(request, principal, response, status_code)
+                if principal is not None or service_actor is None
+                else {**service_actor, "ip": service_actor.get("ip") or _client_ip(request)}
+            )
             event = self._build_event(
                 request, response, status_code, actor, route, raised
             )
-            asyncio.create_task(self._emit(event))
+            task = asyncio.create_task(self._emit(event))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
         except Exception:
             _logger.exception("AuditMiddleware: failed to build event; skipping")
 

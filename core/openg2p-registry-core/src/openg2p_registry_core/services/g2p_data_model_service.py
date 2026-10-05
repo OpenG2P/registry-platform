@@ -1,10 +1,10 @@
 import logging
 import uuid
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models.enum import DocumentBucket
@@ -16,7 +16,7 @@ _logger = logging.getLogger("g2p-data-model-service")
 
 class G2PDataModelService(BaseService):
     async def create_data_model(self, data_model_payload: DataModelPayload) -> DataModelData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._ensure_data_model_mnemonic_not_exists(
                 session, data_model_payload.data_model_mnemonic
@@ -39,7 +39,7 @@ class G2PDataModelService(BaseService):
             return DataModelData.model_validate(data_model)
 
     async def get_data_model(self, data_model_id: str) -> DataModelData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             data_model = await self._get_data_model(session, data_model_id)
             return DataModelData.model_validate(data_model)
@@ -47,7 +47,7 @@ class G2PDataModelService(BaseService):
     async def get_all_data_models(
         self, current_page: int, page_size: int
     ) -> tuple[list[DataModelData], int, int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             offset = (current_page - 1) * page_size
             total_items_result = await session.execute(
@@ -68,7 +68,7 @@ class G2PDataModelService(BaseService):
     async def update_data_model(
         self, data_model_id: str, data_model_payload: DataModelUpdatePayload
     ) -> DataModelData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             data_model = await self._get_data_model(session, data_model_id)
 
@@ -105,7 +105,7 @@ class G2PDataModelService(BaseService):
             return DataModelData.model_validate(data_model)
 
     async def delete_data_model(self, data_model_id: str) -> DataModelData:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             data_model = await self._get_data_model(session, data_model_id)
             data_model_data = DataModelData.model_validate(data_model)

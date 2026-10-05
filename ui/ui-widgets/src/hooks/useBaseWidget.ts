@@ -16,6 +16,8 @@ import {
 } from '../utils/dataSource';
 import { useWidgetEventBus } from './useWidgetEventBus';
 import { useWidgetContext } from '../components/WidgetProvider';
+import { isSerializedFile } from '../utils/fileSerialization';
+import { isStoredDocumentRef } from '../utils/storedDocument';
 
 export interface UseBaseWidgetOptions {
   config: BaseWidgetConfig;
@@ -64,6 +66,16 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       return obj;
     }
 
+    if (typeof File !== 'undefined' && obj instanceof File) {
+      return obj;
+    }
+    if (isSerializedFile(obj) || isStoredDocumentRef(obj)) {
+      return obj;
+    }
+    if ('document_id' in obj && ('presigned_url' in obj || 'source_filename' in obj || 'label' in obj)) {
+      return obj;
+    }
+
     if ('value' in obj) {
       return obj.value;
     }
@@ -85,18 +97,12 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       return undefined; // Layout widgets don't have values
     }
 
-    let value = values[widgetId];
+    let value = config['widget-data-path']
+      ? getWidgetValue(values, config['widget-data-path'], widgetId)
+      : values[widgetId];
 
-    if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
-      value = extractValueFromObject(value);
-    }
-
-    if (value === undefined && config['widget-data-path']) {
-      value = getWidgetValue(values, config['widget-data-path'], widgetId);
-
-      if (value !== null && value !== undefined && typeof value === 'object' && !Array.isArray(value)) {
-        value = extractValueFromObject(value);
-      }
+    if (value === undefined) {
+      value = values[widgetId];
     }
 
     if (value === undefined && userHasSetValueRef.current && values[widgetId] !== undefined) {
@@ -252,15 +258,16 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         });
       }
     },
-    [config, widgetId, dispatch, onValueChange, eventBus, resolveIsRequired] // Removed 'values' to prevent stale closures
+    [config, widgetId, dispatch, onValueChange, eventBus, resolveIsRequired]
   );
 
   const handleBlur = useCallback(() => {
     dispatch(setTouched({ widgetId, touched: true }));
+    const latestValues = valuesRef.current;
     const validationErrors = validateWidget(
       currentValue,
       config['widget-data-validation'],
-      resolveIsRequired(valuesRef.current)
+      resolveIsRequired(latestValues)
     );
     dispatch(setError({ widgetId, errors: validationErrors }));
 
@@ -347,6 +354,13 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
 
   useEffect(() => {
     if (!dataSource) {
+      return;
+    }
+
+    if (
+      dataSource.type === 'api' &&
+      (config.widget === 'parent-lookup' || config.widget === 'register-lookup')
+    ) {
       return;
     }
 

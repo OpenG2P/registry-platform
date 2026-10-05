@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { tSchema } from '../utils/tSchema';
+import { tSchema, toTitleCase } from '../utils/tSchema';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
+import { owtFieldInputClass } from '../theme';
+import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 import { searchIcon, closeIcon } from '../assets';
 import type { DataSourceRequestHandler } from '../types';
 
@@ -12,8 +14,6 @@ type ParentLookupPageResult = {
   pagination: Record<string, any>;
 };
 
-const parentLookupPageCache = new Map<string, ParentLookupPageResult>();
-const parentLookupPageInflight = new Map<string, Promise<ParentLookupPageResult>>();
 const parentLookupRecordCache = new Map<string, Record<string, any>>();
 
 const parsePagination = (
@@ -50,12 +50,14 @@ const indexParentRecords = (rows: Record<string, any>[]) => {
   }
 };
 
-const buildParentLookupCacheKey = (
-  service: string,
-  endpoint: string,
-  method: string,
-  params: Record<string, any>,
-) => `${service}|${endpoint}|${method}|${JSON.stringify(params)}`;
+const hasFilledParams = (params: Record<string, unknown> | undefined | null): boolean => {
+  if (!params) return false;
+  const values = Object.values(params);
+  if (values.length === 0) return false;
+  return values.every(
+    (value) => value !== null && value !== undefined && String(value).trim() !== '',
+  );
+};
 
 const fetchParentLookupPage = async (
   handler: DataSourceRequestHandler,
@@ -65,36 +67,13 @@ const fetchParentLookupPage = async (
   params: Record<string, any>,
   headers?: Record<string, string>,
 ): Promise<ParentLookupPageResult> => {
-  const resolvedMethod = method || 'POST';
-  const cacheKey = buildParentLookupCacheKey(service, endpoint, resolvedMethod, params);
-
-  const cached = parentLookupPageCache.get(cacheKey);
-  if (cached) {
-    return cached;
-  }
-
-  const inflight = parentLookupPageInflight.get(cacheKey);
-  if (inflight) {
-    return inflight;
-  }
-
-  const fetchPromise = (async () => {
-    const result = await handler(service, endpoint, resolvedMethod, params, { headers });
-    const parsed: ParentLookupPageResult = {
-      rows: (result?.records ?? []) as Record<string, any>[],
-      pagination: (result?.pagination ?? {}) as Record<string, any>,
-    };
-    indexParentRecords(parsed.rows);
-    parentLookupPageCache.set(cacheKey, parsed);
-    return parsed;
-  })();
-
-  parentLookupPageInflight.set(cacheKey, fetchPromise);
-  try {
-    return await fetchPromise;
-  } finally {
-    parentLookupPageInflight.delete(cacheKey);
-  }
+  const result = await handler(service, endpoint, method || 'POST', params, { headers });
+  const parsed: ParentLookupPageResult = {
+    rows: (result?.records ?? []) as Record<string, any>[],
+    pagination: (result?.pagination ?? {}) as Record<string, any>,
+  };
+  indexParentRecords(parsed.rows);
+  return parsed;
 };
 
 export const ParentLookupWidget = ({
@@ -131,6 +110,7 @@ export const ParentLookupWidget = ({
   const widgetConfig = config;
 
   const { t, dataSourceRequestHandler, hostContext } = useWidgetContext();
+  const themeRoot = useOwtThemeRootProps();
 
   const dataSource = widgetConfig['widget-data-source'] as Record<string, any> | undefined;
   const lookupConfig = widgetConfig['widget-lookup-config'] as Record<string, any> | undefined;
@@ -147,6 +127,16 @@ export const ParentLookupWidget = ({
     }
     return merged;
   }, [hostContext, dataSource?.params]);
+
+  const canFetch = useMemo(
+    () =>
+      hasFilledParams(hostContext) &&
+      hasFilledParams(dataSource?.params) &&
+      !!dataSource?.service &&
+      !!dataSource?.endpoint &&
+      !!dataSourceRequestHandler,
+    [hostContext, dataSource, dataSourceRequestHandler],
+  );
 
   const [isOpen, setIsOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -167,7 +157,7 @@ export const ParentLookupWidget = ({
 
   const fetchRecords = useCallback(
     async (text: string, page: number, size: number) => {
-      if (!dataSource?.service || !dataSource?.endpoint || !dataSourceRequestHandler) {
+      if (!canFetch || !dataSource?.service || !dataSource?.endpoint || !dataSourceRequestHandler) {
         return { rows: [] as Record<string, any>[], pagination: {} as Record<string, any> };
       }
       return fetchParentLookupPage(
@@ -184,7 +174,7 @@ export const ParentLookupWidget = ({
         dataSource.headers,
       );
     },
-    [dataSource, dataSourceRequestHandler, requestParams],
+    [canFetch, dataSource, dataSourceRequestHandler, requestParams],
   );
 
   const findRecordByValue = useCallback(
@@ -298,7 +288,7 @@ export const ParentLookupWidget = ({
       setIsHydrating(false);
       return;
     }
-    if (!dataSource?.service || !dataSource?.endpoint || !dataSourceRequestHandler) return;
+    if (!canFetch) return;
     if (hydratedValueRef.current === value) return;
 
     let cancelled = false;
@@ -325,7 +315,7 @@ export const ParentLookupWidget = ({
       cancelled = true;
       setIsHydrating(false);
     };
-  }, [hasValue, value, dataSource, dataSourceRequestHandler, findRecordByValue]);
+  }, [hasValue, value, canFetch, findRecordByValue]);
 
   const isReadonly = !!widgetConfig['widget-readonly'];
   const rawLabel = widgetConfig['widget-label'];
@@ -374,12 +364,12 @@ export const ParentLookupWidget = ({
       style={{
         borderRadius: '10px',
         borderColor: hasError
-          ? 'var(--owt-color-error, #B91C1C)'
-          : 'var(--owt-widget-input-border, #C4C4C4)',
+          ? 'var(--owt-color-error)'
+          : 'var(--owt-widget-input-border)',
         backgroundColor:
           !isEnabled || isReadonly
-            ? 'var(--owt-color-bg-alt, #F6F6F6)'
-            : 'var(--owt-color-bg, #FFFFFF)',
+            ? 'var(--owt-color-bg-alt)'
+            : 'var(--owt-color-bg)',
       }}
       title={hasValue ? displayName : placeholder}
     >
@@ -404,15 +394,13 @@ export const ParentLookupWidget = ({
       }}
       onChange={() => undefined}
       onBlur={onBlur}
-      className={`w-full sm:w-[180px] max-w-full h-[30px] px-3 border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-        hasError
-          ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
-          : 'border-gray-300'
-      } ${
-        !isEnabled || isReadonly
-          ? 'bg-gray-100 cursor-not-allowed'
-          : 'bg-white cursor-pointer'
-      }`}
+      className={owtFieldInputClass({
+        error: hasError,
+        disabled: !isEnabled || isReadonly,
+        className: `w-full sm:w-[180px] max-w-full h-[30px] px-3 owt-shadow-sm ${
+          !isEnabled || isReadonly ? '' : 'cursor-pointer'
+        }`,
+      })}
       style={{ borderRadius: '10px' }}
       title={hasValue ? displayName : placeholder}
     >
@@ -426,14 +414,14 @@ export const ParentLookupWidget = ({
       <div className="mb-[10px] flex flex-col sm:flex-row sm:items-start">
         {rawLabel && (
           <div
-            className="text-base text-gray-600 font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
+            className="text-base owt-field-label font-medium md:min-w-[120px] sm:pr-4 mb-1 sm:mb-0"
             style={{ fontFamily: 'Roboto, sans-serif' }}
             title={label}
           >
             {label}:
           </div>
         )}
-        <div className="flex-1 text-base text-gray-900 font-medium">
+        <div className="flex-1 text-base owt-text font-medium">
           {hasValue ? displayName : '-'}
         </div>
       </div>
@@ -442,7 +430,7 @@ export const ParentLookupWidget = ({
 
   if (isReadonly && isCompact) {
     return (
-      <span className="text-sm text-gray-900 truncate block">
+      <span className="text-sm truncate block" style={{ color: 'inherit' }}>
         {hasValue ? displayName : '-'}
       </span>
     );
@@ -461,7 +449,7 @@ export const ParentLookupWidget = ({
         <div className="flex flex-col sm:flex-row sm:items-start">
           {rawLabel && (
             <WidgetFieldLabel
-              className="text-base font-medium text-gray-700 md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+              className="text-base font-medium owt-field-label md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
               label={rawLabel}
               required={isRequired}
             />
@@ -469,7 +457,7 @@ export const ParentLookupWidget = ({
           <div className="flex-1 min-w-0">
             {selectTrigger}
             {touched && error.length > 0 && (
-              <p className="text-red-500 text-sm mt-1">{error[0]}</p>
+              <p className="owt-field-error text-sm mt-1">{error[0]}</p>
             )}
           </div>
         </div>
@@ -479,15 +467,16 @@ export const ParentLookupWidget = ({
         <>
           <div
             className="fixed inset-0 z-[100]"
-            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+            style={{ backgroundColor: 'var(--owt-color-overlay)' }}
             onClick={() => {
               setIsOpen(false);
               onBlur();
             }}
           />
           <div
-            className="flex flex-col overflow-hidden"
+            className={`${themeRoot.className} flex flex-col overflow-hidden`}
             style={{
+              ...themeRoot.style,
               position: 'fixed',
               top: modalPos.y,
               left: modalPos.x,
@@ -499,9 +488,9 @@ export const ParentLookupWidget = ({
               minHeight: 260,
               maxWidth: '96vw',
               maxHeight: '92vh',
-              backgroundColor: 'var(--owt-color-bg, #FFFFFF)',
-              borderRadius: 'var(--owt-widget-card-border-radius, 20px)',
-              boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+              backgroundColor: 'var(--owt-color-bg)',
+              borderRadius: 'var(--owt-widget-card-border-radius)',
+              boxShadow: '0 24px 64px var(--owt-color-shadow)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -516,9 +505,9 @@ export const ParentLookupWidget = ({
                   posY: modalPos.y,
                 };
               }}
-              className="flex items-center justify-between px-5 py-4 flex-shrink-0 select-none border-b border-gray-200 cursor-grab"
+              className="flex items-center justify-between px-5 py-4 flex-shrink-0 select-none border-b owt-border cursor-grab"
             >
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold owt-text">
                 {t?.('common.selectTitle', { label, defaultValue: `Select ${label}` })}
               </h3>
               <button
@@ -535,8 +524,8 @@ export const ParentLookupWidget = ({
               </button>
             </div>
 
-            <div className="px-5 py-3 flex-shrink-0 border-b border-gray-200">
-              <div className="flex items-center gap-2 px-3 h-[30px] border border-gray-300 rounded-[10px] bg-white">
+            <div className="px-5 py-3 flex-shrink-0 border-b owt-border">
+              <div className={owtFieldInputClass({ className: 'flex items-center gap-2 px-3 h-[30px] rounded-[10px]' })}>
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -549,7 +538,7 @@ export const ParentLookupWidget = ({
                     }
                   }}
                   placeholder={searchPlaceholder}
-                  className="flex-1 outline-none text-sm text-gray-900 bg-transparent"
+                  className="flex-1 outline-none text-sm owt-text bg-transparent"
                 />
                 <button
                   type="button"
@@ -564,7 +553,7 @@ export const ParentLookupWidget = ({
 
             <div className="overflow-auto flex-1">
               {searchResults.length === 0 ? (
-                <p className="text-center text-sm text-gray-500 py-10">
+                <p className="text-center text-sm owt-text-muted py-10">
                   {searchText
                     ? t?.('common.noResults', { defaultValue: 'No results found' })
                     : t?.('common.searchHint', {
@@ -574,13 +563,23 @@ export const ParentLookupWidget = ({
               ) : (
                 <div className="overflow-auto h-full">
                   <table className="w-full text-sm border-collapse">
-                    <thead className="sticky top-0 z-[1] bg-gray-50">
+                    <thead className="sticky top-0 z-[1] owt-bg-alt">
                       <tr>
-                        <th className="text-left px-4 py-2 text-sm font-medium text-gray-600 whitespace-nowrap border-b border-gray-200 bg-gray-50">
-                          {tSchema(t, 'record_name')}
+                        <th
+                          className="text-left px-4 py-2 text-sm font-medium owt-text-muted border-b owt-border owt-bg-alt max-w-[12rem]"
+                          title={toTitleCase(tSchema(t, 'record_name'))}
+                        >
+                          <span className="block truncate">
+                            {toTitleCase(tSchema(t, 'record_name'))}
+                          </span>
                         </th>
-                        <th className="text-left px-4 py-2 text-sm font-medium text-gray-600 whitespace-nowrap border-b border-gray-200 bg-gray-50">
-                          {tSchema(t, 'internal_record_id')}
+                        <th
+                          className="text-left px-4 py-2 text-sm font-medium owt-text-muted border-b owt-border owt-bg-alt max-w-[12rem]"
+                          title={toTitleCase(tSchema(t, 'internal_record_id'))}
+                        >
+                          <span className="block truncate">
+                            {toTitleCase(tSchema(t, 'internal_record_id'))}
+                          </span>
                         </th>
                       </tr>
                     </thead>
@@ -595,14 +594,14 @@ export const ParentLookupWidget = ({
                             key={rowKey}
                             onClick={() => setPendingRow(row)}
                             onDoubleClick={() => applySelection(row)}
-                            className={`cursor-pointer border-b border-gray-100 transition-colors ${
-                              isSelected ? 'bg-blue-100' : 'hover:bg-blue-50'
+                            className={`cursor-pointer border-b owt-border transition-colors ${
+                              isSelected ? 'owt-highlight' : 'owt-highlight-hover'
                             }`}
                           >
-                            <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
+                            <td className="px-4 py-2 text-sm owt-text whitespace-nowrap">
                               {parentLabel(row) || '-'}
                             </td>
-                            <td className="px-4 py-2 text-sm text-gray-900 whitespace-nowrap">
+                            <td className="px-4 py-2 text-sm owt-text whitespace-nowrap">
                               {row.internal_record_id != null
                                 ? String(row.internal_record_id)
                                 : '-'}
@@ -617,12 +616,12 @@ export const ParentLookupWidget = ({
             </div>
 
             <div
-              className={`flex-shrink-0 flex flex-wrap items-center gap-3 px-5 py-3 border-t border-gray-200 ${
+              className={`flex-shrink-0 flex flex-wrap items-center gap-3 px-5 py-3 border-t owt-border ${
                 totalCount !== null ? 'justify-between' : 'justify-end'
               }`}
             >
               {totalCount !== null && (
-                <span className="text-sm text-gray-600">
+                <span className="text-sm owt-text-muted">
                   {totalCount === 1
                     ? t?.('common.record', {
                         count: totalCount,
@@ -646,7 +645,7 @@ export const ParentLookupWidget = ({
                       type="button"
                       onClick={() => currentPage > 1 && runSearch(searchText, currentPage - 1)}
                       disabled={currentPage <= 1}
-                      className="px-3 h-8 text-sm font-medium rounded-[10px] bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {t?.('common.previous', { defaultValue: 'Prev' })}
                     </button>
@@ -656,7 +655,7 @@ export const ParentLookupWidget = ({
                         currentPage < totalPages && runSearch(searchText, currentPage + 1)
                       }
                       disabled={currentPage >= totalPages}
-                      className="px-3 h-8 text-sm font-medium rounded-[10px] bg-gray-100 text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {t?.('common.next', { defaultValue: 'Next' })}
                     </button>
@@ -670,7 +669,7 @@ export const ParentLookupWidget = ({
                       setIsOpen(false);
                       onBlur();
                     }}
-                    className="px-4 h-9 text-sm font-medium rounded-[10px] bg-gray-100 text-gray-700 flex-shrink-0"
+                    className="px-4 h-9 text-sm font-medium rounded-[10px] owt-bg-alt owt-text flex-shrink-0"
                   >
                     {t?.('common.remove', { defaultValue: 'Clear' })}
                   </button>
@@ -679,8 +678,8 @@ export const ParentLookupWidget = ({
                   type="button"
                   onClick={() => pendingRow && applySelection(pendingRow)}
                   disabled={!pendingRow}
-                  className="px-4 h-9 text-sm font-medium rounded-[10px] text-white disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                  style={{ backgroundColor: 'var(--owt-color-info, #2563eb)' }}
+                  className="px-4 h-9 text-sm font-medium rounded-[10px] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                  style={{ backgroundColor: 'var(--owt-color-info)', color: 'var(--owt-color-bg)' }}
                 >
                   {selectRecordLabel}
                 </button>

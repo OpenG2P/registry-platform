@@ -3,11 +3,12 @@ import importlib
 from typing import Optional, Any
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 
 from sqlalchemy import select, inspect as sa_inspect
-from sqlalchemy.ext.asyncio import async_sessionmaker
-
+from ..config import Settings
 from ..models import G2PRegisterDefinition, G2PRegisterSection, G2PRegisterUITabSection, G2PRegisterSectionCompletionScore, RegisterPurposeEnum
 from ..schemas import RecordData, RegisterTabRecordData, AllowedParentsData, AllowedParentRecordData
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -43,7 +44,7 @@ class G2PRegisterHierarchicalService(BaseService):
         Returns:
             List of RecordData from the section register
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate both registers exist
             subject_register: G2PRegisterDefinition = await self._validate_register_definition(
@@ -337,7 +338,7 @@ class G2PRegisterHierarchicalService(BaseService):
         Get the implementation class for a register based on its mnemonic.
         
         Args:
-            register_mnemonic: The register mnemonic (e.g., "Farmer", "Score")
+            register_mnemonic: The register mnemonic (e.g., "Individual", "Score")
             register_purpose: The register purpose (e.g., "CORE_TABLE", "REGISTER")
                           If None, will try extensions first, then core
             
@@ -657,7 +658,7 @@ class G2PRegisterHierarchicalService(BaseService):
         Returns:
             List of RegisterTabRecordData, one per unique section_register_id
         """
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # Validate subject register exists
             subject_register: G2PRegisterDefinition = await self._validate_register_definition(subject_register_id, session)
@@ -847,12 +848,12 @@ class G2PRegisterHierarchicalService(BaseService):
         """
         Get allowed parent records for a child section.
         
-        Given a subject record (e.g., FARMER) and a child section register (e.g., SEEDS),
+        Given a subject record (e.g., INDIVIDUAL) and a child section register (e.g., SEEDS),
         finds the parent register of that section (e.g., CROP) and returns all records
         from the parent register that are linked to the subject.
 
         Args:
-            subject_register_id: The register we're starting from (e.g., FARMER)
+            subject_register_id: The register we're starting from (e.g., INDIVIDUAL)
             subject_record_id: The specific record (internal_record_id)
             section_register_id: The child section's register (e.g., SEEDS)
 
@@ -865,7 +866,7 @@ class G2PRegisterHierarchicalService(BaseService):
             allowed_parents=[]
         )
 
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             # 1. Validate subject register exists
             await self._validate_register_definition(subject_register_id, session)

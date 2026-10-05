@@ -35,6 +35,8 @@ Render Env values section
 
 {{- define "partnerApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "partnerApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -75,6 +77,8 @@ Render Env values section
 
 {{- define "beneApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "beneApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -115,6 +119,8 @@ Render Env values section
 
 {{- define "staffApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "staffApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -155,6 +161,8 @@ Render Env values section
 
 {{- define "celeryBeat.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "celeryBeat.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -195,6 +203,8 @@ Render Env values section
 
 {{- define "celeryWorker.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "celeryWorker.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -235,6 +245,8 @@ Render Env values section
 
 {{- define "staffUi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "staffUi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -252,8 +264,10 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.failOnError | quote }}
 - name: SANITY_READINESS_TIMEOUT
   value: {{ .Values.sanity.readinessTimeout | quote }}
+# The sanity partner's consent must be for this registry's data controller: the
+# partner API sends it to CM, which denies a consent for any other controller.
 - name: SANITY_CONTROLLER_ID
-  value: {{ .Values.sanity.controllerId | quote }}
+  value: {{ (tpl (.Values.global.consentDataController | default "") $) | default .Values.sanity.controllerId | quote }}
 - name: SANITY_CM_AUDIENCE
   value: {{ .Values.sanity.cmAudience | quote }}
 - name: SANITY_DCI_SENDER_ID
@@ -270,8 +284,12 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.dataScopes | quote }}
 - name: SANITY_DENIED_SCOPES
   value: {{ .Values.sanity.deniedScopes | quote }}
+{{- $sanityRegisterId := .Values.sanity.registerId | default .Values.sanity.farmerRegisterId | default "a0000000-0000-4000-8000-000000000001" }}
+- name: SANITY_REGISTER_ID
+  value: {{ $sanityRegisterId | quote }}
+# Deprecated: same value under the old env name, for sanity images built on an older base.
 - name: SANITY_FARMER_REGISTER_ID
-  value: {{ .Values.sanity.farmerRegisterId | quote }}
+  value: {{ $sanityRegisterId | quote }}
 - name: SANITY_CR_TAB_ID
   value: {{ .Values.sanity.crTabId | quote }}
 - name: SANITY_CR_SECTION_ID
@@ -363,7 +381,7 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.aweAdminClientId | quote }}
 - name: SANITY_AWE_ADMIN_ROLE
   value: {{ .Values.sanity.aweAdminRole | quote }}
-# Registry DB — inject the sanity farmer, and read it back to assert the change
+# Registry DB — inject the sanity record, and read it back to assert the change
 # request was applied and that version history was written.
 - name: SANITY_REGISTRY_PGHOST
   value: {{ .Values.global.postgresqlHost | quote }}
@@ -478,6 +496,8 @@ a distinct audience with their own realm, so they get their own component.
 
 {{- define "agentPortalApi.envVars" -}}
 {{- $envVars := merge (deepCopy .Values.envVars) (deepCopy .Values.envVarsFrom) -}}
+{{- include "registry.dropMasterDataDbEnv" (dict "envVars" $envVars "global" .Values.global) -}}
+{{- include "registry.dropAweSecretEnv" (dict "envVars" $envVars "global" .Values.global) -}}
 {{- include "agentPortalApi.baseEnvVars" (dict "envVars" $envVars "context" $) }}
 {{- end -}}
 
@@ -508,4 +528,46 @@ pod env at request time so one image serves every environment.
   valueFrom: {{- include "common.tplvalues.render" ( dict "value" $v "context" $ ) | nindent 4}}
 {{- end }}
 {{- end }}
+{{- end -}}
+
+{{/*
+Master Data database settings (*_MASTER_DATA_DB_*) only when the registry reads
+MDS's database directly (global.masterDataReadMode = db, the rollback). In api
+mode (the default) every Master Data read goes through MDS's API, so the pods get
+no MDS database credentials at all. Removes the keys from the given (copied) map.
+*/}}
+{{- define "registry.dropMasterDataDbEnv" -}}
+{{- $envVars := .envVars -}}
+{{- if ne (lower (toString (.global.masterDataReadMode | default "api"))) "db" -}}
+{{- range $k := keys $envVars -}}
+{{- if contains "_MASTER_DATA_DB_" $k -}}
+{{- $_ := unset $envVars $k -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Drop env vars that reference AWE-only Secrets when AWE is disabled.
+
+The callback HMAC Secret (`global.aweCallbackHmacSecretName`) is only minted by
+templates/awe-callback-hmac-secret.yaml when `global.aweEnabled` is true. A
+component's `envVarsFrom` that still references it non-optionally would leave
+the pod in CreateContainerConfigError, so with AWE off every `*_AWE_CALLBACK_HMAC_SECRET`
+entry (and any other entry whose secretKeyRef names that Secret) is removed.
+*/}}
+{{- define "registry.dropAweSecretEnv" -}}
+{{- $envVars := .envVars -}}
+{{- if not .global.aweEnabled -}}
+{{- range $k, $v := $envVars -}}
+{{- if contains "_AWE_CALLBACK_HMAC_SECRET" $k -}}
+{{- $_ := unset $envVars $k -}}
+{{- else if kindIs "map" $v -}}
+{{- $ref := get $v "secretKeyRef" -}}
+{{- if and (kindIs "map" $ref) (contains "aweCallbackHmacSecretName" (toString (get $ref "name"))) -}}
+{{- $_ := unset $envVars $k -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}

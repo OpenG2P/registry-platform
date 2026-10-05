@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useActivityApi } from "./useActivityApi";
-import type { ActivityRegister } from "../types";
+import type { ActivityRegister, RegisterUiHints } from "../types";
 
 const NONE: ActivityRegister[] = [];
 
@@ -26,6 +26,13 @@ export function useActivityRegisters(enabled = true) {
     }, [api, enabled]);
 
     return { registers: enabled ? registers : NONE, loading: enabled && loading };
+}
+
+/** A register's presentation hints (empty until loaded, or when it sets none). */
+export function useRegisterHints(registerMnemonic: string): { hints: RegisterUiHints; contextFields: string[] } {
+    const { registers } = useActivityRegisters(!!registerMnemonic);
+    const register = findRegister(registers, registerMnemonic);
+    return { hints: register?.ui_hints ?? {}, contextFields: register?.context_fields ?? [] };
 }
 
 /** Register from the URL segment (lower-case mnemonic). */

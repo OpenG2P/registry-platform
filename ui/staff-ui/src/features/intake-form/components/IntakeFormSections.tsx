@@ -2,10 +2,9 @@
 
 import {
   SectionsContainer,
-  WidgetProvider,
 } from '@openg2p/registry-widgets';
 import type { SectionChanges } from '@openg2p/registry-widgets';
-import { dataSourceRequestHandler } from '@/shared/services';
+import { RegistryWidgetProvider } from '@/shared/widgets';
 import { useTranslations } from 'next-intl';
 
 interface Props {
@@ -38,11 +37,9 @@ export default function IntakeFormSections({
   const t = useTranslations();
 
   return (
-    <WidgetProvider
+    <RegistryWidgetProvider
       store={widgetStore}
       schemaData={schemaData}
-      t={t}
-      dataSourceRequestHandler={dataSourceRequestHandler}
       hostContext={{
         submission_id: submissionId,
         form_register_id: formRegisterId,
@@ -76,6 +73,6 @@ export default function IntakeFormSections({
           </div>
         )}
       </div>
-    </WidgetProvider>
+    </RegistryWidgetProvider>
   );
 }

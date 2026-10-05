@@ -1,10 +1,10 @@
 import { useEffect, useMemo } from "react";
+import { useParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { useFetch } from "@/shared/hooks/useFetch";
 import { isRecordAccessDeniedError } from "@/shared/utils/isRecordAccessDeniedError";
 import { useRegister } from "@/context/RegisterContext";
 import { useRegisterTabs } from "@/context/RegisterTabsContext";
-import { useRegisterRecord } from "@/context/RegisterRecordContext";
 import {
     TabSection,
     TabSectionData,
@@ -13,10 +13,12 @@ import { useSectionSave } from "./useSectionSave";
 import { useRbac } from "@/context/RbacContext";
 import { CHANGE_REQUEST_ACTIONS } from "@/features/shared/permissions";
 import { buildSectionsDataMap } from "@/features/shared/utils";
+import { withRuntimeGeoLevels } from "@/shared/utils/geoWidgets";
 
 export const useRegisterSections = (onChangeRequestCreated: () => void) => {
     const router = useRouter();
-    const { internalRecordId } = useRegisterRecord();
+    const { id } = useParams<{ type: string; id: string }>();
+    const internalRecordId = id ? decodeURIComponent(id) : undefined;
     const { activeTabId } = useRegisterTabs();
     const { currentRegister } = useRegister();
     const { can } = useRbac();
@@ -89,7 +91,8 @@ export const useRegisterSections = (onChangeRequestCreated: () => void) => {
 
                 const section_id = section.section_id;
                 const section_register_id = section.section_register_id ?? sectionData?.section_register_id ?? section.register_id;
-                const section_ui_schema = section.section_ui_schema ?? sectionData?.section_ui_schema;
+                // Location widgets take the geography's levels from Master Data at runtime.
+                const section_ui_schema = withRuntimeGeoLevels(section.section_ui_schema ?? sectionData?.section_ui_schema);
                 const register_purpose = section.register_purpose ?? sectionData?.register_purpose;
                 const register_relation = section.register_relation ?? sectionData?.register_relation;
 

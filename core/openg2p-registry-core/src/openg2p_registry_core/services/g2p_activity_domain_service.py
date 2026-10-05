@@ -13,6 +13,15 @@ from typing import Any, Optional
 from openg2p_fastapi_common.service import BaseService
 
 
+@dataclass
+class SampleStep:
+    """One sample activity, and what to do with it once recorded."""
+
+    activity: Any  # ActivityInput
+    verify: bool = False  # verify it (when its type requires verification)
+    correction: Optional[dict[str, Any]] = None  # {"reason": ..., "payload": {...}}: supersede it
+
+
 class ActivityContextSpec(dict):
     """What ``build_context`` returns: context_key plus optional context_type, subject and attributes."""
 
@@ -21,7 +30,7 @@ class ActivityContextSpec(dict):
 class ActivityAggregateResult:
     """One roll-up value, returned by ``aggregate``; the platform stores it and keeps its history.
 
-    The subject may differ from the activity's (a farmer's season summary from a
+    The subject may differ from the activity's (a person's season summary from a
     plot's harvest). ``period_key`` is the domain's label for the period, with
     its date range for sorting and filtering. Leave ``geo_dimensions`` unset to
     have the platform copy the triggering activity's geography.
@@ -41,6 +50,33 @@ class ActivityAggregateResult:
 
 
 class G2PActivityDomainService(BaseService):
+    # Payload fields that define which context an activity belongs to (e.g. a
+    # crop season's plot, year, season and crop; an attendance day's worker and
+    # date). A correction keeps its context, so it may not change them: the
+    # staff UI locks them, and supersede rejects a change. Void and record anew
+    # to move an activity to another context.
+    context_fields: tuple[str, ...] = ()
+
+    # How the staff UI presents this register, so the platform UI holds no
+    # register-specific field names. All keys optional:
+    #   summary_fields        payload fields shown on an activity's row in lists
+    #   context_columns       projection columns shown in the context list
+    #   batch_carry_fields    fields a new batch row copies from the row above
+    #   search_placeholder    hint in the activity search box
+    #   context_search_placeholder  hint in the context search box
+    ui_hints: dict[str, Any] = {}
+
+    # Aggregate types that become final when a period lock (for all activity
+    # types) covers their whole period, e.g. a worker's monthly attendance once
+    # the month is closed. Others are never marked final.
+    final_on_period_lock: tuple[str, ...] = ()
+
+    # Activity fields that hold another identifier of the subject (e.g. a
+    # person's Fayda FAN beside the register's own ID). A partner's consent names the
+    # person by one identifier; a search by another is allowed only when the
+    # register's own data links the two.
+    subject_id_fields: tuple[str, ...] = ()
+
     def build_context(
         self,
         activity_type: str,
@@ -118,8 +154,9 @@ class G2PActivityDomainService(BaseService):
     # A DCI search on an activity register can return, instead of activities, a
     # subject's current state per context (reg_record_type naming the context
     # type, e.g. ...:CropSeason) or its aggregates (...:Aggregate). These hooks
-    # shape those records. Top-level keys are what consent scopes clamp, so a
-    # register maps them onto its own scope names; the defaults are generic.
+    # shape those records; the defaults are generic. The row a hook receives is
+    # already filtered to the consented data scopes (fields outside them are
+    # null), so a hook reads fields with .get and never needs to know about consent.
 
     def dci_state_record(self, state: dict[str, Any]) -> dict[str, Any]:
         """One context's current state (a projection row, JSON-ready) as a DCI record."""
@@ -148,6 +185,17 @@ class G2PActivityDomainService(BaseService):
             "location": aggregate.get("geo_dimensions"),
             "dimensions": aggregate.get("custom_dimensions"),
         }
+
+    # ------------------------------------------------------------- samples
+
+    async def sample_activities(self, register) -> list["SampleStep"]:
+        """Sample activities for a demo install, in order (see G2PActivitySampleService).
+
+        Every step's activity must carry an idempotency key, so loading is
+        exactly-once. Return [] while what the samples refer to is not ready
+        yet; the loader asks again on its next run.
+        """
+        return []
 
     def now(self) -> datetime:
         return datetime.utcnow()

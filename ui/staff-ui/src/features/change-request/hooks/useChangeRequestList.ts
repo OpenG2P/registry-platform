@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFetch } from '@/shared/hooks';
 import type { ChangeRequest } from '@/features/change-request/types/change-request';
 
@@ -22,6 +22,10 @@ export function useChangeRequestList({
     enabled = true,
 }: UseChangeRequestListOptions) {
     const [currentPage, setCurrentPage] = useState(initialPage);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize, searchText, subjectRecordId, subjectRegisterId, tabId]);
 
     const { data, loading } = useFetch<any>({
         url: '/api/change-request/get/list',

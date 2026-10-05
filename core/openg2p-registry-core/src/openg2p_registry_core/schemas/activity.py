@@ -11,6 +11,23 @@ from pydantic import BaseModel, Field, model_validator
 # =============================================================================
 
 
+class ParticipantInput(BaseModel):
+    """A participant given by role and ID; its type comes from the activity type's configuration."""
+
+    role: str
+    id: str
+
+
+class ParticipantData(BaseModel):
+    role: str
+    is_primary: bool = False
+    ref_kind: str
+    ref_register: Optional[str] = None
+    ref_system: Optional[str] = None
+    ref_id: str
+    internal_record_id: Optional[str] = None
+
+
 class ActivityInput(BaseModel):
     """One activity to append.
 
@@ -38,6 +55,9 @@ class ActivityInput(BaseModel):
     # Groups the activities of one submission (an offline sync, a file). A batch
     # append without one gets a new id for the whole batch.
     submission_id: Optional[str] = None
+    # Participants by role (e.g. {"role": "plot", "id": "LAND-0007-1"}). Each fills
+    # its role's payload field when the payload does not already carry it.
+    participants: Optional[list[ParticipantInput]] = None
 
     @model_validator(mode="after")
     def _occurred(self):
@@ -84,6 +104,9 @@ class SearchActivitiesPayload(BaseModel):
     occurred_to: Optional[datetime] = None
     channel: Optional[str] = None
     recorded_by: Optional[str] = None
+    # Activities a participant took part in, in a role (any role when omitted).
+    participant_id: Optional[str] = None
+    participant_role: Optional[str] = None
 
 
 class GetActivityPayload(BaseModel):
@@ -179,7 +202,7 @@ class SubjectActivitiesPayload(BaseModel):
     """Activities about one record of this registry, across every activity register.
 
     Finds activities whose subject is the record, and (with include_descendants)
-    those whose subject is one of its child records — a farmer's plots.
+    those whose subject is one of its child records — a person's plots.
     """
 
     subject_internal_record_id: str
@@ -237,6 +260,8 @@ class ActivityRegisterData(BaseModel):
     master_register_id: Optional[str] = None
     register_icon: Optional[str] = None
     has_projection: bool = False
+    context_fields: list[str] = []  # payload fields a correction may not change
+    ui_hints: dict[str, Any] = {}  # presentation hints from the domain service (summary fields, columns…)
 
 
 class ActivityTypeData(BaseModel):
@@ -260,6 +285,7 @@ class ActivityTypeData(BaseModel):
     reference_rules: Optional[dict] = None
     ethiopian_date_fields: Optional[list] = None
     schema_version: int = 1
+    participant_roles: Optional[dict] = None
     # Code-list options for ATTRIBUTE-referenced fields: {field: [{"code", "label"}]}
     reference_options: dict[str, list[dict[str, str]]] = Field(default_factory=dict)
 
@@ -298,9 +324,12 @@ class ActivityData(BaseModel):
     columns: dict[str, Any] = Field(default_factory=dict)  # promoted typed columns
     reference_checks: Optional[dict] = None
     rule_warnings: Optional[list] = None
+    # Master Data versions the references were checked against: {"lists": {CODE: n}, "geo": n}
+    catalogue_versions: Optional[dict] = None
     display: dict[str, Any] = Field(default_factory=dict)  # resolved reference labels
     geo_dimensions: Optional[dict] = None  # where it happened, as named Master Data levels
     enrichment: Optional[dict] = None  # derived or external data, added asynchronously
+    participants: list[ParticipantData] = Field(default_factory=list)
 
 
 class AppendActivityResult(BaseModel):
@@ -325,6 +354,8 @@ class ActivityContextData(BaseModel):
     closed_at: Optional[datetime] = None
     closed_by: Optional[str] = None
     close_reason: Optional[str] = None
+    replaces_context_id: Optional[str] = None
+    replaced_by_context_id: Optional[str] = None
 
 
 class WorkItemData(BaseModel):
@@ -390,6 +421,9 @@ class ActivityAggregateData(BaseModel):
     custom_dimensions: Optional[dict] = None
     computed_at: datetime
     source_activity_id: Optional[str] = None
+    is_final: bool = False  # a period lock covers it and every activity in it is processed
+    finalised_at: Optional[datetime] = None
+    finalised_by: Optional[str] = None
 
 
 class SubjectActivitiesData(BaseModel):

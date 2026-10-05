@@ -21,9 +21,9 @@ export default function ChangeRequestDetailsPage() {
         label: t("change_request"),
         // href: `/change-request`,
       },
-      { label: changeId },
+      { label: "" },
     ],
-    [changeId, t]
+    [t]
   );
 
   return (

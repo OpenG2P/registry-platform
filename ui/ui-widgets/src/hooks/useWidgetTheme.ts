@@ -1,10 +1,14 @@
-import { createContext, useContext } from 'react';
-import { defaultTheme, resolveTheme } from '../theme';
+import { createContext, useContext, useMemo } from 'react';
+import type { WidgetTheme } from '../theme';
+import { owtThemeRootProps } from '../theme';
 
-export type ResolvedTheme = ReturnType<typeof resolveTheme>;
+export const ThemeContext = createContext<WidgetTheme | undefined>(undefined);
 
-export const ThemeContext = createContext<ResolvedTheme>(defaultTheme);
-
-export function useWidgetTheme(): ResolvedTheme {
+export function useWidgetTheme(): WidgetTheme | undefined {
   return useContext(ThemeContext);
+}
+
+export function useOwtThemeRootProps() {
+  const theme = useWidgetTheme();
+  return useMemo(() => owtThemeRootProps(theme), [theme]);
 }

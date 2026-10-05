@@ -34,7 +34,7 @@ stay within budget but requires a release name <= 30 chars.
 */}}
 {{- $maxLen := 18 -}}
 {{- if gt (len .Release.Name) $maxLen -}}
-{{- $msg := printf "\n\nERROR: Helm release name %q is %d characters long.\nMaximum supported length is %d characters.\n\nKubernetes enforces a 63-character limit on label values. The release name appears in resource names (e.g. postgres-init Jobs) and indirectly in the auto-injected `batch.kubernetes.io/job-name` label. With this chart's DB-name template, release names longer than %d chars produce Job names that exceed the 63-char ceiling and cause `helm install` to fail with `spec.template.labels: Invalid value: ... must be no more than 63 characters`.\n\nFix: re-run `helm install` with a shorter release name (e.g. `registry`, `farmer-reg`)." .Release.Name (len .Release.Name) $maxLen $maxLen -}}
+{{- $msg := printf "\n\nERROR: Helm release name %q is %d characters long.\nMaximum supported length is %d characters.\n\nKubernetes enforces a 63-character limit on label values. The release name appears in resource names (e.g. postgres-init Jobs) and indirectly in the auto-injected `batch.kubernetes.io/job-name` label. With this chart's DB-name template, release names longer than %d chars produce Job names that exceed the 63-char ceiling and cause `helm install` to fail with `spec.template.labels: Invalid value: ... must be no more than 63 characters`.\n\nFix: re-run `helm install` with a shorter release name (e.g. `registry`, `social-reg`)." .Release.Name (len .Release.Name) $maxLen $maxLen -}}
 {{- fail $msg -}}
 {{- end -}}
 {{- end -}}

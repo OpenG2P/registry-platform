@@ -1,6 +1,9 @@
-from pydantic import BaseModel
 from datetime import datetime, date
-from typing import Optional
+from typing import Any, Optional
+
+from pydantic import BaseModel, model_validator
+
+from .g2p_register import coerce_blank_dates_to_none
 
 
 class G2PTableHistorySchema(BaseModel):
@@ -22,6 +25,11 @@ class G2PProgramRegisterHistorySchema(BaseModel):
 
 class G2PRegisterHistorySchema(BaseModel):
     """Base schema for G2PRegisterHistory fields."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def empty_date_strings_to_none(cls, data: Any) -> Any:
+        return coerce_blank_dates_to_none(cls, data)
 
     history_record_id: Optional[str] = None
     internal_record_id: Optional[str] = None
@@ -70,9 +78,9 @@ class G2PPersonHistorySchema(BaseModel):
 class G2PGeoHistorySchema(BaseModel):
     """Base schema for G2PGeoHistory fields."""
 
-    latitude: Optional[str] = None
-    longitude: Optional[str] = None
-    altitude: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    altitude: Optional[float] = None
     plus_code: Optional[str] = None
     address_line_1: Optional[str] = None
     address_line_2: Optional[str] = None

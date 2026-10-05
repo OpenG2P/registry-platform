@@ -107,6 +107,7 @@ class ChangeActionEnum(str, Enum):
 class ChangePayload(BaseModel):
     internal_record_id: Optional[str] = None
     edit_action: str = ChangeActionEnum.ADD.value
+    documents: Optional[List[DocumentAttachment]] = None
 
     model_config = ConfigDict(extra="allow", from_attributes=True)
 
@@ -119,7 +120,7 @@ class ChangeRequestRequestPayload(BaseModel):
     section_register_id: Optional[str] = None
     internal_record_id: Optional[str] = None
     change_payload: Optional[List[ChangePayload]] = None
-    # Already-uploaded catalog documents with display labels
+    # Supporting documents displayed on the change-request
     documents: Optional[List[DocumentAttachment]] = None
     change_request_id: Optional[str] = None
     rejection_reason: Optional[str] = None
@@ -196,7 +197,9 @@ class ChangeRequestData(BaseModel):
     change_request_id: str
     record_name: Optional[str] = None
     register_id: str
+    register_mnemonic: Optional[str] = None
     tab_id: str
+    tab_label: Optional[str] = None
     internal_record_id: str
     section_id: str
     section_mnemonic: str
@@ -223,7 +226,9 @@ class ChangeRequestFlattenedData(BaseModel):
     change_request_id: str
     record_name: Optional[str] = None
     register_id: str
+    register_mnemonic: Optional[str] = None
     tab_id: str
+    tab_label: Optional[str] = None
     internal_record_id: str
     section_id: str
     section_mnemonic: str

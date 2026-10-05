@@ -9,6 +9,21 @@ export interface ActivityRegister {
     master_register_id?: string | null;
     register_icon?: string | null;
     has_projection: boolean;
+    /** Payload fields that define an activity's context; a correction may not change them. */
+    context_fields?: string[];
+    /** Presentation hints from the register's domain service; every key optional. */
+    ui_hints?: RegisterUiHints;
+}
+
+export interface RegisterUiHints {
+    /** Payload fields shown on an activity's row in lists. */
+    summary_fields?: string[];
+    /** Projection columns shown in the context list. */
+    context_columns?: string[];
+    /** Fields a new batch row copies from the row above (e.g. the period being recorded). */
+    batch_carry_fields?: string[];
+    search_placeholder?: string;
+    context_search_placeholder?: string;
 }
 
 /** One administrative unit of a location, from Master Data (e.g. {code: "ET04", name: "Oromia"}). */
@@ -80,6 +95,18 @@ export interface ActivityType {
     schema_version: number;
 }
 
+/** Who or what took part in an activity, in a named role. LOCAL: a record in this
+ *  registry (resolved to its internal id); EXTERNAL: an id issued by another system. */
+export interface ActivityParticipant {
+    role: string;
+    is_primary: boolean;
+    ref_kind: "LOCAL" | "EXTERNAL";
+    ref_register?: string | null;
+    ref_system?: string | null;
+    ref_id: string;
+    internal_record_id?: string | null;
+}
+
 export interface Activity {
     activity_id: string;
     register_mnemonic?: string;
@@ -109,6 +136,7 @@ export interface Activity {
     verified_at?: string | null;
     verification_remarks?: string | null;
     payload: Record<string, JsonValue>;
+    participants?: ActivityParticipant[] | null;
     columns: Record<string, JsonValue>;
     reference_checks?: Record<string, { kind: string; mode: string; status: string; message?: string }> | null;
     rule_warnings?: string[] | null;
@@ -188,6 +216,9 @@ export interface ActivityContext {
     closed_at?: string | null;
     closed_by?: string | null;
     close_reason?: string | null;
+    /** The context this one replaced (e.g. the crop was changed), and the one that replaced it. */
+    replaces_context_id?: string | null;
+    replaced_by_context_id?: string | null;
 }
 
 export interface WorkItem {

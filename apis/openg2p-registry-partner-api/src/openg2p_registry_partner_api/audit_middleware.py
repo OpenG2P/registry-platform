@@ -34,31 +34,17 @@ method runs `call_next`. To avoid double-parsing the body (with all the
   * Otherwise the middleware falls back to `actor.type="service",
     id="anonymous"` with only the IP recorded.
 
-Recommended controller usage (after envelope parse, before the call to
-keymanager.validate_signature):
+Controllers use `audit_context.set_audit_actor(...)` AFTER the envelope
+signature has been verified, so the audit row carries the real partner
+identity without the middleware having to re-read the body. A call whose
+signature fails never gets an actor and is audited as an anonymous failure.
 
-  request.state.audit_actor = {
-      "type": "service",
-      "id": header.sender_id,
-      "name": header.sender_uri or header.sender_id,
-  }
-
-This way the audit row carries the real partner identity without the
-middleware having to re-read the body.
-
-Known limitations on this service (vs staff-portal-api):
-
-  1. Wrapped-error 200 responses: both `ingest_data` and `search` catch
-     exceptions and return 200 with an error envelope. Those audit rows
-     will currently show outcome=success — only an unhandled exception
-     bubbling out of `call_next` is captured as failure. If you need
-     finer-grained outcome tracking, set `request.state.audit_outcome
-     = "failure"` (or similar) in the controller's error path; we honour
-     it here when present.
-
-  2. Anonymous fallback: until controllers set request.state.audit_actor,
-     audit rows will identify callers only by IP. Acceptable for v1, but
-     the actor enrichment hook is the right next step.
+Wrapped-error 200 responses: the DCI search and partner activity endpoints
+return 200 with an error envelope (partners depend on those shapes). The
+controllers call `audit_context.set_audit_outcome(request, "failure" |
+"denied", reason=<status/error code>)` on those paths; the middleware
+honours `request.state.audit_outcome` over the HTTP status and records
+`request.state.audit_reason` (a code, never a message) as `data.reason`.
 
 Emission is fire-and-forget via `asyncio.create_task` — never delays the
 response. All errors are logged, never raised to the caller.
@@ -155,6 +141,10 @@ class AuditMiddleware(BaseHTTPMiddleware):
         self._outcome_state_key = outcome_state_key
         self._audit_anonymous_failures = audit_anonymous_failures
         self._client: httpx.AsyncClient | None = None
+        # Strong references to in-flight emissions: the event loop keeps only
+        # weak references to tasks, so an unreferenced task can be collected
+        # before it runs.
+        self._tasks: set[asyncio.Task] = set()
 
         if self._enabled:
             _logger.info(
@@ -251,7 +241,9 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 raised,
                 outcome_override,
             )
-            asyncio.create_task(self._emit(event))
+            task = asyncio.create_task(self._emit(event))
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
         except Exception:
             _logger.exception("AuditMiddleware: failed to build event; skipping")
 
@@ -334,6 +326,11 @@ class AuditMiddleware(BaseHTTPMiddleware):
             data["reason"] = (
                 f"{type(raised).__name__}: {str(raised)[:200]}"
             )
+        else:
+            # Controller-supplied status/error code (never a message or body).
+            reason = getattr(request.state, "audit_reason", None)
+            if isinstance(reason, str) and reason:
+                data["reason"] = reason[:100]
 
         return {
             "specversion": "1.0",

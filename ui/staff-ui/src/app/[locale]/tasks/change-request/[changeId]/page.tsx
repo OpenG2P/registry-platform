@@ -13,9 +13,9 @@ export default function TaskChangeRequestDetailPage() {
         () => [
             { label: t('tasks'), href: '/tasks/change-request' },
             { label: t('tasks_cr'), href: '/tasks/change-request' },
-            { label: t('change_id_breadcrumb', { id: changeId }) },
+            { label: "" },
         ],
-        [changeId, t],
+        [t],
     );
 
     return <ChangeRequestDetailsView changeId={changeId} breadcrumb={breadcrumb} />;

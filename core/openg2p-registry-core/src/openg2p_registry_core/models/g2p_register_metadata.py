@@ -49,7 +49,7 @@ class G2PRegisterDefinition(BaseORMModel):
         """
         Automatically set register_subject to the plural form of register_mnemonic
         with the first letter capitalized.
-        Example: 'farmer' -> 'Farmers'
+        Example: 'household' -> 'Households'
         """
         if register_mnemonic_value:
             plural_form: str = register_mnemonic_value + 's'

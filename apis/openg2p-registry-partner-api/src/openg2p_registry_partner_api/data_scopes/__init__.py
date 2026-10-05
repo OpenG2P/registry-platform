@@ -1,0 +1,1 @@
+from .g2p_data_scope_partner_controller import G2PDataScopePartnerController

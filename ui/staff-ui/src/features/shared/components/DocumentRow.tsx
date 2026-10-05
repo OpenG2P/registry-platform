@@ -1,14 +1,19 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
+
 export interface DocumentItem {
     document_id?: string;
     document_store_id?: string;
     label?: string;
-    document_label?: string;
     source_filename?: string;
     presigned_url?: string;
 }
 
 export function DocumentRow({ doc }: { doc: DocumentItem }) {
-    const label = doc.label || doc.document_label || '—';
+    const t = useTranslations();
+    const rawLabel = doc.label || '—';
+    const label = t.has(rawLabel) ? t(rawLabel) : rawLabel;
     const filename = doc.source_filename || '—';
 
     return (

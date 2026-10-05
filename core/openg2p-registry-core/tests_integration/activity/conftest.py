@@ -8,6 +8,15 @@ Set ACTIVITY_TEST_DB_URL (default postgresql+asyncpg://postgres:postgres@localho
 to a disposable database; the public schema is dropped and recreated. Tests are
 skipped when the database is not reachable.
 
+Master Data is read the way MASTER_DATA_READ_MODE says (default ``api``):
+
+* ``api`` — through the catalogue API client, against an in-memory stand-in for
+  MDS (openg2p_registry_core.testing.master_data_stub) holding the same lists and
+  geography as the tables below;
+* ``db``  — directly from MDS's tables, created in this same test database.
+
+    MASTER_DATA_READ_MODE=db pytest tests_integration/activity
+
     docker run -d --name rp-activity-pg -e POSTGRES_PASSWORD=postgres \\
         -e POSTGRES_DB=registry_test -p 55432:5432 postgres:16
 """
@@ -28,6 +37,32 @@ from openg2p_fastapi_common.context import dbengine
 DB_URL = os.environ.get(
     "ACTIVITY_TEST_DB_URL", "postgresql+asyncpg://postgres:postgres@localhost:55432/registry_test"
 )
+READ_MODE = os.environ.get("MASTER_DATA_READ_MODE", "api").strip().lower()
+
+# Master Data's data for these tests: the same rows go into MDS's current-state
+# tables (db mode) and into the catalogue stand-in (api mode).
+# A small country: XK > R1 Alpha > Z1 North (W1 Lake, W2 Hill) and Z2 South (W3 Plain).
+GEO_LEVELS = [
+    {"level_id": "l0", "level_mnemonic": "country", "parent_level_id": None},
+    {"level_id": "l1", "level_mnemonic": "region", "parent_level_id": "l0"},
+    {"level_id": "l2", "level_mnemonic": "zone", "parent_level_id": "l1"},
+    {"level_id": "l3", "level_mnemonic": "woreda", "parent_level_id": "l2"},
+]
+GEO_VALUES = [
+    {"level_value_id": v, "level_id": lvl, "level_value_mnemonic": name, "parent_level_value_id": parent}
+    for v, lvl, name, parent in (
+        ("XK", "l0", "Kamuntu", None), ("R1", "l1", "Alpha", "XK"), ("Z1", "l2", "North", "R1"),
+        ("Z2", "l2", "South", "R1"), ("W1", "l3", "Lake", "Z1"), ("W2", "l3", "Hill", "Z1"),
+        ("W3", "l3", "Plain", "Z2"),
+    )
+]
+ATTRIBUTES = [{"attribute_id": "attr-crop", "attribute_code": "CROP", "attribute_display": "Crop",
+               "is_hierarchical": False}]
+ATTRIBUTE_VALUES = [
+    {"value_id": f"val-{code}", "attribute_id": "attr-crop", "value_code": code, "value_display": display,
+     "sort_order": 0}
+    for code, display in (("TEFF", "Teff"), ("MAIZE", "Maize"))
+]
 
 # ---------------------------------------------------------------- test extension
 
@@ -67,8 +102,29 @@ class G2PActivityDomainServiceFieldWork(G2PActivityDomainService):
                 "subject_type": subject_type,
                 "subject_id": subject_id,
                 "attributes": {"plot_id": payload["plot_id"], "season": payload["season"]},
+                "replaces_context_id": payload.get("replaces"),
             }
         return None
+
+    async def sample_activities(self, register):
+        from datetime import datetime
+
+        from openg2p_registry_core.schemas.activity import ActivityInput
+        from openg2p_registry_core.services import SampleStep
+
+        def step(kind, key, days_ago, **payload):
+            # Long ago on purpose: samples may predate the type's backdating limit.
+            return ActivityInput(
+                register_mnemonic="FieldWork", activity_type=kind, idempotency_key=f"sample:{key}",
+                occurred_at=datetime(2020, 1, 1), subject_type="PERSON_ID", subject_id="P-S1",
+                payload={"plot_id": "LND-S1", "season": "MEHER", **payload},
+            )
+
+        return [
+            SampleStep(step("PLANNED", "plan", 400)),
+            SampleStep(step("SOWN", "sow", 300, crop="TEFF", area_ha=1.0, woreda="W1"), verify=True,
+                       correction={"reason": "Sample: area remeasured", "payload": {"area_ha": 1.2}}),
+        ]
 
     def project(self, context, activities):
         stage = activities[-1].activity_type
@@ -110,21 +166,21 @@ class G2PActivityDomainServiceFieldWork(G2PActivityDomainService):
         ).scalar()
         return [
             ActivityAggregateResult(
-                subject_type=activity.subject_type or "FARMER_ID", subject_id=activity.subject_id,
+                subject_type=activity.subject_type or "PERSON_ID", subject_id=activity.subject_id,
                 aggregate_type="AREA_SOWN", period_key=season, aggregate_value={"area_sown_ha": total},
             )
         ]
 
 
-# Two record registers in the same instance: a farmer and the farmer's plots,
+# Two record registers in the same instance: a person and the person's parcels,
 # for activities whose subject is a local record.
-class G2PRegisterTestFarmer(G2PRegister, G2PGeo):
-    __tablename__ = "g2p_register_test_farmers"
+class G2PRegisterTestPerson(G2PRegister, G2PGeo):
+    __tablename__ = "g2p_register_test_persons"
     __table_args__ = {"extend_existing": True}
 
 
-class G2PRegisterTestPlot(G2PRegister, G2PGeo):
-    __tablename__ = "g2p_register_test_plots"
+class G2PRegisterTestParcel(G2PRegister, G2PGeo):
+    __tablename__ = "g2p_register_test_parcels"
     __table_args__ = {"extend_existing": True}
 
 
@@ -134,8 +190,8 @@ models_module = types.ModuleType("openg2p_registry_extensions.register_domain.mo
 services_module = types.ModuleType("openg2p_registry_extensions.register_domain.services")
 models_module.G2PActivityFieldWork = G2PActivityFieldWork
 models_module.G2PActivityProjectionFieldWork = G2PActivityProjectionFieldWork
-models_module.G2PRegisterTestFarmer = G2PRegisterTestFarmer
-models_module.G2PRegisterTestPlot = G2PRegisterTestPlot
+models_module.G2PRegisterTestPerson = G2PRegisterTestPerson
+models_module.G2PRegisterTestParcel = G2PRegisterTestParcel
 services_module.G2PActivityDomainServiceFieldWork = G2PActivityDomainServiceFieldWork
 sys.modules.update(
     {
@@ -147,8 +203,8 @@ sys.modules.update(
 )
 
 REGISTER_ID = "reg-fieldwork"
-FARMER_REGISTER_ID = "reg-test-farmer"
-PLOT_REGISTER_ID = "reg-test-plot"
+PERSON_REGISTER_ID = "reg-test-person"
+PARCEL_REGISTER_ID = "reg-test-parcel"
 
 SOWN_SCHEMA = {
     "type": "object",
@@ -196,6 +252,7 @@ async def _prepare_database():
         G2PActivityEnrichment,
         G2PActivityAggregate,
         G2PActivityAggregateHistory,
+        G2PActivityParticipant,
         G2PRegisterDefinition,
     )
     from openg2p_registry_core.services import G2PActivityPartitionService
@@ -215,8 +272,9 @@ async def _prepare_database():
         G2PActivityEnrichment,
         G2PActivityAggregate,
         G2PActivityAggregateHistory,
-        G2PRegisterTestFarmer,
-        G2PRegisterTestPlot,
+        G2PActivityParticipant,
+        G2PRegisterTestPerson,
+        G2PRegisterTestParcel,
     ):
         await model.create_migrate()
     partitions = G2PActivityPartitionService()
@@ -235,8 +293,8 @@ async def _prepare_database():
             {"id": REGISTER_ID},
         )
         for register_id, mnemonic, purpose, master in (
-            (FARMER_REGISTER_ID, "TestFarmer", "REGISTER", None),
-            (PLOT_REGISTER_ID, "TestPlot", "TABLE", FARMER_REGISTER_ID),
+            (PERSON_REGISTER_ID, "TestPerson", "REGISTER", None),
+            (PARCEL_REGISTER_ID, "TestParcel", "TABLE", PERSON_REGISTER_ID),
         ):
             await conn.execute(
                 text(
@@ -248,35 +306,32 @@ async def _prepare_database():
                 ),
                 {"id": register_id, "m": mnemonic, "p": purpose, "master": master},
             )
-        # Master Data's geography tables, with a small country:
-        # XK > R1 Alpha > Z1 North (W1 Lake, W2 Hill) and Z2 South (W3 Plain).
+        # Master Data's geography tables (see GEO_LEVELS / GEO_VALUES).
         await conn.execute(text("CREATE TABLE g2p_geo_levels (level_id varchar PRIMARY KEY, "
                                 "level_mnemonic varchar, parent_level_id varchar)"))
         await conn.execute(text("CREATE TABLE g2p_geo_level_values (level_value_id varchar PRIMARY KEY, "
                                 "level_id varchar, level_value_mnemonic varchar, parent_level_value_id varchar)"))
-        await conn.execute(text("INSERT INTO g2p_geo_levels VALUES ('l0','country',NULL), ('l1','region','l0'), "
-                                "('l2','zone','l1'), ('l3','woreda','l2')"))
-        await conn.execute(text(
-            "INSERT INTO g2p_geo_level_values VALUES ('XK','l0','Kamuntu',NULL), ('R1','l1','Alpha','XK'), "
-            "('Z1','l2','North','R1'), ('Z2','l2','South','R1'), ('W1','l3','Lake','Z1'), ('W2','l3','Hill','Z1'), "
-            "('W3','l3','Plain','Z2')"))
+        await conn.execute(text("INSERT INTO g2p_geo_levels VALUES (:level_id, :level_mnemonic, :parent_level_id)"),
+                           GEO_LEVELS)
+        await conn.execute(text("INSERT INTO g2p_geo_level_values VALUES (:level_value_id, :level_id, "
+                                ":level_value_mnemonic, :parent_level_value_id)"), GEO_VALUES)
         now = "now() AT TIME ZONE 'utc'"
         await conn.execute(
             text(
-                "INSERT INTO g2p_register_test_farmers (internal_record_id, functional_record_id, record_name, "
+                "INSERT INTO g2p_register_test_persons (internal_record_id, functional_record_id, record_name, "
                 f"created_by, created_at, last_approved_at, last_approved_by, record_status, "
                 f"geo_lowest_level_value_id) VALUES "
-                f"('farmer-1', 'FR-1', 'Almaz', 't', {now}, {now}, 't', 'ACTIVE', 'W2'), "
-                f"('farmer-2', 'FR-2', 'Bekele', 't', {now}, {now}, 't', 'ACTIVE', NULL)"
+                f"('person-1', 'P-1', 'Almaz', 't', {now}, {now}, 't', 'ACTIVE', 'W2'), "
+                f"('person-2', 'P-2', 'Bekele', 't', {now}, {now}, 't', 'ACTIVE', NULL)"
             )
         )
         await conn.execute(
             text(
-                "INSERT INTO g2p_register_test_plots (internal_record_id, link_internal_record_id, record_name, "
+                "INSERT INTO g2p_register_test_parcels (internal_record_id, link_internal_record_id, record_name, "
                 f"created_by, created_at, last_approved_at, last_approved_by, record_status, "
                 f"geo_lowest_level_value_id) VALUES "
-                f"('plot-1', 'farmer-1', 'Plot one', 't', {now}, {now}, 't', 'ACTIVE', NULL), "
-                f"('plot-2', 'farmer-2', 'Plot two', 't', {now}, {now}, 't', 'ACTIVE', 'W3')"
+                f"('parcel-1', 'person-1', 'Parcel one', 't', {now}, {now}, 't', 'ACTIVE', NULL), "
+                f"('parcel-2', 'person-2', 'Parcel two', 't', {now}, {now}, 't', 'ACTIVE', 'W3')"
             )
         )
         await conn.execute(
@@ -295,18 +350,34 @@ async def _prepare_database():
         await conn.execute(
             text(
                 "INSERT INTO g2p_attributes (attribute_id, attribute_code, attribute_display, is_hierarchical) "
-                "VALUES ('attr-crop', 'CROP', 'Crop', false)"
-            )
+                "VALUES (:attribute_id, :attribute_code, :attribute_display, :is_hierarchical)"
+            ),
+            ATTRIBUTES,
         )
-        for code, display in (("TEFF", "Teff"), ("MAIZE", "Maize")):
-            await conn.execute(
-                text(
-                    "INSERT INTO g2p_attribute_values (value_id, attribute_id, value_code, value_display, sort_order) "
-                    "VALUES (:id, 'attr-crop', :code, :display, 0)"
-                ),
-                {"id": f"val-{code}", "code": code, "display": display},
-            )
+        await conn.execute(
+            text(
+                "INSERT INTO g2p_attribute_values (value_id, attribute_id, value_code, value_display, sort_order) "
+                "VALUES (:value_id, :attribute_id, :value_code, :value_display, :sort_order)"
+            ),
+            ATTRIBUTE_VALUES,
+        )
+    use_master_data(READ_MODE)
     return engine
+
+
+def use_master_data(mode: str):
+    """Read Master Data the given way; in api mode through a fresh stand-in. Returns the stand-in (or None)."""
+    from openg2p_registry_core.config import Settings
+    from openg2p_registry_core.helpers.master_data_client import set_master_data_client
+    from openg2p_registry_core.testing.master_data_stub import stub_from_tables
+
+    Settings.get_config(strict=False).master_data_read_mode = mode
+    if mode != "api":
+        set_master_data_client(None)
+        return None
+    stub = stub_from_tables(ATTRIBUTES, ATTRIBUTE_VALUES, GEO_LEVELS, GEO_VALUES)
+    set_master_data_client(stub.client(poll_seconds=0))
+    return stub
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
@@ -340,6 +411,7 @@ async def activity_types(database):
             "g2p_activity_enrichments",
             "g2p_activity_aggregates",
             "g2p_activity_aggregate_history",
+            "g2p_activity_participants",
         ):
             # TRUNCATE bypasses the append-only row trigger, as intended for tests.
             await conn.execute(text(f"TRUNCATE {table}"))
@@ -368,7 +440,7 @@ async def activity_types(database):
                         "crop": {"kind": "ATTRIBUTE", "attribute": "CROP", "mode": "STRICT"},
                         "plot_id": {
                             "kind": "EXTERNAL",
-                            "system": "farmer-registry.land",
+                            "system": "land-registry.parcel",
                             "mode": "LENIENT",
                             "temporary_prefix": "TMP-",
                         },

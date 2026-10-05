@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo, useEffect, MutableRefObject } from 'react';
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { useStore } from 'react-redux';
 import { SectionConfig } from '../../../types';
 import { captureSectionEditSnapshot, SectionEditSnapshot } from '../../../utils/sectionRevert';
@@ -104,7 +104,7 @@ export const useSectionDirty = ({
   return {
     isDirty,
     intakeFormSectionStatus,
-    editEntrySnapshotRef: editEntrySnapshotRef as MutableRefObject<SectionEditSnapshot | null>,
+    editEntrySnapshotRef,
     captureEditEntrySnapshot,
     markIntakeFormSaved,
     markIntakeFormSavedWithoutData,

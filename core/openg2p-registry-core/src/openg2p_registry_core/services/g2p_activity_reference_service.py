@@ -5,21 +5,21 @@ Each activity type declares ``reference_rules`` per payload field::
     {"crop":     {"kind": "ATTRIBUTE", "attribute": "CROP_COMMODITY", "mode": "STRICT"},
      "woreda":   {"kind": "GEO", "mode": "STRICT"},
      "cluster_id": {"kind": "LOCAL_RECORD", "register": "Cluster", "match": "functional_record_id"},
-     "plot_id":  {"kind": "EXTERNAL", "system": "farmer-registry.land", "mode": "LENIENT",
+     "plot_id":  {"kind": "EXTERNAL", "system": "land-registry.parcel", "mode": "LENIENT",
                   "pattern": "^[A-Z0-9-]+$", "temporary_prefix": "TMP-", "lookup": false}}
 
 An EXTERNAL rule with ``"lookup": false`` checks the format only and never asks
 the other system (status FORMAT_CHECKED, no warning).
 
 Two options apply to LOCAL_RECORD rules, for an activity register that sits in
-the same registry as the records it is about (e.g. crop seasons inside the
-Farmer Registry):
+the same registry as the records it is about (e.g. crop seasons inside a
+registry that also holds the plots):
 
 * ``"subject": true`` — the referenced record is the activity's subject; the
   platform fills the subject fields, including the record's ancestors, so the
   record's profile (and its parents' profiles) list the activity;
 * ``"belongs_to": "<field>"`` — the referenced record must be a child of the
-  record in ``<field>`` (e.g. the plot must belong to the farmer). STRICT
+  record in ``<field>`` (e.g. the plot must belong to the person). STRICT
   rejects a mismatch, LENIENT warns.
 
 Modes: STRICT rejects an unresolved value, LENIENT accepts it with a warning,
@@ -41,6 +41,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from ..config import Settings
 from ..engine import get_engines
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from ..helpers.master_data_client import (
+    MasterDataError,
+    MasterDataNotFound,
+    get_master_data_client,
+    master_data_read_mode,
+)
 from ..models import (
     G2PActivityTemporaryReference,
     G2PRegisterDefinition,
@@ -76,6 +82,35 @@ class _TtlCache:
         return value
 
 
+class CatalogueVersions:
+    """Which catalogue versions an activity's references were checked against.
+
+    Filled while an activity is written and stored on it as ``catalogue_versions``:
+    ``{"lists": {"CROP": 4}, "geo": 3}`` — so a code can later be resolved
+    exactly as it was meant (the list at that version), and a unit mapped to
+    today's geography through MDS's crosswalk, which needs the from-version.
+    Only known when reading through the catalogue API (``master_data_read_mode
+    = "api"``); in ``db`` mode nothing is recorded.
+    """
+
+    def __init__(self):
+        self.lists: dict[str, int] = {}
+        self.geo_version: Optional[int] = None
+
+    def list(self, list_code: str, version_no: Optional[int]) -> None:
+        if list_code and version_no is not None:
+            self.lists[list_code] = int(version_no)
+
+    def geo(self, version_no: Optional[int]) -> None:
+        if version_no is not None:
+            self.geo_version = int(version_no)
+
+    def as_json(self) -> Optional[dict]:
+        if not self.lists and self.geo_version is None:
+            return None
+        return {"lists": dict(sorted(self.lists.items())), "geo": self.geo_version}
+
+
 class G2PActivityReferenceService(BaseService):
     def __init__(self, name="", geo_lookup: Optional[Callable[[str], Awaitable[Optional[dict]]]] = None):
         super().__init__(name)
@@ -91,10 +126,13 @@ class G2PActivityReferenceService(BaseService):
         activity_type_row,
         payload: dict[str, Any],
         domain_service: G2PActivityDomainService,
+        versions: Optional[CatalogueVersions] = None,
     ) -> tuple[dict[str, Any], dict[str, dict], list[str]]:
         """Check every rule; return (payload with temporary IDs resolved, checks, warnings).
 
         Raises ACTIVITY_REFERENCE_UNRESOLVED for an unresolved STRICT reference.
+        ``versions``, when given, records the list and geography versions the
+        ATTRIBUTE and GEO references were checked against.
         """
         rules: dict = activity_type_row.reference_rules or {}
         checks: dict[str, dict] = {}
@@ -104,7 +142,9 @@ class G2PActivityReferenceService(BaseService):
         for field, rule in rules.items():
             if "." in field:
                 # A rule on rows of a list, e.g. "fertilizers.fertilizer_type".
-                warnings += await self._check_rows(session, register_id, field, rule, payload, checks, domain_service)
+                warnings += await self._check_rows(
+                    session, register_id, field, rule, payload, checks, domain_service, versions
+                )
                 continue
             if field not in payload or payload[field] in (None, "", []):
                 continue
@@ -120,7 +160,7 @@ class G2PActivityReferenceService(BaseService):
             messages = []
             for value in values:
                 value, status, message = await self._check_one(
-                    session, register_id, field, rule, kind, str(value), domain_service
+                    session, register_id, field, rule, kind, str(value), domain_service, versions
                 )
                 resolved_values.append(value)
                 statuses.append(status)
@@ -193,7 +233,7 @@ class G2PActivityReferenceService(BaseService):
         return None
 
     async def ancestor_record_ids(self, session, register_mnemonic: Optional[str], internal_record_id: str) -> list:
-        """The internal_record_ids of a record's parents, nearest first (a plot's farmer, and so on)."""
+        """The internal_record_ids of a record's parents, nearest first (a plot's owner, and so on)."""
         if not register_mnemonic or not internal_record_id:
             return []
         try:
@@ -222,7 +262,9 @@ class G2PActivityReferenceService(BaseService):
             mnemonic, record_id = parent.register_mnemonic, parent_id
         return ancestors
 
-    async def _check_rows(self, session, register_id, field, rule, payload, checks, domain_service) -> list[str]:
+    async def _check_rows(
+        self, session, register_id, field, rule, payload, checks, domain_service, versions=None
+    ) -> list[str]:
         list_field, key = field.split(".", 1)
         rows = payload.get(list_field)
         if not isinstance(rows, list):
@@ -235,7 +277,7 @@ class G2PActivityReferenceService(BaseService):
         for row in rows:
             if isinstance(row, dict) and row.get(key) not in (None, ""):
                 _, status, message = await self._check_one(
-                    session, register_id, field, rule, kind, str(row[key]), domain_service
+                    session, register_id, field, rule, kind, str(row[key]), domain_service, versions
                 )
                 statuses.append(status)
                 if message:
@@ -262,7 +304,7 @@ class G2PActivityReferenceService(BaseService):
                 return status
         return RESOLVED
 
-    async def _check_one(self, session, register_id, field, rule, kind, value, domain_service):
+    async def _check_one(self, session, register_id, field, rule, kind, value, domain_service, versions=None):
         prefix = rule.get("temporary_prefix")
         if prefix and value.startswith(prefix):
             resolved = await self._temporary(session, register_id, field, value)
@@ -271,11 +313,11 @@ class G2PActivityReferenceService(BaseService):
             value = resolved
 
         if kind == ReferenceKindEnum.ATTRIBUTE.value:
-            found = await self._attribute_value_exists(session, rule.get("attribute"), value)
+            found = await self._attribute_value_exists(session, rule.get("attribute"), value, versions)
             return value, (RESOLVED if found else UNRESOLVED), (None if found else f"'{value}' is not a known code")
 
         if kind == ReferenceKindEnum.GEO.value:
-            hierarchy = await self._geo(value)
+            hierarchy = await self._geo(value, versions=versions)
             if hierarchy is None:
                 return value, UNRESOLVED, f"'{value}' is not a known location"
             level = rule.get("level")
@@ -308,12 +350,40 @@ class G2PActivityReferenceService(BaseService):
 
         return value, SKIPPED, None
 
-    async def _attribute_value_exists(self, session, attribute_code: Optional[str], value: str) -> bool:
+    async def _attribute_value_exists(
+        self, session, attribute_code: Optional[str], value: str, versions: Optional[CatalogueVersions] = None
+    ) -> bool:
+        """Is ``value`` an ACTIVE code of the list's version in effect? (New data: retired codes are not.)"""
         if not attribute_code:
             return False
+        if master_data_read_mode() == "api":
+            try:
+                snapshot = await get_master_data_client().list_values(attribute_code)
+            except MasterDataNotFound:  # no such list (or none published): not a known code
+                return False
+            if versions is not None:
+                versions.list(attribute_code, snapshot.version_no)
+            return value in snapshot.codes()
         return value in await self._attribute_labels(session, attribute_code)
 
-    async def _attribute_labels(self, session, attribute_code: str) -> dict[str, str]:
+    async def _attribute_labels(
+        self, session, attribute_code: str, *, version: Optional[int] = None
+    ) -> dict[str, str]:
+        """Labels of a list's codes, for showing data.
+
+        ``api`` mode: the list at ``version`` (the one the activity recorded) or
+        the version in effect, retired values included so an old code still
+        shows its label. ``db`` mode: MDS's current-state tables (active values).
+        """
+        if master_data_read_mode() == "api":
+            client = get_master_data_client()
+            try:
+                snapshot = await client.list_values(attribute_code, version=version, include_retired=True)
+            except MasterDataNotFound:
+                if version is None:
+                    return {}
+                snapshot = await client.list_values(attribute_code, include_retired=True)
+            return snapshot.labels()
         cached = self._cache.get(("attr", attribute_code))
         if cached is not None:
             return cached
@@ -338,7 +408,36 @@ class G2PActivityReferenceService(BaseService):
             ).all()
         return self._cache.put(("attr", attribute_code), {row[0]: row[1] for row in rows})
 
-    async def _geo(self, value: str) -> Optional[dict]:
+    async def _geo(
+        self,
+        value: str,
+        *,
+        versions: Optional[CatalogueVersions] = None,
+        for_display: bool = False,
+        version: Optional[int] = None,
+    ) -> Optional[dict]:
+        """The value's hierarchy (top level first), or None if it is not a known location.
+
+        Checking new data (the default) needs a unit in use; showing data
+        (``for_display``) also finds a retired unit, at the recorded ``version``.
+        """
+        if self._geo_lookup is not None:
+            return await self._geo_from_lookup(value)
+        if master_data_read_mode() == "db":
+            return await self._geo_from_lookup(value)
+        from .g2p_activity_geo_service import G2PActivityGeoService
+
+        service = G2PActivityGeoService.get_component() or G2PActivityGeoService()
+        dims, version_no = await service.located(value, include_retired=for_display, version=version)
+        if dims is None and for_display and version is not None:
+            dims, version_no = await service.located(value, include_retired=True)
+        if dims is None:
+            return None
+        if versions is not None:
+            versions.geo(version_no)
+        return _hierarchy_of(dims)
+
+    async def _geo_from_lookup(self, value: str) -> Optional[dict]:
         cached = self._cache.get(("geo", value))
         if cached is not None:
             return cached
@@ -393,25 +492,39 @@ class G2PActivityReferenceService(BaseService):
         activity_type_row,
         payload: dict[str, Any],
         domain_service: G2PActivityDomainService,
+        catalogue_versions: Optional[dict] = None,
     ) -> dict[str, Any]:
-        """Labels for referenced values, resolved now (never stored on the activity)."""
+        """Labels for referenced values, resolved now (never stored on the activity).
+
+        With the activity's ``catalogue_versions``, codes are resolved at the
+        versions they were checked against — a code retired since still shows.
+        """
         labels: dict[str, Any] = {}
+        recorded = catalogue_versions if isinstance(catalogue_versions, dict) else {}
         for field, rule in (activity_type_row.reference_rules or {}).items():
             value = payload.get(field)
             if value in (None, "", []):
                 continue
             kind = str(rule.get("kind") or "").upper()
             values = value if isinstance(value, list) else [value]
-            resolved = [await self._label(session, kind, rule, field, str(v), domain_service) for v in values]
+            resolved = [
+                await self._label(session, kind, rule, field, str(v), domain_service, recorded) for v in values
+            ]
             if any(label is not None for label in resolved):
                 labels[field] = resolved if isinstance(value, list) else resolved[0]
         return labels
 
-    async def _label(self, session, kind, rule, field, value, domain_service) -> Optional[str]:
+    async def _label(self, session, kind, rule, field, value, domain_service, recorded=None) -> Optional[str]:
+        recorded = recorded or {}
         if kind == ReferenceKindEnum.ATTRIBUTE.value and rule.get("attribute"):
-            return (await self._attribute_labels(session, rule["attribute"])).get(value)
+            version = (recorded.get("lists") or {}).get(rule["attribute"])
+            try:
+                return (await self._attribute_labels(session, rule["attribute"], version=version)).get(value)
+            except MasterDataError as error:  # a label is not worth failing a read for
+                _logger.warning("Label lookup for %s=%s failed: %s", field, value, error)
+                return None
         if kind == ReferenceKindEnum.GEO.value:
-            hierarchy = await self._geo(value)
+            hierarchy = await self._geo(value, for_display=True, version=recorded.get("geo"))
             if hierarchy and hierarchy.get("hierarchy"):
                 return hierarchy["hierarchy"][-1].get("level_value_mnemonic")
             return None
@@ -433,6 +546,10 @@ async def _hierarchy_from_master_data(value: str) -> Optional[dict]:
     dims = await service.dimensions(value)
     if not dims:
         return None
+    return _hierarchy_of(dims)
+
+
+def _hierarchy_of(dims: dict) -> dict:
     return {
         "hierarchy": [
             {"level_mnemonic": level, "level_value_mnemonic": entry["name"], "level_value_id": entry["code"]}

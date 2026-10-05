@@ -83,7 +83,18 @@ class ProcessStatusEnum(StrEnum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     PROCESSED = "PROCESSED"
+    COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+
+
+class ExportFormatEnum(StrEnum):
+    XLSX = "XLSX"
+    ZIP_CSV = "ZIP_CSV"
+
+
+class ExportSelectionModeEnum(StrEnum):
+    SELECTED = "SELECTED"
+    SEARCH_FILTER = "SEARCH_FILTER"
 
 
 class RecordStatusEnum(StrEnum):
@@ -140,7 +151,7 @@ class ActivityOutboxEventEnum(StrEnum):
 class ReferenceKindEnum(StrEnum):
     # A record in a register of this registry instance.
     LOCAL_RECORD = "LOCAL_RECORD"
-    # A value of a code list (g2p_attribute_values).
+    # A value of a Master Data code list (read through MDS's catalogue API).
     ATTRIBUTE = "ATTRIBUTE"
     # A geo level value from Master Data.
     GEO = "GEO"
@@ -189,4 +200,21 @@ class DocumentBucket(StrEnum):
     DEFAULT = "default"
     TEMPLATES = "templates"
     DOCUMENTS = "documents"
-    DATA_IMPORT_FILES = "data_import_files"
+    IMPORT_FILES = "import-files"
+    EXPORT_FILES = "export-files"
+
+
+class DocumentHistoryEventTypeEnum(StrEnum):
+    ADD = "ADD"
+    REMOVE = "REMOVE"
+
+
+class DataScopeStatusEnum(StrEnum):
+    ACTIVE = "ACTIVE"
+    # No longer offered: kept, with its versions, for consents given under it.
+    RETIRED = "RETIRED"
+
+
+class DataScopeSourceEnum(StrEnum):
+    SECTION = "SECTION"  # one per register section, derived by the platform
+    EXTENSION = "EXTENSION"  # from the extension's catalogue (meta_data/data-scopes/*.json)

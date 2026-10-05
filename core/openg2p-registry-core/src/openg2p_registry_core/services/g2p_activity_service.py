@@ -46,10 +46,12 @@ from ..models import (
     G2PActivityEnrichment,
     G2PActivityIdempotencyKey,
     G2PActivityOutbox,
+    G2PActivityParticipant,
     G2PActivityPeriodLock,
     G2PActivityTemporaryReference,
     G2PActivityTypeSchema,
     G2PRegisterDefinition,
+    ReferenceKindEnum,
 )
 from ..repositories import ActivityPolicyRepository
 from ..schemas.activity import (
@@ -59,6 +61,7 @@ from ..schemas.activity import (
     ActivityInput,
     ActivityTypeSchemaData,
     AppendActivityResult,
+    ParticipantData,
     PeriodLockData,
     SubjectActivitiesData,
     TemporaryReferenceData,
@@ -66,7 +69,7 @@ from ..schemas.activity import (
 )
 from .g2p_activity_geo_service import G2PActivityGeoService
 from .g2p_activity_projection_service import G2PActivityProjectionService
-from .g2p_activity_reference_service import G2PActivityReferenceService
+from .g2p_activity_reference_service import CatalogueVersions, G2PActivityReferenceService
 from .g2p_activity_registry_service import ActivityRegister, G2PActivityRegistryService
 from .g2p_activity_rule_service import G2PActivityRuleService, active_filter
 
@@ -114,12 +117,16 @@ class G2PActivityService(BaseService):
         actor: str,
         channel: str,
         partner_id: Optional[str] = None,
+        seeding: bool = False,
     ) -> tuple[ActivityData, str]:
+        """Append one activity. ``seeding`` (sample data only) lifts the backdating limit."""
         async with self._session_maker()() as session:
             try:
                 async with session.begin():
                     register = await self.registry.get_register(session, activity.register_mnemonic)
-                    row, outcome = await self._append(session, register, activity, actor, channel, partner_id)
+                    row, outcome = await self._append(
+                        session, register, activity, actor, channel, partner_id, seeding=seeding
+                    )
             except IntegrityError:
                 # Lost a race on the idempotency key: the other writer's row is the answer.
                 if not activity.idempotency_key:
@@ -188,6 +195,7 @@ class G2PActivityService(BaseService):
         channel: str,
         partner_id: Optional[str],
         superseding=None,
+        seeding: bool = False,
     ):
         if activity.idempotency_key:
             existing = await self._find_by_idempotency_key(session, register, activity.idempotency_key)
@@ -199,11 +207,13 @@ class G2PActivityService(BaseService):
         now = self.now()
 
         occurred_at = self._occurred_at(activity)
-        payload = self._convert_ethiopian_dates(type_row, dict(activity.payload or {}))
+        payload = self._apply_participant_inputs(type_row, activity, dict(activity.payload or {}))
+        payload = self._convert_ethiopian_dates(type_row, payload)
         payload = domain.enrich_payload(type_row.activity_type, payload) or payload
         self.rules.validate_payload(type_row.payload_schema, payload)
+        versions = CatalogueVersions()
         payload, checks, warnings = await self.references.check_references(
-            session, register.register_id, type_row, payload, domain
+            session, register.register_id, type_row, payload, domain, versions
         )
         activity = await self._with_subject(session, type_row, activity, payload)
         ancestors = await self.references.ancestor_record_ids(
@@ -211,7 +221,8 @@ class G2PActivityService(BaseService):
         )
 
         context = await self._resolve_context(session, register, type_row, activity, payload, actor)
-        self.rules.check_dates(type_row, occurred_at, now)
+        if not seeding:
+            self.rules.check_dates(type_row, occurred_at, now)
         await self.rules.check_period_lock(session, register.register_id, type_row.activity_type, occurred_at)
 
         context_activities = []
@@ -221,7 +232,7 @@ class G2PActivityService(BaseService):
                 context_activities = [a for a in context_activities if a.activity_id != superseding.activity_id]
             warnings += self.rules.check_context_rules(type_row, payload, context_activities, occurred_at)
         warnings += domain.validate(type_row.activity_type, payload, context_activities) or []
-        geo_dimensions = await self.geo.resolve(session, register, type_row, activity, payload, context)
+        geo_dimensions = await self.geo.resolve(session, register, type_row, activity, payload, context, versions)
 
         model = register.activity_model
         row = model(
@@ -251,6 +262,7 @@ class G2PActivityService(BaseService):
             ),
             payload=payload,
             geo_dimensions=geo_dimensions,
+            catalogue_versions=versions.as_json(),
             reference_checks=checks or None,
             rule_warnings=warnings or None,
             **self._promoted_columns(model, payload),
@@ -269,13 +281,29 @@ class G2PActivityService(BaseService):
                 )
             )
         await session.flush()
+        await self._write_participants(session, register, type_row, row, payload)
         await self.projections.recompute(session, register, row.context_id)
         self._outbox(session, register, row, ActivityOutboxEventEnum.APPENDED.value)
         return row, CREATED
 
+    @staticmethod
+    def _require_same_context_fields(register, old, payload: dict) -> None:
+        """A correction stays in its context: the register's context fields may not change."""
+        before = old.payload or {}
+        changed = [
+            field for field in register.domain_service.context_fields
+            if field in payload and str(payload.get(field)) != str(before.get(field))
+        ]
+        if changed:
+            raise _error(
+                G2PRegistryErrorCodes.ACTIVITY_INVALID_STATE,
+                f"A correction cannot change {', '.join(changed)}: void this activity and record it again",
+            )
+
     async def supersede(self, register_mnemonic: str, activity_id: str, reason: str, actor: str, channel: str,
                         occurred_at: Optional[datetime] = None, occurred_on_ec: Optional[str] = None,
-                        payload: Optional[dict] = None, idempotency_key: Optional[str] = None) -> ActivityData:
+                        payload: Optional[dict] = None, idempotency_key: Optional[str] = None,
+                        partner_id: Optional[str] = None, seeding: bool = False) -> ActivityData:
         self._require_reason(reason)
         async with self._session_maker()() as session:
             async with session.begin():
@@ -283,6 +311,8 @@ class G2PActivityService(BaseService):
                 old = await self._get_for_update(session, register, activity_id)
                 self._require_state(old, ActivityStatusEnum.ACTIVE.value)
                 await self.rules.check_period_lock(session, register.register_id, old.activity_type, old.occurred_at)
+                if payload is not None:
+                    self._require_same_context_fields(register, old, payload)
                 replacement = ActivityInput(
                     register_mnemonic=register_mnemonic,
                     activity_type=old.activity_type,
@@ -297,7 +327,9 @@ class G2PActivityService(BaseService):
                     source_record_id=old.source_record_id,
                     idempotency_key=idempotency_key,
                 )
-                new, _ = await self._append(session, register, replacement, actor, channel, None, superseding=old)
+                new, _ = await self._append(
+                    session, register, replacement, actor, channel, partner_id, superseding=old, seeding=seeding
+                )
                 old.status = ActivityStatusEnum.SUPERSEDED.value
                 old.superseded_by_activity_id = new.activity_id
                 old.status_reason = reason
@@ -392,6 +424,8 @@ class G2PActivityService(BaseService):
                 conditions.append(model.channel == payload.channel)
             if payload.recorded_by:
                 conditions.append(model.recorded_by == payload.recorded_by)
+            if payload.participant_id:
+                conditions.append(self._took_part(model, payload.participant_id, payload.participant_role))
             if pagination and pagination.search_text:
                 conditions.append(model.search_text.ilike(f"%{pagination.search_text}%"))
 
@@ -421,7 +455,7 @@ class G2PActivityService(BaseService):
         """Activities about a record of this registry, per activity register, newest first.
 
         With include_descendants, also those about its child records (a
-        farmer's plots), found through the ancestors stamped on each activity.
+        person's plots), found through the ancestors stamped on each activity.
         """
         record_id = payload.subject_internal_record_id
         statuses = payload.statuses or [ActivityStatusEnum.ACTIVE.value]
@@ -436,7 +470,16 @@ class G2PActivityService(BaseService):
                 except G2PRegistryException:
                     continue  # no classes for this register in the loaded extension
                 model = register.activity_model
-                about = model.subject_internal_record_id == record_id
+                about = or_(
+                    model.subject_internal_record_id == record_id,
+                    # ...or the record took part in another role (e.g. a cluster).
+                    select(G2PActivityParticipant.participant_id)
+                    .where(
+                        G2PActivityParticipant.activity_id == model.activity_id,
+                        G2PActivityParticipant.internal_record_id == record_id,
+                    )
+                    .exists(),
+                )
                 if payload.include_descendants:
                     about = or_(about, model.subject_ancestor_record_ids.contains([record_id]))
                 stmt = select(model).where(about, model.status.in_(statuses))
@@ -673,6 +716,12 @@ class G2PActivityService(BaseService):
 
     # =========================================================== period locks
 
+    @staticmethod
+    def _periods():
+        from .g2p_activity_period_service import G2PActivityPeriodService
+
+        return G2PActivityPeriodService.get_component() or G2PActivityPeriodService()
+
     async def lock_period(self, payload, actor: str) -> PeriodLockData:
         if payload.period_end < payload.period_start:
             raise _error(G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR, "period_end is before period_start")
@@ -690,6 +739,10 @@ class G2PActivityService(BaseService):
                 )
                 session.add(lock)
                 await session.flush()
+                if lock.activity_type is None:
+                    # Aggregates the lock covers become final (those still waiting
+                    # on the outbox worker are finalised after it processes them).
+                    await self._periods().finalise(session, register)
             return PeriodLockData.model_validate(lock, from_attributes=True)
 
     async def unlock_period(self, register_mnemonic: str, lock_id: str, reason: str, actor: str) -> PeriodLockData:
@@ -704,6 +757,8 @@ class G2PActivityService(BaseService):
                 lock.reopened_by = actor
                 lock.reopened_at = self.now()
                 lock.reopen_reason = reason
+                await session.flush()
+                await self._periods().unfinalise(session, lock)
             return PeriodLockData.model_validate(lock, from_attributes=True)
 
     async def list_period_locks(self, register_mnemonic: str) -> list[PeriodLockData]:
@@ -775,10 +830,20 @@ class G2PActivityService(BaseService):
         display = {}
         try:
             type_row = await self.registry.get_activity_type(session, register.register_id, row.activity_type)
-            display = await self.references.display_labels(session, type_row, row.payload or {}, register.domain_service)
+            display = await self.references.display_labels(
+                session, type_row, row.payload or {}, register.domain_service,
+                getattr(row, "catalogue_versions", None),
+            )
         except G2PRegistryException:
             pass  # type deactivated since: still return the activity
         enrichment = await session.get(G2PActivityEnrichment, row.activity_id)
+        participants = (
+            await session.execute(
+                select(G2PActivityParticipant)
+                .where(G2PActivityParticipant.activity_id == row.activity_id)
+                .order_by(G2PActivityParticipant.is_primary.desc(), G2PActivityParticipant.role)
+            )
+        ).scalars()
         base = {key: value for key, value in values.items() if key in _BASE_ACTIVITY_COLUMNS}
         return ActivityData(
             **base,
@@ -787,7 +852,74 @@ class G2PActivityService(BaseService):
             columns={key: _jsonable(value) for key, value in columns.items()},
             display=display,
             enrichment=enrichment.enrichment if enrichment is not None else None,
+            participants=[ParticipantData.model_validate(p, from_attributes=True) for p in participants],
         )
+
+    # ============================================================ participants
+
+    @staticmethod
+    def _apply_participant_inputs(type_row, activity: ActivityInput, payload: dict) -> dict:
+        """Participants given as (role, id) fill their role's payload field, unless the payload has it."""
+        roles = type_row.participant_roles or {}
+        for participant in activity.participants or []:
+            config = roles.get(participant.role)
+            if config is None:
+                raise _error(
+                    G2PRegistryErrorCodes.ACTIVITY_PAYLOAD_INVALID,
+                    f"{type_row.activity_type} has no participant role '{participant.role}'",
+                )
+            field = config.get("field")
+            if field and payload.get(field) in (None, ""):
+                payload[field] = participant.id
+        return payload
+
+    def _participant_type(self, type_row, config: dict) -> tuple[str, Optional[str], Optional[str], dict]:
+        """(kind, register, system, rule) for a role: from its field's reference rule, or the role's own."""
+        rule = (type_row.reference_rules or {}).get(config.get("field")) or {}
+        if config.get("register") or str(rule.get("kind") or "").upper() == ReferenceKindEnum.LOCAL_RECORD.value:
+            register = config.get("register") or rule.get("register")
+            return "LOCAL", register, None, {**rule, "register": register}
+        return "EXTERNAL", None, config.get("system") or rule.get("system"), rule
+
+    async def _write_participants(self, session, register, type_row, row, payload: dict) -> None:
+        for role, config in (type_row.participant_roles or {}).items():
+            value = payload.get(config.get("field"))
+            if value in (None, "", []):
+                continue
+            kind, ref_register, ref_system, rule = self._participant_type(type_row, config)
+            internal_record_id = None
+            if kind == "LOCAL":
+                record = await self.references._local_record(session, rule, str(value))
+                internal_record_id = getattr(record, "internal_record_id", None)
+            session.add(
+                G2PActivityParticipant(
+                    register_id=register.register_id,
+                    activity_id=row.activity_id,
+                    activity_type=row.activity_type,
+                    role=role,
+                    is_primary=bool(config.get("primary")),
+                    ref_kind=kind,
+                    ref_register=ref_register,
+                    ref_system=ref_system,
+                    ref_id=str(value),
+                    internal_record_id=internal_record_id,
+                    created_at=self.now(),
+                )
+            )
+        await session.flush()
+
+    @staticmethod
+    def _took_part(model, participant_id: str, role: Optional[str] = None):
+        stmt = select(G2PActivityParticipant.participant_id).where(
+            G2PActivityParticipant.activity_id == model.activity_id,
+            or_(
+                G2PActivityParticipant.ref_id == participant_id,
+                G2PActivityParticipant.internal_record_id == participant_id,
+            ),
+        )
+        if role:
+            stmt = stmt.where(G2PActivityParticipant.role == role)
+        return stmt.exists()
 
     async def _with_subject(self, session, type_row, activity: ActivityInput, payload: dict) -> ActivityInput:
         """Take the subject from a reference rule marked ``"subject": true`` when the caller named none."""
@@ -858,6 +990,8 @@ class G2PActivityService(BaseService):
                     spec.get("subject_type", activity.subject_type), spec.get("subject_id", activity.subject_id),
                     spec.get("attributes"), actor,
                 )
+                if spec.get("replaces_context_id"):
+                    await self._replace_context(session, register, context, spec["replaces_context_id"], actor)
         if context is None:
             if type_row.requires_context:
                 raise _error(
@@ -868,6 +1002,26 @@ class G2PActivityService(BaseService):
         if context.status == ActivityContextStatusEnum.CLOSED.value:
             raise _error(G2PRegistryErrorCodes.ACTIVITY_CONTEXT_CLOSED, f"Context {context.context_key} is closed")
         return context
+
+    async def _replace_context(self, session, register, context, replaced_id: str, actor: str) -> None:
+        """Link a new context to the one it replaces (e.g. the crop was changed), and close the old one."""
+        if replaced_id == context.context_id or context.replaces_context_id == replaced_id:
+            return
+        old = await self._get_context(session, register, replaced_id, for_update=True)
+        if old.replaced_by_context_id and old.replaced_by_context_id != context.context_id:
+            raise _error(
+                G2PRegistryErrorCodes.ACTIVITY_INVALID_STATE,
+                f"Context {old.context_key} was already replaced by {old.replaced_by_context_id}",
+            )
+        context.replaces_context_id = old.context_id
+        old.replaced_by_context_id = context.context_id
+        if old.status != ActivityContextStatusEnum.CLOSED.value:
+            old.status = ActivityContextStatusEnum.CLOSED.value
+            old.closed_at = self.now()
+            old.closed_by = actor
+            old.close_reason = f"Replaced by {context.context_key}"
+        await session.flush()
+        await self.projections.recompute(session, register, old.context_id)
 
     async def _get_context(self, session, register, context_id: str, for_update: bool = False):
         stmt = select(G2PActivityContext).where(

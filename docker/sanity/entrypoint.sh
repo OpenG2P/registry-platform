@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the Farmer Registry partner-api sanity suite in-cluster (post-install/
+# Run the registry partner-api sanity suite in-cluster (post-install/
 # post-upgrade hook, or on demand).
 #
 #   SANITY_RUN_E2E=false (default) -> smoke only (creates NO data, needs no PM/CM).

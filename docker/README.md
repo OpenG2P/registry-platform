@@ -6,7 +6,7 @@ reference extension (individual + household), and defaults
 `REGISTRY_EXTENSION_MODULE` to it — so the images run as-is (that's what
 `helm install openg2p-registry` deploys).
 
-A concrete registry (NSR, farmer-registry, a customer registry) does **not** copy
+A concrete registry (a social, farmer or customer registry) does **not** copy
 these Dockerfiles or re-install the platform — it builds a thin image `FROM` the
 matching image and adds only its own domain model.
 
@@ -65,20 +65,30 @@ COPY <ext>/src/<pkg>/awe_meta_data/ /seed/awe_meta_data/
 COPY <ext>/src/<pkg>/templates/     /seed/templates/
 ```
 
-See `farmer-registry/docker/` for a complete worked example.
+See any variant repo's `docker/` (e.g. national-social-registry, farmer-registry) for a complete worked example.
+
+Seeding writes only the registry's own database (and AWE's), never Master Data.
+A variant loader that needs Master Data (geography, the country pack's sample
+people, a code list) reads it through MDS's API with `/seed/mds_client.py`
+(`from mds_client import MdsClient`), authenticating with Keycloak
+client-credentials as the registry's own client; the chart's db-seed Job passes
+`MDS_API_URL`, `MDS_TOKEN_URL`, `MDS_CLIENT_ID` and `MDS_CLIENT_SECRET`. No seed
+job gets Master Data database credentials. Register forms do not pin the
+country's geo levels: a `geo-hierarchy` widget gets them from Master Data at
+runtime.
 
 ## Deployment
 
 The single Helm chart `helm/openg2p-registry` (published from this repo) deploys
 any registry. With no overlay it runs the reference registry; a variant supplies
 a small values overlay pointing at its own images. See that chart and
-`farmer-registry/deployment/values.yaml`.
+a variant's values overlay.
 
 ## Notes
 
 - These images install the platform packages from **this repo's working tree**
   (COPY), not a git ref — this repo *is* the platform. Only the external
-  `openg2p-fastapi-common` / `iam-service` libs are pulled by git ref.
+  `openg2p-fastapi-common` / `iam-core` (from https://github.com/openg2p/iam) libs are pulled by git ref.
 - The images are runnable as-is (the reference extension is bundled). A variant
   image swaps the model purely by installing its package and setting
   `REGISTRY_EXTENSION_MODULE`.

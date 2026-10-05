@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import select, inspect
 from sqlalchemy.orm import sessionmaker
+from openg2p_registry_core.interfaces import G2PRegisterDomainFactory
 from openg2p_registry_core.models import (
     G2PIntakeFormSubmission,
     G2PRegisterDefinition,
@@ -98,13 +99,7 @@ def deduplication_intake_forms_vs_register_worker(self, submission_id: str):
             session.flush()
 
             # Load domain factory once
-            domain_factory_module = importlib.import_module(
-                "openg2p_registry_extensions.register_domain.factory"
-            )
-            FactoryClass = getattr(domain_factory_module, "G2PRegisterDomainFactory")
-            domain_factory = FactoryClass.get_component()
-            if not domain_factory:
-                domain_factory = FactoryClass()
+            domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
 
             model_module = importlib.import_module(
                 "openg2p_registry_extensions.register_domain.models"

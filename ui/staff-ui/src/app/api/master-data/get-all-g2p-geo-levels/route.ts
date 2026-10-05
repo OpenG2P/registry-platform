@@ -1,21 +1,7 @@
-import { NextRequest } from "next/server";
-import { proxyToBackend } from "@/app/api/_lib/backend-proxy";
-
-export async function POST(req: NextRequest) {
-	return proxyToBackend({
-		req,
-		backend: "masterdata",
-		targetEndpoint: '/geo/get_all_geo_levels',
-		buildPayload: (body) => ({
-			pagination_request: {
-				current_page: body.current_page ?? 1,
-				page_size: body.page_size ?? 20,
-				sort_by: body.sort_by ?? "",
-				filter_by: body.filter_by ?? "",
-				search_text: body.search_text ?? "",
-			},
-			request_payload: {
-			}
-		})
-	});
-}
+/**
+ * Kept for metadata and pickers that name this endpoint (e.g. a `geo-hierarchy`
+ * widget's `levelsEndpoint: "get-all-g2p-geo-levels"`). It now reads the same
+ * catalogue levels as `geo-levels` (MDS /catalogue/get_geo_levels), so every
+ * location widget gets its levels from one place.
+ */
+export { POST } from "../geo-levels/route";

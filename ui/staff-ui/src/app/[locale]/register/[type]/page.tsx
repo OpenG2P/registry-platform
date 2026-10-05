@@ -1,14 +1,39 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { TopBar } from '@/components/shared';
-import { SelectedFilters } from '@/features/filter/components';
+import { toast } from 'react-toastify';
+import { useRouter } from '@/i18n/navigation';
+import { History, FileDown } from 'lucide-react';
+import { EntityListPage, CompactCard, CompactCardSkeleton } from '@/components/shared';
+import { ColumnDef, MoreMenuItem } from '@/components/shared/entity-list/types';
 import { useRegisterRecords } from '@/features/register/hooks/useRegisterRecords';
-import { RegisterRecordCard } from '@/features/register/components';
+import { useRegisterIntakeMenuItems } from '@/features/register/hooks/useRegisterIntakeMenuItems';
+import {
+    RegisterIntakeMenuModals,
+    toRegisterIntakeMoreMenuItems,
+} from '@/features/register/components';
 import { RegisterRecord } from '@/features/register/types';
+import { sortedDisplayFields } from '@/features/register/utils';
+import { useRbac } from '@/context/RbacContext';
+import { REGISTER_ACTIONS } from '@/features/shared/permissions';
+import {
+    ExportQueuePanel,
+    ExportRecordsModal,
+    useExportQueue,
+    useRegisterExport,
+    useRegisterRecordSelection,
+    type ExportFormat,
+    type ExportQueueRecord,
+    type ExportRegisterRecordsPayload,
+    type ExportScope,
+} from '@/features/export/register';
 
 export default function RegisterTypePage() {
     const t = useTranslations();
+    const router = useRouter();
+    const { can } = useRbac();
+    const canExport = can(REGISTER_ACTIONS.export) || can(REGISTER_ACTIONS.view);
 
     const {
         registerType,
@@ -16,95 +41,284 @@ export default function RegisterTypePage() {
         records,
         isLoadingRecords,
         searchQuery,
+        sortBy,
         pagination,
         handlers: {
             handlePreviousPage,
             handleNextPage,
-            handleSearch
+            handleSearch,
+            handleSort,
         },
         filters: {
             appliedFilters,
+            filterBy,
             filterConfig,
             applyFilters,
             removeFilter,
-            clearAllFilters
-        }
+            clearAllFilters,
+        },
+        registerId,
+        currentPage,
+        pageSize,
     } = useRegisterRecords();
 
+    const {
+        groups: intakeMenuGroups,
+        selectedImportFile,
+        showImportModal,
+        closeImportModal,
+        selectedVC,
+        openVC,
+        closeVC,
+    } = useRegisterIntakeMenuItems(registerType);
+    const intakeMenuItems = toRegisterIntakeMoreMenuItems(intakeMenuGroups);
+
+    const selectionResetKey = `${registerId ?? ''}|${searchQuery}|${JSON.stringify(filterBy)}|${sortBy ?? ''}`;
+    const selection = useRegisterRecordSelection(selectionResetKey);
+    const { enqueue, submitting } = useRegisterExport();
+
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exportModalScope, setExportModalScope] = useState<ExportScope>('all');
+    const [queueOpen, setQueueOpen] = useState(false);
+    const queue = useExportQueue(queueOpen);
+
+    const displayFieldKeys: string[] = [];
+    records.forEach((r) => {
+        sortedDisplayFields(r.display_fields).forEach((f) => {
+            if (!displayFieldKeys.includes(f.field_name)) displayFieldKeys.push(f.field_name);
+        });
+    });
+
+    const columns: ColumnDef<RegisterRecord>[] = [
+        {
+            key: 'record_name',
+            header: t.has('record_name') ? t('record_name') : 'Record Name',
+            getValue: (r) => r.record_name,
+            render: (r) => (
+                <span className="font-medium  text-[15px]">{r.record_name || '—'}</span>
+            ),
+        },
+        {
+            key: 'functional_record_id',
+            header: t.has('id') ? t('id') : 'ID',
+            getValue: (r) => r.functional_record_id,
+        },
+        ...displayFieldKeys.slice(0, 6).map((key) => ({
+            key,
+            header: t.has(key) ? t(key) : key,
+            getValue: (r: RegisterRecord) =>
+                r.display_fields.find((f) => f.field_name === key)?.value ?? '',
+        })),
+    ];
+
+    const skeleton = (
+        <>
+            {[...Array(5)].map((_, i) => (
+                <CompactCardSkeleton key={i} isEven={i % 2 === 0} />
+            ))}
+        </>
+    );
+
+    const openExportModal = (scope: ExportScope = 'all') => {
+        setExportModalScope(scope);
+        setExportModalOpen(true);
+    };
+
+    const buildPayload = (
+        format: ExportFormat,
+        scope: ExportScope,
+        selectedIds = selection.selectedIdList,
+    ): ExportRegisterRecordsPayload | null => {
+        if (!registerId) return null;
+
+        if (scope === 'selected' && selectedIds.length > 0) {
+            return {
+                register_id: registerId,
+                export_format: format,
+                selected_internal_record_ids: selectedIds,
+            };
+        }
+
+        return {
+            current_page: currentPage,
+            page_size: pageSize,
+            sort_by: sortBy,
+            filter_by: filterBy,
+            search_text: searchQuery,
+            register_id: registerId,
+            export_format: format,
+            selected_internal_record_ids: [],
+        };
+    };
+
+    const showQueuedToast = () => {
+        const message = t.has('export_has_been_queued')
+            ? t('export_has_been_queued')
+            : 'Export has been queued. You can download it once processing completes.';
+        const viewQueueLabel = t.has('view_queue') ? t('view_queue') : 'View Queue';
+
+        toast.success(
+            <div className="flex flex-col gap-2">
+                <span>{message}</span>
+                <button
+                    type="button"
+                    className="self-start text-[13px] font-medium underline"
+                    onClick={() => {
+                        setQueueOpen(true);
+                        toast.dismiss();
+                    }}
+                >
+                    {viewQueueLabel}
+                </button>
+            </div>,
+            { autoClose: 8000, style: { width: '28rem', minWidth: '28rem' } },
+        );
+    };
+
+    const handleStartExport = async (format: ExportFormat, scope: ExportScope) => {
+        const payload = buildPayload(format, scope);
+        if (!payload) return;
+        const result = await enqueue(payload);
+        if (result) {
+            setExportModalOpen(false);
+            showQueuedToast();
+        }
+    };
+
+    const handleRetry = async (record: ExportQueueRecord) => {
+        const format: ExportFormat = record.export_format === 'ZIP_CSV' ? 'ZIP_CSV' : 'XLSX';
+        const payload = buildPayload(format, 'all');
+        if (!payload) return;
+        const result = await enqueue(payload);
+        if (result) showQueuedToast();
+    };
+
+    const exportMenuItems: MoreMenuItem[] = useMemo(() => {
+        if (!canExport) return [];
+        return [
+            { id: 'export-divider', divider: true },
+            {
+                id: 'export-records',
+                label: t.has('export_records') ? t('export_records') : 'Export Records',
+                icon: <FileDown size={16} />,
+                onClick: () => openExportModal(selection.selectedCount > 0 ? 'selected' : 'all'),
+            },
+            {
+                id: 'export-history',
+                label: t.has('export_history') ? t('export_history') : 'Export History',
+                icon: <History size={16} />,
+                onClick: () => setQueueOpen(true),
+            },
+        ];
+    }, [canExport, selection.selectedCount, t]);
+
     return (
-        <div className="min-h-screen mx-auto bg-secondary-first">
-            <TopBar
-                breadcrumb={[{ label: registerTypeLabel }]}
-                showFilters
-                showPagination
-                showCapsule={false}
-                capsule={<></>}
-                pageStart={pagination.pageStart}
-                pageEnd={pagination.pageEnd}
-                total={pagination.total}
-                onPrev={handlePreviousPage}
-                onNext={handleNextPage}
-                onApplyFilters={applyFilters}
-                appliedFilters={appliedFilters}
-                filterConfig={filterConfig}
-            />
-
-            <div className="mx-7.5 bg-neutral-second rounded-[10px]">
-                <div className="px-2 pt-1">
-                    <SelectedFilters
-                        appliedFilters={appliedFilters}
-                        filterConfig={filterConfig}
-                        removeFilter={removeFilter}
-                        clearAllFilters={clearAllFilters}
-                        searchValue={searchQuery}
-                        searchPlaceholder={t('search')}
-                        onSearch={handleSearch}
-                        pxClass='px-0.5'
-                    />
-                </div>
-
-                <div className="rounded-b-[10px]">
-                    {isLoadingRecords ? (
-                        <div className="space-y-2">
-                            {[...Array(5)].map((_, i) => (
-                                <div
-                                    key={i}
-                                    className="flex items-center gap-4 sm:gap-6 px-4 sm:px-6 lg:px-8 p-4 w-full overflow-hidden bg-secondary-second animate-pulse"
-                                >
-                                    <div className="w-16 h-16 rounded-md bg-secondary-third shrink-0" />
-                                    <div className="flex-1 space-y-2 min-w-0">
-                                        <div className="h-4 bg-secondary-third rounded w-1/3" />
-                                        <div className="h-3 bg-secondary-third rounded w-1/2" />
-                                    </div>
-                                    <div className="flex-1 space-y-2 min-w-0">
-                                        <div className="h-3 bg-secondary-third rounded w-2/3" />
-                                        <div className="h-3 bg-secondary-third rounded w-1/2" />
-                                    </div>
-                                    <div className="flex-1 space-y-2 min-w-0">
-                                        <div className="h-3 bg-secondary-third rounded w-1/3" />
-                                        <div className="h-3 bg-secondary-third rounded w-2/3" />
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : records.length === 0 ? (
-                        <div className="text-center py-10 text-neutral-first/50">{t('no_items_found')}</div>
-                    ) : (
-                        records.map((record: RegisterRecord, index: number) => (
-                            <RegisterRecordCard
-                                key={record.internal_record_id}
-                                record={record}
-                                registerType={registerType}
-                                isEven={index % 2 === 0}
-                            />
-                        ))
-                    )}
-                    <div className={`h-6.25 rounded-b-[10px] ${records.length % 2 !== 0 ? 'bg-neutral-second' : 'bg-secondary-second/25'}`}>
-                        &nbsp;
-                    </div>
-                </div>
-            </div>
-            <div className='h-15'>&nbsp;</div>
-        </div>
+        <>
+        <EntityListPage<RegisterRecord>
+            breadcrumb={[{ label: registerTypeLabel }]}
+            showPagination
+            pageStart={pagination.pageStart}
+            pageEnd={pagination.pageEnd}
+            total={pagination.total}
+            onPrev={handlePreviousPage}
+            onNext={handleNextPage}
+            defaultView="card"
+            viewStorageKey="registerView"
+            showSearch
+            searchValue={searchQuery}
+            searchPlaceholder={t('search')}
+            onSearch={handleSearch}
+            showFilters
+            appliedFilters={appliedFilters}
+            filterConfig={filterConfig}
+            onApplyFilters={applyFilters}
+            removeFilter={removeFilter}
+            clearAllFilters={clearAllFilters}
+            items={records}
+            loading={isLoadingRecords}
+            skeleton={skeleton}
+            emptyMessage={
+                <div className="text-center py-10 text-neutral-first/50">{t('no_items_found')}</div>
+            }
+            renderCard={(record, index) => (
+                <CompactCard
+                    key={record.internal_record_id}
+                    href={`/register/${registerType}/${record.internal_record_id}${record.record_name?.trim() ? `?record_name=${encodeURIComponent(record.record_name.trim())}` : ''}`}
+                    imageUrl={record.record_image_url}
+                    imageAlt={record.record_name}
+                    title={record.record_name}
+                    subtitleLabel={t('id')}
+                    subtitleValue={record.functional_record_id}
+                    isEven={index % 2 === 0}
+                    selectable={canExport}
+                    selected={selection.isSelected(record.internal_record_id)}
+                    onSelectChange={() => selection.toggle(record.internal_record_id)}
+                    fields={sortedDisplayFields(record.display_fields).map((field) => ({
+                        label: t.has(field.field_name) ? t(field.field_name) : field.field_name,
+                        value: field.value
+                            ? t.has(field.value)
+                                ? t(field.value)
+                                : field.value
+                            : '',
+                    }))}
+                />
+            )}
+            cardLayout="compact"
+            columns={columns}
+            sortBy={sortBy}
+            onSortChange={handleSort}
+            onRowClick={(record) => {
+                const query = record.record_name?.trim()
+                    ? `?record_name=${encodeURIComponent(record.record_name.trim())}`
+                    : '';
+                router.push(`/register/${registerType}/${record.internal_record_id}${query}`);
+            }}
+            moreMenuItems={[...intakeMenuItems, ...exportMenuItems]}
+            selectable={canExport}
+            selectedIds={selection.selectedIds}
+            getItemId={(record) => record.internal_record_id}
+            onToggleSelect={selection.toggle}
+            onTogglePageSelect={selection.togglePage}
+        />
+        <RegisterIntakeMenuModals
+            selectedImportFile={selectedImportFile}
+            showImportModal={showImportModal}
+            onCloseImport={closeImportModal}
+            selectedVC={selectedVC}
+            openVC={openVC}
+            onCloseVC={closeVC}
+        />
+        <ExportRecordsModal
+            isOpen={exportModalOpen}
+            onClose={() => setExportModalOpen(false)}
+            onStart={handleStartExport}
+            submitting={submitting}
+            selectedCount={selection.selectedCount}
+            totalCount={pagination.total}
+            initialScope={exportModalScope}
+            searchQuery={searchQuery}
+            appliedFilters={appliedFilters}
+        />
+        <ExportQueuePanel
+            isOpen={queueOpen}
+            onClose={() => setQueueOpen(false)}
+            records={queue.records}
+            loading={queue.loading}
+            pageStart={queue.pagination.pageStart}
+            pageEnd={queue.pagination.pageEnd}
+            total={queue.pagination.total}
+            onPrev={queue.onPrev}
+            onNext={queue.onNext}
+            onRefresh={queue.refresh}
+            onExportRecords={() => {
+                setQueueOpen(false);
+                openExportModal('all');
+            }}
+            onRetry={handleRetry}
+            onDownload={(url) => {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }}
+        />
+        </>
     );
 }

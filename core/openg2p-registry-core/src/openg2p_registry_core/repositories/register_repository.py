@@ -1,14 +1,14 @@
 """Abstract, generic register data-access base.
 
-Concrete domain repositories (Farmer, Individual, Household, ...) bind the
+Concrete domain repositories (Individual, Household, ...) bind the
 generic ``T`` to their SQLAlchemy register model and inherit the shared
 data-policy -> SQLAlchemy translation implemented here.
 
 Example:
-    class RegisterRepositoryFarmer(RegisterRepository[G2PRegisterFarmer]):
+    class RegisterRepositoryIndividual(RegisterRepository[G2PRegisterIndividual]):
         @property
-        def model(self) -> type[G2PRegisterFarmer]:
-            return G2PRegisterFarmer
+        def model(self) -> type[G2PRegisterIndividual]:
+            return G2PRegisterIndividual
 """
 
 from __future__ import annotations
@@ -183,7 +183,7 @@ class RegisterRecordRepository(RegisterRepository[T]):
     """Concrete register repository bound to a resolved register model.
 
     Used where the register model is resolved dynamically (e.g. by register
-    mnemonic). Domain-specific subclasses (Farmer, Individual, Household, ...)
+    mnemonic). Domain-specific subclasses (Individual, Household, ...)
     can override behaviour later; this default simply binds ``model``.
     """
 

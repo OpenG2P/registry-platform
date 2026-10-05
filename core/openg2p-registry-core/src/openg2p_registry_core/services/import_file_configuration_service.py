@@ -2,10 +2,10 @@ import logging
 import uuid
 from typing import List, Optional, Tuple
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PRegisterDefinition, G2PRegistryImportFileConfiguration
@@ -21,7 +21,7 @@ class ImportFileConfigurationService(BaseService):
         current_page: Optional[int] = None,
         page_size: Optional[int] = None,
     ) -> Tuple[List[ImportFileConfigurationData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_exists(register_id, session)
 
@@ -54,7 +54,7 @@ class ImportFileConfigurationService(BaseService):
         current_page: Optional[int] = None,
         page_size: Optional[int] = None,
     ) -> Tuple[List[ImportFileConfigurationData], int]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             base_query = select(G2PRegistryImportFileConfiguration)
             total_items = (
@@ -85,7 +85,7 @@ class ImportFileConfigurationService(BaseService):
         import_file_template_mnemonic: str,
         import_file_template_description: str,
     ) -> List[ImportFileConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self._validate_register_exists(register_id, session)
 
@@ -109,7 +109,7 @@ class ImportFileConfigurationService(BaseService):
         import_file_template_mnemonic: Optional[str] = None,
         import_file_template_description: Optional[str] = None,
     ) -> List[ImportFileConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             import_file_configuration = await self._get_import_file_configuration(
                 import_file_configuration_id, session
@@ -131,7 +131,7 @@ class ImportFileConfigurationService(BaseService):
     async def delete_import_file_configuration(
         self, import_file_configuration_id: str
     ) -> List[ImportFileConfigurationData]:
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             import_file_configuration = await self._get_import_file_configuration(
                 import_file_configuration_id, session

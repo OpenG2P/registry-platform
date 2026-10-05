@@ -1,1 +1,1 @@
-from .g2p_dci_service import G2PDciService
+from .g2p_dci_service import ConsentScopeGrant, G2PDciService

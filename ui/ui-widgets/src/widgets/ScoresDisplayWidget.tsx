@@ -110,7 +110,7 @@ export const ScoresDisplayWidget = ({
 
         .${cls} .scores-subtle {
           font-size: 13px;
-          color: var(--owt-color-text-muted, #727474);
+          color: var(--owt-color-text-muted);
           font-weight: 400;
         }
 
@@ -122,21 +122,21 @@ export const ScoresDisplayWidget = ({
         }
 
         .${cls} .scores-card {
-          border: 1px solid var(--owt-color-border-light, #E4E4E4);
+          border: 1px solid var(--owt-color-border-light);
           border-radius: 10px;
-          background: var(--owt-color-bg, #FFFFFF);
+          background: var(--owt-color-bg);
           padding: 14px 14px;
           display: flex;
           flex-direction: column;
           gap: 10px;
           min-width: 0;
-          box-shadow: 0 1px 2px rgba(1, 22, 39, 0.06), 0 6px 16px rgba(1, 22, 39, 0.06);
+          box-shadow: 0 1px 2px var(--owt-color-shadow), 0 6px 16px var(--owt-color-shadow);
         }
 
         .${cls} .scores-type {
           font-size: 16px;
           font-weight: 800;
-          color: var(--owt-color-primary-dark, #F07B1A);
+          color: var(--owt-color-primary-dark);
           line-height: 1.2;
           word-break: break-word;
         }
@@ -144,7 +144,7 @@ export const ScoresDisplayWidget = ({
         .${cls} .scores-value {
           font-size: 34px;
           font-weight: 800;
-          color: var(--owt-color-text, #011627);
+          color: var(--owt-color-text);
           line-height: 1.05;
           letter-spacing: -0.25px;
         }
@@ -152,7 +152,7 @@ export const ScoresDisplayWidget = ({
         .${cls} .scores-separator {
           height: 1px;
           width: 100%;
-          background-color: var(--owt-color-border-light, #E4E4E4);
+          background-color: var(--owt-color-border-light);
           border: none;
           margin: 2px 0;
         }
@@ -160,7 +160,7 @@ export const ScoresDisplayWidget = ({
         .${cls} .scores-value .scores-muted {
           font-size: 18px;
           font-weight: 600;
-          color: var(--owt-color-text-muted, #727474);
+          color: var(--owt-color-text-muted);
           margin-left: 6px;
         }
 
@@ -172,12 +172,12 @@ export const ScoresDisplayWidget = ({
 
         .${cls} .scores-meta-line {
           font-size: 13px;
-          color: var(--owt-color-text-muted, #727474);
+          color: var(--owt-color-text-muted);
           font-weight: 500;
         }
 
         .${cls} .scores-meta-line strong {
-          color: var(--owt-color-text, #011627);
+          color: var(--owt-color-text);
           font-weight: 700;
         }
 

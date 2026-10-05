@@ -34,11 +34,13 @@ class Settings(ExtSettings):
 
     batch_size: int = 2000
     no_of_tasks_to_process: int = 4
+    export_no_of_tasks_to_process: int = 5
     default_beat_producer_frequency: int = 20
 
     # Activity registers (seconds). Scheduled straight onto the worker tasks.
     activity_outbox_frequency: Optional[int] = None                          # default: default_beat_producer_frequency
     activity_odk_pull_frequency: int = 300
+    activity_sample_data_frequency: int = 120
     activity_reconcile_frequency: int = 24 * 60 * 60
     activity_partition_frequency: int = 24 * 60 * 60
 
@@ -58,3 +60,4 @@ class Settings(ExtSettings):
     score_compute_beat_producer_frequency: Optional[int] = None                 # score computation
     completion_score_beat_producer_frequency: Optional[int] = None               # completion score
     import_file_process_beat_producer_frequency: Optional[int] = None           # import file processing
+    register_export_beat_producer_frequency: Optional[int] = None              # register export

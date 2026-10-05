@@ -14,7 +14,7 @@ const NONE: SubjectActivities[] = [];
 
 /**
  * Activities (and summaries) about one record of this registry, grouped by
- * activity register — including those about its child records (a farmer's plots).
+ * activity register — including those about its child records (a person's plots).
  */
 export function useSubjectActivities(internalRecordId: string | undefined, enabled = true) {
     const api = useActivityApi();

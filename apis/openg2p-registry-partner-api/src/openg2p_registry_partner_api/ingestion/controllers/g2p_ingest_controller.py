@@ -8,6 +8,7 @@ from openg2p_registry_core.schemas import IngestDataPayload, IngestDataRequest, 
 from openg2p_fastapi_common.schemas import G2PResponse
 
 from ..helpers import RequestResponseHelper
+from ...audit_context import set_audit_actor, set_audit_outcome
 from ...config import Settings
 
 _config = Settings.get_config()
@@ -48,6 +49,9 @@ class G2PIngestController(BaseController):
                 ingest_data,
                 register_id=register_id,
                 intake_form_id=intake_form_id,
+                # The partner is matched by its configured pattern; the payload
+                # signature is verified later in the pipeline, hence unverified here.
+                on_partner=lambda partner_id: set_audit_actor(ingest_data_request, partner_id, verified=False),
             )
             injest_data_response = self.request_response_helper.construct_ingest_data_success_response(ingest_data_payload, response_template_store_id)
             return injest_data_response
@@ -56,5 +60,6 @@ class G2PIngestController(BaseController):
             # Raise exception for testing
             # raise error_exception 
             _logger.error(f"Error in ingest_data: {str(error_exception)}")
+            set_audit_outcome(ingest_data_request, "failure", reason=str(getattr(error_exception, "code", "") or "error"))
             error_response: G2PResponse = self.request_response_helper.construct_error_response(error_exception, response_template_store_id)
             return error_response

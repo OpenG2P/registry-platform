@@ -13,7 +13,6 @@ import {
 import { useTranslations } from "next-intl";
 import {
     useChangeRequest,
-    useChangeRequestDocuments,
     useRegisterSectionsFromCR,
 } from "@/features/change-request/hooks";
 import {
@@ -44,7 +43,6 @@ interface Props {
 export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props) {
     const t = useTranslations();
     const { details, loadingDetails, refetchDetails } = useChangeRequest(changeId);
-    const { documents, loading: loadingDocuments } = useChangeRequestDocuments(changeId);
 
     const approvalArtifactContext = useMemo(() => {
         if (!details?.change_request_id) return null;
@@ -100,7 +98,6 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
             buildSectionDataMap(
                 sectionRegisterId,
                 details?.change_payload,
-                details?.documents || null,
                 isListSection
             ),
         [details?.change_payload, isListSection, sectionRegisterId]
@@ -111,27 +108,34 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
             buildSectionDataMap(
                 sectionRegisterId,
                 details?.current_register_data,
-                details?.documents || null,
                 isListSection
             ),
         [details?.current_register_data, isListSection, sectionRegisterId]
     );
 
-    return (
-        <TabsLayout breadcrumb={breadcrumb}>
-            <div className="flex gap-7.5">
-                <div className="w-full lg:w-[75%]">
-                    {!details && (loadingDetails || loadingDocuments) ? (
-                        <CRHeaderSkeleton />
-                    ) : (
-                        details && (
-                            <ChangeRequestHeader
-                                details={details}
-                                documents={documents}
-                            />
-                        )
-                    )}
+    const resolvedBreadcrumb = useMemo(() => {
+        const recordName = details?.record_name?.trim();
+        if (!recordName) return breadcrumb;
+        return breadcrumb.map((item) =>
+            item.label ? item : { ...item, label: recordName },
+        );
+    }, [breadcrumb, details?.record_name]);
 
+    return (
+        <TabsLayout breadcrumb={resolvedBreadcrumb}>
+            {!details && loadingDetails ? (
+                <CRHeaderSkeleton />
+            ) : (
+                details && (
+                    <ChangeRequestHeader
+                        details={details}
+                        documents={details?.documents || []}
+                    />
+                )
+            )}
+
+            <div className="mt-7.5 flex flex-col gap-6 lg:flex-row lg:items-start">
+                <div className="min-w-0 flex-1">
                     {loadingSchema ? (
                         <SectionSchemaSkeleton />
                     ) : (
@@ -153,7 +157,7 @@ export default function ChangeRequestDetailsView({ changeId, breadcrumb }: Props
                     )}
                 </div>
 
-                <div className="w-full lg:w-[25%]">
+                <div className="w-full min-w-0 shrink-0 lg:w-[320px]">
                     {loadingDetails ||
                     loadingSequenceCheck ||
                     (!!details?.awe_request_id && loadingTasks) ? (

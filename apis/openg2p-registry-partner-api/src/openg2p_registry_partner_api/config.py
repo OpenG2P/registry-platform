@@ -79,6 +79,22 @@ class Settings(ExtSettings):
     # Consent Manager (PDP) — the /validate endpoint the registry (PEP) calls.
     consent_manager_url: str = ""  # e.g. http://consent-manager-partner-api
     consent_manager_timeout: float = 5.0
+    # This registry's data-controller ID in the Consent Manager (e.g.
+    # "social-registry"). Sent with every /validate so CM uses this registry's
+    # grant in a consent that covers several registries.
+    consent_data_controller: str = ""
+
+    # Summaries across subjects (an activity register's aggregates searched with
+    # no subject_id, e.g. every worker's monthly attendance for a benefit run).
+    # Off unless the registry operator lists the partner here: sender_id → the
+    # data scopes it may receive (scope IDs from the data scope catalogue,
+    # GET /partner/data_scopes; a bare name means this registry's scope).
+    # There is no per-person consent for such a search, so these scopes
+    # replace the Consent Manager's for it, at their current versions; the
+    # signature is still verified. JSON in env, e.g.
+    # {"benefits-system": ["crop-sown-registry.crop_season"]}.
+    dci_bulk_aggregate_partners: dict[str, list[str]] = {}
+    dci_bulk_aggregate_max_page_size: int = 500
 
     # Keymanager settings
     keymanager_api_base_url: str = ""

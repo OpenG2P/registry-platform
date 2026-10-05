@@ -4,10 +4,8 @@ import { createContext, useContext, ReactNode } from "react";
 import { Branding, LanguageConfig } from "@/app/api/_lib/client-safe-config.types";
 
 export interface RuntimeConfig {
-    partnerImportExportEnable: boolean;
     verifyServiceUrl: string;
     vpClientId: string;
-    pageSize: number;
     registryName: string;
     registryLogo: string;
     registryFavicon: string;

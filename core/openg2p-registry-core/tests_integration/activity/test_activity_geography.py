@@ -42,9 +42,9 @@ async def test_later_activities_take_their_contexts_location(service, activity_t
 
 async def test_location_from_the_subject_record_or_its_parent(service, activity_types, database):
     await _add_visit_type(database)
-    # plot-2 is in Plain (Z2); plot-1 has no location, so it takes its farmer's (Hill, Z1).
-    own, _ = await service.append(visit(plot="plot-2", farmer="FR-2"), "da1", "STAFF_PORTAL")
-    parents, _ = await service.append(visit(plot="plot-1", farmer="FR-1"), "da1", "STAFF_PORTAL")
+    # parcel-2 is in Plain (Z2); parcel-1 has no location, so it takes its person's (Hill, Z1).
+    own, _ = await service.append(visit(parcel="parcel-2", person="P-2"), "da1", "STAFF_PORTAL")
+    parents, _ = await service.append(visit(parcel="parcel-1", person="P-1"), "da1", "STAFF_PORTAL")
     assert own.geo_dimensions["woreda"] == {"code": "W3", "name": "Plain"}
     assert own.geo_dimensions["zone"] == {"code": "Z2", "name": "South"}
     assert parents.geo_dimensions["woreda"] == {"code": "W2", "name": "Hill"}
@@ -82,7 +82,7 @@ async def test_indicators_group_and_filter_by_level(service, activity_types, dat
 async def test_aggregates_carry_the_activitys_levels(service, activity_types):
     await service.append(sown(payload={"woreda": "W1"}), "da1", "STAFF_PORTAL")
     await G2PActivityOutboxService().process_batch()
-    [aggregate] = await service.search_aggregates(SearchAggregatesPayload(register_mnemonic=REG, subject_id="FR-1"))
+    [aggregate] = await service.search_aggregates(SearchAggregatesPayload(register_mnemonic=REG, subject_id="P-1"))
     assert aggregate.geo_dimensions == LAKE
 
 

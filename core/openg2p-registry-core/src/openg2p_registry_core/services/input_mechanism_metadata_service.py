@@ -1,10 +1,10 @@
 import logging
 from typing import List
 
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PInputMechanism, G2PRegisterDefinition
@@ -16,7 +16,7 @@ _logger = logging.getLogger("input-mechanism-metadata-service")
 class InputMechanismMetadataService(BaseService):
     async def get_all_input_mechanisms(self, register_id: str) -> List[G2PInputMechanismData]:
         """Get all registry input mechanisms."""
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self.validate_register_id(session, register_id)
 

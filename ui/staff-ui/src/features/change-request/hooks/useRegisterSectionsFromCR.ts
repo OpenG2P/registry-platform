@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import { useFetch } from "@/shared/hooks/useFetch";
+import { withRuntimeGeoLevels } from "@/shared/utils/geoWidgets";
 
 interface Params {
   sectionId?: string;
@@ -18,8 +20,13 @@ export const useRegisterSectionsFromCR = ({
       }),
     },
   });
+  // Location widgets take the geography's levels from Master Data at runtime.
+  const sectionUISchema = useMemo(
+    () => withRuntimeGeoLevels(data?.sectionUiSchema.section_ui_schema),
+    [data],
+  );
   return {
-    sectionUISchema: data?.sectionUiSchema.section_ui_schema,
+    sectionUISchema,
     loadingSchema: !!sectionId ? loadingSchema : false
   };
 };

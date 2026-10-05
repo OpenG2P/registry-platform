@@ -32,6 +32,12 @@ class Settings(ExtSettings):
     batch_size: int = 2000
     worker_max_attempts: int = 5
 
+    # Register export
+    export_batch_size: int = 2000
+    export_worker_max_attempts: int = 3
+    export_presigned_url_expiry_hours: int = 48
+    export_files_prefix: str = "register-exports/"
+
     functional_id_generation_url: str = "http://functional-id-generation-service-url/v1"
     id_generation_allocation_path: str = "/idgenerator/{id_type}/id"
     id_generation_updation_path: str = ""
@@ -39,3 +45,9 @@ class Settings(ExtSettings):
     # Import File Configuration
     import_file_sender_id: str = "Staff Portal"
     import_file_signature: str = "signature"
+
+    # Install-time sample activities (python -m openg2p_registry_celery_worker.load_activity_samples,
+    # run by the chart's activity-samples hook Job): how long to wait for db-seed's
+    # activity types to appear, and how often to look.
+    activity_samples_wait_seconds: int = 600
+    activity_samples_poll_seconds: int = 10

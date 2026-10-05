@@ -15,8 +15,21 @@ _logger = logging.getLogger("g2p-attribute-value-validator")
 _now = time.monotonic
 
 
+def _read_mode() -> str:
+    mode = str(getattr(_config, "master_data_read_mode", "api") or "api").strip().lower()
+    return "db" if mode == "db" else "api"
+
+
 class G2PAttributeValueValidator(BaseService):
-    """Validate change-request codes against Master Data code lists."""
+    """Validate change-request codes against Master Data code lists.
+
+    Codes are checked against the ACTIVE values of each list's version in
+    effect (latest, or the pinned catalogue release): a retired code is
+    rejected for new data. Read through MDS's catalogue API
+    (``master_data_read_mode = "api"``, cached by version there) or, as a
+    rollback, from MDS's current-state tables (``"db"``, which hold only active
+    values too).
+    """
 
     def __init__(self):
         super().__init__()
@@ -32,6 +45,14 @@ class G2PAttributeValueValidator(BaseService):
         self._loaded_at = None
 
     async def _load(self) -> dict[str, set[str]]:
+        if _read_mode() == "api":
+            from ..helpers.master_data_client import get_master_data_client
+
+            codes, _versions = await get_master_data_client().all_list_codes()
+            return codes
+        return await self._load_from_db()
+
+    async def _load_from_db(self) -> dict[str, set[str]]:
         now = _now()
         if (
             self._codes is not None

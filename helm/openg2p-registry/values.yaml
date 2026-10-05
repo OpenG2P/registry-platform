@@ -19,10 +19,13 @@ global:
   registryDBSecret: '{{ .Release.Name }}'
   registryDBUserPasswordKey: '{{ .Release.Name }}-db-user'
 
-  # Master Data DB credentials — must match the values set by the
-  # openg2p-commons-services chart (release `commons-services`). Commons
-  # uses plain DB names (no release-name prefix) since only one Master
-  # Data instance is expected per environment.
+  # Master Data DB credentials — used ONLY when masterDataReadMode is 'db' (the
+  # rollback to direct reads of MDS's database); in 'api' mode (the default) the
+  # services get no MDS database settings at all, and the db-seed Job never
+  # does (seed scripts read Master Data through its API). Must match the
+  # openg2p-commons-services chart (release `commons-services`). Commons uses
+  # plain DB names (no release-name prefix) since only one Master Data instance
+  # is expected per environment.
   masterDataDB: 'master_data'
   masterDataDBPort: 5432
   masterDataDBUser: 'master_data_user'
@@ -65,7 +68,8 @@ global:
   # is variant-specific (upload_images.py ships in a variant's db-seed image, not
   # this one) because the images belong to that variant's sample records.
   documentsBucketName: 'documents'
-  minioSecure: true
+  # In-cluster Garage speaks plain HTTP.
+  minioSecure: false
 
   # Security & Authentication
   keymanagerInstallationName: commons-services-keymanager
@@ -213,6 +217,12 @@ global:
   # part of commons-services (service name commons-services-cm-*), matching PM.
   consentManagerUrl: 'http://commons-services-cm-partner-api'
   consentManagerTimeoutSeconds: 5
+  # This registry's data-controller ID in the Consent Manager, sent with every
+  # /validate so CM uses this registry's grant in a consent covering several
+  # registries. Defaults to the registry variant (global.registryVariant).
+  # Also the namespace of this registry's data scope IDs (<controller>.<name>,
+  # e.g. farmer-registry.fr_farmer_land), which consents and CM policies name.
+  consentDataController: '{{ .Values.global.registryVariant }}'
   # Used only by the sanity e2e (to seed the shared test partner):
   #  * PM staff-portal-api (onboard + approve the partner key)
   #  * CM staff-portal-api (create the partner binding + policy)
@@ -245,6 +255,28 @@ global:
 
   # Master Data API internal URL
   masterDataApiUrl: 'http://commons-services-master-data-api'
+  # How the registry's backend reads Master Data (code lists, geography, sample
+  # people):
+  #   api — through MDS's catalogue API (the default): versioned reads, cached by
+  #         version, refreshed from MDS's change feed, last good data served when
+  #         MDS is briefly unreachable; each activity records the list and
+  #         geography versions its references were checked against;
+  #   db  — the old direct reads of MDS's database (masterDataDB* above). A
+  #         rollback switch; it records no versions.
+  # The *_MASTER_DATA_DB_* env vars below are rendered into the pods only in db
+  # mode (see the *.envVars helpers in templates/_helpers.tpl).
+  masterDataReadMode: 'api'
+  # Pin every Master Data read to a catalogue release (e.g. '2027.1'): all lists
+  # and the geography at the versions the release pins. Empty reads the latest
+  # published versions. A list the release does not pin is read at its latest.
+  catalogueRelease: ''
+  # Server-to-server calls to MDS authenticate with Keycloak's client-credentials
+  # grant as this registry's own confidential client (authClientId, secret in
+  # authClientSecret) — also from the Celery worker, which has no user. The
+  # token must come from the PUBLIC issuer URL: MDS (iam-core) matches the
+  # token's `iss` against the staff realm's login provider, which is registered
+  # under keycloakBaseUrl.
+  masterDataTokenUrl: '{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token'
 
   # ID Generator
   # Public hostname (used by browser/external callers via Istio VirtualService).
@@ -308,6 +340,15 @@ global:
   aweDefaultCallbackUrl: 'https://staff-{{ tpl .Values.global.registryHostname $ }}/awe/webhooks/decision'
   aweHttpTimeoutSeconds: 30
   aweWebhookTimestampToleranceSeconds: 300
+
+  # Register export
+  exportQueueVisibilityDays: 2
+  exportBatchSize: 2000
+  exportNoOfTasksToProcess: 5
+  exportBeatProducerFrequency: 20
+  exportWorkerMaxAttempts: 3
+  exportPresignedUrlExpiryHours: 48
+  exportFilesPrefix: "register-exports/"
   aweCallbackHmacSecretName: '{{ .Release.Name }}-awe-callback-hmac'
   aweCallbackHmacSecretKey: 'hmac-secret'
   # NOTE: despite the name, this is the initial Keycloak password for the seeded
@@ -329,32 +370,16 @@ global:
 # from openg2p-registry-gen2-extensions.
 dbSeed:
   enabled: true
-  # LEGACY. Loads a five-level country->village hierarchy into the master_data DB
-  # from openg2p-data/geo/geo.csv, keyed by slug-paths like
-  # "kamuntu/kilima/karamu/uzima/billyu".
-  #
-  # Off, and it should stay off. Master Data seeds its own geography from a
-  # country pack now (geoSeed.countryPack there), keyed by P-code — so turning
-  # this on writes a SECOND hierarchy over the first, in a different id space and
-  # with a fixed depth of five levels that only describes Kamuntu. Ethiopia has
-  # four, ending at woreda.
-  #
-  # It is no longer needed for sample data either: load_sample_data.py reads the
-  # hierarchy and the sample people from Master Data directly, whatever country
-  # and however many levels it holds.
-  #
-  # Kept only for a deployment that still has no Master Data country pack.
-  loadGeoData: false
-  # Match the register's geo dropdowns to the hierarchy Master Data holds.
-  # An extension's UI metadata names its levels and fixes their number; a
-  # country whose pack disagrees gets dropdowns that silently return nothing.
-  # Off by default so an existing deployment keeps the metadata it shipped.
-  syncGeoWidgets: false
   # Load sample/demo data into the registry (disabled by default)
   loadSampleData: false
+  intakeSeed:
+    submitUser: alex.carter
+    approver1: alex.carter
+    approver2: nina.patel
+    maxHouseholds: 50
   # Upload sample profile images (500 colored-initials avatars) to MinIO
-  # and update g2p_register_farmers.record_image_document_id. Requires
-  # loadSampleData=true (individuals must exist first).
+  # and set record_image_document_id on the seeded records. Requires
+  # loadSampleData=true (the records must exist first).
   loadImages: false
   # Upload flat Jinja templates from the db-seed image to MinIO after SQL seed
   loadTemplates: true
@@ -384,8 +409,10 @@ dbSeed:
 # Runs as a one-shot post-install/post-upgrade hook Job that pushes this
 # registry's tile + roles/permissions catalog (files/iam-registration/payload.json)
 # to the IAM staff-portal API. The application_mnemonic is the per-release
-# Keycloak client (global.authClientId) and application_url is the Staff Portal
-# UI host (https://<registryHostname>), so multiple registry instances coexist.
+# Keycloak client (global.authClientId), application_url is the Staff Portal
+# UI host (https://<registryHostname>), and api_url is the staff API host
+# (https://<staffApi.hostname>) used by IAM data policies. Multiple registry
+# instances coexist.
 #
 # Auth: obtains an access token via client_credentials using the per-release
 # staff-portal client + secret created by keycloak-init (global.authClientId /
@@ -405,6 +432,10 @@ iamRegister:
   # and it is a value (not a file) precisely so a wrapper chart can set it: a
   # subchart's .Files cannot be overridden by its parent.
   applicationDescription: "OpenG2P Registry"
+  # Optional staff API base URL stored as api_url on the IAM application.
+  # IAM uses this (not a global REGISTRY_API_URL) to load register fields for
+  # data policies. Defaults to https://<staffApi.hostname>.
+  # apiUrl: ""
   image:
     repository: curlimages/curl
     tag: "8.11.1"
@@ -414,6 +445,21 @@ iamRegister:
   # Internal retry attempts (×5s) while the Keycloak client / IAM finish coming up.
   tokenMaxAttempts: 30
   registerMaxAttempts: 10
+  ttlSecondsAfterFinished: 600
+  # Commons/Rancher skips Helm hooks — override these to null there so the Job
+  # runs as a regular resource. Standalone helm installs keep post-install hooks.
+  # Weights put this BEFORE db-seed (10): the sample-data seed calls the staff API as
+  # a Keycloak user, and the permission middleware resolves that user's roles through
+  # IAM. Until this registry's roles/permissions catalog is registered here, every
+  # call is 403 and the whole hook chain fails on a fresh namespace.
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  payloadAnnotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "4"
+    "helm.sh/hook-delete-policy": before-hook-creation
   # Tiny one-shot hook Job (token fetch + IAM self-register). Request 64Mi
   # covers the baseline; 128Mi limit is a generous cap (no cpu limit — see
   # staffApi rationale).
@@ -521,6 +567,11 @@ partnerApi:
     REGISTRY_PARTNER_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_PARTNER_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_PARTNER_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # SQLAlchemy pool per gunicorn worker process (also used for master-data).
+    REGISTRY_PARTNER_API_DB_POOL_SIZE: 5
+    REGISTRY_PARTNER_API_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_PARTNER_API_DB_POOL_PRE_PING: true
+    REGISTRY_PARTNER_API_DB_POOL_RECYCLE: 1800
     REGISTRY_PARTNER_API_PORT: '{{ .Values.containerPort }}'
 
     REGISTRY_PARTNER_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
@@ -530,6 +581,12 @@ partnerApi:
     REGISTRY_PARTNER_API_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     REGISTRY_PARTNER_API_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_PARTNER_API_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_PARTNER_API_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_PARTNER_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_PARTNER_API_KEYMANAGER_API_BASE_URL: "{{ .Values.global.keymanagerInstallationName }}/v1/keymanager"
     REGISTRY_PARTNER_API_KEYMANAGER_API_TIMEOUT: 10
@@ -552,6 +609,7 @@ partnerApi:
     REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
     REGISTRY_PARTNER_API_CONSENT_MANAGER_URL: '{{ tpl .Values.global.consentManagerUrl $ }}'
     REGISTRY_PARTNER_API_CONSENT_MANAGER_TIMEOUT: '{{ .Values.global.consentManagerTimeoutSeconds }}'
+    REGISTRY_PARTNER_API_CONSENT_DATA_CONTROLLER: '{{ tpl .Values.global.consentDataController $ }}'
 
     REGISTRY_PARTNER_API_MINIO_ENDPOINT: '{{ tpl .Values.global.garageHost $ }}'
     REGISTRY_PARTNER_API_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
@@ -579,6 +637,10 @@ partnerApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    REGISTRY_PARTNER_API_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_PARTNER_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.garageSecret $ }}'
@@ -731,6 +793,17 @@ beneApi:
     REGISTRY_BENE_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_BENE_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_BENE_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_BENE_PORTAL_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
+    # SQLAlchemy pool per gunicorn worker process.
+    REGISTRY_BENE_PORTAL_API_DB_POOL_SIZE: 5
+    REGISTRY_BENE_PORTAL_API_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_BENE_PORTAL_API_DB_POOL_PRE_PING: true
+    REGISTRY_BENE_PORTAL_API_DB_POOL_RECYCLE: 1800
 
     REGISTRY_BENE_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -743,6 +816,10 @@ beneApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
+    REGISTRY_BENE_PORTAL_API_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_BENE_PORTAL_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.garageSecret $ }}'
@@ -832,8 +909,8 @@ beneApi:
 # (`agent`), their own portal, their own permission. A staff token grants
 # nothing here.
 #
-# Turning it on additionally needs, from the MANIFESTATION (NSR, Farmer
-# Registry, …) because the claim fields differ per registry:
+# Turning it on additionally needs, from the MANIFESTATION (e.g. a social,
+# farmer or worker registry) because the claim fields differ per registry:
 #   * a read-only VC view keyed on internal_record_id (see vcDefinitions[].view)
 #   * its vcDefinitions entries
 #   * the SVG card design (svgConfigMap)
@@ -1070,6 +1147,12 @@ agentPortalApi:
     REGISTRY_AGENT_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_AGENT_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_AGENT_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_AGENT_PORTAL_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_AGENT_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -1143,6 +1226,10 @@ agentPortalApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
+    REGISTRY_AGENT_PORTAL_API_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
 
   pdf:
     title: "Beneficiary Credential"
@@ -1277,12 +1364,27 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_STAFF_PORTAL_API_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_STAFF_PORTAL_API_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # SQLAlchemy pool per gunicorn worker process (also used for master-data).
+    # 5+10 with STAFF_PORTAL_NO_OF_WORKERS=3 stays well under typical Postgres
+    # max_connections; raise these if you bump workers without adding pods.
+    REGISTRY_STAFF_PORTAL_API_DB_POOL_SIZE: 5
+    REGISTRY_STAFF_PORTAL_API_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_STAFF_PORTAL_API_DB_POOL_PRE_PING: true
+    REGISTRY_STAFF_PORTAL_API_DB_POOL_RECYCLE: 1800
 
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_DRIVER: 'postgresql+asyncpg'
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_USERNAME: '{{ .Values.global.masterDataDBUser }}'
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_STAFF_PORTAL_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
+    # Namespace of the data scope IDs the staff API shows (<controller>.<name>).
+    REGISTRY_STAFF_PORTAL_API_CONSENT_DATA_CONTROLLER: '{{ tpl .Values.global.consentDataController $ }}'
 
     REGISTRY_STAFF_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -1310,6 +1412,8 @@ staffApi:
     # match so staff-portal presigned record-image URLs resolve.
     REGISTRY_STAFF_PORTAL_API_MINIO_BUCKET_NAME: '{{ tpl .Values.global.documentsBucketName $ }}'
     REGISTRY_STAFF_PORTAL_API_TEMPLATE_BUCKET_NAME: '{{ tpl .Values.global.templateBucketName $ }}'
+    REGISTRY_STAFF_PORTAL_API_EXPORT_QUEUE_VISIBILITY_DAYS: '{{ .Values.global.exportQueueVisibilityDays }}'
+    REGISTRY_STAFF_PORTAL_API_EXPORT_BATCH_SIZE: '{{ .Values.global.exportBatchSize }}'
 
     # OpenG2P Audit Manager integration. No-op unless both AUDIT_ENABLED=true
     # and AUDIT_MANAGER_URL are set (controlled via global.auditEnabled and
@@ -1340,6 +1444,10 @@ staffApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.garageSecret $ }}'
@@ -1515,7 +1623,7 @@ staffUi:
     APP_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
     APPLICATION_MNEMONIC: '{{ tpl .Values.global.authClientId $ }}'
     # Allow profile/document images from MinIO pre-signed URLs in the browser CSP.
-    CSP_SRC_IMG: 'self blob: data: https://{{ tpl .Values.global.garageHost $ }}'
+    CSP_SRC_IMG: 'self blob: data: https://{{ tpl .Values.global.garageHost $  }}'
     # Server-side calls from the Next.js Staff Portal UI pod to the Staff
     # Portal API stay inside the cluster — sibling K8s Service is named
     # "<release>-staff-portal-api" on port 80. Browser-side calls from the
@@ -1528,8 +1636,6 @@ staffUi:
     LOGIN_PROVIDER_ID: '1'
     MASTERDATA_BACKEND_API_URL: '{{ .Values.global.masterDataApiUrl }}'
     NODE_ENV: production
-    PAGE_SIZE: '10'
-    PARTNER_IMPORT_EXPORT_ENABLE: 'true'
     PARTNER_INGEST_URL: '{{ tpl .Values.partnerIngestUrl $ }}'
     REDIRECT_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
     VERIFY_SERVICE_URL: 'https://{{ tpl .Values.global.registryHostname $ }}/v1/verify'
@@ -1744,6 +1850,17 @@ celeryBeat:
     REGISTRY_CELERY_BEAT_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_CELERY_BEAT_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_CELERY_BEAT_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_CELERY_BEAT_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_CELERY_BEAT_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_CELERY_BEAT_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_CELERY_BEAT_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_CELERY_BEAT_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
+    # SQLAlchemy pool per beat process.
+    REGISTRY_CELERY_BEAT_DB_POOL_SIZE: 5
+    REGISTRY_CELERY_BEAT_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_CELERY_BEAT_DB_POOL_PRE_PING: true
+    REGISTRY_CELERY_BEAT_DB_POOL_RECYCLE: 1800
 
     REGISTRY_CELERY_BEAT_CELERY_BROKER_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
     REGISTRY_CELERY_BEAT_CELERY_BACKEND_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
@@ -1751,6 +1868,7 @@ celeryBeat:
     REGISTRY_CELERY_BEAT_WORKER_QUEUE: registry_worker_queue
     REGISTRY_CELERY_BEAT_BATCH_SIZE: 2000
     REGISTRY_CELERY_BEAT_NO_OF_TASKS_TO_PROCESS: 4
+    REGISTRY_CELERY_BEAT_EXPORT_NO_OF_TASKS_TO_PROCESS: '{{ .Values.global.exportNoOfTasksToProcess }}'
 
     REGISTRY_CELERY_BEAT_DATA_TRANSFORMATION_BEAT_PRODUCER_FREQUENCY: 20
     REGISTRY_CELERY_BEAT_INGEST_DATA_BEAT_PRODUCER_FREQUENCY: 20
@@ -1758,14 +1876,40 @@ celeryBeat:
     REGISTRY_CELERY_BEAT_OUTGEST_DATA_PUBLISH_BEAT_PRODUCER_FREQUENCY: 20
     REGISTRY_CELERY_BEAT_OUTGEST_TOPIC_REGISTER_BEAT_PRODUCER_FREQUENCY: 20
     REGISTRY_CELERY_BEAT_DEDUPLICATION_BEAT_PRODUCER_FREQUENCY: 30
+    REGISTRY_CELERY_BEAT_REGISTER_EXPORT_BEAT_PRODUCER_FREQUENCY: '{{ .Values.global.exportBeatProducerFrequency }}'
     CELERY_APP: "openg2p_registry_celery_beat.main.celery_app"
-    CELERY_OPTS: "worker --beat --loglevel=info --schedule=/tmp/celery-beat-schedule.db"
+    # -Q celery is required, not cosmetic. This pod runs the scheduler AND the worker
+    # that executes the *_beat_producer tasks it emits: those are published to the
+    # default "celery" queue, and celeryWorker only consumes registry_worker_queue.
+    # Launched via run_celery.py's app.start(argv=...) with "worker --beat" and no -Q,
+    # the worker prints its banner and "ready" but never consumes a message: producer
+    # tasks pile up on "celery" forever, nothing reaches registry_worker_queue, and
+    # every periodic job silently stops (intake ingest, deduplication, completion
+    # scores, export, outgest).
+    CELERY_OPTS: "worker --beat -Q celery --loglevel=info --schedule=/tmp/celery-beat-schedule.db"
 
   envVarsFrom:
     REGISTRY_CELERY_BEAT_DB_PASSWORD:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
+    REGISTRY_CELERY_BEAT_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
+
+  # Wait until Redis answers before starting. A worker that starts first gets
+  # "connection refused", reconnects, reports ready, and then never consumes its
+  # queue (seen on fresh installs where Redis comes up a few seconds later).
+  initContainers:
+    - name: redis-checker
+      image: redis:7-alpine
+      imagePullPolicy: IfNotPresent
+      command: ['sh', '-c']
+      args:
+        - >-
+          until [ "$(redis-cli -h {{ tpl .Values.global.redisInstallationName $ }} -p 6379 ping 2>/dev/null)" = "PONG" ];
+          do echo "waiting for redis"; sleep 2; done
 
   postgresCheckerInit:
     enabled: true
@@ -1822,12 +1966,23 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
     REGISTRY_CELERY_WORKERS_DB_PORT: 5432
     REGISTRY_CELERY_WORKERS_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    # SQLAlchemy pool per worker process (also used for master-data).
+    REGISTRY_CELERY_WORKERS_DB_POOL_SIZE: 5
+    REGISTRY_CELERY_WORKERS_DB_POOL_MAX_OVERFLOW: 10
+    REGISTRY_CELERY_WORKERS_DB_POOL_PRE_PING: true
+    REGISTRY_CELERY_WORKERS_DB_POOL_RECYCLE: 1800
 
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_DRIVER: 'postgresql+asyncpg'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_USERNAME: '{{ .Values.global.masterDataDBUser }}'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_PORT: '{{ .Values.global.registryDBPort }}'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_DBNAME: '{{ .Values.global.masterDataDB }}'
+    # Master Data reads (see global.masterDataReadMode).
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_READ_MODE: '{{ .Values.global.masterDataReadMode }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_CELERY_WORKERS_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
 
     REGISTRY_CELERY_WORKERS_CELERY_BROKER_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
     REGISTRY_CELERY_WORKERS_CELERY_BACKEND_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
@@ -1835,6 +1990,10 @@ celeryWorker:
 
     REGISTRY_CELERY_WORKERS_BATCH_SIZE: 2000
     REGISTRY_CELERY_WORKERS_WORKER_MAX_ATTEMPTS: 5
+    REGISTRY_CELERY_WORKERS_EXPORT_BATCH_SIZE: '{{ .Values.global.exportBatchSize }}'
+    REGISTRY_CELERY_WORKERS_EXPORT_WORKER_MAX_ATTEMPTS: '{{ .Values.global.exportWorkerMaxAttempts }}'
+    REGISTRY_CELERY_WORKERS_EXPORT_PRESIGNED_URL_EXPIRY_HOURS: '{{ .Values.global.exportPresignedUrlExpiryHours }}'
+    REGISTRY_CELERY_WORKERS_EXPORT_FILES_PREFIX: '{{ .Values.global.exportFilesPrefix }}'
 
     REGISTRY_CELERY_WORKERS_MINIO_ENDPOINT: '{{ tpl .Values.global.garageHost $ }}'
     REGISTRY_CELERY_WORKERS_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
@@ -1875,11 +2034,48 @@ celeryWorker:
       secretKeyRef:
         name: '{{ tpl .Values.global.masterDataDBSecret $ }}'
         key: '{{ tpl .Values.global.masterDataDBUserPasswordKey $ }}'
+    REGISTRY_CELERY_WORKERS_MASTER_DATA_CLIENT_SECRET:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.authClientSecret $ }}'
+        key: '{{ tpl .Values.global.authClientSecretKey $ }}'
     REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_SECRET:
       secretKeyRef:
         name: '{{ tpl .Values.global.pmSeedClientId $ }}'
         key: client_secret
         optional: true
+
+  # Wait until Redis answers before starting. A worker that starts first gets
+  # "connection refused", reconnects, reports ready, and then never consumes its
+  # queue (seen on fresh installs where Redis comes up a few seconds later).
+  initContainers:
+    - name: redis-checker
+      image: redis:7-alpine
+      imagePullPolicy: IfNotPresent
+      command: ['sh', '-c']
+      args:
+        - >-
+          until [ "$(redis-cli -h {{ tpl .Values.global.redisInstallationName $ }} -p 6379 ping 2>/dev/null)" = "PONG" ];
+          do echo "waiting for redis"; sleep 2; done
+
+  # A worker can stay "Running" while it consumes nothing; Kubernetes only knows
+  # the process is alive. Ask the worker itself: if it stops answering a Celery
+  # ping, it is restarted.
+  # The probe starts a fresh Python process that imports the whole Celery app
+  # (several seconds of CPU on a small node) and then waits up to 10s for the
+  # ping reply, so it is run sparingly and given generous headroom: a worker is
+  # only restarted after ~10 minutes of not answering, never because one probe
+  # was slow while the worker was busy with a large batch.
+  livenessProbe:
+    enabled: true
+    exec:
+      command:
+        - sh
+        - -c
+        - celery -A "$CELERY_APP" inspect ping -d "celery@$HOSTNAME" --timeout 10 2>/dev/null | grep -q OK
+    initialDelaySeconds: 120
+    periodSeconds: 120
+    timeoutSeconds: 60
+    failureThreshold: 5
 
   postgresCheckerInit:
     enabled: true
@@ -1912,6 +2108,27 @@ celeryWorker:
   serviceAccount:
     create: false
     name: ""
+
+  # Sample activities (demo installs). Setting
+  #   envVars.REGISTRY_CELERY_WORKERS_ACTIVITY_LOAD_SAMPLE_DATA: "true"
+  # (with dbSeed.enabled) adds the `<release>-activity-samples` post-install/
+  # post-upgrade hook Job (templates/activity-samples/job.yaml, weight 20: after
+  # db-seed, before sanity). It runs this worker's image with this worker's env,
+  # waits for db-seed's activity types (REGISTRY_CELERY_WORKERS_ACTIVITY_SAMPLES_WAIT_SECONDS,
+  # default 600), loads every activity register's samples and FAILS the release
+  # if any register's samples cannot be loaded — its log names each register and
+  # the error (e.g. a code missing from a Master Data list). The beat task
+  # activity_sample_data_worker remains as an idempotent backstop; a per-register
+  # advisory lock stops the two loading the same samples at once.
+  activitySamplesJob:
+    backoffLimit: 0
+    activeDeadlineSeconds: 1800
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        memory: 1Gi
 
 redis:
   enabled: true
@@ -2002,6 +2219,12 @@ keycloak-init:
             # Key must equal the per-release clientId above. keycloak-init
             # renders this whole block through `tpl`, so the Go-template
             # expression in the YAML key is resolved at install time.
+            '{{ .Release.Name }}-staff-portal':
+              - "Operations Administrator"
+              - "Technical Administrator"
+        # Created by the IAM chart (deployed first). Only attach registry roles.
+        - username: iam.admin
+          clientRoleMappings:
             '{{ .Release.Name }}-staff-portal':
               - "Operations Administrator"
               - "Technical Administrator"
@@ -2219,11 +2442,6 @@ sanity:
   # green; a dependency that IS configured and then breaks now fails.
   failOnError: true
   readinessTimeout: 180
-  # The consent object's audience (== the CM binding audience) + the registry's
-  # controller id (== data_controller). Kept stable so the binding is reused.
-  # Variant-neutral: this is the PLATFORM's fixture, and every variant inherits
-  # it. They were named for the farmer registry, which is where they were first
-  # written, not because anything farmer-specific reads them.
   # ── Agent Portal / VC issuance ──────────────────────────────────────────
   # The VC tests skip unless the Agent Portal is enabled AND an agent password
   # is supplied: the agent realm is provisioned outside this chart, so the suite
@@ -2233,6 +2451,8 @@ sanity:
   # National (foundational) ID the VC e2e issues against.
   vcNationalId: TEST_SANITY_VC_0001
 
+  # The consent object's audience (== the CM binding audience) + the registry's
+  # controller id (== data_controller). Kept stable so the binding is reused.
   cmAudience: OPENG2P_SANITY_PARTNER
   controllerId: openg2p-sanity-controller
   # DCI envelope sender id — PARTNER_<UPPER> must equal the PM partner reference
@@ -2248,24 +2468,23 @@ sanity:
   # appears in no seeded sample data, so the e2e only ever matches its own record.
   # data_seed.py builds the record from this same value, so the two cannot drift.
   searchText: SANITY-INDIVIDUAL-0001
-  # Scopes the seeded CM policy allows + the consent object requests.
-  #
-  # These MUST be top-level keys of THIS register's outgoing DCI template:
-  # clamping is a strict allow-list over the rendered record's top-level keys, so
-  # a scope naming anything else silently clamps every record to {}. There is no
-  # sub-field granularity — a scope carries everything nested under it. The values
-  # below are the reference Individual register's; a variant that ships a
-  # different template must override them (farmer-registry does).
-  dataScopes: "demographic_info"
-  # Scopes deliberately NOT consented to; the e2e asserts these never come back.
-  deniedScopes: "member_identifier"
-  # The reference Individual register (must match g2p_register_definitions.sql).
-  # Used to find the register's bound AWE change-request policy and to raise the
-  # CR. NB the KEY is still named farmerRegisterId — renaming it means changing
-  # the SANITY_FARMER_REGISTER_ID env in _helpers.tpl, cfg.farmer_register_id in
-  # the sanity suite, and farmer-registry's override, so it is left for a
-  # coordinated change rather than half-renamed here.
-  farmerRegisterId: a0000000-0000-4000-8000-000000000001
+  # Data scopes the seeded CM policy allows + the consent object requests:
+  # names from the registry's data scope catalogue (GET /partner/data_scopes;
+  # one scope per register section by default, plus any the extension ships).
+  # A bare name is prefixed with the consent data controller ID. The registry
+  # filters each record to the scopes' fields before rendering it. The e2e
+  # asserts the seeded first/last name and birth date come back, so these must
+  # cover them. The values below are the reference Individual register's; a
+  # variant must override them.
+  dataScopes: "individual_demographic_details"
+  # Scopes deliberately NOT consented to; the e2e asserts the seeded values of
+  # their fields never come back.
+  deniedScopes: "individual_identifier"
+  # The register the CR is raised against — used to find its bound AWE
+  # change-request policy. Empty = the reference Individual register
+  # (a0000000-0000-4000-8000-000000000001, g2p_register_definitions.sql).
+  # Deprecated: the old key sanity.farmerRegisterId is still honoured when this is empty.
+  registerId: ""
   # UI coordinates the change-request payload carries. Optional — set if the
   # deployment's metadata requires a specific tab/section.
   crTabId: "individual_info_tab"

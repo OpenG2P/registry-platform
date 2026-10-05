@@ -35,16 +35,20 @@ class G2PAWEWebhookController(BaseController):
     async def receive_decision(self, request: Request) -> AweWebhookDecisionResponse | Response:
         raw_body = await request.body()
         try:
-            return await self.service.handle_decision_webhook(
+            result = await self.service.handle_decision_webhook(
                 raw_body=raw_body,
                 signature_header=request.headers.get("X-Approval-Signature"),
                 timestamp_header=request.headers.get("X-Approval-Timestamp"),
                 header_event_id=request.headers.get("X-Approval-Event-Id"),
             )
+            _set_awe_audit_actor(request)
+            return result
         except AweWebhookSignatureError as exc:
             _logger.warning("AWE webhook signature rejected: %s", exc)
             raise UnauthorizedError(message=str(exc)) from exc
         except G2PRegistryException as exc:
+            # The signature checked out (a bad one raises AweWebhookSignatureError).
+            _set_awe_audit_actor(request)
             _logger.error("AWE webhook processing failed: %s", exc.message)
             return Response(
                 content='{"detail":"webhook processing failed"}',
@@ -60,3 +64,8 @@ class G2PAWEWebhookController(BaseController):
                 status_code=500,
                 media_type="application/json",
             )
+
+
+def _set_awe_audit_actor(request: Request) -> None:
+    """The HMAC-verified AWE caller, so the audit trail records this decision (no JWT here)."""
+    request.state.audit_actor = {"type": "service", "id": "awe", "name": "approval-workflow-engine"}

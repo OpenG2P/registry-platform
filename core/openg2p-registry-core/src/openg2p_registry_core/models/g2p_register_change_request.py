@@ -67,7 +67,7 @@ class G2PRegisterChangeRequestPayload(BaseORMModel):
     )
 
 class G2PRegisterChangeRequestDocument(BaseORMModel):
-    """Junction: documents attached to a change request (references g2p_registry_documents)."""
+    """Supporting evidence shown on a change request; never promoted to live section docs."""
     __tablename__ = "g2p_change_request_documents"
 
     change_request_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)

@@ -2,14 +2,14 @@
 #
 # A postgres-client image that ships the generic seeding MACHINERY only:
 #   - entrypoint.sh          (applies meta_data / awe_meta_data SQL, runtime env-driven)
-#   - load_geo_data.py       (geo hierarchy into master_data)
-#   - sync_geo_widgets.py    (geo dropdowns -> the loaded hierarchy)
+#   - mds_client.py          (Master Data reads for seed scripts, through MDS's API)
 #   - upload_templates.py    (Jinja templates → MinIO)
+#   - generate_reporting_views.py (a registry's generated reporting views)
 #   - openg2p-data           (shared demography CSV + images, cloned at build time)
 #
 # NOT here: load_sample_data.py / upload_images.py. Sample data is written against
 # a specific register's tables and seed JSON, so each variant ships its own pair
-# (see farmer-registry and national-social-registry). The entrypoint keeps the
+# (see the variant repos). The entrypoint keeps the
 # LOAD_SAMPLE_DATA / LOAD_IMAGES hooks and errors clearly if they are enabled on
 # an image that carries no loader.
 #
@@ -22,8 +22,13 @@
 #     COPY docker/db-seed/seed-data/      /seed/seed-data/
 #
 # The entrypoint reads /seed/* at container-run time; behaviour (LOAD_SAMPLE_DATA,
-# LOAD_GEO_DATA, LOAD_IMAGES, LOAD_TEMPLATES, AWE_DB_SEED_ENABLED, ...) is toggled
-# entirely via env from the Helm Job.
+# LOAD_IMAGES, LOAD_TEMPLATES, AWE_DB_SEED_ENABLED, ...) is toggled entirely via
+# env from the Helm Job.
+#
+# Seeding writes only the registry's own databases (and AWE's). It never writes
+# Master Data, and never reads MDS's database: a loader that needs geography,
+# sample people or a code list reads it through MDS's API with mds_client.py
+# (MDS_API_URL / MDS_TOKEN_URL / MDS_CLIENT_ID / MDS_CLIENT_SECRET from the Job).
 #
 # Build context = repo root (docker/db-seed/ is reachable).
 FROM postgres:16-alpine
@@ -69,17 +74,15 @@ COPY reference-extension/src/openg2p_registry_reference_extension/templates/    
 # Generic machinery only. load_sample_data.py and upload_images.py are NOT here:
 # they are written against a specific register's schema (which tables to INSERT,
 # which seed JSON to read), so they belong to the variant that declares those
-# tables — farmer-registry and NSR each ship their own. This image installs with
+# tables — each variant ships its own. This image installs with
 # loadSampleData=false and no seed-data, and the entrypoint reports a clear error
 # if the flag is turned on without a variant loader present.
 COPY docker/db-seed/entrypoint.sh /seed/entrypoint.sh
 COPY docker/db-seed/upload_templates.py /seed/upload_templates.py
-COPY docker/db-seed/load_geo_data.py /seed/load_geo_data.py
-COPY docker/db-seed/sync_geo_widgets.py /seed/sync_geo_widgets.py
+COPY docker/db-seed/mds_client.py /seed/mds_client.py
 COPY docker/db-seed/generate_reporting_views.py /seed/generate_reporting_views.py
 RUN chmod +x /seed/entrypoint.sh \
              /seed/upload_templates.py \
-             /seed/load_geo_data.py \
-             /seed/sync_geo_widgets.py
+             /seed/mds_client.py
 
 ENTRYPOINT ["/seed/entrypoint.sh"]

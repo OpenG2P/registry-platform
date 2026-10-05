@@ -23,6 +23,11 @@ from .enum import (
     ActivityOutboxEventEnum,
     ReferenceKindEnum,
     ReferenceValidationModeEnum,
+    DocumentHistoryEventTypeEnum,
+    ExportFormatEnum,
+    ExportSelectionModeEnum,
+    DataScopeStatusEnum,
+    DataScopeSourceEnum,
 )
 SubmissionSourceEnum = ChangeRequestSourceEnum
 from .data_models import DataModel
@@ -33,6 +38,7 @@ from .deduplication_results import (
     DeduplicationIntakeFormIntakeFormResult,
 )
 from .g2p_functional_id_generation_queue import G2PFunctionalIdGenerationQueue
+from .g2p_register_export_data_queue import G2PRegisterExportDataQueue
 from .g2p_input_mechanisms import G2PInputMechanism
 from .g2p_intake_form import (
     G2PIntakeForm,
@@ -132,4 +138,7 @@ from .g2p_activity import (
     G2PActivityEnrichment,
     G2PActivityAggregate,
     G2PActivityAggregateHistory,
+    G2PActivityParticipant,
 )
+
+from .g2p_data_scope import G2PDataScope, G2PDataScopeVersion

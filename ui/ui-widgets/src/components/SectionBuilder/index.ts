@@ -1,5 +1,5 @@
 export { SectionBuilder } from './SectionBuilder';
-export type { SectionBuilderProps } from './SectionBuilder';
+export type { SectionBuilderProps, BuilderNotifyType } from './SectionBuilder';
 export { JSONEditorPanel } from './JSONEditorPanel';
 export { VisualBuilderPanel } from './VisualBuilderPanel';
 export { SectionTree } from './SectionTree';

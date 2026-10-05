@@ -5,7 +5,7 @@ questions:
   description: >-
     The DNS domain every OpenG2P hostname in this environment sits under. Every
     other hostname on this form defaults to a name under it — the registry, the
-    Agent Portal, Keycloak, MinIO, eSignet, Certify, the ID generator and the
+    Agent Portal, Keycloak, eSignet, Certify, the ID generator and the
     cookie domain — so on a non-openg2p.org deployment set this ONE value and the
     rest follow. Override an individual hostname below only where it genuinely
     differs. Do not include a scheme or a trailing slash.
@@ -32,9 +32,17 @@ questions:
   group: General
 
 - variable: global.minioHost
-  description: "External MinIO S3 API endpoint reachable from end-user browsers (the registry generates pre-signed S3 URLs that browsers follow directly). Use the API hostname exposed by commons-base, NOT the Console hostname. Example: minio-api.<namespace>.openg2p.org (do not include scheme or trailing slash). MinIO is assumed to be served over HTTPS via the Istio gateway."
+  description: "Object store (Garage, S3-compatible) API endpoint as host:port, no scheme. Default is the in-cluster commons Garage service: commons-garage:3900."
   type: string
-  label: MinIO S3 API Host
+  default: "commons-garage:3900"
+  label: Object Store (Garage) S3 API Host
+  group: General
+
+- variable: global.minioSecure
+  description: "Use HTTPS to reach the object store. Off for the in-cluster Garage service."
+  type: boolean
+  default: false
+  label: Object Store Uses HTTPS
   group: General
 
 - variable: keycloak-init.enabled
@@ -98,6 +106,13 @@ questions:
   type: string
   default: 'http://commons-services-cm-partner-api'
   label: Consent Manager URL
+  group: Consent & Partner API
+
+- variable: global.consentDataController
+  description: This registry's data-controller ID in the Consent Manager. A consent covering several registries has one grant per controller; the registry validates its own. Defaults to the registry variant.
+  type: string
+  default: '{{ .Values.global.registryVariant }}'
+  label: Consent data controller
   group: Consent & Partner API
 
 - variable: beneApi.enabled
@@ -203,35 +218,21 @@ questions:
   group: DB Seed
 
 - variable: dbSeed.loadSampleData
-  description: Also load sample/demo data into the registry (farmers, households, lands, crops, livestock, farm inputs, membership and supporting tables). Off by default.
+  description: Also load sample/demo data into the registry (the variant's sample records and their supporting tables). Off by default.
   type: boolean
   label: Load Sample Data
   group: DB Seed
 
-- variable: dbSeed.syncGeoWidgets
-  description: Match this register's geo dropdowns to the hierarchy Master Data actually holds. An extension hard-codes its level names and how many there are; a country whose pack disagrees gets dropdowns that silently return nothing. Leave off to keep the metadata the extension shipped.
-  type: boolean
-  default: false
-  label: Match Geo Dropdowns to Country
-  group: DB Seed
-
-- variable: dbSeed.loadGeoData
-  description: "LEGACY. Loads a five-level country..village hierarchy into Master Data from a CSV, keyed by slug-paths. Leave OFF: Master Data seeds its own geography from a country pack keyed by P-code, and enabling this writes a second hierarchy over it in a different id space. Only for a deployment with no country pack."
-  type: boolean
-  default: false
-  label: Load Legacy Geo Data (deprecated)
-  group: DB Seed
-
 - variable: dbSeed.loadImages
-  description: Upload sample profile images to MinIO and link them to the seeded farmers. Requires Load Sample Data to be enabled.
+  description: Upload sample profile images to the object store (Garage) and link them to the seeded records. Requires Load Sample Data to be enabled.
   type: boolean
   label: Load Sample Images
   group: DB Seed
 
 - variable: dbSeed.loadTemplates
-  description: Upload Jinja templates from the db-seed image to MinIO after SQL seed (object key = filename). Requires MinIO to be reachable at global.minioHost.
+  description: Upload Jinja templates from the db-seed image to the object store (Garage) after SQL seed (object key = filename). Requires it to be reachable at global.minioHost.
   type: boolean
-  label: Load Templates to MinIO
+  label: Load Templates to Object Store
   group: DB Seed
 
 - variable: dbSeed.optionalSeeds
@@ -252,6 +253,31 @@ questions:
   type: string
   label: DB Seed Image Tag
   group: DB Seed
+
+# Master Data
+- variable: global.masterDataReadMode
+  description: "How the registry reads Master Data (code lists, geography, sample people). 'api' (recommended) reads through MDS's catalogue API — versioned and cached, follows MDS's change feed, keeps serving the last good data if MDS is briefly unreachable, and records on each activity the list and geography versions it was checked against. 'db' reads MDS's database directly, as before — a rollback switch that records no versions; only in this mode do the services get Master Data database settings (global.masterDataDB*)."
+  type: enum
+  options:
+    - api
+    - db
+  default: api
+  label: Master Data Read Mode
+  group: Master Data
+
+- variable: global.catalogueRelease
+  description: "Pin every Master Data read to a catalogue release (e.g. 2027.1): all code lists and the geography at the versions the release pins, so the registry does not change when a newer version is published. Leave empty to read the latest published versions. Only used in 'api' read mode; a list the release does not pin is read at its latest version."
+  type: string
+  default: ""
+  label: Pinned Catalogue Release
+  group: Master Data
+  show_if: "global.masterDataReadMode=api"
+
+- variable: global.masterDataApiUrl
+  description: Internal URL of the Master Data API (the registry's backend and the Staff Portal UI call it).
+  type: string
+  label: Master Data API URL
+  group: Master Data
 
 # AWE
 - variable: global.aweEnabled
@@ -292,7 +318,7 @@ questions:
 
 # ID Generator
 - variable: idgenerator.idGenerator.appConfig.idTypesNote
-  description: "One functional-ID pool per register that mints IDs. Which pools are needed depends on the registry being installed — a single-register registry needs exactly one, and its pool name is that register's mnemonic in lowercase. Pools ACCUMULATE from three layers, because Helm merges maps and a parent cannot delete a subchart default: the id-generator subchart defaults (farmer, household), this chart's defaults (individual, household), and the installed registry's own. Seeing pools you do not recognise is therefore expected — an unused pool is an empty table that allocates nothing. Check only that YOUR register's pool is present. To add, remove or modify pools, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
+  description: "One functional-ID pool per register that mints IDs. Which pools are needed depends on the registry being installed — a single-register registry needs exactly one, and its pool name is that register's mnemonic in lowercase. Pools ACCUMULATE from three layers, because Helm merges maps and a parent cannot delete a subchart default: the id-generator subchart defaults, this chart's defaults (individual, household), and the installed registry's own. Seeing pools you do not recognise is therefore expected — an unused pool is an empty table that allocates nothing. Check only that YOUR register's pool is present. To add, remove or modify pools, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
   type: string
   label: ID Types Configuration
   group: ID Generator
@@ -325,7 +351,7 @@ questions:
   group: Sanity
 
 - variable: sanity.runE2e
-  description: Also run the full e2e. (1) Signed DCI + consent search — asserts a permitted, field-clamped result and that missing consent / bad signature are rejected. (2) Change request → AWE approval → applied change → version history → audit. This seeds test fixtures (a Keycloak user, a test farmer, a Partner Management key, a Consent Manager binding) and leaves them in place for inspection. Needs reachable PM, CM, AWE, Keycloak admin and the DBs, the enforcement switches ON, and the AWE issuer set to the external Keycloak URL. OFF by default; enable only on test environments.
+  description: Also run the full e2e. (1) Signed DCI + consent search — asserts a permitted, field-clamped result and that missing consent / bad signature are rejected. (2) Change request → AWE approval → applied change → version history → audit. This seeds test fixtures (a Keycloak user, a test record, a Partner Management key, a Consent Manager binding) and leaves them in place for inspection. Needs reachable PM, CM, AWE, Keycloak admin and the DBs, the enforcement switches ON, and the AWE issuer set to the external Keycloak URL. OFF by default; enable only on test environments.
   type: boolean
   default: false
   label: Sanity - Run Full E2E
@@ -353,23 +379,23 @@ questions:
   group: Sanity
 
 - variable: sanity.regType
-  description: Register type the e2e exercises. Must match a register this deployment actually ships — the reference registry is Individual; a variant overrides it (farmer-registry uses Farmer).
+  description: Register type the e2e exercises. Must match a register this deployment actually ships — the reference registry is Individual; a variant overrides it with its own register.
   type: string
   default: Individual
   label: Sanity - Register Type
   group: Sanity
 
 - variable: sanity.dataScopes
-  description: "Comma-separated scopes the seeded consent policy allows, and which the e2e asserts come back. These MUST be top-level keys of this register's outgoing DCI template — clamping is a strict allow-list over the rendered record's top-level keys, so a scope naming anything else silently clamps every record to empty."
+  description: "Comma-separated data scopes the seeded consent policy allows (names from the registry's data scope catalogue, GET /partner/data_scopes; a bare name is prefixed with the consent data controller ID). The e2e asserts the seeded first/last name and birth date come back, so these scopes must cover them."
   type: string
-  default: "demographic_info"
+  default: "individual_demographic_details"
   label: Sanity - Consented Data Scopes
   group: Sanity
 
 - variable: sanity.deniedScopes
-  description: Comma-separated scopes deliberately NOT consented to. The e2e asserts these never appear in a response — this is the test that proves consent clamping actually clamps.
+  description: Comma-separated data scopes deliberately NOT consented to. The e2e asserts the seeded values of their fields never appear in a response — this is the test that proves consent filtering actually filters.
   type: string
-  default: "member_identifier"
+  default: "individual_identifier"
   label: Sanity - Denied Data Scopes
   group: Sanity
 
@@ -430,7 +456,7 @@ questions:
 - variable: global.agentPortalHostname
   description: >-
     Public hostname of the Agent Portal UI. Defaults to
-    <release>-agent.<Base Domain> (e.g. fr-agent.trial.openg2p.org).
+    <release>-agent.<Base Domain> (e.g. registry-agent.trial.openg2p.org).
     This host is also registered as the redirect URI on the Keycloak
     agent-portal clients, so changing it here changes both.
   type: string
@@ -563,7 +589,9 @@ questions:
     audience. Derived from the Certify Hostname above — set that instead, and
     only override here if Certify's allowed-audiences was customised.
   type: string
-  default: https://<certify-hostname>/v1/certify/issuance/credential
+  # Same templated default as values.yaml, so leaving it untouched keeps the
+  # hostname derivation instead of writing a literal placeholder into values.
+  default: 'https://{{ tpl .Values.global.certifyHostname $ }}'
   label: Certify Proof Audience
   group: VC Issuance
   show_if: agentPortalApi.vcIssuance.enabled=true

@@ -1,4 +1,7 @@
+import base64
+import json
 import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -18,7 +21,8 @@ class DciConsentHelper(BaseService):
     embedded by the partner at ``search_criteria.authorize.consent_jws`` — to
     the Consent Manager, which verifies the JWS against Partner Management keys,
     evaluates the partner's data-share policy, and returns a decision plus the
-    ``effective_data_scopes`` the registry must clamp the response to.
+    ``effective_data_scopes`` (data scope IDs) the registry filters its records
+    to before rendering them (see ``G2PDataScopeService``).
 
     Fail-closed: any transport error, non-2xx, or a missing consent JWS yields
     a synthetic ``deny`` so a failure never leaks data.
@@ -69,6 +73,8 @@ class DciConsentHelper(BaseService):
             "consent_jws": consent_jws,
             "partner_id": sender_id,
         }
+        if _config.consent_data_controller:
+            body["data_controller"] = _config.consent_data_controller
         if request_context:
             body["request_context"] = request_context
 
@@ -96,3 +102,36 @@ class DciConsentHelper(BaseService):
             decision.get("reason_code"),
         )
         return decision
+
+    @staticmethod
+    def consent_issued_at(consent_jws: Optional[str]) -> Optional[datetime]:
+        """When the consent was issued, from the consent JWS's claims (naive UTC).
+
+        Read from the JWS payload the registry forwarded to CM: CM verified that
+        exact string before permitting, so its claims are the partner's signed
+        ones. ``iat`` (seconds since the epoch) is preferred; else ``issued_at``
+        (ISO 8601), the Consent Manager's consent-object claim. None when absent
+        or unreadable — data scopes then read each scope's first version.
+        """
+        if not isinstance(consent_jws, str) or consent_jws.count(".") != 2:
+            return None
+        try:
+            segment = consent_jws.split(".")[1]
+            claims = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
+        except Exception:
+            return None
+        if not isinstance(claims, dict):
+            return None
+        iat = claims.get("iat")
+        try:
+            if isinstance(iat, (int, float)) and not isinstance(iat, bool):
+                return datetime.fromtimestamp(iat, tz=timezone.utc).replace(tzinfo=None)
+            issued_at = claims.get("issued_at")
+            if isinstance(issued_at, str) and issued_at.strip():
+                value = datetime.fromisoformat(issued_at.strip().replace("Z", "+00:00"))
+                if value.tzinfo is not None:
+                    value = value.astimezone(timezone.utc).replace(tzinfo=None)
+                return value
+        except (ValueError, OverflowError, OSError):
+            return None
+        return None

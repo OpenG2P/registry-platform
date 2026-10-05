@@ -91,7 +91,7 @@ def _submission(instance, plot, crop, area, day, reviewed=None):
         "__id": instance,
         "__system": {"submissionDate": f"2026-09-{day:02d}T10:00:00.000Z", "submitterName": "da-odk",
                      "reviewState": reviewed},
-        "farmer": {"farmer_id": "FR-9"},
+        "person": {"person_id": "P-9"},
         "plot": {"plot_id": plot, "location": {"type": "Point", "coordinates": [38.7, 9.0, 2300]}},
         "sowing": {"crop": crop, "area": area,
                    "date_ec": format_ethiopian_date((datetime.utcnow() - timedelta(days=3)).date())},
@@ -102,8 +102,8 @@ def _submission(instance, plot, crop, area, day, reviewed=None):
 async def test_odk_pull_maps_dedups_and_records_failures(service, activity_types, database):
     mapping = {
         "activity_type": {"value": "SOWN"},
-        "subject_type": {"value": "FARMER_ID"},
-        "subject_id": "farmer/farmer_id",
+        "subject_type": {"value": "PERSON_ID"},
+        "subject_id": "person/person_id",
         "occurred_on_ec": "sowing/date_ec",
         "payload": {
             "plot_id": "plot/plot_id",

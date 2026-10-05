@@ -1,0 +1,66 @@
+{{- /*
+Load every activity register's sample activities at install/upgrade time and
+fail the release if any register's samples cannot be loaded (e.g. a value its
+samples use is missing from a Master Data code list or the geography).
+
+Rendered only when the Celery worker loads sample activities
+(celeryWorker.envVars.REGISTRY_CELERY_WORKERS_ACTIVITY_LOAD_SAMPLE_DATA is true)
+and db-seed runs (it loads the activity types the samples need). Runs after
+db-seed (weight 10) and before sanity (25).
+
+Same image and the same env as the Celery worker (celeryWorker.envVars helper:
+DB, Master Data client, extension settings), so it boots exactly as the worker
+does. The beat task activity_sample_data_worker stays as an idempotent
+backstop; a per-register advisory lock keeps the two from loading at once.
+*/ -}}
+{{- $loadSamples := index (.Values.celeryWorker.envVars | default dict) "REGISTRY_CELERY_WORKERS_ACTIVITY_LOAD_SAMPLE_DATA" -}}
+{{- if and .Values.dbSeed.enabled (eq (lower (toString $loadSamples)) "true") }}
+{{- $values := .Values.celeryWorker -}}
+{{- $context := dict "Values" (merge (deepCopy $values) (dict "global" .Values.global)) "Chart" .Chart "Release" .Release "Files" .Files "Capabilities" .Capabilities -}}
+{{- with $context -}}
+{{- $job := .Values.activitySamplesJob | default dict -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-activity-samples
+  labels:
+    app.kubernetes.io/name: activity-samples
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "20"
+    # Keep the finished pod so its log (counts or each register's error) stays viewable; replaced next run.
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ $job.backoffLimit | default 0 }}
+  activeDeadlineSeconds: {{ $job.activeDeadlineSeconds | default 1800 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: activity-samples
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "celeryWorker.serviceAccountName" . }}
+      {{- include "celeryWorker.imagePullSecrets" . | nindent 6 }}
+      {{- if .Values.hostAliases }}
+      hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: activity-samples
+          image: {{ include "common.images.image" (dict "imageRoot" .Values.image "global" .Values.global) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python3", "-m", "openg2p_registry_celery_worker.load_activity_samples"]
+          env: {{- include "celeryWorker.envVars" . | indent 12 }}
+          {{- if $job.resources }}
+          resources: {{- include "common.tplvalues.render" (dict "value" $job.resources "context" $) | nindent 12 }}
+          {{- end }}
+          {{- if .Values.extraVolumeMounts }}
+          volumeMounts: {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumeMounts "context" $) | nindent 12 }}
+          {{- end }}
+      {{- if .Values.extraVolumes }}
+      volumes: {{- include "common.tplvalues.render" (dict "value" .Values.extraVolumes "context" $) | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}

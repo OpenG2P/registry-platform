@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from .legacy_names import REGISTER_ID_ENV as _LEGACY_REGISTER_ID_ENV
 from .testkey import DEFAULT_KID, DEFAULT_PARTNER_ID, TEST_PRIVATE_KEY_PEM
 
 
@@ -17,20 +18,26 @@ def _list(value, default):
     return [s.strip() for s in value.split(",") if s.strip()]
 
 
-# The consent scopes the DCI e2e requests.
-#
-# These MUST be top-level keys of the register's outgoing DCI template
-# (openg2p_farmer_to_dci.json.j2) — clamping is a strict allow-list over the
-# rendered record's top-level keys, so a scope naming anything else silently
-# clamps the record to {}. The farmer template emits exactly six:
-#   farmer_personal_details, family_details, farm_details,
-#   machineries_details, registration_date, last_updated
-# Clamping has no sub-field granularity: `farmer_personal_details` is
-# all-or-nothing (it carries birth_date and phone_number with it).
-DEFAULT_DATA_SCOPES = ["farmer_personal_details"]
+# The consent scopes the DCI e2e requests: data scopes from the registry's
+# catalogue (GET /partner/data_scopes). A bare name is this registry's scope and
+# is prefixed with the controller ID (<controller>.<name>). The registry filters
+# each record to the scopes' fields before rendering it. The defaults are the
+# reference Individual register's section scopes (one per register section),
+# matching the chart's sanity.dataScopes / sanity.deniedScopes; a variant
+# overrides them through the chart.
+DEFAULT_DATA_SCOPES = ["individual_demographic_details"]
 
-# Scopes deliberately NOT consented to — the e2e asserts these never appear.
-DEFAULT_DENIED_SCOPES = ["family_details", "farm_details", "machineries_details"]
+# Scopes deliberately NOT consented to — the e2e asserts the seeded values of
+# their fields (that no consented scope also covers) never come back.
+DEFAULT_DENIED_SCOPES = ["individual_identifier"]
+
+
+def scope_ids(names, controller_id: str) -> List[str]:
+    """Scope names as scope IDs: a bare name gets the controller's namespace."""
+    return [name if ("." in name or not controller_id) else f"{controller_id}.{name}" for name in names]
+
+# The reference Individual register (g2p_register_definitions.sql).
+DEFAULT_REGISTER_ID = "a0000000-0000-4000-8000-000000000001"
 
 # Roles the seeded test user is granted on the registry's Keycloak client.
 DEFAULT_STAFF_ROLES = ["Operations Administrator", "Technical Administrator"]
@@ -38,7 +45,7 @@ DEFAULT_STAFF_ROLES = ["Operations Administrator", "Technical Administrator"]
 
 @dataclass
 class Config:
-    # ── Farmer Registry partner-api (the PEP under test) ────────────────────
+    # ── Registry partner-api (the PEP under test) ───────────────────────────
     partner_base_url: str  # e.g. http://<release>-partner-api  (no ingress path prefix)
     verify_tls: bool
     run_e2e: bool
@@ -52,7 +59,7 @@ class Config:
     # ── DCI request shaping ─────────────────────────────────────────────────
     dci_sender_id: str       # envelope sender; PARTNER_<upper> must equal pm_partner_id
     dci_receiver_id: str     # envelope receiver (the registry)
-    reg_type: str            # register mnemonic, e.g. Farmer
+    reg_type: str            # register mnemonic, e.g. Individual
     reg_record_type: str     # DCI record type for the payload shape
     search_text: str         # value to search for; matched as ILIKE '%text%'
 
@@ -105,11 +112,11 @@ class Config:
     # the whole workflow. It is a CLIENT role on the awe-admin-portal client.
     awe_admin_client_id: str = "awe-admin-portal"
     awe_admin_role: str = "AWE_ADMIN"
-    # Register the CR is raised against (Farmer), and the UI coordinates the
+    # Register the CR is raised against, and the UI coordinates the
     # change-request payload requires.
-    farmer_register_id: str = "a1a4d25a-1cd4-4356-abac-985a0b3c6bcd"
-    cr_tab_id: str = "farmer_farmer_tab"
-    cr_section_id: str = "farmer_farmer_personal_identification_section_01"
+    register_id: str = DEFAULT_REGISTER_ID
+    cr_tab_id: str = "individual_info_tab"
+    cr_section_id: str = "in_demographic_details"
     # How long to wait for AWE's decision webhook to be applied by the registry.
     awe_settle_timeout: int = 90
     # Safety bound on the stage-walk loop (a policy has far fewer stages).
@@ -154,6 +161,7 @@ class Config:
         from .db import _dsn
 
         staff_client_id = os.environ.get("SANITY_STAFF_CLIENT_ID", "")
+        controller_id = os.environ.get("SANITY_CONTROLLER_ID") or "openg2p-sanity-controller"
         return cls(
             partner_base_url=(os.environ.get("SANITY_PARTNER_BASE_URL") or "http://localhost:8000").rstrip("/"),
             verify_tls=_bool(os.environ.get("SANITY_VERIFY_TLS"), True),
@@ -163,15 +171,16 @@ class Config:
             pm_kid=os.environ.get("SANITY_PM_KID") or DEFAULT_KID,
             pm_private_key_pem=os.environ.get("SANITY_PM_PRIVATE_KEY_PEM") or TEST_PRIVATE_KEY_PEM,
             dci_sender_id=os.environ.get("SANITY_DCI_SENDER_ID") or "cm_sanity",
-            dci_receiver_id=os.environ.get("SANITY_DCI_RECEIVER_ID") or "farmer-registry",
-            reg_type=os.environ.get("SANITY_DCI_REG_TYPE") or "Farmer",
-            reg_record_type=os.environ.get("SANITY_DCI_REG_RECORD_TYPE") or "spdci-extensions-dci:Farmer",
-            search_text=os.environ.get("SANITY_DCI_SEARCH_TEXT") or "SANITY-FARMER-0001",
+            dci_receiver_id=os.environ.get("SANITY_DCI_RECEIVER_ID") or "openg2p-registry",
+            reg_type=os.environ.get("SANITY_DCI_REG_TYPE") or "Individual",
+            reg_record_type=os.environ.get("SANITY_DCI_REG_RECORD_TYPE") or "spdci-extensions-dci:Individual",
+            search_text=os.environ.get("SANITY_DCI_SEARCH_TEXT") or "SANITY-INDIVIDUAL-0001",
             cm_staff_url=(os.environ.get("SANITY_CM_STAFF_URL") or "").rstrip("/"),
-            cm_audience=os.environ.get("SANITY_CM_AUDIENCE") or "FR_SANITY_PARTNER",
-            controller_id=os.environ.get("SANITY_CONTROLLER_ID") or "fr-sanity-controller",
-            data_scopes=_list(os.environ.get("SANITY_DATA_SCOPES"), DEFAULT_DATA_SCOPES),
-            denied_scopes=_list(os.environ.get("SANITY_DENIED_SCOPES"), DEFAULT_DENIED_SCOPES),
+            cm_audience=os.environ.get("SANITY_CM_AUDIENCE") or "OPENG2P_SANITY_PARTNER",
+            controller_id=controller_id,
+            data_scopes=scope_ids(_list(os.environ.get("SANITY_DATA_SCOPES"), DEFAULT_DATA_SCOPES), controller_id),
+            denied_scopes=scope_ids(_list(os.environ.get("SANITY_DENIED_SCOPES"), DEFAULT_DENIED_SCOPES),
+                                    controller_id),
             pm_partner_api_url=(os.environ.get("SANITY_PM_PARTNER_API_URL") or "").rstrip("/"),
             pm_admin_url=(os.environ.get("SANITY_PM_ADMIN_URL") or "").rstrip("/"),
             pm_admin_token_url=os.environ.get("SANITY_PM_ADMIN_TOKEN_URL", ""),
@@ -194,12 +203,13 @@ class Config:
             keycloak_admin_password=os.environ.get("SANITY_KEYCLOAK_ADMIN_PASSWORD", ""),
             awe_admin_client_id=os.environ.get("SANITY_AWE_ADMIN_CLIENT_ID") or "awe-admin-portal",
             awe_admin_role=os.environ.get("SANITY_AWE_ADMIN_ROLE") or "AWE_ADMIN",
-            farmer_register_id=(
-                os.environ.get("SANITY_FARMER_REGISTER_ID")
-                or "a1a4d25a-1cd4-4356-abac-985a0b3c6bcd"
+            register_id=(
+                os.environ.get("SANITY_REGISTER_ID")
+                or os.environ.get(_LEGACY_REGISTER_ID_ENV)
+                or DEFAULT_REGISTER_ID
             ),
-            cr_tab_id=os.environ.get("SANITY_CR_TAB_ID") or "farmer_farmer_tab",
-            cr_section_id=os.environ.get("SANITY_CR_SECTION_ID") or "farmer_farmer_personal_identification_section_01",
+            cr_tab_id=os.environ.get("SANITY_CR_TAB_ID") or "individual_info_tab",
+            cr_section_id=os.environ.get("SANITY_CR_SECTION_ID") or "in_demographic_details",
             awe_settle_timeout=int(os.environ.get("SANITY_AWE_SETTLE_TIMEOUT", "90")),
             max_approval_rounds=int(os.environ.get("SANITY_MAX_APPROVAL_ROUNDS", "5")),
             auth_ready_timeout=int(os.environ.get("SANITY_AUTH_READY_TIMEOUT", "120")),
@@ -245,6 +255,12 @@ class Config:
     @property
     def client_secret(self) -> str:
         return self.cm_client_secret
+
+    @property
+    def farmer_register_id(self) -> str:
+        """Deprecated alias of `register_id`, for variant overlays written against
+        the pre-rename name (see sanity/legacy_names.py)."""
+        return self.register_id
 
     @property
     def can_reach_pm(self) -> bool:

@@ -77,6 +77,21 @@ def _load_history_service_module():
     service_mod.BaseService = BaseService
     fastapi_common.service = service_mod
 
+    services = _ensure_pkg("openg2p_registry_core.services")
+    services.__path__ = [str(_CORE_SRC / "services")]  # type: ignore[attr-defined]
+    payload_utils = _ensure_pkg(
+        "openg2p_registry_core.services.change_request_payload_utils"
+    )
+
+    def domain_fields_from_change_payload(payload):
+        result = dict(payload or {})
+        result.pop("documents", None)
+        return result
+
+    payload_utils.domain_fields_from_change_payload = (
+        domain_fields_from_change_payload
+    )
+
     spec = importlib.util.spec_from_file_location(
         "openg2p_registry_core.services.g2p_register_history_service",
         _HISTORY_SERVICE_PATH,
@@ -177,13 +192,13 @@ async def test_query_history_for_subject_prefers_subject_stamp():
 async def test_deep_hierarchy_delete_still_counted_with_subject_stamp():
     """Crop DELETE remains visible when land is also deleted if subject is stamped."""
     rows = [
-        SimpleNamespace(change_request_id="cr-land-add", subject_internal_record_id="farmer-1", internal_record_id="land-1"),
-        SimpleNamespace(change_request_id="cr-crop-add", subject_internal_record_id="farmer-1", internal_record_id="crop-1"),
-        SimpleNamespace(change_request_id="cr-crop-del", subject_internal_record_id="farmer-1", internal_record_id="crop-1"),
-        SimpleNamespace(change_request_id="cr-land-del", subject_internal_record_id="farmer-1", internal_record_id="land-1"),
+        SimpleNamespace(change_request_id="cr-land-add", subject_internal_record_id="person-1", internal_record_id="land-1"),
+        SimpleNamespace(change_request_id="cr-crop-add", subject_internal_record_id="person-1", internal_record_id="crop-1"),
+        SimpleNamespace(change_request_id="cr-crop-del", subject_internal_record_id="person-1", internal_record_id="crop-1"),
+        SimpleNamespace(change_request_id="cr-land-del", subject_internal_record_id="person-1", internal_record_id="land-1"),
     ]
     # Live walk would return [] after land delete; subject stamp still finds all four.
-    unique_crs = {r.change_request_id for r in rows if r.subject_internal_record_id == "farmer-1"}
+    unique_crs = {r.change_request_id for r in rows if r.subject_internal_record_id == "person-1"}
     assert unique_crs == {"cr-land-add", "cr-crop-add", "cr-crop-del", "cr-land-del"}
 
 
@@ -209,10 +224,10 @@ async def test_null_subject_fallback_union_with_legacy_ids():
 @pytest.mark.asyncio
 async def test_same_register_update_counted_via_subject():
     rows = [
-        SimpleNamespace(change_request_id="cr-create", subject_internal_record_id="farmer-1", internal_record_id="farmer-1"),
-        SimpleNamespace(change_request_id="cr-update", subject_internal_record_id="farmer-1", internal_record_id="farmer-1"),
+        SimpleNamespace(change_request_id="cr-create", subject_internal_record_id="person-1", internal_record_id="person-1"),
+        SimpleNamespace(change_request_id="cr-update", subject_internal_record_id="person-1", internal_record_id="person-1"),
     ]
-    unique_crs = {r.change_request_id for r in rows if r.subject_internal_record_id == "farmer-1"}
+    unique_crs = {r.change_request_id for r in rows if r.subject_internal_record_id == "person-1"}
     assert len(unique_crs) == 2
 
 

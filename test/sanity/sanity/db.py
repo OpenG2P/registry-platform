@@ -2,7 +2,7 @@
 
 Three databases are reachable, each for one reason the HTTP APIs cannot serve:
 
-  * **registry** — inject the test farmer. There is no unauthenticated write API
+  * **registry** — inject the test record. There is no unauthenticated write API
     we are willing to depend on, and every staff-portal-api write is a change
     request (which is the *subject* of one test, not a fixture mechanism).
   * **awe** — register the sanity approver against the shipped policy's stages.

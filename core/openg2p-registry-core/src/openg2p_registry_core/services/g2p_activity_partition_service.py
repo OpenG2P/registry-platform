@@ -4,7 +4,9 @@
 ``PARTITION BY RANGE (occurred_at)``). This service adds:
 
 * one partition per calendar year, from ``activity_partition_years_back``
-  years ago to next year, plus a DEFAULT partition for anything outside;
+  years ago to next year, plus a DEFAULT partition for anything outside. When a
+  year's partition is created later while DEFAULT already holds rows for that
+  year (e.g. future-dated activities), those rows are moved into it;
 * a trigger that rejects DELETE and any UPDATE touching columns other than the
   status and verification columns — the database-level half of "append-only";
 * columns a newer platform version added to a model but an existing table
@@ -167,6 +169,19 @@ class G2PActivityPartitionService(BaseService):
 
     async def ensure_activity_table(self, activity_model, years: list[int] | None = None) -> None:
         """Create the partitioned parent table (if missing), yearly partitions, indexes and the guard trigger."""
+        # Serialised across API workers, pods and the daily Celery task by a
+        # session advisory lock per table (held on its own connection).
+        table_name = activity_model.__tablename__
+        async with dbengine.get().connect() as lock_connection:
+            key = {"key": f"g2p_activity_table:{table_name}"}
+            await lock_connection.execute(text("SELECT pg_advisory_lock(hashtext(:key))"), key)
+            try:
+                await self._ensure_activity_table(activity_model, years)
+            finally:
+                await lock_connection.execute(text("SELECT pg_advisory_unlock(hashtext(:key))"), key)
+                await lock_connection.commit()
+
+    async def _ensure_activity_table(self, activity_model, years: list[int] | None = None) -> None:
         table = activity_model.__table__
         table_name = activity_model.__tablename__
         table.dialect_options["postgresql"]["partition_by"] = "RANGE (occurred_at)"
@@ -211,8 +226,6 @@ class G2PActivityPartitionService(BaseService):
                 )
             )
             await conn.execute(text(_GUARD_FUNCTION))
-            for year in years:
-                await conn.execute(text(self._partition_ddl(table_name, year)))
             await conn.execute(
                 text(f'CREATE TABLE IF NOT EXISTS "{table_name}_default" PARTITION OF "{table_name}" DEFAULT')
             )
@@ -223,7 +236,105 @@ class G2PActivityPartitionService(BaseService):
                     "FOR EACH ROW EXECUTE FUNCTION g2p_activity_append_only_guard()"
                 )
             )
-        _logger.info("Activity table %s ready with partitions for %s", table_name, years)
+        # Each year in its own transaction: one bad year is logged and does not
+        # undo the indexes/trigger above or block the other years.
+        failed = []
+        for year in years:
+            try:
+                await self.ensure_year_partition(table_name, year)
+            except Exception:
+                _logger.exception("Could not create partition %s_y%s", table_name, year)
+                failed.append(year)
+        _logger.info(
+            "Activity table %s ready with partitions for %s%s",
+            table_name, years, f" (failed: {failed})" if failed else "",
+        )
+
+    async def ensure_year_partition(self, table_name: str, year: int) -> bool:
+        """Create the yearly partition for ``year`` if missing. Returns True if it was created.
+
+        Activities dated outside the existing yearly partitions land in the
+        DEFAULT partition. Postgres then refuses ``CREATE TABLE ... PARTITION OF
+        ... FOR VALUES`` for that range ("updated partition constraint for
+        default partition would be violated"). So when DEFAULT holds rows for
+        the year, in one transaction: detach DEFAULT (which also drops its
+        cloned append-only trigger, so the rows can be moved), create the year
+        partition, move the year's rows into it, and re-attach DEFAULT (which
+        re-clones the trigger). Readers/writers of the table wait for the brief
+        ACCESS EXCLUSIVE lock; nothing is lost or visible half-moved.
+        """
+        partition = f"{table_name}_y{year}"
+        default = f"{table_name}_default"
+        low, high = datetime(year, 1, 1), datetime(year + 1, 1, 1)
+        async with dbengine.get().begin() as conn:
+            await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
+                               {"key": f"g2p_activity_partition:{table_name}"})
+            if await self._relation_exists(conn, partition):
+                return False
+            default_attached = (
+                await conn.execute(
+                    text("SELECT count(*) FROM pg_inherits i JOIN pg_class c ON c.oid = i.inhrelid "
+                         "JOIN pg_class p ON p.oid = i.inhparent "
+                         "WHERE c.relname = :child AND p.relname = :parent "
+                         "AND c.relnamespace = to_regnamespace(current_schema())"),
+                    {"child": default, "parent": table_name},
+                )
+            ).scalar()
+            in_default = default_attached and (
+                await conn.execute(
+                    text(f'SELECT EXISTS (SELECT 1 FROM "{default}" '
+                         "WHERE occurred_at >= :low AND occurred_at < :high)"),
+                    {"low": low, "high": high},
+                )
+            ).scalar()
+            if not in_default:
+                await conn.execute(text(self._partition_ddl(table_name, year)))
+                return True
+            columns = ", ".join(
+                f'"{name}"'
+                for name in (
+                    await conn.execute(
+                        text("SELECT attname FROM pg_attribute WHERE attrelid = CAST(:t AS regclass) "
+                             "AND attnum > 0 AND NOT attisdropped ORDER BY attnum"),
+                        {"t": f'"{table_name}"'},
+                    )
+                ).scalars()
+            )
+            await conn.execute(text(f'ALTER TABLE "{table_name}" DETACH PARTITION "{default}"'))
+            await conn.execute(text(self._partition_ddl(table_name, year)))
+            moved = (
+                await conn.execute(
+                    text(f'INSERT INTO "{partition}" ({columns}) SELECT {columns} FROM "{default}" '
+                         "WHERE occurred_at >= :low AND occurred_at < :high"),
+                    {"low": low, "high": high},
+                )
+            ).rowcount
+            await conn.execute(
+                text(f'DELETE FROM "{default}" '
+                     "WHERE occurred_at >= :low AND occurred_at < :high"),
+                {"low": low, "high": high},
+            )
+            await conn.execute(text(f'ALTER TABLE "{table_name}" ATTACH PARTITION "{default}" DEFAULT'))
+        _logger.info("Created partition %s and moved %s rows into it from %s", partition, moved, default)
+        return True
+
+    async def ensure_partitions_for_dates(self, table_name: str, dates) -> list[int]:
+        """Create yearly partitions for any of ``dates`` whose year has none. Returns the years created.
+
+        Lets a caller add the partition ahead of inserting far-future (or far-past)
+        activities, instead of parking them in DEFAULT until the next migrate.
+        """
+        created = []
+        for year in sorted({d.year for d in dates if d is not None}):
+            if await self.ensure_year_partition(table_name, year):
+                created.append(year)
+        return created
+
+    @staticmethod
+    async def _relation_exists(conn, name: str) -> bool:
+        return bool(
+            (await conn.execute(text("SELECT to_regclass(:name) IS NOT NULL"), {"name": f'"{name}"'})).scalar()
+        )
 
     async def ensure_projection_table(self, projection_model) -> None:
         await projection_model.create_migrate()
@@ -245,9 +356,8 @@ class G2PActivityPartitionService(BaseService):
 
     @staticmethod
     def _partition_ddl(table_name: str, year: int) -> str:
-        # A new yearly partition cannot be attached if the DEFAULT partition
-        # already holds rows for that year; creating partitions ahead of time
-        # (next year is always included) keeps DEFAULT for out-of-range dates only.
+        # Plain DDL; ensure_year_partition handles the case where DEFAULT already
+        # holds rows for the year (Postgres would reject this statement then).
         return (
             f'CREATE TABLE IF NOT EXISTS "{table_name}_y{year}" PARTITION OF "{table_name}" '
             f"FOR VALUES FROM ('{year}-01-01') TO ('{year + 1}-01-01')"

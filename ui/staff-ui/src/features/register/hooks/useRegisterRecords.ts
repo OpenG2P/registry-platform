@@ -7,7 +7,7 @@ import { useFilters } from '@/features/filter/hooks/useFilters';
 import { useFetch } from '@/shared/hooks/useFetch';
 import { useRegister } from '@/context/RegisterContext';
 import { RegisterRecordsApiResponse } from '@/features/register/types';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { usePageSize } from '@/shared/hooks';
 
 export const useRegisterRecords = () => {
     const t = useTranslations();
@@ -16,12 +16,18 @@ export const useRegisterRecords = () => {
     const routeParams = useParams<{ type: string }>();
     const searchParams = useSearchParams();
 
-    const { config } = useRuntimeConfig();
-    const pageSize = config.pageSize || 10;
+    const pageSize = usePageSize();
 
     // Derive current page from URL
     const pageFromUrl = searchParams.get('page');
     const currentPage = pageFromUrl ? Math.max(1, parseInt(pageFromUrl)) : 1;
+
+    useEffect(() => {
+        if (currentPage === 1) return;
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('page', '1');
+        router.replace(`${pathname}?${params.toString()}`);
+    }, [pageSize]);
 
     const {
         appliedFilters,
@@ -34,6 +40,7 @@ export const useRegisterRecords = () => {
 
     const registerType = routeParams.type;
     const searchQuery = searchParams.get('search') || "";
+    const sortBy = searchParams.get('sort') || null;
 
     const { currentRegister, loading: loadingRegister } = useRegister();
 
@@ -53,7 +60,7 @@ export const useRegisterRecords = () => {
             body: JSON.stringify({
                 current_page: currentPage,
                 page_size: pageSize,
-                sort_by: "",
+                ...(sortBy ? { sort_by: sortBy } : {}),
                 filter_by: filterBy,
                 search_text: searchQuery,
                 register_id: currentRegister?.register_id,
@@ -114,24 +121,41 @@ export const useRegisterRecords = () => {
         router.push(`${pathname}?${params.toString()}`);
     }, [searchParams, router, pathname]);
 
+    const handleSort = useCallback((nextSortBy: string | null) => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (nextSortBy) {
+            params.set('sort', nextSortBy);
+        } else {
+            params.delete('sort');
+        }
+        params.set('page', '1');
+        router.push(`${pathname}?${params.toString()}`);
+    }, [searchParams, router, pathname]);
+
     return {
         registerType,
         registerTypeLabel,
         records,
         isLoadingRecords,
         searchQuery,
+        sortBy,
         pagination,
         handlers: {
             handlePreviousPage,
             handleNextPage,
             handleSearch,
+            handleSort,
         },
         filters: {
             appliedFilters,
+            filterBy,
             filterConfig,
             applyFilters,
             removeFilter,
             clearAllFilters,
-        }
+        },
+        registerId,
+        currentPage,
+        pageSize,
     };
 };

@@ -1,4 +1,4 @@
-"""A fixed TEST-ONLY Ed25519 private key for the Farmer Registry sanity e2e.
+"""A fixed TEST-ONLY Ed25519 private key for the registry sanity e2e.
 
 This is the SAME shared sanity identity the Consent Manager uses
 (``PARTNER_CM_SANITY`` / kid ``cm-sanity-1``), so a single test partner exists in

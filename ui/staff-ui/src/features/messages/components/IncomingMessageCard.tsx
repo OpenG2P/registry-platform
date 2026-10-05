@@ -87,7 +87,7 @@ export default function IncomingMessageCard({ message }: Props) {
                     <div className="space-y-2">
                         <KeyValue label={t('status') || 'Status'} value={message.transformation_status ?? t('n_a') ?? 'N/A'} />
                         <KeyValue label={t('date_and_time') || 'Date & Time'} value={formatDateTime(message.transformation_date_time)} />
-                        <KeyValue label={t('template') || 'Template'} value={message.template_file_id ?? t('n_a') ?? 'N/A'} />
+                        <KeyValue label={t('template') || 'Template'} value={message.template_document_id ?? t('n_a') ?? 'N/A'} />
                         <KeyValue label={t('pipeline_action') || 'Pipeline Action'} value={message.pipeline_action ?? t('n_a') ?? 'N/A'} />
                     </div>
                 </div>

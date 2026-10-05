@@ -8,7 +8,7 @@
 #     COPY <your>-extension/ /app/extension/
 #     RUN pip install --no-cache-dir /app/extension
 #
-# NSR and farmer-registry consume this component as a prebuilt platform image;
+# Variant registries consume this component as a prebuilt platform image;
 # publishing it here from the platform (rather than downstream) removes the
 # duplicated build logic and gives it a real version.
 #

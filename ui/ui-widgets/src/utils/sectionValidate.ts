@@ -48,16 +48,6 @@ const validateTableLikeWidget = (
     return false;
   }
 
-  const hasRequiredColumns = columns.some((col) => isColumnRequired(col, skipRequired));
-  if (!skipRequired && hasRequiredColumns && activeRows.length === 0) {
-    dispatch(setTouched({ widgetId, touched: true }));
-    dispatch(setError({
-      widgetId,
-      errors: ['Add at least one record and fill all required fields'],
-    }));
-    return false;
-  }
-
   activeRows.forEach((row, rowIndex) => {
     columns.forEach((col) => {
       if (col['widget-readonly']) return;
@@ -115,12 +105,14 @@ export const collectWidgets = (panels: PanelConfig[]): BaseWidgetConfig[] => {
 /**
  * @param skipRequired - Skip required checks for per-section Save/Next navigation;
  *   format and range validation still run.
+ * @param includeSupportingDocuments - When false (e.g. IntakeForm), skip supporting-doc checks.
  */
 export const sectionValidate = (
   section: SectionConfig,
   currentSchemaData: Record<string, any>,
   dispatch: WidgetDispatch,
   skipRequired: boolean = false,
+  includeSupportingDocuments: boolean = true,
 ): boolean => {
   const allWidgets = collectWidgets(section.panels);
 
@@ -185,28 +177,30 @@ export const sectionValidate = (
     }
   }
 
-  section['section-supporting-documents']?.forEach((doc, index) => {
-    const widgetId = `supporting-doc-${section['section-id']}-${index}`;
+  if (includeSupportingDocuments) {
+    section['section-supporting-documents']?.forEach((doc, index) => {
+      const widgetId = `supporting-doc-${section['section-id']}-${index}`;
 
-    if (!skipRequired && doc['document-required']) {
-      const file = getValueByPath(
-        currentSchemaData,
-        doc['document-data-path']
-      );
+      if (!skipRequired && doc['document-required']) {
+        const file = getValueByPath(
+          currentSchemaData,
+          doc['document-data-path']
+        );
 
-      if (!file) {
-        isValid = false;
-        dispatch(setTouched({ widgetId, touched: true }));
-        dispatch(setError({
-          widgetId,
-          errors: ['This document is required'],
-        }));
-      } else {
-        dispatch(setTouched({ widgetId, touched: false }));
-        dispatch(setError({ widgetId, errors: [] }));
+        if (!file) {
+          isValid = false;
+          dispatch(setTouched({ widgetId, touched: true }));
+          dispatch(setError({
+            widgetId,
+            errors: ['This document is required'],
+          }));
+        } else {
+          dispatch(setTouched({ widgetId, touched: false }));
+          dispatch(setError({ widgetId, errors: [] }));
+        }
       }
-    }
-  });
+    });
+  }
 
   return isValid;
 };

@@ -4,6 +4,7 @@ from .document import DocumentBucket, DocumentHandler, get_document_handler
 from .partner_management import (
     PartnerManagementClient,
     RegisteredPartner,
+    canonical_partner_id,
     get_partner_mgmt_settings,
     partner_reference_id,
 )
@@ -16,3 +17,12 @@ from .template_helper import TemplateHelper
 from .websub_helper import WebsubHelper
 from .register_field_metadata import iter_register_orm_field_metadata
 from .data_policy_keycloak_helper import DataPolicyKeycloakHelper
+from .master_data_client import (
+    MasterDataClient,
+    MasterDataError,
+    MasterDataNotFound,
+    MasterDataUnavailable,
+    get_master_data_client,
+    master_data_read_mode,
+    set_master_data_client,
+)

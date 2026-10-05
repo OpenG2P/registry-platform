@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useRouter } from "@/i18n/navigation";
 import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
+import { useRegisterHints } from "../hooks/useActivityRegisters";
 import type { ActivityContext, PageInfo, JsonValue } from "../types";
 import { formatDate, humanize } from "../utils/labels";
 import { asGeoDimensions, locationTooltip, lowestLocation } from "../utils/geo";
@@ -23,7 +24,7 @@ const str = (value: JsonValue | undefined): string | undefined =>
 const BASE = new Set([
     "context_id", "context_key", "subject_type", "context_status", "activity_count", "last_activity_id",
     "last_activity_type", "last_occurred_at", "last_recorded_at", "projected_at", "geo_code_hierarchy_json",
-    "geo_lowest_level_value_id", "geo_dimensions",
+    "geo_lowest_level_value_id", "geo_dimensions", "replaces_context_id", "replaced_by_context_id",
 ]);
 
 /**
@@ -32,6 +33,7 @@ const BASE = new Set([
  */
 export default function ContextList({ registerMnemonic, hasProjection }: Props) {
     const api = useActivityApi();
+    const { hints } = useRegisterHints(registerMnemonic);
     const router = useRouter();
     const [rows, setRows] = useState<Record<string, JsonValue>[]>([]);
     const [info, setInfo] = useState<PageInfo | null>(null);
@@ -58,7 +60,7 @@ export default function ContextList({ registerMnemonic, hasProjection }: Props) 
     useEffect(() => { load(); }, [load]);
 
     const extraColumns = hasProjection && rows.length
-        ? Object.keys(rows[0]).filter((k) => (!BASE.has(k) && !k.endsWith("_id")) || ["farmer_id", "plot_id"].includes(k)).slice(0, 8)
+        ? (hints.context_columns ?? Object.keys(rows[0]).filter((k) => !BASE.has(k) && !k.endsWith("_id"))).slice(0, 8)
         : [];
     // Where each context is, from the projection's geo dimensions (else its location code).
     const showLocation = hasProjection && rows.some((r) => asGeoDimensions(r.geo_dimensions) || r.geo_lowest_level_value_id);
@@ -67,7 +69,7 @@ export default function ContextList({ registerMnemonic, hasProjection }: Props) 
         <div className="flex flex-col gap-3">
             <input
                 aria-label="Search"
-                placeholder="Search by key (plot, season, crop…)"
+                placeholder={hints.context_search_placeholder ?? "Search by key…"}
                 className="border border-secondary-second rounded-md px-2 py-1.5 bg-neutral-second text-sm max-w-md"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

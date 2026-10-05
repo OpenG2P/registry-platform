@@ -7,6 +7,7 @@ export const useIntakeSubmissions = (
         searchText?: string;
         currentPage?: number;
         pageSize?: number;
+        sortBy?: string | null;
     }
 ) => {
     const fetchOptions = useMemo(
@@ -17,9 +18,10 @@ export const useIntakeSubmissions = (
                 search_text: params?.searchText,
                 current_page: params?.currentPage,
                 page_size: params?.pageSize,
+                ...(params?.sortBy ? { sort_by: params.sortBy } : {}),
             }),
         }),
-        [registerId, params?.searchText, params?.currentPage, params?.pageSize],
+        [registerId, params?.searchText, params?.currentPage, params?.pageSize, params?.sortBy],
     );
 
     const { data, loading, execute } = useFetch<any>({

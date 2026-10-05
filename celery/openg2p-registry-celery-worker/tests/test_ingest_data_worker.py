@@ -10,26 +10,26 @@ from openg2p_registry_celery_worker.tasks.ingest_data_worker import (
 class IngestDataWorkerTests(unittest.TestCase):
     def test_subject_sections_reuse_same_internal_record_id(self):
         subject_section = SimpleNamespace(
-            section_register_id="farmer-register",
+            section_register_id="person-register",
             is_list=False,
-            section_mnemonic="farmer_personal",
+            section_mnemonic="person_details",
         )
         later_subject_section = SimpleNamespace(
-            section_register_id="farmer-register",
+            section_register_id="person-register",
             is_list=False,
-            section_mnemonic="farmer_location",
+            section_mnemonic="person_location",
         )
 
         first_records = _merge_section_records(
             section=subject_section,
-            subject_register_id="farmer-register",
+            subject_register_id="person-register",
             incoming_records=[{"first_name": "John"}],
             accumulated_records=[],
             accumulated_ids=[],
         )
         second_records = _merge_section_records(
             section=later_subject_section,
-            subject_register_id="farmer-register",
+            subject_register_id="person-register",
             incoming_records=[{"address_line_1": "Village Road"}],
             accumulated_records=first_records,
             accumulated_ids=[first_records[0]["internal_record_id"]],
@@ -57,14 +57,14 @@ class IngestDataWorkerTests(unittest.TestCase):
 
         first_records = _merge_section_records(
             section=list_section,
-            subject_register_id="farmer-register",
+            subject_register_id="person-register",
             incoming_records=[{"acreage": 1}, {"acreage": 2}],
             accumulated_records=[],
             accumulated_ids=[],
         )
         second_records = _merge_section_records(
             section=later_list_section,
-            subject_register_id="farmer-register",
+            subject_register_id="person-register",
             incoming_records=[{"soil_type": "clay"}, {"soil_type": "loam"}, {"soil_type": "sand"}],
             accumulated_records=first_records,
             accumulated_ids=[record["internal_record_id"] for record in first_records],
@@ -80,15 +80,15 @@ class IngestDataWorkerTests(unittest.TestCase):
     def test_validate_transformed_data_rejects_unknown_section_mnemonic(self):
         incoming_classified_data = SimpleNamespace(
             intake_form_id="form-1",
-            register_id="farmer-register",
+            register_id="person-register",
         )
         transformed_data = SimpleNamespace(
             transformed_data_json={"unknown_section": [{}]},
         )
         ordered_sections = [
             SimpleNamespace(
-                section_mnemonic="farmer_personal",
-                section_register_id="farmer-register",
+                section_mnemonic="person_details",
+                section_register_id="person-register",
                 is_list=False,
             )
         ]
@@ -103,7 +103,7 @@ class IngestDataWorkerTests(unittest.TestCase):
     def test_validate_transformed_data_requires_subject_section(self):
         incoming_classified_data = SimpleNamespace(
             intake_form_id="form-1",
-            register_id="farmer-register",
+            register_id="person-register",
         )
         transformed_data = SimpleNamespace(
             transformed_data_json={"land_section": [{"acreage": 1}]},

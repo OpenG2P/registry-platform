@@ -19,11 +19,10 @@ def make_consent_claims(cfg) -> dict:
         "@context": "https://openg2p.org/contexts/consent_object.jsonld",
         "@type": "ConsentObject",
         "jti": uuid.uuid4().hex,
-        # The injected sanity farmer. NOTE: the registry never passes subject_id
-        # to the Consent Manager and never filters rows by it — consent clamps
-        # which FIELDS are returned, not which ROWS. This value is therefore
-        # descriptive today, not enforced.
-        "subject_id": {"type": "national_id", "value": fixtures.FARMER_FOUNDATIONAL_ID},
+        # The injected sanity record. The registry enforces it: every record it
+        # returns must carry this foundational (or functional) ID, else the
+        # request is denied.
+        "subject_id": {"type": "national_id", "value": fixtures.RECORD_FOUNDATIONAL_ID},
         "data_controller": cfg.controller_id,
         "aud": cfg.cm_audience,
         "purpose": {"code": "share_farm_profile", "text": "FR sanity"},

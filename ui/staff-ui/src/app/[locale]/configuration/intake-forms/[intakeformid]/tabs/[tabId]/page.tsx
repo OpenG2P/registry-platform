@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BreadcrumbBar, TopBar } from '@/components/shared';
 import { useParams } from 'next/navigation';
 import { useBreadcrumb } from '@/shared/hooks/useBreadcrumb';
@@ -12,8 +12,7 @@ import {
     ViewButton,
 } from '@/features/configuration/shared';
 
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
-import { useFetch, usePagination } from '@/shared/hooks';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-toastify';
@@ -68,14 +67,18 @@ const IntakeFormTabIdPage = () => {
     });
 
     const [currentPage, setCurrentPage] = useState(1);
-    const { config } = useRuntimeConfig();
+    const pageSize = usePageSize();
 
-    const { sections, refresh, pagination } = useAllIntakeFormTabSections(currentPage, config.pageSize, tabId);
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
+
+    const { sections, refresh, pagination } = useAllIntakeFormTabSections(currentPage, pageSize, tabId);
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: sections?.length || 0,
     });
 

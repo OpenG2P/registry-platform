@@ -1,27 +1,28 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import {
     TabsLayout,
 } from '@/components/shared';
 import {
-    WidgetProvider,
     SectionRenderer,
 } from '@openg2p/registry-widgets';
+import { RegistryWidgetProvider } from '@/shared/widgets';
 import RegisterChangeRequestCard from '@/features/change-request/components/RegisterChangeRequestCard';
 import { useState } from 'react';
 
 import { useRegisterDetail } from '@/features/register/hooks/useRegisterDetail';
 import RegisterDetailsPageSkeleton from '@/features/register/components/RegisterDetailsPageSkeleton';
-import { dataSourceRequestHandler } from '@/shared/services';
 import { VersionHistoryCard } from '@/features/register/components';
 import RecordActivities from '@/features/activity/components/RecordActivities';
 import { useRecordActivitiesTab } from '@/features/activity/hooks/useRecordActivitiesTab';
-import { useRegisterRecord } from '@/context/RegisterRecordContext';
 
 
 export default function RegisterDetailPage() {
     const t = useTranslations();
+    const searchParams = useSearchParams();
+    const recordName = searchParams.get('record_name')?.trim();
 
     // state to update the count of pending change requests 
     const [changeRequestCount, setChangeRequestCount] = useState<number | undefined>(undefined);
@@ -34,7 +35,6 @@ export default function RegisterDetailPage() {
         activeTabIndex,
         setActiveTabByIndex,
         activeTabId,
-        breadcrumb,
         orderedTabSections,
         sectionDataMap,
         handleSectionSave,
@@ -42,7 +42,21 @@ export default function RegisterDetailPage() {
         currentRegister
     } = useRegisterDetail(() => setChangeRequestCount(prevCount => (prevCount ?? 0) + 1));
 
-    const { recordName, functionalRecordId } = useRegisterRecord();
+    const breadcrumb = [
+        ...(currentRegister && registerType
+            ? [{
+                label: t(currentRegister.register_subject) ?? currentRegister.register_subject,
+                href: `/register/${registerType}`,
+            }]
+            : []),
+        ...(recordName && registerType && internalRecordId
+            ? [{
+                label: recordName,
+                href: `/register/${registerType}/${internalRecordId}`,
+            }]
+            : []),
+    ];
+
     const activities = useRecordActivitiesTab({
         internalRecordId,
         registerId: currentRegister?.register_id,
@@ -66,7 +80,7 @@ export default function RegisterDetailPage() {
                     subject={{
                         internalRecordId,
                         registerMnemonic: currentRegister?.register_mnemonic,
-                        label: [recordName, functionalRecordId].filter(Boolean).join(' · ') || undefined,
+                        label: recordName || undefined,
                     }}
                     groups={activities.groups}
                     registers={activities.registers}
@@ -85,12 +99,10 @@ export default function RegisterDetailPage() {
                     <div className="col-span-12 lg:col-span-9">
                         <div className="col-span-12 lg:col-span-9">
                             {orderedTabSections.length > 0 && sectionDataMap ? (
-                                <WidgetProvider
+                                <RegistryWidgetProvider
                                     key={activeTabId}
                                     store={widgetStore}
                                     schemaData={sectionDataMap}
-                                    t={t}
-                                    dataSourceRequestHandler={dataSourceRequestHandler}
                                     hostContext={{
                                         subject_register_id: currentRegister?.register_id,
                                         internal_record_id: internalRecordId,
@@ -105,14 +117,13 @@ export default function RegisterDetailPage() {
                                                     section={section_ui_schema}
                                                     onSectionSave={handleSectionSave}
                                                     hideEditButton={hideEditButton}
-                                                    dataSourceRequestHandler={dataSourceRequestHandler}
                                                     dbSectionId={section_id}
                                                     sectionRegisterId={section_register_id}
                                                 />
                                             </div>
                                         );
                                     })}
-                                </WidgetProvider>
+                                </RegistryWidgetProvider>
                             ) : !isLoading && (
                                 <div className=" px-6 py-5 flex items-center justify-center text-center">
                                     <div className="text-[16px] text-neutral-first/50 font-medium">
@@ -132,6 +143,7 @@ export default function RegisterDetailPage() {
                                     registerId={currentRegister.register_id}
                                     internalRecordId={internalRecordId}
                                     activeTabId={activeTabId}
+                                    recordName={recordName}
                                     count={changeRequestCount}
                                     onCountLoaded={setChangeRequestCount}
                                 />
@@ -140,6 +152,7 @@ export default function RegisterDetailPage() {
                                     registerId={currentRegister.register_id}
                                     internalRecordId={internalRecordId}
                                     activeTabId={activeTabId}
+                                    recordName={recordName}
                                 />
                             </>
                         )}

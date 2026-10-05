@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { tSchema } from '../utils/tSchema';
+import { tSchema, toTitleCase } from '../utils/tSchema';
 import { useDispatch, useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetRenderer } from '../components/WidgetRenderer';
 import { useWidgetContext } from '../components/WidgetProvider';
+import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 import { formatValue } from '../utils/formatting';
 import { getValueByPath } from '../utils/pathUtils';
 import {
@@ -15,12 +16,41 @@ import {
   mergeMinDateBounds,
   mergeMaxDateBounds,
 } from '../utils/dateInput';
-import { setValue, resetWidget } from '../store/widgetSlice';
+import { setValue, setError, setTouched, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 import { validateWidget } from '../utils/validation';
-import { isAllowedKey } from '../utils/numberInput';
+import { shouldRequireWidget } from '../utils/conditions';
+import { isAllowedKey, parseNumber, applyDecimalPrecision } from '../utils/numberInput';
 
 type ResolveSchemaLabelFn = (value: string | undefined | null) => string;
+
+const isColumnRequired = (column: Record<string, any>, rowData: Record<string, any>): boolean =>
+  shouldRequireWidget(
+    column['widget-data-options'],
+    rowData,
+    !!(column['widget-required'] || column['widget-data-validation']?.required),
+  );
+
+const useTableCellError = (widgetId: string | undefined): string | null => {
+  const error = useSelector((state: WidgetRootState) =>
+    widgetId ? state.widget?.errors?.[widgetId]?.[0] : undefined,
+  );
+  const touched = useSelector((state: WidgetRootState) =>
+    widgetId ? Boolean(state.widget?.touched?.[widgetId]) : false,
+  );
+  return touched && error ? error : null;
+};
+
+const TableCellErrorText = ({ message }: { message: string | null }) => (
+  <p
+    className="table-cell-field-error text-xs mt-0.5 leading-tight"
+    style={{ color: message ? 'var(--owt-color-error)' : 'transparent' }}
+    aria-live="polite"
+    aria-hidden={!message}
+  >
+    {message || '\u00a0'}
+  </p>
+);
 
 const getDateColumnConstraintError = (
   column: BaseWidgetConfig,
@@ -74,37 +104,44 @@ const getDateColumnConstraintError = (
   );
 };
 
-const isTableRowDataValid = (
+const getTableRowCellErrors = (
   rowData: Record<string, any>,
   columns: any[],
   tableReadonly: boolean,
   resolveSchemaLabel: ResolveSchemaLabelFn,
-): boolean => {
+): Record<string, string[]> => {
+  const cellErrors: Record<string, string[]> = {};
+
   for (const col of columns) {
     if (tableReadonly || col['widget-readonly'] === true) {
       continue;
     }
 
     const columnKey = col['column-key'];
+    if (!columnKey) {
+      continue;
+    }
+
     const cellValue = rowData[columnKey];
     const widgetErrors = validateWidget(
       cellValue,
       col['widget-data-validation'],
-      col['widget-required']
+      isColumnRequired(col, rowData),
     );
     if (widgetErrors.length > 0) {
-      return false;
+      cellErrors[columnKey] = widgetErrors;
+      continue;
     }
 
     if ((col.widget || 'text') === 'date') {
       const dateError = getDateColumnConstraintError(col, cellValue, rowData, resolveSchemaLabel);
       if (dateError) {
-        return false;
+        cellErrors[columnKey] = [dateError];
       }
     }
   }
 
-  return true;
+  return cellErrors;
 };
 
 
@@ -119,8 +156,11 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
   const {
     dataSourceOptions,
     loading,
+    error,
+    touched,
   } = useBaseWidget({ config });
   const isReadonly = config['widget-readonly'] || false;
+  const errorMessage = touched && error.length > 0 ? error[0] : null;
 
   return (
     <div className="table-cell-field w-full">
@@ -143,20 +183,20 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
         } table-cell-input`}
         style={{
           borderRadius: '10px',
-          borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
-          backgroundColor: isReadonly || loading ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+          borderColor: errorMessage
+            ? 'var(--owt-color-error)'
+            : 'var(--owt-widget-input-border)',
+          backgroundColor: isReadonly || loading ? 'var(--owt-color-bg-alt)' : 'var(--owt-color-bg)',
         }}
       >
         <option value="">{t?.('common.select') || 'Select'}</option>
         {dataSourceOptions.map((option: any) => (
-          <option key={String(option.value)} value={String(option.value)}>
+          <option key={option.value} value={option.value}>
             {tSchema(t, option.label)}
           </option>
         ))}
       </select>
-      <p className="table-cell-field-error" aria-hidden="true">
-        {'\u00a0'}
-      </p>
+      <TableCellErrorText message={errorMessage} />
     </div>
   );
 };
@@ -200,6 +240,7 @@ const TableCellText = ({ config, value, onValueChange }: TableCellTextProps) => 
   const isReadonly = config['widget-readonly'] || false;
   const placeholder = config['widget-data-placeholder'] || '';
   const maxLength = config['widget-data-validation']?.maxLength;
+  const errorMessage = useTableCellError(config['widget-id']);
 
   const displayValue = value !== null && value !== undefined ? String(value) : '';
 
@@ -217,13 +258,13 @@ const TableCellText = ({ config, value, onValueChange }: TableCellTextProps) => 
         } table-cell-input`}
         style={{
           borderRadius: '10px',
-          borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
-          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+          borderColor: errorMessage
+            ? 'var(--owt-color-error)'
+            : 'var(--owt-widget-input-border)',
+          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt)' : 'var(--owt-color-bg)',
         }}
       />
-      <p className="table-cell-field-error" aria-hidden="true">
-        {'\u00a0'}
-      </p>
+      <TableCellErrorText message={errorMessage} />
     </div>
   );
 };
@@ -244,9 +285,16 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
   const allowSigned = min !== undefined ? min < 0 : formatConfig?.allowSigned !== false;
   const formatForKeys = { ...formatConfig, allowSigned };
 
+  // What the user is typing, kept verbatim while the cell has focus. Parsing
+  // on every keystroke and echoing the parsed number back made decimals
+  // impossible to type: "200." parsed to 200 and re-rendered as "200", so the
+  // point never survived (the spinner arrows still produced decimals, which is
+  // how the bug was noticed). The committed numeric value is still pushed up
+  // on every valid change; only the display waits for blur.
   const committedDisplay = value !== null && value !== undefined ? String(value) : '';
   const [draft, setDraft] = useState<string | null>(null);
   const displayValue = draft !== null ? draft : committedDisplay;
+  const errorMessage = useTableCellError(config['widget-id']);
 
   const isWithinBounds = (numValue: number) => {
     if (min !== undefined && numValue < min) {
@@ -258,6 +306,9 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
     return true;
   };
 
+  // "-", ".", "-.": a sign or separator with no digit yet.
+  const isPartialNumber = (text: string) => /^-?[.,]?$/.test(text);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
     if (inputValue === '') {
@@ -265,32 +316,29 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
       onValueChange('');
       return;
     }
-    if (inputValue === '-' && allowSigned) {
-      setDraft('-');
+    setDraft(inputValue);
+    if (isPartialNumber(inputValue)) {
+      // "-", "." or "-." : nothing to commit yet
       return;
     }
-    const numValue = parseFloat(inputValue);
-    if (isNaN(numValue)) {
+    const numValue = parseNumber(inputValue, formatConfig);
+    if (numValue === null) {
       return;
     }
     if (!isWithinBounds(numValue)) {
-      if (min !== undefined && numValue < min && numValue >= 0) {
-        setDraft(inputValue);
-      }
       return;
     }
-    setDraft(null);
-    onValueChange(numValue);
+    onValueChange(applyDecimalPrecision(numValue, formatConfig));
   };
 
   const handleBlur = () => {
     if (draft === null) {
       return;
     }
-    const numValue = parseFloat(draft);
+    const numValue = parseNumber(draft, formatConfig);
     setDraft(null);
-    if (!isNaN(numValue) && isWithinBounds(numValue)) {
-      onValueChange(numValue);
+    if (numValue !== null && isWithinBounds(numValue)) {
+      onValueChange(applyDecimalPrecision(numValue, formatConfig));
     }
   };
 
@@ -303,28 +351,26 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
   return (
     <div className="table-cell-field w-full">
       <input
-        type="number"
+        type="text"
+        inputMode="decimal"
         value={displayValue}
         onChange={handleChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         disabled={isReadonly}
         placeholder={placeholder}
-        min={min}
-        max={max}
-        step={formatConfig?.decimalPlaces ? Math.pow(0.1, formatConfig.decimalPlaces) : undefined}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none text-right ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
           borderRadius: '10px',
-          borderColor: 'var(--owt-widget-input-border, #C4C4C4)',
-          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+          borderColor: errorMessage
+            ? 'var(--owt-color-error)'
+            : 'var(--owt-widget-input-border)',
+          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt)' : 'var(--owt-color-bg)',
         }}
       />
-      <p className="table-cell-field-error" aria-hidden="true">
-        {'\u00a0'}
-      </p>
+      <TableCellErrorText message={errorMessage} />
     </div>
   );
 };
@@ -340,6 +386,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
   const { t } = useWidgetContext();
   const isReadonly = config['widget-readonly'] || false;
   const placeholder = config['widget-data-placeholder'] || '';
+  const requiredError = useTableCellError(config['widget-id']);
   const optionsConfig = config['widget-data-options'];
   const formatConfig = config['widget-data-format'];
   const dateConstraint = formatConfig?.dateConstraint || 'any';
@@ -422,7 +469,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
     setConstraintError(error);
   };
 
-  const hasError = Boolean(constraintError);
+  const errorMessage = constraintError || requiredError;
 
   return (
     <div className="table-cell-field w-full">
@@ -434,27 +481,19 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
         placeholder={placeholder}
         min={effectiveMinDate}
         max={effectiveMaxDate}
-        title={constraintError || tSchema(t, config['widget-data-tooltip'])}
+        title={errorMessage || tSchema(t, config['widget-data-tooltip'])}
         className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
           borderRadius: '10px',
-          borderColor: hasError
-            ? 'var(--owt-color-error, #B91C1C)'
-            : 'var(--owt-widget-input-border, #C4C4C4)',
-          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt, #F6F6F6)' : 'var(--owt-color-bg, #FFFFFF)',
+          borderColor: errorMessage
+            ? 'var(--owt-color-error)'
+            : 'var(--owt-widget-input-border)',
+          backgroundColor: isReadonly ? 'var(--owt-color-bg-alt)' : 'var(--owt-color-bg)',
         }}
       />
-      <p
-        className="table-cell-field-error text-xs mt-0.5 leading-tight"
-        style={{
-          color: hasError ? 'var(--owt-color-error, #B91C1C)' : 'transparent',
-        }}
-        aria-live="polite"
-      >
-        {constraintError ?? '\u00a0'}
-      </p>
+      <TableCellErrorText message={errorMessage} />
     </div>
   );
 };
@@ -487,6 +526,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   } = useBaseWidget({ config });
 
   const { t } = useWidgetContext();
+  const themeRoot = useOwtThemeRootProps();
   const resolveSchemaLabel = useCallback(
     (value: string | undefined | null) =>
       value ? tSchema(t, value) : '',
@@ -539,26 +579,37 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     return row;
   }, [isAdding, newRowData, columns, widgetConfig, rows.length, storeValues]);
 
-  const canSaveEditingRow = useMemo(() => {
-    const rowData = resolveEditingRowData();
-    if (!rowData) {
-      return false;
-    }
-    return isTableRowDataValid(
+  const markRowFieldErrors = useCallback((
+    rowData: Record<string, any>,
+    rowIndex: number,
+  ): boolean => {
+    const cellErrors = getTableRowCellErrors(
       rowData,
       columns,
       isReadonly,
       resolveSchemaLabel,
     );
-  }, [resolveEditingRowData, columns, isReadonly, resolveSchemaLabel]);
+    let isValid = true;
 
-  const canSaveNewRow = useMemo(() => {
-    const rowData = resolveNewRowData();
-    if (!rowData) {
-      return false;
-    }
-    return isTableRowDataValid(rowData, columns, isReadonly, resolveSchemaLabel);
-  }, [resolveNewRowData, columns, isReadonly, resolveSchemaLabel]);
+    columns.forEach((col) => {
+      const key = col['column-key'];
+      if (!key) {
+        return;
+      }
+
+      const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${key}`;
+      const errors = cellErrors[key] || [];
+      if (errors.length > 0) {
+        isValid = false;
+        dispatch(setError({ widgetId: cellWidgetId, errors }));
+        dispatch(setTouched({ widgetId: cellWidgetId, touched: true }));
+      } else {
+        dispatch(setError({ widgetId: cellWidgetId, errors: [] }));
+      }
+    });
+
+    return isValid;
+  }, [columns, isReadonly, resolveSchemaLabel, widgetConfig, dispatch]);
 
   const showConfirmation = useCallback((message: string, onConfirm: () => void, onCancel: () => void) => {
     setConfirmationState({
@@ -657,7 +708,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   const saveEdit = useCallback(async () => {
     const rowData = resolveEditingRowData();
     if (!editingState || !rowData) return;
-    if (!canSaveEditingRow) return;
+    if (!markRowFieldErrors(rowData, editingState.rowIndex)) return;
 
     const rowIndex = editingState.rowIndex;
     setLoadingRowIndex(rowIndex);
@@ -719,7 +770,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [editingState, canSaveEditingRow, resolveEditingRowData, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
+  }, [editingState, markRowFieldErrors, resolveEditingRowData, rows, onChange, dataSourceRequestHandler, apiConfig, t, isSectionEditMode, originalRows, columns, widgetConfig, dispatch]);
 
   const startAdd = useCallback(() => {
     if (isAnyRowEditing) {
@@ -736,7 +787,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   const saveAdd = useCallback(async () => {
     const rowData = resolveNewRowData();
     if (!isAdding || !rowData) return;
-    if (!canSaveNewRow) return;
+    const rowIndex = rows.length;
+    if (!markRowFieldErrors(rowData, rowIndex)) return;
 
     setLoadingRowIndex(-1);
 
@@ -767,7 +819,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } finally {
       setLoadingRowIndex(null);
     }
-  }, [isAdding, resolveNewRowData, canSaveNewRow, rows, onChange, dataSourceRequestHandler, apiConfig, t, columns, widgetConfig, dispatch]);
+  }, [isAdding, resolveNewRowData, markRowFieldErrors, rows, onChange, dataSourceRequestHandler, apiConfig, t, columns, widgetConfig, dispatch]);
 
   const deleteRow = useCallback(async (rowIndex: number) => {
     if (isAnyRowEditing) {
@@ -794,15 +846,19 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         console.warn('[TableWidget] API delete operations require migration to dataSourceRequestHandler pattern');
       }
 
-      if (isSectionEditMode) {
+      const row = rows[rowIndex];
+      const addedInSession =
+        row?.edit_action === 'ADD' ||
+        !(typeof row?.internal_record_id === 'string' && row.internal_record_id.length > 0);
+
+      if (addedInSession || !isSectionEditMode) {
+        onChange(rows.filter((_, i) => i !== rowIndex));
+      } else {
         const newRows = [...rows];
         newRows[rowIndex] = {
           ...newRows[rowIndex],
           edit_action: 'DELETE',
         };
-        onChange(newRows);
-      } else {
-        const newRows = rows.filter((_, i) => i !== rowIndex);
         onChange(newRows);
       }
     } catch (error) {
@@ -985,11 +1041,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       
       const editAction = row?.edit_action;
       if (editAction === 'ADD') {
-        return { color: 'var(--owt-color-success, #16A34A)' };
+        return { color: 'var(--owt-color-success)' };
       } else if (editAction === 'DELETE') {
-        return { color: 'var(--owt-color-error, #B91C1C)', textDecoration: 'line-through' };
+        return { color: 'var(--owt-color-error)', textDecoration: 'line-through' };
       } else if (editAction === 'UPDATE') {
-        return { color: 'var(--owt-color-warning, #F59E0B)' };
+        return { color: 'var(--owt-color-warning)' };
       }
       return {};
     };
@@ -1051,6 +1107,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   const tableWidgetId = `table-widget-${widgetConfig['widget-id']}`;
   const columnSpan = widgetConfig['widget-column-span'] || 2;
   const minWidth = columnSpan * 200; // Each column is 200px
+  const actionsHeaderLabel = toTitleCase(t?.('common.actions') || 'Actions');
 
   return (
     <>
@@ -1109,8 +1166,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         }
         /* Focus ring for table cell inputs */
         .${tableWidgetId} .table-cell-input:focus {
-          box-shadow: 0 0 0 1px var(--owt-widget-input-focus-border, #F07B1A);
-          border-color: var(--owt-widget-input-focus-border, #F07B1A);
+          box-shadow: 0 0 0 1px var(--owt-widget-input-focus-border);
+          border-color: var(--owt-widget-input-focus-border);
         }
 
         /* Keep inputs and action buttons top-aligned when a cell shows validation text */
@@ -1131,12 +1188,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       `}</style>
       <div className={`table-widget-container ${tableWidgetId}`}>
       {confirmationState?.show && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="rounded-lg p-6 max-w-md w-full mx-4" style={{ backgroundColor: 'var(--owt-color-bg, #FFFFFF)' }}>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--owt-color-text, #011627)' }}>
+        <div className={`${themeRoot.className} fixed inset-0 flex items-center justify-center z-50`} style={{ ...themeRoot.style, backgroundColor: 'var(--owt-color-overlay)' }}>
+          <div className="rounded-lg p-6 max-w-md w-full mx-4" style={{ backgroundColor: 'var(--owt-color-bg)' }}>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--owt-color-text)' }}>
               {t?.('table.confirm') || 'Confirm Action'}
             </h3>
-            <p className="mb-6" style={{ color: 'var(--owt-color-text, #011627)' }}>
+            <p className="mb-6" style={{ color: 'var(--owt-color-text)' }}>
               {confirmationState.message}
             </p>
             <div className="flex justify-end gap-3">
@@ -1144,10 +1201,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                 onClick={confirmationState.onCancel}
                 className="px-4 py-2 text-sm font-medium"
                 style={{
-                  borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                  border: '1px solid var(--owt-btn-secondary-border, #C4C4C4)',
-                  backgroundColor: 'var(--owt-btn-secondary-bg, #FFFFFF)',
-                  color: 'var(--owt-btn-secondary-color, #011627)',
+                  borderRadius: 'var(--owt-btn-border-radius)',
+                  border: '1px solid var(--owt-btn-secondary-border)',
+                  backgroundColor: 'var(--owt-btn-secondary-bg)',
+                  color: 'var(--owt-btn-secondary-color)',
                 }}
               >
                 {t?.('common.cancel') || 'Cancel'}
@@ -1156,10 +1213,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                 onClick={confirmationState.onConfirm}
                 className="px-4 py-2 text-sm font-medium"
                 style={{
-                  borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                  border: '1px solid var(--owt-btn-primary-border, #F07B1A)',
-                  backgroundColor: 'var(--owt-color-primary, #F5BB1A)',
-                  color: 'var(--owt-color-bg, #FFFFFF)',
+                  borderRadius: 'var(--owt-btn-border-radius)',
+                  border: '1px solid var(--owt-btn-primary-border)',
+                  backgroundColor: 'var(--owt-color-primary)',
+                  color: 'var(--owt-color-bg)',
                 }}
               >
                 {t?.('table.discard') || 'Discard & Continue'}
@@ -1176,10 +1233,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
             disabled={loadingRowIndex !== null}
             className="px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              borderRadius: 'var(--owt-btn-border-radius, 10px)',
-              border: '1px solid var(--owt-btn-primary-border, #F07B1A)',
-              backgroundColor: 'var(--owt-color-primary, #F5BB1A)',
-              color: 'var(--owt-color-bg, #FFFFFF)',
+              borderRadius: 'var(--owt-btn-border-radius)',
+              border: '1px solid var(--owt-btn-primary-border)',
+              backgroundColor: 'var(--owt-color-primary)',
+              color: 'var(--owt-color-bg)',
             }}
           >
             {t?.('table.addRecord') || 'Add New Record'}
@@ -1187,36 +1244,43 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         </div>
       )}
 
-        <div className="overflow-x-auto border" style={{ borderRadius: 'var(--owt-widget-table-border-radius, 15px)', borderColor: 'var(--owt-widget-table-border-color, #C4C4C4)' }}>
+        <div className="overflow-x-auto border" style={{ borderRadius: 'var(--owt-widget-table-border-radius)', borderColor: 'var(--owt-widget-table-border-color)' }}>
           <table className="min-w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-            <thead style={{ backgroundColor: 'var(--owt-widget-table-header-bg, #F6F6F6)' }}>
-              <tr style={{ borderBottom: '1px solid var(--owt-widget-table-row-divider, #E4E4E4)' }}>
-                {columns.map((col) => (
-                  <th
-                    key={col['column-key']}
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                    style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
-                  >
-                    {tSchema(t, col['column-label'] || col['widget-label'] || col['column-key'])}
-                  </th>
-                ))}
+            <thead style={{ backgroundColor: 'var(--owt-widget-table-header-bg)' }}>
+              <tr style={{ borderBottom: '1px solid var(--owt-widget-table-row-divider)' }}>
+                {columns.map((col) => {
+                  const headerLabel = toTitleCase(
+                    tSchema(t, col['column-label'] || col['widget-label'] || col['column-key']),
+                  );
+                  return (
+                    <th
+                      key={col['column-key']}
+                      className="px-4 py-3 text-left text-sm font-medium max-w-[12rem]"
+                      style={{ color: 'var(--owt-widget-table-header-color)' }}
+                      title={headerLabel}
+                    >
+                      <span className="block min-w-0 truncate">{headerLabel}</span>
+                    </th>
+                  );
+                })}
                 {((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode ? (
                   <th
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"
-                    style={{ color: 'var(--owt-widget-table-header-color, #727474)' }}
+                    className="px-4 py-3 text-left text-sm font-medium max-w-[12rem]"
+                    style={{ color: 'var(--owt-widget-table-header-color)' }}
+                    title={actionsHeaderLabel}
                   >
-                    {t?.('common.actions') || 'Actions'}
+                    <span className="block truncate">{actionsHeaderLabel}</span>
                   </th>
                 ) : null}
               </tr>
             </thead>
-            <tbody style={{ backgroundColor: 'var(--owt-widget-table-body-bg, #FFFFFF)' }}>
+            <tbody style={{ backgroundColor: 'var(--owt-widget-table-body-bg)' }}>
               {rows.length === 0 && !isAdding && (
                 <tr>
                   <td
                     colSpan={columns.length + (((operations.edit || operations.remove) && !isReadonly) || isSectionEditMode ? 1 : 0)}
                     className="px-4 py-6 text-center text-sm"
-                    style={{ color: 'var(--owt-widget-table-empty-color, #727474)' }}
+                    style={{ color: 'var(--owt-widget-table-empty-color)' }}
                   >
                     {t?.('table.noData') || 'No records available.'}
                     {operations.add && !isReadonly && ` ${t?.('table.clickToAdd') || 'Click "Add New Record" to add one.'}`}
@@ -1231,11 +1295,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     key={rowIndex}
                     className={`${isLoading ? 'opacity-50' : ''}${isEditing ? ' table-row-editing' : ''}`}
                     style={{
-                      borderBottom: '1px solid var(--owt-widget-table-row-divider, #E4E4E4)',
+                      borderBottom: '1px solid var(--owt-widget-table-row-divider)',
                       backgroundColor: isEditing
-                        ? 'var(--owt-widget-table-editing-row-bg, #FBE6AA)'
+                        ? 'var(--owt-widget-table-editing-row-bg)'
                         : row.edit_action === 'DELETE'
-                          ? 'var(--owt-widget-table-deleted-row-bg, #FEE2E2)'
+                          ? 'var(--owt-widget-table-deleted-row-bg)'
                           : undefined,
                     }}
                   >
@@ -1256,15 +1320,15 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                             <button
                               type="button"
                               onClick={saveEdit}
-                              disabled={isLoading || !canSaveEditingRow}
+                              disabled={isLoading}
                               className="px-3 py-1 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
                               style={{ 
                                 display: 'inline-block', 
                                 minWidth: '60px',
-                                backgroundColor: 'var(--owt-color-success, #16A34A)',
-                                color: 'var(--owt-color-bg, #FFFFFF)',
+                                backgroundColor: 'var(--owt-color-success)',
+                                color: 'var(--owt-color-bg)',
                                 border: 'none',
-                                borderRadius: 'var(--owt-btn-border-radius, 10px)',
+                                borderRadius: 'var(--owt-btn-border-radius)',
                               }}
                             >
                               {t?.('common.ok') || 'OK'}
@@ -1277,10 +1341,10 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                               style={{
                                 display: 'inline-block',
                                 minWidth: '60px',
-                                borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                                border: '1px solid var(--owt-btn-secondary-border, #C4C4C4)',
-                                backgroundColor: 'var(--owt-btn-secondary-bg, #FFFFFF)',
-                                color: 'var(--owt-btn-secondary-color, #011627)',
+                                borderRadius: 'var(--owt-btn-border-radius)',
+                                border: '1px solid var(--owt-btn-secondary-border)',
+                                backgroundColor: 'var(--owt-btn-secondary-bg)',
+                                color: 'var(--owt-btn-secondary-color)',
                               }}
                             >
                               {t?.('common.cancel') || 'Cancel'}
@@ -1295,8 +1359,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                 disabled={isAnyRowEditing || isLoading}
                                 className="px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{
-                                  borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                                  color: 'var(--owt-color-primary-dark, #F07B1A)',
+                                  borderRadius: 'var(--owt-btn-border-radius)',
+                                  color: 'var(--owt-color-primary-dark)',
                                   backgroundColor: 'transparent',
                                   border: 'none',
                                 }}
@@ -1311,8 +1375,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                 disabled={isAnyRowEditing || isLoading}
                                 className="px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{
-                                  borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                                  color: 'var(--owt-color-error, #B91C1C)',
+                                  borderRadius: 'var(--owt-btn-border-radius)',
+                                  color: 'var(--owt-color-error)',
                                   backgroundColor: 'transparent',
                                   border: 'none',
                                 }}
@@ -1330,7 +1394,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
               {isAdding && newRowData && (
                 <tr
                   className="table-row-editing"
-                  style={{ backgroundColor: 'var(--owt-widget-table-editing-row-bg, #FBE6AA)' }}
+                  style={{ backgroundColor: 'var(--owt-widget-table-editing-row-bg)' }}
                 >
                   {columns.map((col) => (
                     <td key={col['column-key']} className="px-4 py-3 whitespace-nowrap">
@@ -1342,12 +1406,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                       <button
                         type="button"
                         onClick={saveAdd}
-                        disabled={loadingRowIndex === -1 || !canSaveNewRow}
+                        disabled={loadingRowIndex === -1}
                         className="px-3 py-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
-                          borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                          backgroundColor: 'var(--owt-color-success, #16A34A)',
-                          color: 'var(--owt-color-bg, #FFFFFF)',
+                          borderRadius: 'var(--owt-btn-border-radius)',
+                          backgroundColor: 'var(--owt-color-success)',
+                          color: 'var(--owt-color-bg)',
                           border: 'none',
                         }}
                       >
@@ -1355,17 +1419,14 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          setIsAdding(false);
-                          setNewRowData(null);
-                        }}
+                        onClick={cancelEdit}
                         disabled={loadingRowIndex === -1}
                         className="px-3 py-1 text-xs disabled:opacity-50"
                         style={{
-                          borderRadius: 'var(--owt-btn-border-radius, 10px)',
-                          border: '1px solid var(--owt-btn-secondary-border, #C4C4C4)',
-                          backgroundColor: 'var(--owt-btn-secondary-bg, #FFFFFF)',
-                          color: 'var(--owt-btn-secondary-color, #011627)',
+                          borderRadius: 'var(--owt-btn-border-radius)',
+                          border: '1px solid var(--owt-btn-secondary-border)',
+                          backgroundColor: 'var(--owt-btn-secondary-bg)',
+                          color: 'var(--owt-btn-secondary-color)',
                         }}
                       >
                         {t?.('common.cancel') || 'Cancel'}
@@ -1378,7 +1439,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
           </table>
         </div>
       {touched && error.length > 0 && (
-        <p className="text-sm mt-1" style={{ color: 'var(--owt-widget-error-color, #B91C1C)' }}>{error[0]}</p>
+        <p className="text-sm mt-1" style={{ color: 'var(--owt-widget-error-color)' }}>{error[0]}</p>
       )}
       
       </div>

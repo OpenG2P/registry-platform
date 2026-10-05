@@ -2,12 +2,33 @@ import json
 from datetime import timedelta
 from typing import Dict
 
-from jinja2 import Environment, Template
+from jinja2 import ChainableUndefined, Environment, Template, Undefined
 from pyld import jsonld
 from openg2p_fastapi_common.service import BaseService
 
 from ..models.enum import DocumentBucket
 from .document import get_document_handler
+
+
+def _json_default(value):
+    """``tojson`` of a missing value is ``null`` (the default would raise)."""
+    if isinstance(value, Undefined):
+        return None
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def template_environment() -> Environment:
+    """The environment output templates render in: a missing key never raises.
+
+    Records are filtered to the consented data scopes before they are rendered,
+    so a template may meet a field it expects as null, a linked register's
+    records as an empty list, or a key not there at all. A missing key is
+    falsy, iterates as empty, chains (``a.b.c``), prints as "" and is ``null``
+    under ``tojson``.
+    """
+    env = Environment(undefined=ChainableUndefined)
+    env.policies["json.dumps_kwargs"] = {"sort_keys": True, "default": _json_default}
+    return env
 
 
 class TemplateHelper(BaseService):
@@ -21,7 +42,7 @@ class TemplateHelper(BaseService):
 
     def __init__(self):
         super().__init__()
-        self.env = Environment()
+        self.env = template_environment()
 
     def get_template(
         self,

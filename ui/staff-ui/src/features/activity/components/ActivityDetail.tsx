@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import Can from "@/components/shared/Can";
 import { ACTIVITY_ACTIONS } from "@/features/shared/permissions";
 import { errorMessage, useActivityApi } from "../hooks/useActivityApi";
+import { useRegisterHints } from "../hooks/useActivityRegisters";
 import type { Activity, ActivityType, JsonValue } from "../types";
 import { displayValue, fieldLabel, formatDateTime, humanize } from "../utils/labels";
 import { formatEc } from "../utils/ethiopianCalendar";
@@ -31,6 +32,9 @@ export default function ActivityDetail({ registerMnemonic, activity, type, onCha
     const [correction, setCorrection] = useState<Record<string, JsonValue>>(activity.payload);
     const [correctionReason, setCorrectionReason] = useState("");
     const [busy, setBusy] = useState(false);
+    // The register's context fields (e.g. a crop season's plot, year, season and crop):
+    // a correction stays in its context, so they are read-only in the correction form.
+    const { contextFields } = useRegisterHints(registerMnemonic);
 
     const run = async (action: string, payload: Record<string, unknown>, done: string) => {
         try {
@@ -107,7 +111,7 @@ export default function ActivityDetail({ registerMnemonic, activity, type, onCha
                                 type={type}
                                 value={correction}
                                 onChange={setCorrection}
-                                lockedFields={["farmer_id", "plot_id", "crop_year", "season", "crop"]}
+                                lockedFields={contextFields}
                             />
                         )}
                         <label htmlFor="correction-reason" className="text-sm font-medium">Reason for the correction *</label>
@@ -155,6 +159,25 @@ export default function ActivityDetail({ registerMnemonic, activity, type, onCha
                                 <div key={key} className="contents">
                                     <dt className="opacity-70">{humanize(key)}</dt>
                                     <dd className="break-words">{displayValue(undefined, key, value)}</dd>
+                                </div>
+                            ))}
+                        </dl>
+                    </section>
+                )}
+
+                {!!activity.participants?.length && (
+                    <section>
+                        <h3 className="font-medium mb-2">Participants</h3>
+                        <dl className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-4 gap-y-2 text-sm">
+                            {activity.participants.map((p) => (
+                                <div key={`${p.role}:${p.ref_id}`} className="contents">
+                                    <dt className="opacity-70">{humanize(p.role)}{p.is_primary ? " (primary)" : ""}</dt>
+                                    <dd>
+                                        {p.ref_id}{" "}
+                                        <span className="opacity-70">
+                                            · {p.ref_kind === "LOCAL" ? `${p.ref_register ?? "this registry"} record` : p.ref_system ?? "external"}
+                                        </span>
+                                    </dd>
                                 </div>
                             ))}
                         </dl>

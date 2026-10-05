@@ -1104,7 +1104,7 @@ class G2PScoreComputeService(BaseService):
         Import a domain model class from the extensions package.
 
         Args:
-            register_mnemonic: The register mnemonic (e.g. ``"Farmer"``).
+            register_mnemonic: The register mnemonic (e.g. ``"Individual"``).
             class_prefix: Prefix used to compose the class name
                           (e.g. ``"G2PRegister"`` or ``"G2PIntakeForm"``).
 

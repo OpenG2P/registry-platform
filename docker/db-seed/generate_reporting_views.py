@@ -3,16 +3,16 @@
 
 Why this exists
 ---------------
-Every registry hand-writes a `reporting_views.sql`. The Farmer Registry's is 468
-lines, the National Social Registry's 272, and the block that unpacks geography —
+Every registry hand-writes a `reporting_views.sql`. One variant's is 468 lines,
+another's 272, and the block that unpacks geography —
 the one part that is pure platform mechanics, identical in intent, deliberately
 country-agnostic — appears in both and has already DRIFTED between them. That is
 the signature of a missing shared layer, and it is the reason a new registry
 starts its reporting from a blank file.
 
 It also fails quietly in a worse way: a hand-written file covers the entities
-somebody thought of. The Farmer Registry gave views to farmer, land and crop, and
-rolled livestock up into a boolean. So "how many farmers keep livestock" had an
+somebody thought of. One registry gave views to its person, land and crop
+entities, and rolled livestock up into a boolean. So "how many keep livestock" had an
 answer and "how many cattle versus goats" had none — not because anyone decided
 it did not matter, but because a node of the entity tree was skipped and nothing
 checks for that.
@@ -31,8 +31,7 @@ ONLY the mechanical part. A registry's reporting layer splits cleanly in two:
     registry's own SQL, and this tool leaves them alone: any view named in
     `custom:` is skipped entirely.
 
-So the Farmer Registry keeps its three semantic views and stops maintaining the
-other eight.
+So a registry keeps its few semantic views and stops maintaining the rest.
 
 Why it can be shared at all
 ---------------------------
@@ -50,12 +49,12 @@ matters most is the one with nothing in it.
 
 That was learned the hard way, twice:
 
-  * DEPTH came from MAX(ordinality) over a registered farmer's own hierarchy.
+  * DEPTH came from MAX(ordinality) over a registered record's own hierarchy.
     On a production install, seeded empty and loaded by the country afterwards,
     there is nothing to measure: every view was created with no geo columns at
     all, and looked fine because the views existed. Depth and level labels now
-    come from Master Data's g2p_geo_levels, which knows the country before the
-    first record does.
+    come from Master Data (its geo levels, read through MDS's API), which
+    knows the country before the first record does.
 
   * The TREE was discovered by counting which parent a child's links resolve
     into. Same failure, same install: no rows, no edges, every entity emitted
@@ -69,7 +68,7 @@ an empty register has nothing to say — when they disagree.
 
 That check matters because a wrong parent is a join returning nothing, which is
 indistinguishable from an empty table. `g2p_register_scores` is the live example:
-it resolved 100% to farmers in one deployment's bulk data and 100% to households
+it resolved 100% to persons in one deployment's bulk data and 100% to households
 in another's sample data. It is polymorphic — it carries `register_id`, and
 Master Data's register definitions name the subject. Declared, it is simply
 correct; inferred, it silently returns nothing.
@@ -248,8 +247,8 @@ def history_tables(cur):
 def register_definitions(cur):
     """register_id -> mnemonic, RP's own map of what each register is.
 
-    Populated in a real install (Farmer, Household, Land, Crop, Livestock,
-    FarmInputs, MembershipDetails, HouseholdMember, Score) and empty in some
+    Populated in a real install (e.g. Individual, Household, Land, Crop,
+    Livestock, HouseholdMember, Score) and empty in some
     partially-seeded ones, so every use of it degrades rather than depends.
     """
     try:
@@ -280,7 +279,7 @@ def declared_parents(cfg, tables, log):
     exists and reviewable in a diff.
 
         tree:
-          land:      {parent: farmer}
+          land:      {parent: person}
           crop:      {parent: land}
           score:     {parent: household}
 
@@ -397,7 +396,7 @@ def discover_parents(cur, tables, definitions, log):
                 f"({n:,} rows, {hits[0][1]:.0%})")
         else:
             # More than one table takes every row. Either genuinely polymorphic
-            # (scores hang off farmers in one deployment and households in
+            # (scores hang off persons in one deployment and households in
             # another) or one candidate is a superset of the other. Emit all of
             # them as LEFT JOINs with a discriminator; do NOT pick.
             parents[child] = [h[0] for h in hits]
@@ -462,45 +461,32 @@ def mds_geo_levels(log):
     measure. Every view came out with no geo columns at all — and looked fine,
     because the views existed.
 
-    Master Data holds the country pack and is seeded before the registry (the
-    db-seed job depends on it), so it always knows the answer, whether or not a
-    single record has been registered.
+    Master Data holds the country pack and is seeded before the registry, so it
+    always knows the answer, whether or not a single record has been registered.
 
-    Ordered by walking parent -> child, never by level_id: the ids are opaque
-    and their sort order is not the hierarchy.
+    Read through MDS's API (``/catalogue/get_geo_levels``, via mds_client.py and
+    the MDS_* env), never its database: this is the only thing read from Master
+    Data, and only at generation time. The views it creates read nothing but the
+    registry's own tables — each record's geo_code_hierarchy_json, unpacked by
+    position — plus <prefix>geo_levels, a VALUES list of the level names taken
+    here. Ordered by walking parent -> child, never by level_id: the ids are
+    opaque and their sort order is not the hierarchy.
     """
-    host = os.environ.get("MDS_PGHOST") or os.environ.get("PGHOST", "localhost")
     try:
-        conn = psycopg2.connect(
-            host=host,
-            port=int(os.environ.get("MDS_PGPORT", os.environ.get("PGPORT", 5432))),
-            dbname=os.environ.get("MDS_DB", "master_data"),
-            user=os.environ.get("MDS_PGUSER", os.environ.get("PGUSER", "")),
-            password=os.environ.get("MDS_PGPASSWORD", os.environ.get("PGPASSWORD")),
-        )
-    except psycopg2.Error as exc:
-        log(f"[reporting] cannot reach Master Data at {host}: {exc}")
+        from mds_client import MdsClient, MdsError
+    except ImportError as exc:
+        log(f"[reporting] mds_client.py is not available ({exc}) — no hierarchy")
+        return []
+    client = MdsClient.from_env()
+    if client is None:
+        log("[reporting] MDS_API_URL is not set — cannot read the hierarchy")
         return []
     try:
-        with conn.cursor() as c:
-            c.execute("SELECT level_id, level_mnemonic, parent_level_id "
-                      "FROM g2p_geo_levels")
-            rows = c.fetchall()
-    except psycopg2.Error as exc:
-        log(f"[reporting] Master Data has no geo hierarchy: {exc}")
+        levels = client.geo_levels()
+    except MdsError as exc:
+        log(f"[reporting] cannot read the geo hierarchy from Master Data: {exc}")
         return []
-    finally:
-        conn.close()
-
-    by_parent = {}
-    for level_id, mnemonic, parent in rows:
-        by_parent.setdefault(parent, []).append((level_id, mnemonic))
-    order, cursor = [], None
-    while by_parent.get(cursor):
-        level_id, mnemonic = by_parent[cursor][0]
-        order.append(mnemonic)
-        cursor = level_id
-    return order
+    return [str(level.get("level_mnemonic") or level.get("level_id")) for level in levels]
 
 
 def view_columns(cur, view) -> set:
@@ -523,7 +509,7 @@ def geo_cte(table, depth):
     """Unpack this table's own hierarchy, BY POSITION.
 
     Never by level name: "region" is Ethiopian. Position is the only thing that
-    means the same in every country pack, and fr_rpt_geo_levels carries the
+    means the same in every country pack, and <prefix>geo_levels carries the
     deployment's own labels for whoever has to title a column.
     """
     lines = [f"        x.{PK} AS _id"]
@@ -596,13 +582,13 @@ def drop_stmt(view: str) -> str:
 
 
 # Aggregates a roll-up may declare. `any`/`all` map to bool_or/bool_and because
-# "does this farmer hold any titled parcel" is the shape these questions come in.
+# "does this person hold any titled parcel" is the shape these questions come in.
 AGGREGATES = {"count": None, "sum": "sum", "max": "max", "min": "min",
               "avg": "avg", "any": "bool_or", "all": "bool_and"}
 
 
 def rollup_cte(child_table, child_cols, spec, log, label):
-    """Summarise a child onto its parent — "parcels per farmer", "head of
+    """Summarise a child onto its parent — "parcels per person", "head of
     livestock per holding".
 
     Reads the child's BASE TABLE, never the child's view. That is not an
@@ -648,7 +634,7 @@ def rollup_cte(child_table, child_cols, spec, log, label):
         return None, []
     body = ",\n           ".join(parts)
     # record_status is filtered here and only here: a withdrawn parcel should not
-    # be counted in a farmer's holding, but the parcel's own row still belongs in
+    # be counted in a person's holding, but the parcel's own row still belongs in
     # the parcel view so somebody can see that it was withdrawn.
     active = ""
     return (f"    SELECT {FK} AS _id,\n           {body}\n"
@@ -816,7 +802,7 @@ def emit_entity(cur, table, cols, parents, prefix, custom, definitions, log,
         ctes.append(f"{cname} AS (\n{body}\n)")
         joins.append(f"LEFT JOIN {cname} ON {cname}._id = e.{PK}")
         for alias in aliases:
-            # COALESCE on counts: a farmer with no parcels has none, not an
+            # COALESCE on counts: a person with no parcels has none, not an
             # unknown number, and NULL would drop them out of every sum and
             # average downstream.
             zero = alias in (spec.get("count"), ) or "count" in alias
@@ -930,7 +916,7 @@ def emit_geo_levels(levels, prefix):
     """This deployment's level names, so a dashboard can title geo_1..geo_N.
 
     From MDS, not from the register. The hand-written version derived these by
-    unpacking a farmer's own hierarchy, so an empty registry produced an empty
+    unpacking a record's own hierarchy, so an empty registry produced an empty
     lookup and nothing could name its own columns.
 
     A view over VALUES rather than a table: it is four rows of metadata, it must
@@ -961,8 +947,8 @@ def load_config(path, log):
     Kept deliberately small: the point of this tool is that a registry declares
     what cannot be inferred and nothing else.
 
-      prefix:  fr_rpt_               view name prefix
-      custom:  [farmer, land, crop]  hand-written; do not generate these
+      prefix:  sr_rpt_               view name prefix
+      custom:  [person, land, crop]  hand-written; do not generate these
       views:   {farm_inputs: input}  override a derived entity name
       pii:
         deny:  [caregiver_notes]     withhold as well
@@ -980,7 +966,7 @@ def load_config(path, log):
       filter:                        which rows belong in the view at all
         crop: "e.record_status = 'ACTIVE'"
       rollups:                       figures summarised UP from a child
-        farmer:
+        person:
           land:
             count: parcel_count
             sum:   {land_size: total_land}
@@ -1065,7 +1051,7 @@ def verify(cur, views, inherited, log) -> int:
 def main() -> int:
     prefix = os.environ.get("REPORTING_PREFIX", "")
     if not prefix:
-        print("[reporting] REPORTING_PREFIX is not set (e.g. fr_rpt_) — nothing "
+        print("[reporting] REPORTING_PREFIX is not set (e.g. sr_rpt_) — nothing "
               "to generate", file=sys.stderr)
         return 1
     cfg_path = os.environ.get("REPORTING_CONFIG", "/seed/reporting.yaml")
@@ -1111,7 +1097,7 @@ def main() -> int:
             f"{' > '.join(levels)}")
     else:
         log("[reporting] WARNING: no hierarchy from Master Data — views will "
-            "carry no geography. Check MDS_PGHOST / MDS_DB.")
+            "carry no geography. Check MDS_API_URL / MDS_TOKEN_URL / MDS_CLIENT_ID.")
 
     tables = register_tables(cur)
     definitions = register_definitions(cur)

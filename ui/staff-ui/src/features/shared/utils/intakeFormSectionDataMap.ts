@@ -20,21 +20,39 @@ function isListSectionEntry(
 
 function withDocumentsMap(
     records: RegisterFlattenedRecord[],
-    documentsMap: Record<string, string>
+    documentsMap: Record<string, unknown>
 ): RegisterFlattenedRecord[] {
     return withMappedDocuments(records).map((record) => ({
         ...record,
         documents: {
-            ...((record.documents as Record<string, string> | undefined) ?? {}),
+            ...((record.documents as Record<string, unknown> | undefined) ?? {}),
             ...documentsMap,
         },
     }));
 }
 
 /**
- * Intake submissions can return multiple sectionpayloads for the same section_register_id.
+ * Intake submissions can return multiple section payloads for the same section_register_id.
  * List sections append records; non-list sections merge field objects.
  */
+/** Prefer the register section_id; crops still use the intake section_id or child register. */
+export function pickSubmissionSectionPayload(
+    payloads: SectionPayload[] | undefined | null,
+    registerSectionId: string,
+    sectionRegisterId?: string | null,
+): SectionPayload | undefined {
+    if (!payloads?.length || !registerSectionId) return undefined;
+    return (
+        payloads.find((payload) => payload.section_id === registerSectionId) ||
+        payloads.find((payload) => payload.section_id === sectionRegisterId) ||
+        payloads.find(
+            (payload) =>
+                !!sectionRegisterId && payload.section_register_id === sectionRegisterId,
+        ) ||
+        undefined
+    );
+}
+
 export function buildIntakeSectionsDataMap(
     sections: SectionPayload[] | undefined | null,
 ): SectionDataMap {
@@ -62,8 +80,8 @@ export function buildIntakeSectionsDataMap(
                     ...existing,
                     ...mapped[0],
                     documents: {
-                        ...((existing.documents as Record<string, string> | undefined) ?? {}),
-                        ...((mapped[0].documents as Record<string, string> | undefined) ?? {}),
+                        ...((existing.documents as Record<string, unknown> | undefined) ?? {}),
+                        ...((mapped[0].documents as Record<string, unknown> | undefined) ?? {}),
                     },
                 };
             } else if (!existing) {

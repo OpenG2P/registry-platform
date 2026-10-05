@@ -6,10 +6,10 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import get_async_session_maker
 
 from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -104,7 +104,7 @@ class G2PAweWebhookService(BaseService):
                 message=G2PRegistryErrorCodes.AWE_WEBHOOK_EVENT_ID_MISMATCH.value[0],
             )
 
-        session_maker = async_sessionmaker(dbengine.get(), expire_on_commit=False)
+        session_maker = get_async_session_maker()
         async with session_maker() as session:
             existing = await session.get(G2PAweReqEvent, event.event_id)
             if existing and existing.applied:

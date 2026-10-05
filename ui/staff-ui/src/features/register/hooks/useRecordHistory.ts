@@ -12,6 +12,7 @@ export const useRecordHistoryDates = (params: useRecordHistoryDatesParams) => {
         loading: loadingDates,
     } = useFetch<{ dates: string[] }>({
         url: "/api/register/get-version-dates",
+        enabled: !!params.register_id && !!params.internal_record_id && !!params.tab_id,
         options: {
             method: "POST",
             body: JSON.stringify({
@@ -41,7 +42,7 @@ export const useRecordHistoryChanges = (params: useRecordHistoryChangesParams) =
         loading: loadingChanges,
     } = useFetch<any>({
         url: "/api/register/get-versions-for-date",
-        enabled: !!params.truncated_created_date,
+        enabled: !!params.register_id && !!params.internal_record_id && !!params.tab_id && !!params.truncated_created_date,
         options: {
             method: "POST",
             body: JSON.stringify({

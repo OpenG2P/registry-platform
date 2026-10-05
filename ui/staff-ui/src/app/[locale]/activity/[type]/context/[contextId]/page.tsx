@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 import { BreadcrumbBar } from '@/components/shared';
+import { Link } from '@/i18n/navigation';
 import Can from '@/components/shared/Can';
 import { ACTIVITY_ACTIONS } from '@/features/shared/permissions';
 import { errorMessage, useActivityApi } from '@/features/activity/hooks/useActivityApi';
@@ -18,7 +19,7 @@ import { asGeoDimensions, formatLocation, locationTooltip } from '@/features/act
 
 const HIDDEN = new Set([
     'context_id', 'context_key', 'subject_type', 'projected_at', 'geo_code_hierarchy_json', 'last_activity_id',
-    'geo_dimensions', 'geo_lowest_level_value_id',
+    'geo_dimensions', 'geo_lowest_level_value_id', 'replaces_context_id', 'replaced_by_context_id',
 ]);
 
 /** One context (e.g. a crop season): current state, full timeline, and recording the next activity. */
@@ -86,6 +87,16 @@ export default function ActivityContextPage() {
                     </div>
                     {context?.status === 'CLOSED' && (
                         <p className="text-sm rounded-md bg-secondary-first p-2">Closed {formatDate(context.closed_at)} by {context.closed_by}: {context.close_reason}</p>
+                    )}
+                    {(context?.replaces_context_id || context?.replaced_by_context_id) && (
+                        <p className="text-sm rounded-md bg-secondary-first p-2 flex flex-col gap-1">
+                            {context.replaced_by_context_id && (
+                                <span>Replaced by <Link className="underline" href={`/activity/${type}/context/${context.replaced_by_context_id}`}>a later context</Link> (e.g. the crop was changed).</span>
+                            )}
+                            {context.replaces_context_id && (
+                                <span>Replaces <Link className="underline" href={`/activity/${type}/context/${context.replaces_context_id}`}>an earlier context</Link>.</span>
+                            )}
+                        </p>
                     )}
                     <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
                         {location && (

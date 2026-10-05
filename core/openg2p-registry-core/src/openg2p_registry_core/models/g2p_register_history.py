@@ -1,12 +1,19 @@
 import enum
 import uuid
 
-from sqlalchemy import Boolean, DateTime, String, Text, Date
+from sqlalchemy import Boolean, Date, DateTime, Float, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from openg2p_fastapi_common.models import BaseORMModel
 
-from .enum import MaritalStatusEnum, GenderEnum, RecordStatusEnum, ShapeTypeEnum, ChangeRequestSourceEnum
+from .enum import (
+    ChangeRequestSourceEnum,
+    DocumentHistoryEventTypeEnum,
+    GenderEnum,
+    MaritalStatusEnum,
+    RecordStatusEnum,
+    ShapeTypeEnum,
+)
 
 
 class G2PTableHistory(BaseORMModel):
@@ -80,9 +87,9 @@ class G2PPersonHistory(BaseORMModel):
 class G2PGeoHistory(BaseORMModel):
     __abstract__ = True
 
-    latitude: Mapped[str] = mapped_column(String, nullable=True)
-    longitude: Mapped[str] = mapped_column(String, nullable=True)
-    altitude: Mapped[str] = mapped_column(String, nullable=True)
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    altitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     plus_code: Mapped[str] = mapped_column(String, nullable=True)
     address_line_1: Mapped[str] = mapped_column(String, nullable=True)
     address_line_2: Mapped[str] = mapped_column(String, nullable=True)
@@ -99,7 +106,7 @@ class G2PGeoShapeHistory(BaseORMModel):
     shape_coordinates_json: Mapped[str] = mapped_column(JSONB, nullable=True)
 
 class G2PRegisterDocumentHistory(BaseORMModel):
-    """Audit trail of documents promoted to live register sections (references g2p_registry_documents)."""
+    """ADD/REMOVE audit trail for live register-section document links."""
     __tablename__ = "g2p_register_document_history"
 
     document_history_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -107,6 +114,12 @@ class G2PRegisterDocumentHistory(BaseORMModel):
     section_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     document_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     label: Mapped[str] = mapped_column(String, nullable=False)
+    event_type: Mapped[DocumentHistoryEventTypeEnum] = mapped_column(
+        String,
+        nullable=False,
+        default=DocumentHistoryEventTypeEnum.ADD.value,
+        server_default=DocumentHistoryEventTypeEnum.ADD.value,
+    )
     # Origin of the promotion: change request approval or intake form ingestion
     change_request_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
     submission_id: Mapped[str] = mapped_column(String, nullable=True, index=True)

@@ -1,9 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TopBar } from '@/components/shared';
-import { useFetch, usePagination } from '@/shared/hooks';
-import { useRuntimeConfig } from '@/context/RuntimeConfigContext';
+import { useFetch, usePagination, usePageSize } from '@/shared/hooks';
 import { useRbac } from '@/context/RbacContext';
 import { useTranslations } from 'next-intl';
 import { toast } from 'react-toastify';
@@ -25,15 +24,17 @@ const AwePolicyConfigurationPage = () => {
     const t = useTranslations();
     const [modalType, setModalType] = useState<'add' | 'edit' | 'view' | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = usePageSize();
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize]);
     const [showPopup, setShowPopup] = useState(false);
     const [selectedItem, setSelectedItem] = useState<AwePolicyConfiguration | null>(null);
 
     const { execute: deleteConfig } = useFetch();
-    const { config } = useRuntimeConfig();
     const { can } = useRbac();
     const canCreate = can(CONFIGURATION_AWE_POLICY_ACTIONS.create);
-
-    const pageSize = config.pageSize || 100;
 
     const { awePolicyConfigurations, pagination, loading, refresh } = useAllAwePolicyConfigurations(
         currentPage,
@@ -55,7 +56,7 @@ const AwePolicyConfigurationPage = () => {
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage,
-        pageSize: config.pageSize || 10,
+        pageSize,
         currentCount: awePolicyConfigurations.length,
     });
 

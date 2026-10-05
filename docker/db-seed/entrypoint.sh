@@ -15,18 +15,9 @@ set -e
 #   TEMPLATE_BUCKET_NAME, TEMPLATES_DIR — default bucket "templates" (DocumentBucket.TEMPLATES)
 #   IMAGE_BUCKET_NAME, IMAGES_DIR — default bucket "documents" (DocumentBucket.DOCUMENTS)
 #
-# Master-data database (geo reference data; the master-data service is a generic
-# commons service and ships no seed data, so geo — which is registry sample /
-# reference data — is loaded here into the master_data DB over the network):
-#   MD_PGHOST, MD_PGPORT, MD_PGDATABASE, MD_PGUSER, MD_PGPASSWORD
-#   LOAD_GEO_DATA — "true" to load the geo hierarchy into master_data (default:
-#                   "false"). Enable alongside LOAD_SAMPLE_DATA so the geo ids the
-#                   registry rows derive already resolve in master_data.
-#
-#   SYNC_GEO_WIDGETS  — "true" to match the register's geo dropdowns to the
-#                       hierarchy Master Data actually holds (default: "false").
-#                       An extension's metadata hard-codes level names and depth;
-#                       a country whose pack disagrees gets empty dropdowns.
+# Master Data (read only, through its API — never its database; seeding never
+# writes Master Data). Used by a variant's loaders via /seed/mds_client.py:
+#   MDS_API_URL, MDS_TOKEN_URL, MDS_CLIENT_ID, MDS_CLIENT_SECRET
 #
 # AWE database (implementation extension data; optional):
 #   AWE_DB_SEED_ENABLED — "true" to seed the AWE Postgres database
@@ -37,8 +28,6 @@ set -e
 # ──────────────────────────────────────────────────────────────
 
 PGPORT="${PGPORT:-5432}"
-LOAD_GEO_DATA="${LOAD_GEO_DATA:-false}"
-SYNC_GEO_WIDGETS="${SYNC_GEO_WIDGETS:-false}"
 LOAD_SAMPLE_DATA="${LOAD_SAMPLE_DATA:-false}"
 LOAD_IMAGES="${LOAD_IMAGES:-false}"
 LOAD_TEMPLATES="${LOAD_TEMPLATES:-false}"
@@ -73,11 +62,12 @@ run_sql_files() {
   fi
 
   echo "[db-seed] Running ${label} on ${db_name}@${db_host}:${db_port} ..."
-  PGHOST="$db_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user" PGPASSWORD="$db_password"
-  export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+  # Prefix PG* for this psql only. Exporting would leak AWE DSN into later
+  # Python loaders that read PGDATABASE as the registry.
   for f in $sql_files; do
     echo "[db-seed]   -> $(basename "$f")"
-    psql -v ON_ERROR_STOP=0 -f "$f"
+    PGHOST="$db_host" PGPORT="$db_port" PGDATABASE="$db_name" PGUSER="$db_user" PGPASSWORD="$db_password" \
+      psql -v ON_ERROR_STOP=0 -f "$f"
   done
   echo "[db-seed] ${label} completed."
 }
@@ -101,18 +91,22 @@ run_callback_secret() {
   AWE_CALLBACK_SECRET_ID="${AWE_CALLBACK_SECRET_ID:-registry}"
   echo "[db-seed]   -> callback_secret (AWE DB, from template) id=${AWE_CALLBACK_SECRET_ID} caller_service=${AWE_CALLBACK_CALLER_SERVICE}"
   export AWE_CALLBACK_HMAC_SECRET AWE_CALLBACK_SECRET_ID AWE_CALLBACK_CALLER_SERVICE
-  PGHOST="${AWE_PGHOST}" PGPORT="${AWE_PGPORT:-5432}" PGDATABASE="${AWE_PGDATABASE}" \
-    PGUSER="${AWE_PGUSER}" PGPASSWORD="${AWE_PGPASSWORD}" \
-    envsubst '${AWE_CALLBACK_HMAC_SECRET} ${AWE_CALLBACK_SECRET_ID} ${AWE_CALLBACK_CALLER_SERVICE}' < "$tpl" | psql -v ON_ERROR_STOP=0 -f -
+  # The PG* overrides must sit on psql, the LAST command of the pipeline. Put on
+  # envsubst they only scope that command, and psql inherits the registry PG*
+  # values: the callback_secret row then lands in the registry DB and AWE
+  # rejects every webhook signature.
+  envsubst '${AWE_CALLBACK_HMAC_SECRET} ${AWE_CALLBACK_SECRET_ID} ${AWE_CALLBACK_CALLER_SERVICE}' < "$tpl" \
+    | PGHOST="${AWE_PGHOST}" PGPORT="${AWE_PGPORT:-5432}" PGDATABASE="${AWE_PGDATABASE}" \
+      PGUSER="${AWE_PGUSER}" PGPASSWORD="${AWE_PGPASSWORD}" \
+      psql -v ON_ERROR_STOP=0 -f -
 }
 
 echo "============================================="
 echo " OpenG2P Registry DB Seed"
 echo " Extension : ${EXTENSION_FOLDER:-unknown}"
 echo " Registry DB : ${PGDATABASE}@${PGHOST}:${PGPORT}"
-echo " Master DB   : ${MD_PGDATABASE:-unset}@${MD_PGHOST:-unset}:${MD_PGPORT:-5432}"
+echo " Master Data : ${MDS_API_URL:-unset} (API)"
 echo " AWE DB seed : ${AWE_DB_SEED_ENABLED}"
-echo " Geo data    : ${LOAD_GEO_DATA}"
 echo " Sample data : ${LOAD_SAMPLE_DATA}"
 echo " Images      : ${LOAD_IMAGES}"
 echo " Templates   : ${LOAD_TEMPLATES}"
@@ -132,25 +126,7 @@ for name in $(echo "$OPTIONAL_SEEDS" | tr ',' ' '); do
   fi
 done
 
-# 2. Optionally load geo reference data into the master_data DB. Must run before
-#    sample data so the geo ids derived by load_sample_data.py already resolve.
-if [ "$LOAD_GEO_DATA" = "true" ]; then
-  echo "[db-seed] Loading geo data into master_data ..."
-  python3 /seed/load_geo_data.py
-else
-  echo "[db-seed] Skipping geo data (LOAD_GEO_DATA=${LOAD_GEO_DATA})."
-fi
-
-# 2b. Optionally match the register's geo dropdowns to the loaded country. After
-#     meta_data, since it rewrites what meta_data just inserted.
-if [ "$SYNC_GEO_WIDGETS" = "true" ]; then
-  echo "[db-seed] Syncing geo widgets to the loaded country hierarchy ..."
-  python3 /seed/sync_geo_widgets.py
-else
-  echo "[db-seed] Skipping geo-widget sync (SYNC_GEO_WIDGETS=${SYNC_GEO_WIDGETS})."
-fi
-
-# 3. Optionally load sample data.
+# 2. Optionally load sample data.
 #
 # The loader is NOT part of this image. Sample data is written against a specific
 # register's schema — the tables and the seed JSON both belong to a variant — so
@@ -171,7 +147,7 @@ else
   echo "[db-seed] Skipping sample data (LOAD_SAMPLE_DATA=${LOAD_SAMPLE_DATA})."
 fi
 
-# 4. Optionally upload profile images to MinIO. Variant-supplied, same as above:
+# 3. Optionally upload profile images to MinIO. Variant-supplied, same as above:
 #    the images are linked to the sample records that loader created.
 if [ "$LOAD_IMAGES" = "true" ]; then
   if [ -f /seed/upload_images.py ]; then
@@ -187,7 +163,7 @@ else
   echo "[db-seed] Skipping image upload (LOAD_IMAGES=${LOAD_IMAGES})."
 fi
 
-# 5. Optionally upload Jinja templates to MinIO (object key = filename)
+# 4. Optionally upload Jinja templates to MinIO (object key = filename)
 if [ "$LOAD_TEMPLATES" = "true" ]; then
   echo "[db-seed] Uploading templates to MinIO ..."
   python3 /seed/upload_templates.py
@@ -195,7 +171,7 @@ else
   echo "[db-seed] Skipping template upload (LOAD_TEMPLATES=${LOAD_TEMPLATES})."
 fi
 
-# 6. Optionally seed AWE database (policies, stages, callback_secret)
+# 5. Optionally seed AWE database (policies, stages, callback_secret)
 if [ "$AWE_DB_SEED_ENABLED" = "true" ]; then
   if [ -z "$AWE_PGDATABASE" ] || [ -z "$AWE_PGHOST" ]; then
     echo "[db-seed] AWE_DB_SEED_ENABLED but AWE DB env incomplete — skipping AWE seed."

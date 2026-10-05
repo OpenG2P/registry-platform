@@ -1,5 +1,7 @@
 from .g2p_payload_enricher_factory import G2PPayloadEnricherFactory
 from .g2p_payload_enricher_interface import G2PPayloadEnricherInterface
+from .g2p_id_generator_factory import G2PIdGeneratorFactory
 from .g2p_id_generator_interface import G2PIdGeneratorInterface, IdAffix
+from .g2p_register_domain_factory import G2PRegisterDomainFactory
 from .g2p_score_compute_interface import G2PScoreComputeInterface
 from .g2p_score_compute_factory import G2PScoreComputeFactory

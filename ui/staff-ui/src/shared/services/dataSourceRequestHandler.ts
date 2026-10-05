@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "react-toastify";
 import { withCsrfHeaders } from '@/shared/utils/csrf';
 
 export type DataSourceRequestHandler = (
@@ -31,22 +32,33 @@ export const dataSourceRequestHandler: DataSourceRequestHandler = async (
             body: JSON.stringify(params),
         });
 
-        if (!response.ok) {
-            throw new Error('There was an issue fetching data. Please try again.');
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok || data?.response_header?.response_status === 'ERROR') {
+            const errorMessage =
+                data?.statusText ||
+                data?.errors?.[0]?.message ||
+                data?.response_header?.response_error_message ||
+                response.statusText ||
+                'There was an issue fetching data. Please try again.';
+            const code = data?.code || data?.errors?.[0]?.code;
+            toast.error(code ? `${code} - ${errorMessage}` : errorMessage, {
+                position: 'top-right',
+                autoClose: 6000,
+            });
+            return null;
         }
 
-        const data = await response.json();
-
-        if (data.response_header?.response_status === 'ERROR') {
-            throw new Error('There was an issue fetching data. Please try again.');
-        }
-
-        if (data.response_body?.response_payload !== undefined) {
+        if (data?.response_body?.response_payload !== undefined) {
             return data.response_body.response_payload;
         }
 
         return data;
     } catch (error) {
-        throw new Error('There was an issue fetching data. Please try again.');
+        toast.error(error instanceof Error ? error.message : 'There was an issue fetching data. Please try again.', {
+            position: 'top-right',
+            autoClose: 6000,
+        });
+        return null;
     }
 };

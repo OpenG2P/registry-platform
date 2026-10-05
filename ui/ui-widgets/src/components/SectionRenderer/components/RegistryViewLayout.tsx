@@ -6,7 +6,6 @@ import { rightArrowIcon } from '../../../assets';
 import { useWidgetContext } from '../../WidgetProvider';
 import { tSchema } from '../../../utils/tSchema';
 import { PanelGrid } from './PanelGrid';
-import { CRViewFooter } from './CRViewFooter';
 
 export interface RegistryViewLayoutProps {
   mode: SectionMode;
@@ -18,12 +17,6 @@ export interface RegistryViewLayoutProps {
   onValueChange?: UseBaseWidgetOptions['onValueChange'];
   changeRequestType?: 'new' | 'old';
   showChangeRequestLabel?: boolean;
-  crViewData: {
-    createdBy?: unknown;
-    createdDate?: unknown;
-    approvedBy?: unknown;
-    approvedDate?: unknown;
-  } | null;
   effectiveHideEditButton: boolean;
   isEditMode: boolean;
   onEdit: () => void;
@@ -39,7 +32,6 @@ export const RegistryViewLayout = ({
   onValueChange,
   changeRequestType,
   showChangeRequestLabel = true,
-  crViewData,
   effectiveHideEditButton,
   isEditMode,
   onEdit,
@@ -72,22 +64,21 @@ export const RegistryViewLayout = ({
                 borderRadius: '4px',
                 fontSize: '12px',
                 fontWeight: 600,
-                textTransform: 'uppercase',
                 letterSpacing: '0.5px',
                 backgroundColor:
                   changeRequestType === 'new'
-                    ? 'var(--owt-color-success, #16A34A)'
-                    : 'var(--owt-color-error-light, #FEE2E2)',
+                    ? 'var(--owt-color-success)'
+                    : 'var(--owt-color-error-light)',
                 color:
                   changeRequestType === 'new'
-                    ? 'var(--owt-color-bg, #FFFFFF)'
-                    : 'var(--owt-color-error, #B91C1C)',
+                    ? 'var(--owt-color-bg)'
+                    : 'var(--owt-color-error)',
                 whiteSpace: 'nowrap',
                 boxShadow:
-                  changeRequestType === 'new' ? '0 2px 4px rgba(40, 167, 69, 0.3)' : 'none',
+                  changeRequestType === 'new' ? '0 2px 4px color-mix(in srgb, var(--owt-color-success) 30%, transparent)' : 'none',
               }}
             >
-              {changeRequestType === 'new' ? 'New' : 'Old'}
+              {changeRequestType === 'new' ? 'NEW' : 'OLD'}
             </span>
           )}
         </div>
@@ -95,7 +86,6 @@ export const RegistryViewLayout = ({
       <div
         id={gridId}
         className="section-panels"
-        style={mode === 'RegistryView' && effectiveHideEditButton ? { paddingBottom: '30px' } : {}}
       >
         <PanelGrid
           panels={editableSection.panels}
@@ -104,38 +94,36 @@ export const RegistryViewLayout = ({
           onValueChange={onValueChange}
           wrapInContainer={false}
         />
-        {mode === 'CRView' && crViewData && (
-          <CRViewFooter
-            createdBy={crViewData.createdBy}
-            createdDate={crViewData.createdDate}
-            approvedBy={crViewData.approvedBy}
-            approvedDate={crViewData.approvedDate}
-          />
-        )}
-        {mode === 'RegistryView' && !effectiveHideEditButton && (
-          <hr
-            className="w-full"
-            style={{
-              height: '1px',
-              marginTop: !isEditMode ? '10px' : 0,
-              marginBottom: '14px',
-              border: 'none',
-              backgroundColor: 'var(--owt-color-border, #C4C4C4)',
-            }}
-          />
-        )}
-        {mode === 'RegistryView' && !isEditMode && !effectiveHideEditButton && (
-          <div className="flex justify-center items-center" style={{ marginBottom: '20px' }}>
+        <div
+          className="section-divider"
+          role="separator"
+          style={{
+            flex: '0 0 100%',
+            width: '100%',
+            maxWidth: '100%',
+            height: '1px',
+            marginTop: !isEditMode ? '10px' : 0,
+            marginBottom: mode === 'CRView' ? '28px' : '14px',
+            backgroundColor: isEditMode
+              ? 'var(--owt-color-primary-dark)'
+              : 'var(--owt-panel-divider-color)',
+          }}
+        />
+        {mode !== 'CRView' && !isEditMode && !effectiveHideEditButton && (
+          <div
+            className="registry-edit-details flex justify-start items-center"
+            style={{ marginBottom: '20px' }}
+          >
             <button
               onClick={onEdit}
               className="font-normal inline-flex items-center gap-2 bg-transparent border-0 p-0 cursor-pointer hover:opacity-80"
               style={{
                 fontFamily: 'Roboto, sans-serif',
                 fontSize: '16px',
-                color: 'var(--owt-color-text-muted, #727474)',
+                color: 'var(--owt-color-text-muted)',
               }}
             >
-              {t?.('common.editDetails') || 'Edit Details'}
+              {tSchema(t, 'common.editDetails')}
               <img src={rightArrowIcon} alt="right-arrow" className="w-3.5 h-3.5 brightness-0 opacity-50" />
             </button>
           </div>

@@ -4,6 +4,7 @@
 * activity_reconcile_worker     — repair projections that disagree with their activities
 * activity_partition_worker     — create next year's partitions ahead of time
 * activity_odk_pull_worker      — pull new ODK Central submissions into activities
+* activity_sample_data_worker   — load each activity register's sample activities once (demo installs)
 
 The activity services are asynchronous. Each task runs them on its own event
 loop with a NullPool engine, so no connection outlives the loop it was made on.
@@ -92,4 +93,16 @@ def activity_odk_pull_worker():
 
     result = _run(_service(G2PActivityOdkService).pull_all)
     _logger.info("ODK pull: %s", result)
+    return result
+
+
+@celery_app.task(name="activity_sample_data_worker")
+def activity_sample_data_worker():
+    if not _config.activity_load_sample_data:
+        return {}
+    from openg2p_registry_core.services import G2PActivitySampleService
+
+    result = _run(_service(G2PActivitySampleService).load_all)
+    if any(result.values()):
+        _logger.info("Sample activities: %s", result)
     return result

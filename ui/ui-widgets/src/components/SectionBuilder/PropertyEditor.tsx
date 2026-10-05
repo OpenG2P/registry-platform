@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { SectionConfig, PanelConfig, BaseWidgetConfig, ApiDataSource } from '../../types';
 import { TreeNode, TreeNodeType } from './SectionTree';
 import { WIDGET_TYPES, ORIENTATIONS } from './schemas';
+import { SearchableSelect } from './SearchableSelect';
+import { getWidgetCategory } from '../../registry/widgetTypes';
+import { useWidgetContext } from '../WidgetProvider';
 
 interface PropertyEditorProps {
   node: TreeNode | null;
@@ -10,15 +13,13 @@ interface PropertyEditorProps {
   onDuplicate: (node: TreeNode) => void;
 }
 
-/**
- * Property editor component for editing selected node properties
- */
 export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   node,
   onChange,
   onDelete,
   onDuplicate,
 }) => {
+  const { t } = useWidgetContext();
   const [localData, setLocalData] = useState<any>(null);
 
   useEffect(() => {
@@ -31,16 +32,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
     return (
       <div
         style={{
+          flex: '1 1 0%',
+          minHeight: 0,
           padding: '15px',
-          background: '#f8f9fa',
-          height: '100%',
+          background: 'var(--owt-color-bg-alt)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: '#666',
+          color: 'var(--owt-color-text-muted)',
         }}
       >
-        Select an item to edit properties
+        {t?.('sectionBuilder.selectItemToEdit') || 'Select an item to edit properties'}
       </div>
     );
   }
@@ -80,7 +82,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       <>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Section ID <span style={{ color: '#e74c3c' }}>*</span>
+            {t?.('sectionBuilder.sectionId') || 'Section ID'} <span style={{ color: 'var(--owt-color-error)' }}>*</span>
           </label>
           <input
             type="text"
@@ -89,17 +91,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Section Title
+            {t?.('sectionBuilder.sectionTitle') || 'Section Title'}
           </label>
           <input
             type="text"
@@ -108,11 +110,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -123,12 +125,12 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
               checked={section['section-editable'] || false}
               onChange={(e) => handleChange('section-editable', e.target.checked)}
             />
-            <span>Editable</span>
+            <span>{t?.('sectionBuilder.editable') || 'Editable'}</span>
           </label>
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Column Span
+            {t?.('sectionBuilder.columnSpan') || 'Column Span'}
           </label>
           <input
             type="number"
@@ -138,11 +140,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -156,7 +158,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       <>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Panel ID <span style={{ color: '#e74c3c' }}>*</span>
+            {t?.('sectionBuilder.panelId') || 'Panel ID'} <span style={{ color: 'var(--owt-color-error)' }}>*</span>
           </label>
           <input
             type="text"
@@ -165,17 +167,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Orientation
+            {t?.('sectionBuilder.orientation') || 'Orientation'}
           </label>
           <select
             value={panel['panel-orientation'] || 'vertical'}
@@ -183,10 +185,10 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
+              background: 'var(--owt-widget-input-bg)',
             }}
           >
             {ORIENTATIONS.map((opt) => (
@@ -198,7 +200,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Column Span
+            {t?.('sectionBuilder.columnSpan') || 'Column Span'}
           </label>
           <input
             type="number"
@@ -208,11 +210,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
@@ -222,52 +224,41 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
 
   const renderWidgetProperties = () => {
     const widget = localData as BaseWidgetConfig;
+
+    const handleWidgetTypeChange = (newWidgetType: string) => {
+      const updated: any = {
+        ...widget,
+        widget: newWidgetType,
+        'widget-type': getWidgetCategory(newWidgetType),
+      };
+
+      if (!['select', 'radio', 'checkbox', 'multi-select'].includes(newWidgetType)) {
+        delete updated['widget-data-source'];
+      }
+      if (!['table', 'dialog-table'].includes(newWidgetType)) {
+        delete updated['widget-data-columns'];
+      }
+
+      setLocalData(updated);
+      onChange(node, updated);
+    };
+
     return (
       <>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Widget Type <span style={{ color: '#e74c3c' }}>*</span>
+            {t?.('sectionBuilder.widgetType') || 'Widget Type'} <span style={{ color: 'var(--owt-color-error)' }}>*</span>
           </label>
-          <select
+          <SearchableSelect
+            options={WIDGET_TYPES}
             value={widget.widget || ''}
-            onChange={(e) => {
-              const newWidgetType = e.target.value;
-              // When widget type changes, preserve common fields but clear widget-specific ones
-              const updated: any = {
-                ...widget,
-                widget: newWidgetType,
-              };
-              
-              // Clear widget-specific fields that don't apply to the new type
-              if (!['select', 'radio', 'checkbox'].includes(newWidgetType)) {
-                delete updated['widget-data-source'];
-              }
-              if (newWidgetType !== 'table') {
-                delete updated['widget-data-columns'];
-              }
-              
-              setLocalData(updated);
-              onChange(node, updated);
-            }}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              fontSize: '12px',
-              background: 'white',
-            }}
-          >
-            {WIDGET_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
+            onChange={handleWidgetTypeChange}
+            placeholder={t?.('sectionBuilder.searchWidgetType') || 'Search widget type...'}
+          />
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Widget ID <span style={{ color: '#e74c3c' }}>*</span>
+            {t?.('sectionBuilder.widgetId') || 'Widget ID'} <span style={{ color: 'var(--owt-color-error)' }}>*</span>
           </label>
           <input
             type="text"
@@ -276,17 +267,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
           />
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Widget Label
+            {t?.('sectionBuilder.widgetLabel') || 'Widget Label'}
           </label>
           <input
             type="text"
@@ -295,18 +286,18 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
-            placeholder="Enter label..."
+            placeholder={t?.('sectionBuilder.enterLabel') || 'Enter label...'}
           />
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Data Path
+            {t?.('sectionBuilder.dataPath') || 'Data Path'}
           </label>
           <input
             type="text"
@@ -315,18 +306,18 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
-            placeholder="person.name"
+            placeholder={t?.('sectionBuilder.dataPathPlaceholder') || 'person.name'}
           />
         </div>
         <div style={{ marginBottom: '20px' }}>
           <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 500 }}>
-            Placeholder
+            {t?.('sectionBuilder.placeholder') || 'Placeholder'}
           </label>
           <input
             type="text"
@@ -335,13 +326,13 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #ccc',
+              border: '1px solid var(--owt-color-border)',
               borderRadius: '4px',
               fontSize: '12px',
-              background: 'white',
-              color: '#333',
+              background: 'var(--owt-widget-input-bg)',
+              color: 'var(--owt-color-text)',
             }}
-            placeholder="Enter placeholder..."
+            placeholder={t?.('sectionBuilder.enterPlaceholder') || 'Enter placeholder...'}
           />
         </div>
         <div style={{ marginBottom: '20px' }}>
@@ -351,7 +342,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
               checked={widget['widget-required'] || false}
               onChange={(e) => handleChange('widget-required', e.target.checked)}
             />
-            <span>Required</span>
+            <span>{t?.('sectionBuilder.required') || 'Required'}</span>
           </label>
         </div>
         <div style={{ marginBottom: '20px' }}>
@@ -361,18 +352,19 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
               checked={widget['widget-readonly'] || false}
               onChange={(e) => handleChange('widget-readonly', e.target.checked)}
             />
-            <span>Readonly</span>
+            <span>{t?.('sectionBuilder.readonly') || 'Readonly'}</span>
           </label>
         </div>
-        {/* Widget-specific fields based on widget type */}
-        {['select', 'radio', 'checkbox'].includes(widget.widget) && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#e3f2fd', borderRadius: '4px' }}>
+
+        {['select', 'radio', 'checkbox', 'multi-select'].includes(widget.widget) && (
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-primary-light)', borderRadius: '4px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
-              Data Source (Required for {widget.widget})
+              {t?.('sectionBuilder.dataSourceRequired', { widgetType: widget.widget }) ||
+                `Data Source (Required for ${widget.widget})`}
             </label>
             <div style={{ marginBottom: '10px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                Source Type
+                {t?.('sectionBuilder.sourceType') || 'Source Type'}
               </label>
               <select
                 value={widget['widget-data-source']?.type || 'static'}
@@ -383,21 +375,22 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                 style={{
                   width: '100%',
                   padding: '6px 8px',
-                  border: '1px solid #ccc',
+                  border: '1px solid var(--owt-color-border)',
                   borderRadius: '4px',
                   fontSize: '11px',
-                  background: 'white',
+                  background: 'var(--owt-widget-input-bg)',
                 }}
               >
-                <option value="static">Static</option>
-                <option value="api">API</option>
-                <option value="schema">Schema</option>
+                <option value="static">{t?.('sectionBuilder.static') || 'Static'}</option>
+                <option value="api">{t?.('sectionBuilder.api') || 'API'}</option>
+                <option value="schema">{t?.('sectionBuilder.schema') || 'Schema'}</option>
               </select>
             </div>
             {widget['widget-data-source']?.type === 'static' && (
               <div>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                  Options (JSON array format: see placeholder below)
+                  {t?.('sectionBuilder.optionsJson') ||
+                    'Options (JSON array format: see placeholder below)'}
                 </label>
                 <textarea
                   value={JSON.stringify(widget['widget-data-source']?.options || [], null, 2)}
@@ -406,21 +399,24 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                       const parsed = JSON.parse(e.target.value);
                       handleNestedChange('widget-data-source', 'options', parsed);
                     } catch {
-                      // Invalid JSON, ignore
+
                     }
                   }}
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
                     fontFamily: 'monospace',
                     minHeight: '80px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
-                  placeholder='[{"value": "opt1", "label": "Option 1"}]'
+                  placeholder={
+                    t?.('sectionBuilder.optionsPlaceholder') ||
+                    '[{"value": "opt1", "label": "Option 1"}]'
+                  }
                 />
               </div>
             )}
@@ -430,7 +426,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                 <>
                   <div style={{ marginBottom: '10px' }}>
                     <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                      API URL
+                      {t?.('sectionBuilder.apiUrl') || 'API URL'}
                     </label>
                     <input
                       type="text"
@@ -441,18 +437,22 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                       style={{
                         width: '100%',
                         padding: '6px 8px',
-                        border: '1px solid #ccc',
+                        border: '1px solid var(--owt-color-border)',
                         borderRadius: '4px',
                         fontSize: '11px',
-                        background: 'white',
-                        color: '#333',
+                        background: 'var(--owt-widget-input-bg)',
+                        color: 'var(--owt-color-text)',
                       }}
-                      placeholder="https://api.example.com/options"
+                      placeholder={
+                        t?.('sectionBuilder.apiUrlPlaceholder') ||
+                        'https://api.example.com/options'
+                      }
                     />
                   </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                      Value/Label Keys (e.g., "id"/"name")
+                      {t?.('sectionBuilder.valueLabelKeys') ||
+                        'Value/Label Keys (e.g., "id"/"name")'}
                     </label>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <input
@@ -464,13 +464,13 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                         style={{
                           flex: 1,
                           padding: '6px 8px',
-                          border: '1px solid #ccc',
+                          border: '1px solid var(--owt-color-border)',
                           borderRadius: '4px',
                           fontSize: '11px',
-                          background: 'white',
-                          color: '#333',
+                          background: 'var(--owt-widget-input-bg)',
+                          color: 'var(--owt-color-text)',
                         }}
-                        placeholder="value key"
+                        placeholder={t?.('sectionBuilder.valueKeyPlaceholder') || 'value key'}
                       />
                       <input
                         type="text"
@@ -481,13 +481,13 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                         style={{
                           flex: 1,
                           padding: '6px 8px',
-                          border: '1px solid #ccc',
+                          border: '1px solid var(--owt-color-border)',
                           borderRadius: '4px',
                           fontSize: '11px',
-                          background: 'white',
-                          color: '#333',
+                          background: 'var(--owt-widget-input-bg)',
+                          color: 'var(--owt-color-text)',
                         }}
-                        placeholder="label key"
+                        placeholder={t?.('sectionBuilder.labelKeyPlaceholder') || 'label key'}
                       />
                     </div>
                   </div>
@@ -497,13 +497,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
           </div>
         )}
 
-        {widget.widget === 'table' && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#fff3e0', borderRadius: '4px' }}>
+        {['table', 'dialog-table'].includes(widget.widget) && (
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-primary-light)', borderRadius: '4px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
-              Table Columns
+              {t?.('sectionBuilder.tableColumns') || 'Table Columns'}
             </label>
-            <div style={{ fontSize: '11px', color: '#666', marginBottom: '10px' }}>
-              Configure columns in JSON editor or add via code
+            <div style={{ fontSize: '11px', color: 'var(--owt-color-text-muted)', marginBottom: '10px' }}>
+              {t?.('sectionBuilder.tableColumnsHint') ||
+                'Define columns as JSON array (see placeholder below)'}
             </div>
             <textarea
               value={JSON.stringify(widget['widget-data-columns'] || [], null, 2)}
@@ -512,34 +513,37 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   const parsed = JSON.parse(e.target.value);
                   handleChange('widget-data-columns', parsed);
                 } catch {
-                  // Invalid JSON, ignore
+
                 }
               }}
               style={{
                 width: '100%',
                 padding: '6px 8px',
-                border: '1px solid #ccc',
+                border: '1px solid var(--owt-color-border)',
                 borderRadius: '4px',
                 fontSize: '11px',
                 fontFamily: 'monospace',
                 minHeight: '100px',
-                background: 'white',
-                color: '#333',
+                background: 'var(--owt-widget-input-bg)',
+                color: 'var(--owt-color-text)',
               }}
-              placeholder='[{"column-key": "col1", "widget-label": "Column 1", "widget": "text"}]'
+              placeholder={
+                t?.('sectionBuilder.columnsPlaceholder') ||
+                '[{"column-key": "col1", "widget-label": "Column 1", "widget": "text"}]'
+              }
             />
           </div>
         )}
 
         {widget.widget === 'number' && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#f3e5f5', borderRadius: '4px' }}>
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-primary-light)', borderRadius: '4px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
-              Number Validation
+              {t?.('sectionBuilder.numberValidation') || 'Number Validation'}
             </label>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                  Min Value
+                  {t?.('sectionBuilder.minValue') || 'Min Value'}
                 </label>
                 <input
                   type="number"
@@ -550,17 +554,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                  Max Value
+                  {t?.('sectionBuilder.maxValue') || 'Max Value'}
                 </label>
                 <input
                   type="number"
@@ -571,11 +575,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -584,14 +588,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         )}
 
         {['date', 'datetime'].includes(widget.widget) && (
-          <div style={{ marginBottom: '20px', padding: '10px', background: '#e8f5e9', borderRadius: '4px' }}>
+          <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-success-light)', borderRadius: '4px' }}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
-              Date Range Options
+              {t?.('sectionBuilder.dateRangeOptions') || 'Date Range Options'}
             </label>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                  Min Date
+                  {t?.('sectionBuilder.minDate') || 'Min Date'}
                 </label>
                 <input
                   type="date"
@@ -602,17 +606,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                  Max Date
+                  {t?.('sectionBuilder.maxDate') || 'Max Date'}
                 </label>
                 <input
                   type="date"
@@ -623,11 +627,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -640,15 +644,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   handleNestedChange('widget-data-options', 'showCalendar', e.target.checked)
                 }
               />
-              <span>Show Calendar</span>
+              <span>{t?.('sectionBuilder.showCalendar') || 'Show Calendar'}</span>
             </label>
           </div>
         )}
 
-        {/* Validation section - show for all widgets */}
-        <div style={{ marginBottom: '20px', padding: '10px', background: '#f0f0f0', borderRadius: '4px' }}>
+        <div style={{ marginBottom: '20px', padding: '10px', background: 'var(--owt-color-bg-alt)', borderRadius: '4px' }}>
           <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
-            Validation
+            {t?.('sectionBuilder.validation') || 'Validation'}
           </label>
           <div style={{ marginBottom: '10px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
@@ -663,14 +666,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   }
                 }}
               />
-              <span>Required</span>
+              <span>{t?.('sectionBuilder.required') || 'Required'}</span>
             </label>
           </div>
           {['text', 'textarea'].includes(widget.widget) && (
             <>
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                  Min Length
+                  {t?.('sectionBuilder.minLength') || 'Min Length'}
                 </label>
                 <input
                   type="number"
@@ -685,17 +688,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
-                  Max Length
+                  {t?.('sectionBuilder.maxLength') || 'Max Length'}
                 </label>
                 <input
                   type="number"
@@ -710,11 +713,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   style={{
                     width: '100%',
                     padding: '6px 8px',
-                    border: '1px solid #ccc',
+                    border: '1px solid var(--owt-color-border)',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    background: 'white',
-                    color: '#333',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
                   }}
                 />
               </div>
@@ -728,28 +731,31 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   const getHeaderColor = () => {
     switch (node.type) {
       case 'section':
-        return '#2196f3';
+        return 'var(--owt-color-info)';
       case 'panel':
-        return '#ff9800';
+        return 'var(--owt-color-warning)';
       case 'widget':
-        return '#4caf50';
+        return 'var(--owt-color-success)';
     }
   };
 
   return (
     <div
       style={{
+        flex: '1 1 0%',
+        minHeight: 0,
         padding: '15px',
         overflowY: 'auto',
-        background: '#f8f9fa',
-        height: '100%',
+        background: 'var(--owt-color-bg-alt)',
       }}
     >
-      <h3 style={{ fontSize: '14px', marginBottom: '15px', color: '#2c3e50' }}>Properties</h3>
+      <h3 style={{ fontSize: '14px', marginBottom: '15px', color: 'var(--owt-color-text)' }}>
+        {t?.('sectionBuilder.properties') || 'Properties'}
+      </h3>
       <div
         style={{
           background: getHeaderColor(),
-          color: 'white',
+          color: 'var(--owt-color-bg)',
           padding: '12px',
           borderRadius: '4px',
           marginBottom: '20px',
@@ -757,9 +763,15 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
           fontSize: '13px',
         }}
       >
-        {node.type === 'section' && `Section: ${(node.data as SectionConfig)['section-id']}`}
-        {node.type === 'panel' && `Panel: ${(node.data as PanelConfig)['panel-id']}`}
-        {node.type === 'widget' && `Widget: ${(node.data as BaseWidgetConfig)['widget-id']}`}
+        {node.type === 'section' &&
+          (t?.('sectionBuilder.headerSection', { id: (node.data as SectionConfig)['section-id'] }) ||
+            `Section: ${(node.data as SectionConfig)['section-id']}`)}
+        {node.type === 'panel' &&
+          (t?.('sectionBuilder.headerPanel', { id: (node.data as PanelConfig)['panel-id'] }) ||
+            `Panel: ${(node.data as PanelConfig)['panel-id']}`)}
+        {node.type === 'widget' &&
+          (t?.('sectionBuilder.headerWidget', { id: (node.data as BaseWidgetConfig)['widget-id'] }) ||
+            `Widget: ${(node.data as BaseWidgetConfig)['widget-id']}`)}
       </div>
 
       {node.type === 'section' && renderSectionProperties()}
@@ -774,14 +786,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             padding: '10px',
             border: 'none',
             borderRadius: '10px',
-            background: '#f44336',
-            color: 'white',
+            background: 'var(--owt-color-error)',
+            color: 'var(--owt-color-bg)',
             fontWeight: 600,
             cursor: 'pointer',
             fontSize: '12px',
           }}
         >
-          Delete
+          {t?.('sectionBuilder.delete') || 'Delete'}
         </button>
         <button
           onClick={() => onDuplicate(node)}
@@ -790,14 +802,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             padding: '10px',
             border: 'none',
             borderRadius: '10px',
-            background: '#ff9800',
-            color: 'white',
+            background: 'var(--owt-color-warning)',
+            color: 'var(--owt-color-bg)',
             fontWeight: 600,
             cursor: 'pointer',
             fontSize: '12px',
           }}
         >
-          Duplicate
+          {t?.('sectionBuilder.duplicate') || 'Duplicate'}
         </button>
       </div>
     </div>
