@@ -299,6 +299,25 @@ questions:
   label: Staff Portal Base URL
   group: Notifications
 
+- variable: global.notificationApplicationIdentifier
+  description: Novu environment application identifier for the staff UI in-app inbox. The Novu chart does not store this; copy it from the Novu environment.
+  type: string
+  default: ""
+  label: Notification Application Identifier
+  group: Notifications
+
+- variable: global.notificationApiHostname
+  description: Public Novu API hostname for the staff UI (no scheme). Matches commons-base global.novuApiHostname. Example novu-api.<namespace>.openg2p.org.
+  type: string
+  label: Notification API Hostname
+  group: Notifications
+
+- variable: global.notificationWsHostname
+  description: Public Novu WebSocket hostname for the staff UI (no scheme). Matches commons-base global.novuWsHostname. Example novu-ws.<namespace>.openg2p.org.
+  type: string
+  label: Notification WebSocket Hostname
+  group: Notifications
+
 # ID Generator
 - variable: idgenerator.idGenerator.appConfig.idTypesNote
   description: "Default ID types: farmer (12 digits), household (10 digits). To add, remove, or modify ID types, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
