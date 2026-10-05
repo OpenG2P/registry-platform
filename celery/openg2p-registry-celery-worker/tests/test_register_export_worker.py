@@ -13,6 +13,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from openpyxl import load_workbook
+from openg2p_registry_core.helpers.notification import NotificationWorkflow
 from sqlalchemy import String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -280,10 +281,13 @@ class RegisterExportWorkerLogicTests(unittest.TestCase):
             side_effect=RuntimeError("generation failed"),
         ), patch(
             "openg2p_registry_celery_worker.tasks.register_export_worker._config"
-        ) as config:
+        ) as config, patch(
+            "openg2p_registry_celery_worker.tasks.register_export_worker._notify_export"
+        ) as notify:
             config.export_worker_max_attempts = 3
             register_export_worker("export-1")
 
+        notify.assert_not_called()
         self.assertEqual(queue_item.export_no_of_attempts, 1)
         self.assertEqual(
             queue_item.export_status, ProcessStatusEnum.PENDING.value
@@ -309,10 +313,15 @@ class RegisterExportWorkerLogicTests(unittest.TestCase):
             side_effect=RuntimeError("generation failed"),
         ), patch(
             "openg2p_registry_celery_worker.tasks.register_export_worker._config"
-        ) as config:
+        ) as config, patch(
+            "openg2p_registry_celery_worker.tasks.register_export_worker._notify_export"
+        ) as notify:
             config.export_worker_max_attempts = 3
             register_export_worker("export-1")
 
+        notify.assert_called_once_with(
+            "export-1", NotificationWorkflow.REGISTER_EXPORT_FAILED
+        )
         self.assertEqual(queue_item.export_no_of_attempts, 3)
         self.assertEqual(
             queue_item.export_status, ProcessStatusEnum.FAILED.value
