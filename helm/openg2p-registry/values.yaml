@@ -16,8 +16,8 @@ global:
   masterDataDB: 'master_data'
   masterDataDBPort: 5432
   masterDataDBUser: 'master_data_user'
-  masterDataDBSecret: 'master-data'
-  masterDataDBUserPasswordKey: 'master-data-db-user'
+  masterDataDBSecret: 'master-data-db-user'
+  masterDataDBUserPasswordKey: 'master-data-db-user-password'
 
   # Redis
   redisInstallationName: '{{ .Release.Name }}-redis-master'
