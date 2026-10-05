@@ -15,6 +15,7 @@ from openg2p_registry_core.helpers import (
     get_document_handler,
 )
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
+from openg2p_registry_core.cache import init_cache
 from openg2p_fastapi_common.exception import BaseExceptionHandler        
 from openg2p_registry_core.services import (
     G2PAttributeValueValidator,
@@ -39,6 +40,10 @@ class Initializer(BaseInitializer):
     def initialize(self, **kwargs):
         super().initialize()
         BaseExceptionHandler()
+
+        # Cache: core services use fastapi-cache's @cache (e.g. geo hierarchy,
+        # register metadata); without init every such call fails in the worker.
+        init_cache()
 
         # Helpers
         get_document_handler()

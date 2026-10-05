@@ -189,25 +189,24 @@ class AuditMiddleware(BaseHTTPMiddleware):
         return self._client
 
     def _match_route(self, request: Request) -> Any | None:
-        """Match the request to its FastAPI route.
+        """The route FastAPI matched for this request.
 
-        Prefer the route the router itself resolved. Starlette records it on the
-        scope while dispatching, and by the time we run -- after call_next -- it
-        is there. The manual scan below is the fallback, and on its own it was
-        matching nothing: every event recorded action=unknown and a CloudEvent
-        type of ...agent_portal.unknown, on both this API and the staff one.
+        Routing records it in the request scope while the request is handled
+        (``scope["route"]``). Re-matching ``app.router.routes`` is only a
+        fallback: since FastAPI wraps each included router (``_IncludedRouter``),
+        the first full match there is the wrapper, which has no endpoint.
         """
         route = request.scope.get("route")
-        if route is not None:
+        if getattr(route, "endpoint", None) is not None:
             return route
         router = getattr(request.app, "router", None)
-        for candidate in getattr(router, "routes", []):
+        for route in getattr(router, "routes", []):
             try:
-                match, _ = candidate.matches(request.scope)
+                match, _ = route.matches(request.scope)
             except Exception:  # a route type that cannot match this scope
                 continue
-            if match == Match.FULL:
-                return candidate
+            if match == Match.FULL and getattr(route, "endpoint", None) is not None:
+                return route
         return None
 
     # ---------- audit decision ----------

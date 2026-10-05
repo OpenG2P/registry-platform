@@ -169,11 +169,23 @@ class AuditMiddleware(BaseHTTPMiddleware):
         return self._client
 
     def _match_route(self, request: Request) -> Any | None:
-        """Match the request to its FastAPI route."""
+        """The route FastAPI matched for this request.
+
+        Routing records it in the request scope while the request is handled
+        (``scope["route"]``). Re-matching ``app.router.routes`` is only a
+        fallback: since FastAPI wraps each included router (``_IncludedRouter``),
+        the first full match there is the wrapper, which has no endpoint.
+        """
+        route = request.scope.get("route")
+        if getattr(route, "endpoint", None) is not None:
+            return route
         router = getattr(request.app, "router", None)
         for route in getattr(router, "routes", []):
-            match, _ = route.matches(request.scope)
-            if match == Match.FULL:
+            try:
+                match, _ = route.matches(request.scope)
+            except Exception:  # a route type that cannot match this scope
+                continue
+            if match == Match.FULL and getattr(route, "endpoint", None) is not None:
                 return route
         return None
 

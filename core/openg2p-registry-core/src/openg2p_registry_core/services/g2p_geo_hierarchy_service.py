@@ -143,7 +143,12 @@ class G2PGeoHierarchyService(BaseService):
         Returns:
             Dict with hierarchy array, or None if not found
         """
-        return self._get_geo_hierarchy_cached(level_value_id)
+        result = self._get_geo_hierarchy_cached(level_value_id)
+        if result is None:
+            # Don't keep a miss: it may be a transient failure (Master Data down,
+            # cache not initialised), and a cached None would stick until restart.
+            self._get_geo_hierarchy_cached.cache_clear()
+        return result
     
     @lru_cache(maxsize=1000)
     def _get_geo_hierarchy_cached(self, level_value_id: str) -> Optional[dict]:
