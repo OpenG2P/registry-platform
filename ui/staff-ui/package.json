@@ -11,7 +11,7 @@
   "dependencies": {
     "@novu/js": "^3.11.0",
     "@openg2p/notification": "https://github.com/OpenG2P/notifications/raw/refs/heads/develop/client/openg2p-notification-0.1.0.tgz",
-    "@openg2p/registry-widgets": "1.1.9-dev.6",
+    "@openg2p/registry-widgets": "1.1.9-dev.9",
     "@reduxjs/toolkit": "^2.11.2",
     "@sd-jwt/crypto-browser": "^0.15.0",
     "@sd-jwt/decode": "^0.15.0",
