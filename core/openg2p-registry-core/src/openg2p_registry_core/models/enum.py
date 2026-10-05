@@ -207,3 +207,14 @@ class DocumentBucket(StrEnum):
 class DocumentHistoryEventTypeEnum(StrEnum):
     ADD = "ADD"
     REMOVE = "REMOVE"
+
+
+class DataScopeStatusEnum(StrEnum):
+    ACTIVE = "ACTIVE"
+    # No longer offered: kept, with its versions, for consents given under it.
+    RETIRED = "RETIRED"
+
+
+class DataScopeSourceEnum(StrEnum):
+    SECTION = "SECTION"  # one per register section, derived by the platform
+    EXTENSION = "EXTENSION"  # from the extension's catalogue (meta_data/data-scopes/*.json)

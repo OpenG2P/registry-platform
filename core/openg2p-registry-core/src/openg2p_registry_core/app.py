@@ -126,6 +126,8 @@ from .models import (
     G2PActivityAggregateHistory,
     G2PActivityParticipant,
     G2PRegisterExportDataQueue,
+    G2PDataScope,
+    G2PDataScopeVersion,
 )
 from .services import (
     G2PDataModelService,
@@ -172,6 +174,7 @@ from .services import (
     G2PActivityIndicatorService,
     G2PActivityOdkService,
     G2PRegisterExportService,
+    G2PDataScopeService,
 )
 
 _config = Settings.get_config(strict=False)
@@ -248,6 +251,8 @@ class Initializer(BaseInitializer):
         G2PActivityOutboxService()
         G2PActivityIndicatorService()
         G2PActivityOdkService()
+        # Data scopes (consent scopes as groups of this registry's fields)
+        G2PDataScopeService()
 
         # Controller Services
         G2PDataModelControllerService()
@@ -404,12 +409,29 @@ class Initializer(BaseInitializer):
             await migrate_activity_core_tables()
             await migrate_activity_tables()
 
+            # Data scopes: the catalogue tables with their immutability guards,
+            # then publish the catalogue (section scopes + the extension's
+            # meta_data/data-scopes/*.json). Never stops start-up: a refused
+            # catalogue is logged and the published one stays in force.
+            await G2PDataScope.create_migrate()
+            await G2PDataScopeVersion.create_migrate()
+            await migrate_data_scopes()
+
             # G2P-5516: latitude/longitude/altitude became Float. create_all never
             # alters an existing column, so convert tables made while they were
             # varchar. Runs inside the advisory lock above.
             await migrate_geo_coordinate_columns()
 
         asyncio.run(migrate())
+
+
+async def migrate_data_scopes() -> None:
+    scopes = G2PDataScopeService.get_component() or G2PDataScopeService()
+    try:
+        await scopes.ensure_guards()
+        await scopes.sync(strict=False)
+    except Exception:
+        _logger.exception("Data scopes could not be published at start-up; will retry when read")
 
 
 def extension_activity_models() -> tuple[list, list]:

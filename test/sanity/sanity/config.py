@@ -18,19 +18,23 @@ def _list(value, default):
     return [s.strip() for s in value.split(",") if s.strip()]
 
 
-# The consent scopes the DCI e2e requests.
-#
-# These MUST be top-level keys of the register's outgoing DCI template — clamping
-# is a strict allow-list over the rendered record's top-level keys, so a scope
-# naming anything else silently clamps the record to {}. Clamping has no
-# sub-field granularity: a scope carries everything nested under it. The
-# defaults are the reference Individual register's (individual_to_dci.json.j2),
-# matching the chart's sanity.dataScopes / sanity.deniedScopes; a variant with a
-# different template overrides them through the chart.
-DEFAULT_DATA_SCOPES = ["demographic_info"]
+# The consent scopes the DCI e2e requests: data scopes from the registry's
+# catalogue (GET /partner/data_scopes). A bare name is this registry's scope and
+# is prefixed with the controller ID (<controller>.<name>). The registry filters
+# each record to the scopes' fields before rendering it. The defaults are the
+# reference Individual register's section scopes (one per register section),
+# matching the chart's sanity.dataScopes / sanity.deniedScopes; a variant
+# overrides them through the chart.
+DEFAULT_DATA_SCOPES = ["individual_demographic_details"]
 
-# Scopes deliberately NOT consented to — the e2e asserts these never appear.
-DEFAULT_DENIED_SCOPES = ["member_identifier"]
+# Scopes deliberately NOT consented to — the e2e asserts the seeded values of
+# their fields (that no consented scope also covers) never come back.
+DEFAULT_DENIED_SCOPES = ["individual_identifier"]
+
+
+def scope_ids(names, controller_id: str) -> List[str]:
+    """Scope names as scope IDs: a bare name gets the controller's namespace."""
+    return [name if ("." in name or not controller_id) else f"{controller_id}.{name}" for name in names]
 
 # The reference Individual register (g2p_register_definitions.sql).
 DEFAULT_REGISTER_ID = "a0000000-0000-4000-8000-000000000001"
@@ -157,6 +161,7 @@ class Config:
         from .db import _dsn
 
         staff_client_id = os.environ.get("SANITY_STAFF_CLIENT_ID", "")
+        controller_id = os.environ.get("SANITY_CONTROLLER_ID") or "openg2p-sanity-controller"
         return cls(
             partner_base_url=(os.environ.get("SANITY_PARTNER_BASE_URL") or "http://localhost:8000").rstrip("/"),
             verify_tls=_bool(os.environ.get("SANITY_VERIFY_TLS"), True),
@@ -172,9 +177,10 @@ class Config:
             search_text=os.environ.get("SANITY_DCI_SEARCH_TEXT") or "SANITY-INDIVIDUAL-0001",
             cm_staff_url=(os.environ.get("SANITY_CM_STAFF_URL") or "").rstrip("/"),
             cm_audience=os.environ.get("SANITY_CM_AUDIENCE") or "OPENG2P_SANITY_PARTNER",
-            controller_id=os.environ.get("SANITY_CONTROLLER_ID") or "openg2p-sanity-controller",
-            data_scopes=_list(os.environ.get("SANITY_DATA_SCOPES"), DEFAULT_DATA_SCOPES),
-            denied_scopes=_list(os.environ.get("SANITY_DENIED_SCOPES"), DEFAULT_DENIED_SCOPES),
+            controller_id=controller_id,
+            data_scopes=scope_ids(_list(os.environ.get("SANITY_DATA_SCOPES"), DEFAULT_DATA_SCOPES), controller_id),
+            denied_scopes=scope_ids(_list(os.environ.get("SANITY_DENIED_SCOPES"), DEFAULT_DENIED_SCOPES),
+                                    controller_id),
             pm_partner_api_url=(os.environ.get("SANITY_PM_PARTNER_API_URL") or "").rstrip("/"),
             pm_admin_url=(os.environ.get("SANITY_PM_ADMIN_URL") or "").rstrip("/"),
             pm_admin_token_url=os.environ.get("SANITY_PM_ADMIN_TOKEN_URL", ""),

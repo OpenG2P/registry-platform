@@ -26,6 +26,8 @@ from .enum import (
     DocumentHistoryEventTypeEnum,
     ExportFormatEnum,
     ExportSelectionModeEnum,
+    DataScopeStatusEnum,
+    DataScopeSourceEnum,
 )
 SubmissionSourceEnum = ChangeRequestSourceEnum
 from .data_models import DataModel
@@ -138,3 +140,5 @@ from .g2p_activity import (
     G2PActivityAggregateHistory,
     G2PActivityParticipant,
 )
+
+from .g2p_data_scope import G2PDataScope, G2PDataScopeVersion

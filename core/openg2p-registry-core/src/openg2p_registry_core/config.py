@@ -158,3 +158,14 @@ class Settings(IamSettings):
 
     # Intake submission application reference generation
     application_reference_format: str = "{DATE:%Y%b%d|upper}-{SECONDS:5}{RAND:1}"
+    # Data scopes (consent scopes as named groups of this registry's fields).
+    # Scope IDs are "<consent_data_controller>.<name>" — the registry's
+    # data-controller ID in the Consent Manager (the chart sets it from
+    # global.consentDataController, default the registry variant). Empty: bare names.
+    consent_data_controller: str = ""
+    # The extension's scope catalogue: every *.json in this directory. Empty
+    # means <extension package>/meta_data/data-scopes.
+    data_scopes_catalogue_path: str = ""
+    # How often a running service checks whether register sections or the
+    # catalogue changed (e.g. db-seed ran after start-up) and re-publishes.
+    data_scopes_sync_check_seconds: int = 60

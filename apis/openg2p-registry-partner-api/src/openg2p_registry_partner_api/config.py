@@ -87,10 +87,12 @@ class Settings(ExtSettings):
     # Summaries across subjects (an activity register's aggregates searched with
     # no subject_id, e.g. every worker's monthly attendance for a benefit run).
     # Off unless the registry operator lists the partner here: sender_id → the
-    # data scopes it may receive. There is no per-person consent for such a
-    # search, so these scopes replace the Consent Manager's for it; the
+    # data scopes it may receive (scope IDs from the data scope catalogue,
+    # GET /partner/data_scopes; a bare name means this registry's scope).
+    # There is no per-person consent for such a search, so these scopes
+    # replace the Consent Manager's for it, at their current versions; the
     # signature is still verified. JSON in env, e.g.
-    # {"benefits-system": ["crop_season", "measures"]}.
+    # {"benefits-system": ["crop-sown-registry.crop_season"]}.
     dci_bulk_aggregate_partners: dict[str, list[str]] = {}
     dci_bulk_aggregate_max_page_size: int = 500
 

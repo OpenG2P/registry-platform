@@ -27,3 +27,4 @@ from .g2p_awe_policy_configuration_controller import G2PAwePolicyConfigurationCo
 from .g2p_awe_webhook_controller import G2PAWEWebhookController
 from .g2p_awe_proxy_controller import G2PAweProxyController
 from .g2p_activity_controller import G2PActivityController
+from .g2p_data_scope_controller import G2PDataScopeController

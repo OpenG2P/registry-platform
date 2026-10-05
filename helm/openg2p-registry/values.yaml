@@ -218,6 +218,8 @@ global:
   # This registry's data-controller ID in the Consent Manager, sent with every
   # /validate so CM uses this registry's grant in a consent covering several
   # registries. Defaults to the registry variant (global.registryVariant).
+  # Also the namespace of this registry's data scope IDs (<controller>.<name>,
+  # e.g. farmer-registry.fr_farmer_land), which consents and CM policies name.
   consentDataController: '{{ .Values.global.registryVariant }}'
   # Used only by the sanity e2e (to seed the shared test partner):
   #  * PM staff-portal-api (onboard + approve the partner key)
@@ -1379,6 +1381,8 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
     REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
     REGISTRY_STAFF_PORTAL_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
+    # Namespace of the data scope IDs the staff API shows (<controller>.<name>).
+    REGISTRY_STAFF_PORTAL_API_CONSENT_DATA_CONTROLLER: '{{ tpl .Values.global.consentDataController $ }}'
 
     REGISTRY_STAFF_PORTAL_API_OPENAPI_ROOT_PATH: '{{ .Values.openapiRootPath }}'
 
@@ -2462,17 +2466,18 @@ sanity:
   # appears in no seeded sample data, so the e2e only ever matches its own record.
   # data_seed.py builds the record from this same value, so the two cannot drift.
   searchText: SANITY-INDIVIDUAL-0001
-  # Scopes the seeded CM policy allows + the consent object requests.
-  #
-  # These MUST be top-level keys of THIS register's outgoing DCI template:
-  # clamping is a strict allow-list over the rendered record's top-level keys, so
-  # a scope naming anything else silently clamps every record to {}. There is no
-  # sub-field granularity — a scope carries everything nested under it. The values
-  # below are the reference Individual register's; a variant that ships a
-  # different template must override them.
-  dataScopes: "demographic_info"
-  # Scopes deliberately NOT consented to; the e2e asserts these never come back.
-  deniedScopes: "member_identifier"
+  # Data scopes the seeded CM policy allows + the consent object requests:
+  # names from the registry's data scope catalogue (GET /partner/data_scopes;
+  # one scope per register section by default, plus any the extension ships).
+  # A bare name is prefixed with the consent data controller ID. The registry
+  # filters each record to the scopes' fields before rendering it. The e2e
+  # asserts the seeded first/last name and birth date come back, so these must
+  # cover them. The values below are the reference Individual register's; a
+  # variant must override them.
+  dataScopes: "individual_demographic_details"
+  # Scopes deliberately NOT consented to; the e2e asserts the seeded values of
+  # their fields never come back.
+  deniedScopes: "individual_identifier"
   # The register the CR is raised against — used to find its bound AWE
   # change-request policy. Empty = the reference Individual register
   # (a0000000-0000-4000-8000-000000000001, g2p_register_definitions.sql).

@@ -154,8 +154,9 @@ class G2PActivityDomainService(BaseService):
     # A DCI search on an activity register can return, instead of activities, a
     # subject's current state per context (reg_record_type naming the context
     # type, e.g. ...:CropSeason) or its aggregates (...:Aggregate). These hooks
-    # shape those records. Top-level keys are what consent scopes clamp, so a
-    # register maps them onto its own scope names; the defaults are generic.
+    # shape those records; the defaults are generic. The row a hook receives is
+    # already filtered to the consented data scopes (fields outside them are
+    # null), so a hook reads fields with .get and never needs to know about consent.
 
     def dci_state_record(self, state: dict[str, Any]) -> dict[str, Any]:
         """One context's current state (a projection row, JSON-ready) as a DCI record."""

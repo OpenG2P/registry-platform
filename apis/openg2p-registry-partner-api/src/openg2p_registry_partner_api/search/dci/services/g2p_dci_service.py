@@ -1,6 +1,7 @@
 import importlib
 import json
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Tuple
 
@@ -17,7 +18,7 @@ from openg2p_registry_core.helpers import TemplateHelper
 from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate, G2PRegistryDocument
 from openg2p_registry_core.models import ActivityStatusEnum, ActivityVerificationStatusEnum, RegisterPurposeEnum
 from openg2p_registry_core.models import G2PActivityAggregate, G2PActivityContext
-from openg2p_registry_core.services import G2PActivityRegistryService
+from openg2p_registry_core.services import AllowedFields, G2PActivityRegistryService, G2PDataScopeService
 from openg2p_registry_core.helpers.ethiopian_calendar import format_ethiopian_date
 
 from ..schemas import (
@@ -37,23 +38,39 @@ from ....config import Settings
 _logger = logging.getLogger("g2p-dci-service")
 _config = Settings.get_config()
 
+@dataclass
+class ConsentScopeGrant:
+    """The data scopes one search item may return, and when the consent was issued.
+
+    ``scope_ids`` are data scope IDs (``<controller>.<name>``); ``issued_at``
+    (naive UTC) picks each scope's version. None: the consent carried no issue
+    time, and each scope's first version is read.
+    """
+
+    scope_ids: List[str] = field(default_factory=list)
+    issued_at: Optional[datetime] = None
+
+
 class G2PDciService(BaseService):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.register_service = G2PRegisterService.get_component()
+        self.data_scopes = G2PDataScopeService.get_component() or G2PDataScopeService()
 
     async def search(
         self,
         signature: str,
         header: DciRequestHeader,
         message: DciSearchRequest,
-        consent_scopes_by_ref: Optional[Dict[str, Optional[List[str]]]] = None,
+        consent_scopes_by_ref: Optional[Dict[str, ConsentScopeGrant]] = None,
         consent_subjects_by_ref: Optional[Dict[str, str]] = None,
     ) -> List[DciSearchResponseItem]:
-        # consent_scopes_by_ref maps reference_id -> effective_data_scopes the
-        # response must be clamped to (the PEP field-level enforcement). It is
-        # None when consent enforcement is disabled (return all fields); an
-        # entry's value being None likewise means "no clamp" for that item.
+        # consent_scopes_by_ref maps reference_id -> the data scopes the item
+        # may return (the PEP field-level enforcement). The internal records are
+        # filtered to those scopes' fields BEFORE the output template renders
+        # them, so a renderer never sees a field outside the consent. None when
+        # consent enforcement is disabled (no filtering); an item missing from
+        # it gets nothing.
 
         dci_search_response_items: List[DciSearchResponseItem] = []
         for search_request_item in message.search_request:
@@ -83,6 +100,7 @@ class G2PDciService(BaseService):
             query_result = None
             is_aggregate = is_activity and _is_aggregate_request(search_criteria.reg_record_type)
             _require_consent_subject_or_bulk(consent_enforced, consent_subject, search_criteria, is_aggregate)
+            allowed = await self._allowed_fields(consent_scopes_by_ref, search_request_item.reference_id)
             state_type = (
                 await self._state_context_type(register_id, search_criteria.reg_record_type)
                 if is_activity and not is_aggregate
@@ -109,14 +127,15 @@ class G2PDciService(BaseService):
                     # A subject's roll-ups (e.g. a person's season summary) rather
                     # than its activities — what an eligibility check reads.
                     aggregate_records, total_count = await self._aggregate_search(
-                        search_criteria.reg_type, register_id, subject_id, filters, current_page, page_size
+                        search_criteria.reg_type, register_id, subject_id, filters, current_page, page_size,
+                        allowed=allowed,
                     )
                 else:
                     # The subject's contexts' current state (e.g. each crop season:
                     # stage, area sown, yield, verified) from the projection.
                     aggregate_records, total_count = await self._state_search(
                         search_criteria.reg_type, register_id, state_type, subject_id, filters,
-                        current_page, page_size,
+                        current_page, page_size, allowed=allowed,
                     )
             else:
                 if is_activity and _names_subject(search_criteria):
@@ -169,22 +188,24 @@ class G2PDciService(BaseService):
                 else:
                     self._require_records_of_subject(search_result_data or [], consent_subject)
 
-            reg_records = aggregate_records if aggregate_records is not None else [
-                self._render_reg_record_with_template(
-                    datum, template_store_id, bucket=template_bucket
-                )
-                for datum in search_result_data
-            ]
-
-            # PEP field-level enforcement: clamp each record to the effective
-            # data scopes the Consent Manager permitted for this reference_id.
-            if consent_scopes_by_ref is not None:
-                allowed_scopes = consent_scopes_by_ref.get(search_request_item.reference_id)
-                if allowed_scopes is not None:
-                    reg_records = [
-                        self._clamp_record_fields(record, allowed_scopes)
-                        for record in reg_records
-                    ]
+            # PEP field-level enforcement: each internal record (with its linked
+            # records) is filtered to the consented scopes' fields, then rendered.
+            # The consent-subject checks above ran on the unfiltered records.
+            if aggregate_records is not None:
+                reg_records = aggregate_records  # filtered before the register shaped them
+            else:
+                nested_keys = await self.data_scopes.nested_keys() if allowed is not None and not is_activity else {}
+                reg_records = [
+                    self._render_reg_record_with_template(
+                        self._filter_record(
+                            self._deep_search_result_data_to_dict(datum), allowed, search_criteria.reg_type,
+                            is_activity, nested_keys,
+                        ),
+                        template_store_id,
+                        bucket=template_bucket,
+                    )
+                    for datum in search_result_data
+                ]
 
             dci_deep_search_result_data = DciSearchResultData(
                 reg_type = search_criteria.reg_type,
@@ -325,7 +346,8 @@ class G2PDciService(BaseService):
         return context_type if found else None
 
     async def _state_search(self, register_mnemonic: str, register_id: str, context_type: str, subject_id: str,
-                            filters: Dict[str, Any], current_page: int, page_size: int):
+                            filters: Dict[str, Any], current_page: int, page_size: int,
+                            allowed: Optional[AllowedFields] = None):
         """A subject's contexts of one type, current state from the projection, shaped by the register.
 
         ``filters`` may name any of the projection's plain columns (e.g. crop_year,
@@ -357,10 +379,14 @@ class G2PDciService(BaseService):
                     .limit(page_size)
                 )
             ).scalars().all()
-        return [domain.dci_state_record(_json_ready(row.to_dict())) for row in rows], total_count
+        return [
+            domain.dci_state_record(_filter_flat(_json_ready(row.to_dict()), allowed, f"{register_mnemonic}.context"))
+            for row in rows
+        ], total_count
 
     async def _aggregate_search(self, register_mnemonic: str, register_id: str, subject_id: str,
-                                filters: Dict[str, Any], current_page: int, page_size: int):
+                                filters: Dict[str, Any], current_page: int, page_size: int,
+                                allowed: Optional[AllowedFields] = None):
         """Current aggregates, shaped by the register's dci_aggregate_record.
 
         For one subject, or (subject_id None) across subjects: the controller
@@ -371,8 +397,8 @@ class G2PDciService(BaseService):
         subject_internal_record_id. ``filters`` may name aggregate_type,
         period_key, period_start, period_end, or any custom dimension the
         register sets (e.g. crop_year, season), compared as JSON values.
-        Top-level keys are what consent scopes clamp; the register maps them
-        onto its scopes.
+        Each aggregate row is filtered to the consented
+        ``<Register>.aggregate.<field>`` references before the register shapes it.
         """
         columns = {
             "aggregate_type": G2PActivityAggregate.aggregate_type,
@@ -421,7 +447,10 @@ class G2PDciService(BaseService):
         registry = G2PActivityRegistryService.get_component() or G2PActivityRegistryService()
         domain = registry.domain_service(register_mnemonic)
         return [
-            domain.dci_aggregate_record(_json_ready({c.name: getattr(row, c.name) for c in row.__table__.columns}))
+            domain.dci_aggregate_record(_filter_flat(
+                _json_ready({c.name: getattr(row, c.name) for c in row.__table__.columns}),
+                allowed, f"{register_mnemonic}.aggregate",
+            ))
             for row in rows
         ], total_count
 
@@ -470,20 +499,30 @@ class G2PDciService(BaseService):
         if not linked:
             raise denied
 
-    @staticmethod
-    def _clamp_record_fields(record: Dict[str, Any], allowed_scopes: List[str]) -> Dict[str, Any]:
-        """Return a copy of a rendered registry record keeping only the fields
-        the Consent Manager permitted (``effective_data_scopes``).
+    async def _allowed_fields(
+        self, consent_scopes_by_ref: Optional[Dict[str, ConsentScopeGrant]], reference_id: str
+    ) -> Optional[AllowedFields]:
+        """The fields one item may return; None when consent enforcement is off (no filtering)."""
+        if consent_scopes_by_ref is None:
+            return None
+        grant = consent_scopes_by_ref.get(reference_id)
+        if grant is None:
+            return AllowedFields({})  # fail closed
+        if isinstance(grant, (list, tuple)):
+            grant = ConsentScopeGrant(list(grant), None)
+        return await self.data_scopes.resolve(grant.scope_ids, grant.issued_at)
 
-        Scope names are matched against the record's TOP-LEVEL keys (the
-        template output field names — i.e. the shared scope<->field catalog).
-        Strict allow-list: any field not in the effective scopes is dropped, so
-        a narrower policy or consent can only ever remove fields, never add.
-        """
-        if not isinstance(record, dict):
+    @staticmethod
+    def _filter_record(
+        record: Dict[str, Any], allowed: Optional[AllowedFields], register_mnemonic: str, is_activity: bool,
+        nested_keys: Dict[str, str],
+    ) -> Dict[str, Any]:
+        """An internal record trimmed to the allowed fields (unchanged when nothing is enforced)."""
+        if allowed is None:
             return record
-        allowed = set(allowed_scopes or [])
-        return {key: value for key, value in record.items() if key in allowed}
+        if is_activity:
+            return allowed.filter_flat(record, f"{register_mnemonic}.activity")
+        return allowed.filter_register_record(record, register_mnemonic, nested_keys)
 
     def _get_model_class(self, register_mnemonic: str):
         module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
@@ -495,7 +534,7 @@ class G2PDciService(BaseService):
 
     def _render_reg_record_with_template(
         self,
-        deep_search_result_data: DeepSearchResultData,
+        deep_search_result_data,
         template_store_id: str,
         bucket=None,
     ) -> Dict[str, Any]:
@@ -503,7 +542,10 @@ class G2PDciService(BaseService):
 
         template_helper = TemplateHelper.get_component()
 
-        search_result_dict: Dict[str, Any] = self._deep_search_result_data_to_dict(deep_search_result_data)
+        search_result_dict: Dict[str, Any] = (
+            deep_search_result_data if isinstance(deep_search_result_data, dict)
+            else self._deep_search_result_data_to_dict(deep_search_result_data)
+        )
 
         reg_record: Dict[str, Any] = template_helper.render_with_template(
             document_store_id=template_store_id,
@@ -657,6 +699,10 @@ def _as_jsonb(value):
     if isinstance(value, list):
         return [_as_jsonb(v) for v in value]
     return cast(literal(json.dumps(value)), JSONB)
+
+
+def _filter_flat(record: Dict[str, Any], allowed: Optional[AllowedFields], target: str) -> Dict[str, Any]:
+    return record if allowed is None else allowed.filter_flat(record, target)
 
 
 def _json_ready(value):

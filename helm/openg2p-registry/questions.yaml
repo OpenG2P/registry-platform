@@ -386,16 +386,16 @@ questions:
   group: Sanity
 
 - variable: sanity.dataScopes
-  description: "Comma-separated scopes the seeded consent policy allows, and which the e2e asserts come back. These MUST be top-level keys of this register's outgoing DCI template — clamping is a strict allow-list over the rendered record's top-level keys, so a scope naming anything else silently clamps every record to empty."
+  description: "Comma-separated data scopes the seeded consent policy allows (names from the registry's data scope catalogue, GET /partner/data_scopes; a bare name is prefixed with the consent data controller ID). The e2e asserts the seeded first/last name and birth date come back, so these scopes must cover them."
   type: string
-  default: "demographic_info"
+  default: "individual_demographic_details"
   label: Sanity - Consented Data Scopes
   group: Sanity
 
 - variable: sanity.deniedScopes
-  description: Comma-separated scopes deliberately NOT consented to. The e2e asserts these never appear in a response — this is the test that proves consent clamping actually clamps.
+  description: Comma-separated data scopes deliberately NOT consented to. The e2e asserts the seeded values of their fields never appear in a response — this is the test that proves consent filtering actually filters.
   type: string
-  default: "member_identifier"
+  default: "individual_identifier"
   label: Sanity - Denied Data Scopes
   group: Sanity
 

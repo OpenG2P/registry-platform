@@ -48,3 +48,5 @@ from .g2p_activity_odk_service import G2PActivityOdkService, OdkCentralClient
 from .g2p_activity_sample_service import G2PActivitySampleLoadError, G2PActivitySampleService
 from .g2p_activity_period_service import G2PActivityPeriodService
 from .g2p_register_export_service import G2PRegisterExportService
+from .g2p_data_scope_fields import AllowedFields, DataScopeCatalogueError
+from .g2p_data_scope_service import G2PDataScopeService

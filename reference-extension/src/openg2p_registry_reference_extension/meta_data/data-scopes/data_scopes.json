@@ -1,0 +1,17 @@
+{
+  "exclude_section_scopes": [],
+  "field_renames": {},
+  "scopes": [
+    {
+      "name": "individual_name",
+      "label": "Name",
+      "description": "The person's name only — a finer scope than the demographic details section.",
+      "fields": ["Individual.first_name", "Individual.middle_name", "Individual.last_name"]
+    },
+    {
+      "name": "individual_identifier",
+      "label": "Identifiers",
+      "description": "Foundational and registry IDs."
+    }
+  ]
+}
