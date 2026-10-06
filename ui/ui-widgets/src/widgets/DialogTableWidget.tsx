@@ -106,7 +106,7 @@ const SelectDisplayValue = ({ config, value }: { config: BaseWidgetConfig; value
 interface DialogTableFieldProps {
   col: any;
   cellWidgetId: string;
-  dialogConditionValues: Record<string, any>;
+  isRequired: boolean;
   isReadonly: boolean;
 }
 
@@ -114,7 +114,7 @@ interface DialogTableFieldProps {
 const DialogTableField = memo(function DialogTableField({
   col,
   cellWidgetId,
-  dialogConditionValues,
+  isRequired,
   isReadonly,
 }: DialogTableFieldProps) {
   const widgetType = col.widget || 'text';
@@ -130,13 +130,9 @@ const DialogTableField = memo(function DialogTableField({
       'widget-data-path': undefined,
       'widget-data-default': col['widget-data-default'],
       'widget-data-options': undefined,
-      'widget-required': shouldRequireWidget(
-        col['widget-data-options'],
-        dialogConditionValues,
-        !!(col['widget-required'] || col['widget-data-validation']?.required),
-      ),
+      'widget-required': isRequired,
     };
-  }, [col, cellWidgetId, dialogConditionValues, isReadonly, widgetType]);
+  }, [col, cellWidgetId, isRequired, isReadonly, widgetType]);
 
   return (
     <div className="min-w-0">
@@ -475,12 +471,17 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
   const renderDialogField = (col: any) => {
     const key = col['column-key'];
     const cellWidgetId = dialogFieldWidgetId(dialogSessionId, key);
+    const isRequired = shouldRequireWidget(
+      col['widget-data-options'],
+      dialogConditionValues,
+      !!(col['widget-required'] || col['widget-data-validation']?.required),
+    );
     return (
       <DialogTableField
         key={`${dialogSessionId}-${key}`}
         col={col}
         cellWidgetId={cellWidgetId}
-        dialogConditionValues={dialogConditionValues}
+        isRequired={isRequired}
         isReadonly={isReadonly}
       />
     );
