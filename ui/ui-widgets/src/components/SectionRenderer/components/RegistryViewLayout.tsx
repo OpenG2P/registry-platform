@@ -68,11 +68,8 @@ export const RegistryViewLayout = ({
                 backgroundColor:
                   changeRequestType === 'new'
                     ? 'var(--owt-color-success)'
-                    : 'var(--owt-color-error-light)',
-                color:
-                  changeRequestType === 'new'
-                    ? 'var(--owt-color-bg)'
-                    : 'var(--owt-color-error)',
+                    : 'var(--owt-color-primary)',
+                color: 'var(--owt-color-bg)',
                 whiteSpace: 'nowrap',
                 boxShadow:
                   changeRequestType === 'new' ? '0 2px 4px color-mix(in srgb, var(--owt-color-success) 30%, transparent)' : 'none',
