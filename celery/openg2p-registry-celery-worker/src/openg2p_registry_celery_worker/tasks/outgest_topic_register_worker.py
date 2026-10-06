@@ -13,6 +13,7 @@ from openg2p_registry_core.models import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -21,6 +22,9 @@ _engine = Engine.get_engine()
 
 @celery_app.task(name="outgest_topic_register_worker")
 def outgest_topic_register_worker(topic_id: str):
+    if not task_enabled():
+        _logger.info("%s is disabled", "outgest_topic_register_worker")
+        return
     _logger.info(f"Starting outgest_topic_register_worker for topic_id: {topic_id}")
     session_maker = sessionmaker(
         bind=_engine, expire_on_commit=False

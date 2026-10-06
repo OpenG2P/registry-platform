@@ -29,6 +29,7 @@ from openg2p_registry_core.services.g2p_register_hierarchical_service import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 try:
     from openg2p_registry_core.services.g2p_score_compute_service import G2PScoreComputeService
@@ -53,6 +54,9 @@ asyncio.set_event_loop(_loop)
 
 @celery_app.task(name="intake_form_register_ingest_worker")
 def intake_form_register_ingest_worker(submission_id: str) -> None:
+    if not task_enabled():
+        _logger.info("%s is disabled", "intake_form_register_ingest_worker")
+        return
     _loop.run_until_complete(_process_submission_async(submission_id))
 
 

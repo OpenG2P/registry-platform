@@ -22,6 +22,7 @@ from openg2p_registry_core.services import G2PIntakeFormDataService
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -103,6 +104,9 @@ async def _process_ingestion_async(ingest_id: str) -> None:
 
 @celery_app.task(name="ingest_data_worker")
 def ingest_data_worker(ingest_id: str):
+    if not task_enabled():
+        _logger.info("%s is disabled", "ingest_data_worker")
+        return
     _logger.info(f"Starting ingest_data_worker for ingest_id: {ingest_id}")
     _loop.run_until_complete(_process_ingestion_async(ingest_id))
     _logger.info(

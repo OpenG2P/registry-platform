@@ -32,23 +32,69 @@ class Settings(ExtSettings):
     celery_backend_url: str = "redis://localhost:6379/0"
     worker_queue: str = "registry_worker_queue"
 
-    batch_size: int = 2000
+    # Shared fallbacks. A set per-producer frequency or no_of_tasks replaces these.
     no_of_tasks_to_process: int = 4
     default_beat_producer_frequency: int = 20
 
-    data_transformation_beat_producer_frequency: Optional[int] = None           # ingest & outgest
+    # Ingest. ingest_data also claims UPDATE rows for change_request_ingest.
+    ingest_data_beat_producer_frequency: Optional[int] = None
+    ingest_data_beat_producer_enabled: bool = True
+    ingest_data_beat_producer_no_of_tasks: Optional[int] = None
 
-    ingest_data_beat_producer_frequency: Optional[int] = None                   # ingest
-    ingest_data_classification_beat_producer_frequency: Optional[int] = None    # ingest
+    ingest_data_classification_beat_producer_frequency: Optional[int] = None
+    ingest_data_classification_beat_producer_enabled: bool = True
+    ingest_data_classification_beat_producer_no_of_tasks: Optional[int] = None
 
-    outgest_data_publish_beat_producer_frequency: Optional[int] = None          # outgest
-    outgest_topic_register_beat_producer_frequency: Optional[int] = None        # outgest
+    # Shared by ingest transformation and outgest transformation.
+    data_transformation_beat_producer_frequency: Optional[int] = None
+    ingest_data_transformation_beat_producer_enabled: bool = True
+    ingest_data_transformation_beat_producer_no_of_tasks: Optional[int] = None
 
-    deduplication_beat_producer_frequency: Optional[int] = None                 # deduplication
+    # Outgest
+    outgest_data_transformation_beat_producer_enabled: bool = True
+    outgest_data_transformation_beat_producer_no_of_tasks: Optional[int] = None
 
-    intake_form_register_ingest_beat_producer_frequency: Optional[int] = None     # intake_form register ingest
-    functional_id_allocation_beat_producer_frequency: Optional[int] = None       # functional id allocation
-    functional_id_updation_beat_producer_frequency: Optional[int] = None         # functional id updation
-    score_compute_beat_producer_frequency: Optional[int] = None                 # score computation
-    completion_score_beat_producer_frequency: Optional[int] = None               # completion score
-    import_file_process_beat_producer_frequency: Optional[int] = None           # import file processing
+    outgest_data_publish_beat_producer_frequency: Optional[int] = None
+    outgest_data_publish_beat_producer_enabled: bool = True
+    outgest_data_publish_beat_producer_no_of_tasks: Optional[int] = None
+
+    outgest_topic_register_beat_producer_frequency: Optional[int] = None
+    outgest_topic_register_beat_producer_enabled: bool = True
+    outgest_topic_register_beat_producer_no_of_tasks: Optional[int] = None
+
+    # Deduplication. One frequency for all four producers.
+    deduplication_beat_producer_frequency: Optional[int] = None
+    deduplication_register_beat_producer_enabled: bool = True
+    deduplication_register_beat_producer_no_of_tasks: Optional[int] = None
+    deduplication_change_request_beat_producer_enabled: bool = True
+    deduplication_change_request_beat_producer_no_of_tasks: Optional[int] = None
+    deduplication_intake_forms_vs_register_beat_producer_enabled: bool = True
+    deduplication_intake_forms_vs_register_beat_producer_no_of_tasks: Optional[int] = None
+    deduplication_intake_forms_vs_intake_forms_beat_producer_enabled: bool = True
+    deduplication_intake_forms_vs_intake_forms_beat_producer_no_of_tasks: Optional[int] = None
+
+    # Intake register ingest
+    intake_form_register_ingest_beat_producer_frequency: Optional[int] = None
+    intake_form_register_ingest_beat_producer_enabled: bool = True
+    intake_form_register_ingest_beat_producer_no_of_tasks: Optional[int] = None
+
+    # Functional id
+    functional_id_allocation_beat_producer_frequency: Optional[int] = None
+    functional_id_allocation_beat_producer_enabled: bool = True
+    functional_id_allocation_beat_producer_no_of_tasks: Optional[int] = None
+    functional_id_updation_beat_producer_frequency: Optional[int] = None
+    functional_id_updation_beat_producer_enabled: bool = True
+    functional_id_updation_beat_producer_no_of_tasks: Optional[int] = None
+
+    # Score
+    score_compute_beat_producer_frequency: Optional[int] = None
+    score_compute_beat_producer_enabled: bool = True
+    score_compute_beat_producer_no_of_tasks: Optional[int] = None
+    completion_score_beat_producer_frequency: Optional[int] = None
+    completion_score_beat_producer_enabled: bool = True
+    completion_score_beat_producer_no_of_tasks: Optional[int] = None
+
+    # Import file
+    import_file_process_beat_producer_frequency: Optional[int] = None
+    import_file_process_beat_producer_enabled: bool = True
+    import_file_process_beat_producer_no_of_tasks: Optional[int] = None

@@ -100,4 +100,6 @@ class Settings(IamSettings):
     keycloak_realm: str = "staff"
 
     # Intake submission application reference generation
-    application_reference_format: str = "{DATE:%Y%b%d|upper}-{SECONDS:5}{RAND:1}"
+    # One random digit is only 10 values per second. Concurrent ingest exceeds that
+    # and hits ix_g2p_intake_form_submissions_application_reference.
+    application_reference_format: str = "{DATE:%Y%b%d|upper}-{SECONDS:5}{RAND:6}"
