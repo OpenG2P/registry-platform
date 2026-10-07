@@ -108,10 +108,13 @@ class DciConsentHelper(BaseService):
         """When the consent was issued, from the consent JWS's claims (naive UTC).
 
         Read from the JWS payload the registry forwarded to CM: CM verified that
-        exact string before permitting, so its claims are the partner's signed
-        ones. ``iat`` (seconds since the epoch) is preferred; else ``issued_at``
-        (ISO 8601), the Consent Manager's consent-object claim. None when absent
-        or unreadable — data scopes then read each scope's first version.
+        exact string before permitting, so its claims are the signed ones. In
+        order of preference: ``consent_issued_at`` (a consent receipt from a
+        trusted exchange Consent Manager carries the farmer's consent time
+        there; ISO 8601 or seconds since the epoch), ``iat`` (seconds since the
+        epoch), else ``issued_at`` (ISO 8601), the Consent Manager's
+        consent-object claim. None when absent or unreadable — data scopes then
+        read each scope's first version.
         """
         if not isinstance(consent_jws, str) or consent_jws.count(".") != 2:
             return None
@@ -122,16 +125,26 @@ class DciConsentHelper(BaseService):
             return None
         if not isinstance(claims, dict):
             return None
-        iat = claims.get("iat")
-        try:
-            if isinstance(iat, (int, float)) and not isinstance(iat, bool):
-                return datetime.fromtimestamp(iat, tz=timezone.utc).replace(tzinfo=None)
-            issued_at = claims.get("issued_at")
-            if isinstance(issued_at, str) and issued_at.strip():
-                value = datetime.fromisoformat(issued_at.strip().replace("Z", "+00:00"))
-                if value.tzinfo is not None:
-                    value = value.astimezone(timezone.utc).replace(tzinfo=None)
+        # consent_issued_at: either form; iat: epoch seconds only; issued_at: ISO only.
+        for name, kinds in (("consent_issued_at", (int, float, str)), ("iat", (int, float)), ("issued_at", (str,))):
+            raw = claims.get(name)
+            value = DciConsentHelper._as_naive_utc(raw) if isinstance(raw, kinds) else None
+            if value is not None:
                 return value
+        return None
+
+    @staticmethod
+    def _as_naive_utc(value: Any) -> Optional[datetime]:
+        """Seconds since the epoch or an ISO 8601 string, as naive UTC; else None."""
+        try:
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                return datetime.fromtimestamp(value, tz=timezone.utc).replace(tzinfo=None)
+            if isinstance(value, str) and value.strip():
+                parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+                if parsed.tzinfo is not None:
+                    parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+                return parsed
         except (ValueError, OverflowError, OSError):
             return None
+        return None
         return None

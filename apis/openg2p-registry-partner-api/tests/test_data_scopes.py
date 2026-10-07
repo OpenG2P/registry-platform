@@ -49,7 +49,22 @@ def test_issue_time_from_issued_at():
     assert DciConsentHelper.consent_issued_at(_jws({"issued_at": "2026-05-01T12:00:00Z"})) == datetime(2026, 5, 1, 12)
 
 
+def test_issue_time_prefers_consent_issued_at():
+    # A consent receipt from an exchange Consent Manager: iat is the receipt's
+    # time, consent_issued_at the farmer's consent time (ISO 8601 or epoch).
+    iat = int(datetime(2026, 6, 1, tzinfo=timezone.utc).timestamp())
+    receipt = _jws({"consent_issued_at": "2026-05-01T15:00:00+03:00", "iat": iat, "issued_at": "2026-06-02T00:00:00Z"})
+    assert DciConsentHelper.consent_issued_at(receipt) == datetime(2026, 5, 1, 12)
+    epoch = int(datetime(2026, 5, 1, 12, tzinfo=timezone.utc).timestamp())
+    assert DciConsentHelper.consent_issued_at(_jws({"consent_issued_at": epoch, "iat": iat})) == datetime(2026, 5, 1, 12)
+    # Unreadable consent_issued_at falls back to iat, then issued_at.
+    assert DciConsentHelper.consent_issued_at(_jws({"consent_issued_at": "later", "iat": iat})) == datetime(2026, 6, 1)
+    assert DciConsentHelper.consent_issued_at(
+        _jws({"consent_issued_at": None, "issued_at": "2026-05-01T12:00:00Z"})) == datetime(2026, 5, 1, 12)
+
+
 @pytest.mark.parametrize("jws", [None, "", "a.b", "x.!!!.y", _jws({"iat": "soon"}), _jws({"issued_at": "later"}),
+                                 _jws({"consent_issued_at": "never"}),
                                  _jws({})])
 def test_no_readable_issue_time(jws):
     assert DciConsentHelper.consent_issued_at(jws) is None
