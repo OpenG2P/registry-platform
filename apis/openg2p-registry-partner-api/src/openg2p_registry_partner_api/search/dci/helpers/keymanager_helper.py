@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 from openg2p_fastapi_common.service import BaseService
 from openg2p_registry_core.errors import G2PRegistryException, G2PRegistryErrorCodes
 from openg2p_fastapi_common.utils.crypto import build_crypto_helper
@@ -76,11 +76,32 @@ class DciKeymanagerHelper(BaseService):
             "header": raw_header,
             "message": raw_message,
         }
+        return await self.validate_detached_signature(
+            signature,
+            signature_payload,
+            partner_reference_id((raw_header or {}).get("sender_id", "")),
+            km_app_id=(raw_header or {}).get("receiver_id"),
+        )
+
+    async def validate_detached_signature(
+        self,
+        signature: str,
+        signature_payload: Any,
+        partner_reference: str,
+        km_app_id: Optional[str] = None,
+    ) -> bool:
+        """Verify a detached JWS over ``signature_payload`` with the key Partner
+        Management holds for ``partner_reference`` (``PARTNER_<SENDER>``).
+
+        Used for the DCI ``{header, message}`` envelope and for ``/ingest_data``,
+        whose signature and payload sit at the data model's configured key paths.
+        Raises ``REQUEST_VALIDATION_ERROR`` when the signature does not verify.
+        """
         signature_valid = await self.crypto_helper.verify_jwt(
             orig_jwt=signature,
             payload=signature_payload,
-            km_app_id=(raw_header or {}).get("receiver_id"),
-            km_ref_id=partner_reference_id((raw_header or {}).get("sender_id", "")),
+            km_app_id=km_app_id,
+            km_ref_id=partner_reference,
         )
         if not signature_valid:
             raise G2PRegistryException(

@@ -4,11 +4,12 @@ Not tied to DCI: a scope is a named group of this registry's own fields, with
 ID ``<controller>.<name>``. Consents and Consent Manager policies name scope
 IDs; this catalogue says which fields each ID means, version by version.
 
-* ``GET /partner/data_scopes`` — public read: the catalogue holds field
-  references only, never values.
-* ``POST /partner/data_scopes`` — the same, as a signed partner message (the
-  envelope and signature check of the other partner calls), for partners that
-  only make signed calls.
+* ``POST /partner/data_scopes`` — the catalogue, as a signed partner message
+  (the envelope and signature check of the other partner calls). Every partner
+  call is signed, so this is the way to read it.
+* ``GET /partner/data_scopes`` — unsigned read, off unless
+  ``data_scopes_public_get_enabled`` is set (the catalogue holds field
+  references only, never values, so an operator may publish it openly).
 """
 
 import logging
@@ -16,6 +17,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import Request
+from fastapi.responses import JSONResponse
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_registry_core.errors import G2PRegistryErrorCodes, G2PRegistryException
 from openg2p_registry_core.services import G2PDataScopeService
@@ -90,7 +92,16 @@ class G2PDataScopePartnerController(BaseController):
             data_controller=controller or None, data_scopes=await self.data_scopes.list_scopes()
         )
 
-    async def get_data_scopes(self) -> DataScopeListResponse:
+    async def get_data_scopes(self, request: Request) -> DataScopeListResponse:
+        if not _config.data_scopes_public_get_enabled:
+            set_audit_outcome(request, "denied", reason=G2PRegistryErrorCodes.INVALID_REQUEST.value[1])
+            return JSONResponse(
+                status_code=403,
+                content=DataScopeListResponse(
+                    error_code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                    error_message="Unsigned GET is disabled; POST a signed message to /partner/data_scopes",
+                ).model_dump(),
+            )
         try:
             return await self._catalogue()
         except Exception as error:

@@ -96,6 +96,18 @@ def build_search_envelope(cfg, priv, *, with_consent: bool = True) -> dict:
     return {"signature": signature, "header": header, "message": message}
 
 
+def build_data_scopes_envelope(cfg, priv) -> dict:
+    """Signed POST /partner/data_scopes request — the catalogue is read with a
+    signed partner message like every other partner call (the unsigned GET is
+    off by default)."""
+    from .signing import alg_for_key
+
+    header = {**_header(cfg), "action": "data_scopes"}
+    message: dict = {}
+    signature = sign_dci_envelope(header, message, priv, cfg.pm_kid, alg=alg_for_key(priv))
+    return {"signature": signature, "header": header, "message": message}
+
+
 # ── Transient-dependency handling ─────────────────────────────────────────────
 #
 # The registry is a policy-ENFORCEMENT point: when the Consent Manager cannot be

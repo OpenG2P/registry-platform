@@ -64,6 +64,13 @@ class Settings(ExtSettings):
     signature_validation_enabled: bool = True
     consent_enforcement_enabled: bool = True
 
+    # Every partner API call that returns or accepts data is signed (DCI search,
+    # /ingest_data, activity append/correct, POST /partner/data_scopes) and
+    # checked under signature_validation_enabled. GET /partner/data_scopes is
+    # the one unsigned read (no body to sign); it is off by default — partners
+    # use the signed POST. Turn on only to publish the catalogue openly.
+    data_scopes_public_get_enabled: bool = False
+
     # Crypto backend selector (openg2p-fastapi-common build_crypto_helper):
     #   "partner-mgmt" -> verify partner keys fetched from Partner Management
     #                     (GET {partner_mgmt_api_url}/keys/{reference_id}).

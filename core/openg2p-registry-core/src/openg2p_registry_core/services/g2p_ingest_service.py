@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Callable, Dict, Tuple, Optional, List
+from typing import Any, Awaitable, Callable, Dict, Tuple, Optional, List
 import uuid
 from copy import deepcopy
 
@@ -34,8 +34,30 @@ class G2PIngestService(BaseService):
         register_id: Optional[str] = None,
         intake_form_id: Optional[str] = None,
         on_partner: Optional[Callable[[str], None]] = None,
+        verify_signature: bool = False,
+        signature_verifier: Optional[Callable[[str, str, Any], Awaitable[None]]] = None,
     ) -> Tuple[str, Optional[str]]:
-        """on_partner, if given, is told the sending partner's id once it is identified (for audit)."""
+        """Store an incoming envelope as raw data for classification and transformation.
+
+        on_partner, if given, is told the sending partner's id once it is
+        identified (and, when verify_signature is set, once its signature checks
+        out), for audit.
+
+        verify_signature: the caller is an external partner whose envelope must
+        be signed. The signature and signature payload are taken from the data
+        model's incoming_model_key_paths and handed to signature_verifier as
+        (partner_id, signature, signature_payload), where partner_id is the
+        Partner Management id of the active sender. The verifier raises on a bad
+        signature. This service holds no keys or crypto settings; the partner
+        API supplies the verifier. Callers that authenticate otherwise (staff
+        API via IAM, the file-import worker) leave it False and need not send
+        a signature.
+        """
+        if verify_signature and signature_verifier is None:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.UNEXPECTED_ERROR.value[1],
+                message="verify_signature is set but no signature_verifier was given",
+            )
         _logger.info("Starting data ingestion with received request")
         session_maker = get_async_session_maker()
 
@@ -43,15 +65,18 @@ class G2PIngestService(BaseService):
             data_model: DataModel = await self._get_data_model(ingest_data, data_model_mnemonic, session)
 
             incoming_partner, signature, signature_payload, incoming_model_key_path = await self._match_model_signature_pattern(
-                data_model.data_model_id, ingest_data, session
+                data_model.data_model_id, ingest_data, session, require_signature=verify_signature
             )
             _logger.debug("Matched incoming model signature pattern")
+            if verify_signature:
+                await signature_verifier(incoming_partner.partner_id, signature, signature_payload)
+                _logger.debug("Verified partner signature")
             if on_partner is not None:
                 try:
                     on_partner(incoming_partner.partner_id)
                 except Exception:
                     _logger.warning("on_partner callback failed", exc_info=True)
-            _logger.debug("Verified request partner")
+            _logger.debug("Resolved request partner")
 
             message_id = self._match_message_id_pattern(ingest_data, incoming_model_key_path)
 
@@ -184,7 +209,8 @@ class G2PIngestService(BaseService):
         data_model_id: str,
         ingest_data: Dict,
         session: Session,
-    ) -> Tuple[RegisteredPartner, str, Dict, IncomingModelKeyPath]:
+        require_signature: bool = True,
+    ) -> Tuple[RegisteredPartner, Optional[str], Optional[Dict], IncomingModelKeyPath]:
         pattern_matcher = PatternMatcher().get_component()
         
         incoming_model_key_path: IncomingModelKeyPath | None = (
@@ -211,11 +237,11 @@ class G2PIngestService(BaseService):
             missing_parts.append(
                 f"sender/partner key (path {incoming_model_key_path.key_path_for_sender!r})"
             )
-        if not signature:
+        if require_signature and not signature:
             missing_parts.append(
                 f"signature key (path {incoming_model_key_path.key_path_for_signature!r})"
             )
-        if not signature_payload:
+        if require_signature and not signature_payload:
             missing_parts.append(
                 "signature payload key (path "
                 f"{incoming_model_key_path.key_path_for_signature_payload!r})"

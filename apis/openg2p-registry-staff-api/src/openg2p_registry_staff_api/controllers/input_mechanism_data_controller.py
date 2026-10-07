@@ -105,6 +105,9 @@ class InputMechanismDataController(BaseController):
                 ingest_data,
                 register_id=register_id,
                 intake_form_id=intake_form_id,
+                # Staff are authenticated by IAM (require_permissions above);
+                # no partner signature is expected on this path.
+                verify_signature=False,
             )
 
             g2p_response_header = G2PResponseHeader(

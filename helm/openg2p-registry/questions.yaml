@@ -70,10 +70,17 @@ questions:
   group: General
 
 - variable: global.partnerSignatureValidationEnabled
-  description: Verify the DCI request signature against Partner Management keys (Partner API). ON by default (fail-closed). Turn OFF only for testing or bring-up before Partner Management is wired — doing so accepts unsigned requests.
+  description: Verify the partner's signature on every Partner API call (DCI search, ingest, activities, data scopes) against Partner Management keys. ON by default (fail-closed). Turn OFF only for testing or bring-up before Partner Management is wired — doing so accepts unsigned requests.
   type: boolean
   default: true
   label: Verify Partner Signature
+  group: Consent & Partner API
+
+- variable: global.partnerDataScopesPublicGetEnabled
+  description: Allow the unsigned GET /partner/data_scopes (catalogue of field names, no values). OFF by default — partners use the signed POST.
+  type: boolean
+  default: false
+  label: Public Data Scope Catalogue (GET)
   group: Consent & Partner API
 
 - variable: global.consentEnforcementEnabled

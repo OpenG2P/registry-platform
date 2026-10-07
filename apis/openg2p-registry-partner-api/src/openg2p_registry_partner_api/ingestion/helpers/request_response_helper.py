@@ -91,7 +91,7 @@ class RequestResponseHelper(BaseService):
         self, response_template_store_id: Optional[str], response: G2PResponse
     ) -> Response:
         if not response_template_store_id:
-            return JSONResponse(content=response.model_dump())
+            return JSONResponse(content=response.model_dump(mode="json"))
 
         template_helper = TemplateHelper.get_component()
 

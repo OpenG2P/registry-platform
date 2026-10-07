@@ -19,7 +19,7 @@ def _list(value, default):
 
 
 # The consent scopes the DCI e2e requests: data scopes from the registry's
-# catalogue (GET /partner/data_scopes). A bare name is this registry's scope and
+# catalogue (signed POST /partner/data_scopes). A bare name is this registry's scope and
 # is prefixed with the controller ID (<controller>.<name>). The registry filters
 # each record to the scopes' fields before rendering it. The defaults are the
 # reference Individual register's section scopes (one per register section),

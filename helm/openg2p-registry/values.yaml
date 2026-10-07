@@ -181,9 +181,11 @@ global:
   # Two INDEPENDENT kill-switches over real PII egress, defaulted ON to FAIL
   # CLOSED — matching the registry platform's own defaults.
   #
-  #   partnerSignatureValidationEnabled -> verify the DCI envelope signature
-  #                                        against the partner's key in Partner
-  #                                        Management.
+  #   partnerSignatureValidationEnabled -> verify the partner's signature on
+  #                                        every partner API call (DCI search,
+  #                                        /ingest_data, activity append/correct,
+  #                                        POST /partner/data_scopes) against its
+  #                                        key in Partner Management.
   #   consentEnforcementEnabled         -> call the Consent Manager /validate for
   #                                        the request's consent object, and clamp
   #                                        returned fields to the consented scopes.
@@ -205,6 +207,10 @@ global:
   # off by default (sanity.runE2e), so a disabled install is unaffected.
   partnerSignatureValidationEnabled: true
   consentEnforcementEnabled: true
+  # GET /partner/data_scopes is the only unsigned partner API read. Off by
+  # default: partners read the catalogue with the signed POST. Turn on only to
+  # publish the catalogue (field names, no values) openly.
+  partnerDataScopesPublicGetEnabled: false
   # Partner-key crypto backend: partner-mgmt | keymanager | local
   registryCryptoBackend: partner-mgmt
   # Partner Management partner-api — source of partner public keys. PM is now
@@ -597,8 +603,9 @@ partnerApi:
     REGISTRY_PARTNER_API_KEYMANAGER_SIGN_REF_ID: ""
 
     # Partner signature verification (transport) + Consent Manager enforcement.
-    # Both default OFF (global.*Enabled) — enable for production PII egress.
+    # Both default ON (global.*Enabled) — turn off only for testing.
     REGISTRY_PARTNER_API_SIGNATURE_VALIDATION_ENABLED: '{{ .Values.global.partnerSignatureValidationEnabled }}'
+    REGISTRY_PARTNER_API_DATA_SCOPES_PUBLIC_GET_ENABLED: '{{ .Values.global.partnerDataScopesPublicGetEnabled }}'
     REGISTRY_PARTNER_API_CONSENT_ENFORCEMENT_ENABLED: '{{ .Values.global.consentEnforcementEnabled }}'
     REGISTRY_PARTNER_API_CRYPTO_BACKEND: '{{ .Values.global.registryCryptoBackend }}'
     REGISTRY_PARTNER_API_PARTNER_MGMT_API_URL: '{{ tpl .Values.global.partnerManagementApiUrl $ }}'

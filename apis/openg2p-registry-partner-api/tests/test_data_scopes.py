@@ -187,6 +187,13 @@ def test_partner_catalogue_endpoint(monkeypatch):
     app.include_router(controller.router)
     client = TestClient(app)
 
+    # The unsigned GET is off by default: partners use the signed POST.
+    disabled = client.get("/partner/data_scopes")
+    assert disabled.status_code == 403
+    assert "POST" in disabled.json()["error_message"]
+    assert "data_scopes" not in disabled.json() or not disabled.json()["data_scopes"]
+
+    monkeypatch.setattr(module._config, "data_scopes_public_get_enabled", True)
     body = client.get("/partner/data_scopes").json()
     assert body["data_controller"] == "farmer-registry"
     assert body["data_scopes"][0]["scope_id"] == "farmer-registry.land"

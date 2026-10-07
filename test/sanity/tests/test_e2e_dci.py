@@ -4,7 +4,7 @@ import pytest
 
 from sanity import fixtures
 from sanity import dci as _dci
-from sanity.dci import build_search_envelope
+from sanity.dci import build_data_scopes_envelope, build_search_envelope
 
 # End-to-end DCI search through the full PEP path:
 #   partner signs the DCI envelope + an embedded consent JWS with its PM key ->
@@ -99,7 +99,7 @@ def test_dci_search_clamps_to_consented_scopes(partner_client, cfg, priv, seeded
     """Fields outside the consented scopes must not come back.
 
     The registry filters the record to the consented scopes' fields before the
-    template renders it. The catalogue (GET /partner/data_scopes) says which
+    template renders it. The catalogue (signed POST /partner/data_scopes) says which
     fields each scope covers: the seeded values of the denied scopes' fields
     (that no consented scope also covers) must appear nowhere in the record.
     """
@@ -112,8 +112,9 @@ def test_dci_search_clamps_to_consented_scopes(partner_client, cfg, priv, seeded
     records = _records(resp)
     assert records, "no records to assert filtering on"
 
-    catalogue = partner_client.get("/partner/data_scopes")
+    catalogue = partner_client.post("/partner/data_scopes", json=build_data_scopes_envelope(cfg, priv))
     assert catalogue.status_code == 200, catalogue.text
+    assert not catalogue.json().get("error_code"), catalogue.text
     scopes = {s["scope_id"]: s for s in (catalogue.json().get("data_scopes") or [])}
 
     def fields_of(scope_ids):
