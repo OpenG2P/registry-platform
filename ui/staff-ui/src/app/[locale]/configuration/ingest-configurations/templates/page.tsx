@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { CONFIGURATION_INGESTION_TEMPLATES_ACTIONS } from '@/features/shared/permissions';
 import { useAllIngestTemplates } from '@/features/configuration/shared/hooks/useAllIngestTemplates';
-import { DeleteButton, EditButton, ViewButton, DataTable, FileLink } from '@/features/configuration/shared/components';
+import { DeleteButton, EditButton, ViewButton, DataTable, FilePreview } from '@/features/configuration/shared/components';
 import { AddIngestionTemplateModal, EditIngestionTemplateModal, ViewIngestionTemplateModal } from '@/features/configuration/ingest';
 
 type IngestTemplate = {
@@ -112,9 +112,7 @@ const IngestTemplatesPage = () => {
             key: 'template_document_id',
             label: t('template'),
             render: (item: IngestTemplate) => (
-                <FileLink
-                    documentId={item.template_document_id}
-                />
+                <FilePreview documentId={item.template_document_id} />
             ),
         }
     ];
