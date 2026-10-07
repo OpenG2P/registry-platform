@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { BaseModal, Field, FileLink } from '../shared/components';
+import { BaseModal, Field, FilePreview } from '../shared/components';
 
 interface Props {
     onClose: () => void;
@@ -27,7 +27,7 @@ export default function ViewIngestionTemplateModal({
 
                 <Field
                     label={t('template')}
-                    value={<FileLink documentId={data?.template_document_id} />}
+                    value={<FilePreview documentId={data?.template_document_id} />}
                 />
 
                 <Field

@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { useFileUpload, useDocuments } from '@/features/shared/hooks';
-import { BaseModal, Field, FileUploadField, CheckboxField } from '../shared/components';
+import { BaseModal, Field, FileUploadField, CheckboxField, FilePreview } from '../shared/components';
 import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
 
@@ -133,12 +133,15 @@ export default function EditIngestionTemplateModal({
                         fileInputRef={fileInputRef}
                         uploading={uploading}
                         fileId={formData.template_document_id}
-                        fileName={uploadedFileName}
+                        fileName={selectedFile ? uploadedFileName : undefined}
                         onFileChange={handleFileChange}
                         onRemove={handleRemoveFile}
                         accept={TEMPLATE_ACCEPT}
                         helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
                     />
+                    {!selectedFile && (
+                        <FilePreview documentId={formData.template_document_id} />
+                    )}
                 </div>
 
                 <div className="flex-1">
