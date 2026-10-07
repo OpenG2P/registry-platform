@@ -9,8 +9,6 @@ const initialState: WidgetState = {
   dataSources: {},
 };
 
-const recentSetValueCalls = new Map<string, { value: any; timestamp: number }>();
-
 const widgetSlice = createSlice({
   name: 'widget',
   initialState,
@@ -20,24 +18,9 @@ const widgetSlice = createSlice({
       action: PayloadAction<{ widgetId: string; value: WidgetValue }>
     ) => {
       const { widgetId, value } = action.payload;
-      const previousValue = state.values[widgetId];
-      const now = Date.now();
-
-      const recentCall = recentSetValueCalls.get(widgetId);
-      const isRaceCondition = recentCall &&
-        recentCall.timestamp > now - 100 &&
-        recentCall.value !== value &&
-        recentCall.value === previousValue;
-
-      recentSetValueCalls.set(widgetId, { value, timestamp: now });
-
-      for (const [key, call] of recentSetValueCalls.entries()) {
-        if (now - call.timestamp > 1000) {
-          recentSetValueCalls.delete(key);
-        }
-      }
-
-      if (isRaceCondition) {
+      // Accept every distinct write — rapid Backspace/typing must not be dropped.
+      // (A prior 100ms "race" guard left lastDispatched stuck while Redux kept the old value.)
+      if (state.values[widgetId] === value) {
         return;
       }
 
