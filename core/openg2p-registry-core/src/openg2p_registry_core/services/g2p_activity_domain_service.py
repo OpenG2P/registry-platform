@@ -2,8 +2,18 @@
 
 An extension provides ``G2PActivityDomainService<Mnemonic>`` in
 ``openg2p_registry_extensions.register_domain.services``, subclassing this
-class. Every hook has a working default, so a register only overrides what its
-domain needs.
+class, and/or a configuration file
+``meta_data/activity-config/<Mnemonic>.json`` (see
+``g2p_activity_register_config``). Every hook has a working default, so a
+register only overrides what its domain needs.
+
+Precedence, per declaration or hook: a subclass that sets the attribute or
+overrides the method wins; otherwise the configuration file; otherwise the
+platform default. Configured from the file: ``context_fields``,
+``subject_type``/``subject_id_fields``, ``ui_hints``, ``final_on_period_lock``,
+``search_text_values`` (``search_fields``), ``validate`` (``rules``) and the
+output records (``formats``: ``render_record``, used by ``dci_state_record``
+and ``dci_aggregate_record``).
 """
 
 from dataclasses import dataclass, field
@@ -11,6 +21,17 @@ from datetime import date, datetime
 from typing import Any, Optional
 
 from openg2p_fastapi_common.service import BaseService
+
+from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from .g2p_activity_register_config import (
+    EMPTY_CONFIG,
+    ActivityRegisterConfig,
+    evaluate_rules,
+    load_config,
+)
+from .g2p_activity_register_config import (
+    render_record as _render_record,
+)
 
 
 @dataclass
@@ -49,13 +70,40 @@ class ActivityAggregateResult:
     custom_dimensions: Optional[dict[str, Any]] = field(default=None)
 
 
+class _Configured:
+    """A declaration read from the register's configuration file unless set in code.
+
+    A subclass's class attribute of the same name replaces this descriptor (code
+    wins); an instance may also set it.
+    """
+
+    def __init__(self, read, default):
+        self.read, self.default = read, default
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self.default
+        if self.name in instance.__dict__:
+            return instance.__dict__[self.name]
+        return self.read(instance.activity_config)
+
+    def __set__(self, instance, value):
+        instance.__dict__[self.name] = value
+
+
+_UNLOADED = object()
+
+
 class G2PActivityDomainService(BaseService):
     # Payload fields that define which context an activity belongs to (e.g. a
     # crop season's plot, year, season and crop; an attendance day's worker and
     # date). A correction keeps its context, so it may not change them: the
     # staff UI locks them, and supersede rejects a change. Void and record anew
     # to move an activity to another context.
-    context_fields: tuple[str, ...] = ()
+    context_fields: tuple[str, ...] = _Configured(lambda c: tuple(c.context_fields), ())
 
     # How the staff UI presents this register, so the platform UI holds no
     # register-specific field names. All keys optional:
@@ -64,18 +112,38 @@ class G2PActivityDomainService(BaseService):
     #   batch_carry_fields    fields a new batch row copies from the row above
     #   search_placeholder    hint in the activity search box
     #   context_search_placeholder  hint in the context search box
-    ui_hints: dict[str, Any] = {}
+    ui_hints: dict[str, Any] = _Configured(lambda c: dict(c.ui_hints), {})
 
     # Aggregate types that become final when a period lock (for all activity
     # types) covers their whole period, e.g. a worker's monthly attendance once
     # the month is closed. Others are never marked final.
-    final_on_period_lock: tuple[str, ...] = ()
+    final_on_period_lock: tuple[str, ...] = _Configured(lambda c: tuple(c.final_on_period_lock), ())
 
     # Activity fields that hold another identifier of the subject (e.g. a
     # person's Fayda FAN beside the register's own ID). A partner's consent names the
     # person by one identifier; a search by another is allowed only when the
     # register's own data links the two.
-    subject_id_fields: tuple[str, ...] = ()
+    subject_id_fields: tuple[str, ...] = _Configured(lambda c: tuple(c.subject.subject_id_fields), ())
+
+    # The subject type the register's activities are about by default (e.g.
+    # FARMER_ID), for build_context and aggregate to use.
+    subject_type: Optional[str] = _Configured(lambda c: c.subject.subject_type, None)
+
+    # The register this service is for; set by G2PActivityRegistryService, and
+    # used to find the configuration file.
+    register_mnemonic: Optional[str] = None
+    _activity_config = _UNLOADED
+
+    @property
+    def activity_config(self) -> ActivityRegisterConfig:
+        """The register's configuration file (validated), or the empty configuration."""
+        if self._activity_config is _UNLOADED:
+            self._activity_config = load_config(self.register_mnemonic) if self.register_mnemonic else EMPTY_CONFIG
+        return self._activity_config
+
+    @activity_config.setter
+    def activity_config(self, config: ActivityRegisterConfig) -> None:
+        self._activity_config = config
 
     def build_context(
         self,
@@ -96,12 +164,25 @@ class G2PActivityDomainService(BaseService):
         return payload
 
     def validate(self, activity_type: str, payload: dict[str, Any], context_activities: list) -> list[str]:
-        """Domain rules beyond the configured ones. Return warnings; raise G2PRegistryException to block."""
-        return []
+        """Plausibility rules against the context's latest activities. Return warnings; raise to block.
+
+        The default evaluates the configuration's ``rules``: a failed ``warn``
+        rule is a warning, a failed ``block`` rule rejects the activity
+        (ACTIVITY_RULE_FAILED, every failed blocking rule's message). An
+        override that adds code rules calls ``super().validate(...)`` to keep
+        the configured ones.
+        """
+        outcomes = evaluate_rules(self.activity_config, activity_type, payload, context_activities)
+        blocking = [outcome.message for outcome in outcomes if outcome.severity == "block"]
+        if blocking:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.ACTIVITY_RULE_FAILED.value[1], message="; ".join(blocking)
+            )
+        return [outcome.message for outcome in outcomes]
 
     def search_text_values(self, activity_type: str, payload: dict[str, Any]) -> list[str]:
-        """Payload values to include in the activity's search_text."""
-        return []
+        """Payload values to include in the activity's search_text (default: the configured search_fields)."""
+        return [str(payload[field]) for field in self.activity_config.search_fields if payload.get(field)]
 
     def project(self, context, activities: list) -> dict[str, Any]:
         """Compute the projection columns for one context.
@@ -151,15 +232,28 @@ class G2PActivityDomainService(BaseService):
 
     # ------------------------------------------------------------- sharing
 
-    # A DCI search on an activity register can return, instead of activities, a
-    # subject's current state per context (reg_record_type naming the context
-    # type, e.g. ...:CropSeason) or its aggregates (...:Aggregate). These hooks
-    # shape those records; the defaults are generic. The row a hook receives is
-    # already filtered to the consented data scopes (fields outside them are
-    # null), so a hook reads fields with .get and never needs to know about consent.
+    # A partner search on an activity register can return, instead of
+    # activities, a subject's current state per context or its aggregates. The
+    # records are internal and format-independent (a projection row, an
+    # aggregate row, JSON-ready), and already filtered to the consented data
+    # scopes (fields outside them are null) before they are shaped, so a hook
+    # or template reads fields with .get and never needs to know about consent.
+    #
+    # Each sharing standard is an output format. ``render_record`` shapes a
+    # record with the template the configuration names for the format and
+    # kind; DCI (format "dci") is one such format, with the hooks below
+    # (reg_record_type naming the context type, e.g. ...:CropSeason, or
+    # ...:Aggregate). Another standard's API asks for its own format.
+
+    def render_record(self, output_format: str, kind: str, record: dict[str, Any]) -> Optional[dict[str, Any]]:
+        """A record (kind "state" or "aggregate") in an output format, or None when none is configured."""
+        return _render_record(self.activity_config, output_format, kind, record, self.register_mnemonic)
 
     def dci_state_record(self, state: dict[str, Any]) -> dict[str, Any]:
-        """One context's current state (a projection row, JSON-ready) as a DCI record."""
+        """One context's current state as a DCI record: the configured dci template, else generic."""
+        rendered = self.render_record("dci", "state", state)
+        if rendered is not None:
+            return rendered
         base = {"context_id", "context_key", "subject_type", "subject_id", "context_status", "activity_count",
                 "last_activity_id", "last_activity_type", "last_occurred_at", "last_recorded_at", "projected_at",
                 "geo_dimensions", "geo_code_hierarchy_json"}
@@ -172,7 +266,10 @@ class G2PActivityDomainService(BaseService):
         }
 
     def dci_aggregate_record(self, aggregate: dict[str, Any]) -> dict[str, Any]:
-        """One aggregate (JSON-ready) as a DCI record."""
+        """One aggregate as a DCI record: the configured dci template, else generic."""
+        rendered = self.render_record("dci", "aggregate", aggregate)
+        if rendered is not None:
+            return rendered
         return {
             "subject_reference": {
                 "subject_type": aggregate.get("subject_type"),

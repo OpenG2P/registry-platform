@@ -169,3 +169,7 @@ class Settings(IamSettings):
     # How often a running service checks whether register sections or the
     # catalogue changed (e.g. db-seed ran after start-up) and re-publishes.
     data_scopes_sync_check_seconds: int = 60
+    # Activity registers' configuration files (<register_mnemonic>.json, with
+    # their output record templates). Empty means
+    # <extension package>/meta_data/activity-config.
+    activity_config_path: str = ""

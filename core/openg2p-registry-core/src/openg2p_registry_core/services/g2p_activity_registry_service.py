@@ -11,6 +11,7 @@ from sqlalchemy import select
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PActivityType, G2PRegisterDefinition, RegisterPurposeEnum
 from .g2p_activity_domain_service import G2PActivityDomainService
+from .g2p_activity_register_config import ActivityRegisterConfigError, load_config
 
 _logger = logging.getLogger("g2p-activity-registry-service")
 
@@ -71,7 +72,17 @@ class G2PActivityRegistryService(BaseService):
                 pass
             # Instantiate outside the component registry lookup: the base class
             # is shared by every register, so get_component() would be ambiguous.
-            self._domain_services[mnemonic] = service_class(name=f"activity-domain-{mnemonic}")
+            service = service_class(name=f"activity-domain-{mnemonic}")
+            service.register_mnemonic = mnemonic
+            try:
+                service.activity_config = load_config(mnemonic)
+            except ActivityRegisterConfigError as error:
+                # Not cached: every use of the register reports it until the file is fixed.
+                _logger.error("%s", error)
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.ACTIVITY_REGISTER_CONFIG_INVALID.value[1], message=str(error)
+                ) from error
+            self._domain_services[mnemonic] = service
         return self._domain_services[mnemonic]
 
     async def get_register(self, session, mnemonic: str) -> ActivityRegister:
