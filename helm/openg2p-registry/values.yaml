@@ -211,7 +211,10 @@ global:
   # default: partners read the catalogue with the signed POST. Turn on only to
   # publish the catalogue (field names, no values) openly.
   partnerDataScopesPublicGetEnabled: false
-  # Partner-key crypto backend: partner-mgmt | keymanager | local
+  # Partner-key crypto backend: partner-mgmt | keymanager | local. Not in the
+  # Rancher form: partner-mgmt is the only production choice. 'keymanager' (the
+  # standalone MOSIP Keymanager, global.keymanagerInstallationName) is legacy;
+  # 'local' is for tests.
   registryCryptoBackend: partner-mgmt
   # Partner Management partner-api — source of partner public keys. PM is now
   # part of commons-services (service name commons-services-pm-*), matching the

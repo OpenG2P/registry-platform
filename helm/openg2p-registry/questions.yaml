@@ -14,60 +14,54 @@ questions:
   group: General
 
 - variable: global.registryHostname
-  description: Hostname under which all Registry services will be accessed
+  description: "Hostname of the registry's staff portal and APIs. Defaults to <release>.<Base Domain>."
   type: string
   label: Registry Hostname
   group: General
 
 - variable: global.postgresqlHost
-  description: PostgreSQL server host
+  description: "PostgreSQL host. Leave as commons-postgresql (installed by commons-base); change only for an external server."
   type: string
-  label: PostgreSQL Server Host
-  group: General
+  label: PostgreSQL Host
+  group: Infrastructure
 
 - variable: global.keycloakBaseUrl
-  description: Keycloak Base URL used in all components
+  description: "Public Keycloak URL. Defaults to https://keycloak.<Base Domain>; change only for an external Keycloak."
   type: string
-  label: Keycloak Base URL
-  group: General
+  label: Keycloak URL
+  group: Infrastructure
 
 - variable: global.minioHost
-  description: "Object store (Garage, S3-compatible) API endpoint as host:port, no scheme. Default is the in-cluster commons Garage service: commons-garage:3900."
+  description: "Object store (S3) API endpoint as host:port, no scheme. Leave as commons-garage:3900, the Garage installed by commons-base."
   type: string
   default: "commons-garage:3900"
   label: Object Store (Garage) S3 API Host
-  group: General
+  group: Infrastructure
 
 - variable: global.minioSecure
   description: "Use HTTPS to reach the object store. Off for the in-cluster Garage service."
   type: boolean
   default: false
   label: Object Store Uses HTTPS
-  group: General
-
-- variable: keycloak-init.enabled
-  description: Run Keycloak Init to create realm and OIDC client
-  type: boolean
-  label: Keycloak Init
-  group: General
+  group: Infrastructure
 
 - variable: staffApi.enabled
   description: Install Staff Portal API
   type: boolean
-  label: Staff Portal API
-  group: General
+  label: Install Staff Portal API?
+  group: Components
 
 - variable: staffUi.enabled
   description: Install Staff Portal UI
   type: boolean
-  label: Staff Portal UI
-  group: General
+  label: Install Staff Portal UI?
+  group: Components
 
 - variable: partnerApi.enabled
-  description: Install Partner API
+  description: "Install the Partner API: DCI search, data ingest and activities for partners (signed, consent-checked)."
   type: boolean
-  label: Partner API
-  group: General
+  label: Install Partner API?
+  group: Components
 
 - variable: global.partnerSignatureValidationEnabled
   description: Verify the partner's signature on every Partner API call (DCI search, ingest, activities, data scopes) against Partner Management keys. ON by default (fail-closed). Turn OFF only for testing or bring-up before Partner Management is wired — doing so accepts unsigned requests.
@@ -90,50 +84,18 @@ questions:
   label: Enforce Consent
   group: Consent & Partner API
 
-- variable: global.registryCryptoBackend
-  description: How the Partner API verifies partner keys. 'partner-mgmt' fetches keys from Partner Management (recommended); 'keymanager' uses the legacy Mosip Keymanager; 'local' uses seeded keys (tests).
-  type: enum
-  options:
-    - partner-mgmt
-    - keymanager
-    - local
-  default: partner-mgmt
-  label: Partner Key Verification Backend
-  group: Consent & Partner API
-
-- variable: global.partnerManagementApiUrl
-  description: Partner Management partner-api base URL — source of partner public keys used to verify DCI signatures and consent objects.
-  type: string
-  default: 'http://commons-services-pm-partner-api'
-  label: Partner Management URL
-  group: Consent & Partner API
-
-- variable: global.consentManagerUrl
-  description: Consent Manager partner-api base URL (the /validate PDP endpoint) used when consent enforcement is enabled.
-  type: string
-  default: 'http://commons-services-cm-partner-api'
-  label: Consent Manager URL
-  group: Consent & Partner API
-
-- variable: global.consentDataController
-  description: This registry's data-controller ID in the Consent Manager. A consent covering several registries has one grant per controller; the registry validates its own. Defaults to the registry variant.
-  type: string
-  default: '{{ .Values.global.registryVariant }}'
-  label: Consent data controller
-  group: Consent & Partner API
-
 - variable: beneApi.enabled
-  description: Install Beneficiary Portal API
+  description: "Install the Beneficiary Portal API. Off by default."
   type: boolean
-  label: Beneficiary Portal API
-  group: General
+  label: Install Beneficiary Portal API?
+  group: Components
 
 
 - variable: idgenerator.enabled
-  description: Install ID Generator service
+  description: "Install the ID Generator, which mints this registry's functional IDs (one pool per register; pools are set in YAML under idgenerator.idGenerator.appConfig.idTypes)."
   type: boolean
-  label: ID Generator
-  group: General
+  label: Install ID Generator?
+  group: Components
 
 # Images
 - variable: staffApi.image.repository
@@ -177,12 +139,14 @@ questions:
   type: string
   label: Beneficiary Portal API Image Repository
   group: Images
+  show_if: beneApi.enabled=true
 
 - variable: beneApi.image.tag
   description: Docker image tag for Beneficiary Portal API
   type: string
   label: Beneficiary Portal API Image Tag
   group: Images
+  show_if: beneApi.enabled=true
 
 - variable: agentPortalApi.image.tag
   description: Docker image tag for Agent Portal API
@@ -219,7 +183,7 @@ questions:
 
 # DB Seed
 - variable: dbSeed.enabled
-  description: Run DB seed Job to load configuration SQL scripts after pods start
+  description: "Load the registry's configuration (registers, forms, approval policies) into its database after install. Leave on."
   type: boolean
   label: Enable DB Seed
   group: DB Seed
@@ -229,18 +193,21 @@ questions:
   type: boolean
   label: Load Sample Data
   group: DB Seed
+  show_if: dbSeed.enabled=true
 
 - variable: dbSeed.loadImages
-  description: Upload sample profile images to the object store (Garage) and link them to the seeded records. Requires Load Sample Data to be enabled.
+  description: "Upload sample profile images to the object store and link them to the sample records."
   type: boolean
   label: Load Sample Images
   group: DB Seed
+  show_if: dbSeed.loadSampleData=true
 
 - variable: dbSeed.loadTemplates
-  description: Upload Jinja templates from the db-seed image to the object store (Garage) after SQL seed (object key = filename). Requires it to be reachable at global.minioHost.
+  description: "Upload the registry's document templates to the object store. Leave on: without them records cannot be rendered (e.g. DCI search results)."
   type: boolean
   label: Load Templates to Object Store
   group: DB Seed
+  show_if: dbSeed.enabled=true
 
 - variable: dbSeed.optionalSeeds
   description: "Optional seeds the registry's db-seed image ships (folders under /seed/optional), comma-separated, run after the registry's own seed — for example an activity register the registry offers but not every install needs. Leave empty for none."
@@ -248,61 +215,35 @@ questions:
   default: ""
   label: Optional Seeds
   group: DB Seed
+  show_if: dbSeed.enabled=true
 
 - variable: dbSeed.image.repository
   description: Docker image repository for the DB seed container
   type: string
   label: DB Seed Image Repository
   group: DB Seed
+  show_if: dbSeed.enabled=true
 
 - variable: dbSeed.image.tag
   description: Docker image tag for the DB seed container
   type: string
   label: DB Seed Image Tag
   group: DB Seed
+  show_if: dbSeed.enabled=true
 
 # Master Data
-- variable: global.masterDataReadMode
-  description: "How the registry reads Master Data (code lists, geography, sample people). 'api' (recommended) reads through MDS's catalogue API — versioned and cached, follows MDS's change feed, keeps serving the last good data if MDS is briefly unreachable, and records on each activity the list and geography versions it was checked against. 'db' reads MDS's database directly, as before — a rollback switch that records no versions; only in this mode do the services get Master Data database settings (global.masterDataDB*)."
-  type: enum
-  options:
-    - api
-    - db
-  default: api
-  label: Master Data Read Mode
-  group: Master Data
-
 - variable: global.catalogueRelease
-  description: "Pin every Master Data read to a catalogue release (e.g. 2027.1): all code lists and the geography at the versions the release pins, so the registry does not change when a newer version is published. Leave empty to read the latest published versions. Only used in 'api' read mode; a list the release does not pin is read at its latest version."
+  description: "Pin every Master Data read to a catalogue release (e.g. 2027.1): code lists and geography stay at the versions that release pins, so the registry does not change when newer versions are published. Leave empty to read the latest published versions."
   type: string
   default: ""
   label: Pinned Catalogue Release
   group: Master Data
-  show_if: "global.masterDataReadMode=api"
-
-- variable: global.masterDataApiUrl
-  description: Internal URL of the Master Data API (the registry's backend and the Staff Portal UI call it).
-  type: string
-  label: Master Data API URL
-  group: Master Data
 
 # AWE
 - variable: global.aweEnabled
-  description: Enable AWE integration on staff-portal-api and seed AWE DB from db-seed job
+  description: "Send change requests to the shared AWE (installed with commons-services) for approval, and seed this registry's approval policies and approver users."
   type: boolean
-  label: Enable AWE Integration
-  group: AWE
-
-- variable: global.aweBaseUrl
-  description: Public AWE API base URL (host only, no /v1/awe path)
-  type: string
-  label: AWE Base URL
-  group: AWE
-
-- variable: global.aweCallbackSecretId
-  description: callback_secret.id in AWE DB (must match seeded row)
-  type: string
-  label: AWE Callback Secret ID
+  label: Use AWE for Approvals
   group: AWE
 
 - variable: global.aweHttpTimeoutSeconds
@@ -310,45 +251,35 @@ questions:
   type: int
   label: AWE HTTP Timeout (s)
   group: AWE
+  show_if: global.aweEnabled=true
 
 - variable: global.aweWebhookTimestampToleranceSeconds
   description: Max clock skew (seconds) for inbound AWE webhook signatures
   type: int
   label: AWE Webhook Timestamp Tolerance (s)
   group: AWE
+  show_if: global.aweEnabled=true
 
 - variable: global.aweApproverUserPassword
-  description: Initial Keycloak password for seeded approver users
+  description: "Initial Keycloak password of the approver users db-seed creates for the approval policies."
   type: string
   label: AWE Approver User Password
   group: AWE
-
-# ID Generator
-- variable: idgenerator.idGenerator.appConfig.idTypesNote
-  description: "One functional-ID pool per register that mints IDs. Which pools are needed depends on the registry being installed — a single-register registry needs exactly one, and its pool name is that register's mnemonic in lowercase. Pools ACCUMULATE from three layers, because Helm merges maps and a parent cannot delete a subchart default: the id-generator subchart defaults, this chart's defaults (individual, household), and the installed registry's own. Seeing pools you do not recognise is therefore expected — an unused pool is an empty table that allocates nothing. Check only that YOUR register's pool is present. To add, remove or modify pools, switch to 'Edit YAML' and update the idgenerator.idGenerator.appConfig.idTypes section."
-  type: string
-  label: ID Types Configuration
-  group: ID Generator
-  default: "See description — edit YAML to configure"
+  show_if: global.aweEnabled=true
 
 # Audit Manager
 - variable: global.auditEnabled
-  description: Master switch for emitting audit events to OpenG2P Audit Manager. Must be true AND global.auditManagerUrl must be set for any audits to flow. Available from staff-portal-api 1.1.x.
+  description: "Send audit events to the Audit Manager installed with commons-services."
   type: boolean
   label: Audit Enabled
   group: Audit Manager
 
-- variable: global.auditManagerUrl
-  description: Internal URL of the OpenG2P Audit Manager service (e.g. http://audit-manager:80 when in the same namespace).
-  type: string
-  label: Audit Manager URL
-  group: Audit Manager
-
 - variable: global.auditAnonymousFailures
-  description: When true, also audit rejected anonymous calls (401/403). Set false to skip them and only audit authenticated user calls.
+  description: "Also audit rejected anonymous calls (401/403). Off audits only authenticated calls."
   type: boolean
   label: Audit Anonymous Failures
   group: Audit Manager
+  show_if: global.auditEnabled=true
 
 - variable: sanity.enabled
   description: Run the in-cluster sanity suite on every install/upgrade (smoke checks the Partner API is live and the DCI route is served). Best-effort — a failure does not block the deploy.
@@ -363,6 +294,7 @@ questions:
   default: false
   label: Sanity - Run Full E2E
   group: Sanity
+  show_if: sanity.enabled=true
 
 - variable: sanity.failOnError
   description: Fail the install/upgrade when a sanity test FAILS. Gates on failures, not skips — a test whose dependencies are not configured (no commons-services on a bring-up install) still skips and stays green. Turn off only where a red deploy is worse than an unverified one.
@@ -370,6 +302,7 @@ questions:
   default: true
   label: Sanity - Fail the Deploy on Test Failure
   group: Sanity
+  show_if: sanity.enabled=true
 
 - variable: sanity.readinessTimeout
   description: Seconds the suite waits for the registry APIs to come up before giving up. Raise it on a slow or heavily-loaded cluster where pods take longer to pass their probes.
@@ -377,34 +310,7 @@ questions:
   default: 180
   label: Sanity - API Readiness Timeout (s)
   group: Sanity
-
-- variable: sanity.searchText
-  description: "What the e2e DCI search matches on (ILIKE against search_text). Must be the sanity record's functional_record_id: the change-request test runs first and its approval regenerates search_text from the record's real columns, dropping any manually-stuffed marker. The seeder builds its record from this same value, so the two cannot drift."
-  type: string
-  default: SANITY-INDIVIDUAL-0001
-  label: Sanity - Record Search Text
-  group: Sanity
-
-- variable: sanity.regType
-  description: Register type the e2e exercises. Must match a register this deployment actually ships — the reference registry is Individual; a variant overrides it with its own register.
-  type: string
-  default: Individual
-  label: Sanity - Register Type
-  group: Sanity
-
-- variable: sanity.dataScopes
-  description: "Comma-separated data scopes the seeded consent policy allows (names from the registry's data scope catalogue, GET /partner/data_scopes; a bare name is prefixed with the consent data controller ID). The e2e asserts the seeded first/last name and birth date come back, so these scopes must cover them."
-  type: string
-  default: "individual_demographic_details"
-  label: Sanity - Consented Data Scopes
-  group: Sanity
-
-- variable: sanity.deniedScopes
-  description: Comma-separated data scopes deliberately NOT consented to. The e2e asserts the seeded values of their fields never appear in a response — this is the test that proves consent filtering actually filters.
-  type: string
-  default: "individual_identifier"
-  label: Sanity - Denied Data Scopes
-  group: Sanity
+  show_if: sanity.enabled=true
 
 - variable: sanity.aweSettleTimeout
   description: Seconds the e2e waits for AWE to apply an approved change request. AWE calls back asynchronously via webhook, so the change lands after the approval returns; too low a value fails a working deployment.
@@ -412,24 +318,10 @@ questions:
   default: 90
   label: Sanity - AWE Settle Timeout (s)
   group: Sanity
-
-- variable: global.consentManagerStaffUrl
-  description: Consent Manager staff-portal-api base URL — used only by the sanity e2e to seed the test partner's binding + policy.
-  type: string
-  default: 'http://commons-services-cm-api'
-  label: Consent Manager Staff URL (e2e seed)
-  group: Sanity
   show_if: sanity.runE2e=true
 
-- variable: global.partnerManagementAdminApiUrl
-  description: Partner Management staff-portal-api base URL — used only by the sanity e2e to onboard + approve the test partner's key.
-  type: string
-  default: 'http://commons-services-pm-staff-portal-api'
-  label: Partner Management Admin URL (e2e seed)
-  group: Sanity
-  show_if: sanity.runE2e=true
 - variable: global.csrfEnabled
-  description: Enable double-submit CSRF validation on state-changing staff-portal-api requests. Set false for local/dev troubleshooting only.
+  description: "Check a CSRF token on staff portal requests that change data. Leave on; turn off only to troubleshoot."
   type: boolean
   label: CSRF Enabled
   group: Security
@@ -558,16 +450,6 @@ questions:
   type: string
   default: 'did:web:{{ tpl .Values.global.certifyHostname $ }}'
   label: Issuer DID
-  group: VC Issuance
-  show_if: agentPortalApi.vcIssuance.enabled=true
-
-- variable: global.certifyBaseUrl
-  description: >-
-    In-cluster base URL of Inji Certify, the credential issuer. One shared
-    Certify per environment, installed with the commons layer.
-  type: string
-  default: http://commons-services-inji-certify/v1/certify
-  label: Inji Certify Base URL
   group: VC Issuance
   show_if: agentPortalApi.vcIssuance.enabled=true
 
