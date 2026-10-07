@@ -12,6 +12,7 @@ from openg2p_registry_core.models.g2p_functional_id_generation_queue import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled, task_limit
 from ..utils import Workers
 
 _config = Settings.get_config()
@@ -21,6 +22,9 @@ _engine = Engine.get_engine()
 
 @celery_app.task(name="completion_score_beat_producer")
 def completion_score_beat_producer():
+    if not task_enabled():
+        _logger.info("%s is disabled", "completion_score_beat_producer")
+        return
     _logger.info("Checking for pending completion score computations")
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
 
@@ -32,7 +36,8 @@ def completion_score_beat_producer():
                     G2PCompletionScoreComputationQueue.compute_status
                     == ProcessStatusEnum.PENDING.value
                 )
-                .limit(_config.no_of_tasks_to_process)
+                .limit(task_limit())
+                # .with_for_update(skip_locked=True)
             )
             .scalars()
             .all()
@@ -44,7 +49,9 @@ def completion_score_beat_producer():
         for queue_item in pending_queue_items:
             queue_item.compute_status = ProcessStatusEnum.PROCESSING.value
             session.add(queue_item)
+        session.commit()
 
+        for queue_item in pending_queue_items:
             celery_app.send_task(
                 Workers.COMPLETION_SCORE_WORKER,
                 args=(queue_item.queue_id,),
@@ -53,7 +60,5 @@ def completion_score_beat_producer():
             _logger.info(
                 f"Sent task to {Workers.COMPLETION_SCORE_WORKER} for queue_id: {queue_item.queue_id}"
             )
-
-        session.commit()
 
     _logger.info("Completed processing pending completion score computations")

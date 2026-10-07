@@ -1091,13 +1091,13 @@ celeryBeat:
     tag: "develop"
     pullPolicy: Always
 
-  # Celery Beat Producer is NOT just a scheduler in this chart — it also
-  # does batch enqueueing (REGISTRY_CELERY_BEAT_BATCH_SIZE=2000,
-  # NO_OF_TASKS_TO_PROCESS=4 above). Each tick pulls up to 2000 records,
-  # holds them in memory while creating up to 4 parallel task envelopes, and
-  # dispatches to Redis. Sizing mirrored from NSR (~500Mi idle measured there):
+  # Celery Beat Producer claims rows and enqueues one task per row.
+  # NO_OF_TASKS_TO_PROCESS is how many rows a tick claims.
+  # A per-producer *_NO_OF_TASKS overrides the shared count.
+  # A per-producer *_ENABLED=false makes that producer return without claiming rows.
+  # Sizing mirrored from NSR (~500Mi idle measured there):
   # request 640Mi reflects the real footprint; 1.5Gi limit is a generous cap
-  # (no cpu limit — see staffApi rationale). Lower BATCH_SIZE or
+  # (no cpu limit — see staffApi rationale). Lower
   # NO_OF_TASKS_TO_PROCESS if you need to shrink the per-tick memory.
   resources:
     requests:
@@ -1107,31 +1107,92 @@ celeryBeat:
       memory: 1536Mi
 
   envVars:
-    REGISTRY_CELERY_BEAT_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
+    CELERY_APP: "openg2p_registry_celery_beat.main.celery_app"
+    # Beat is synchronous. Pool is 2*CPU+1. This value is for a 2 CPU limit.
+    CELERY_OPTS: "worker --beat --loglevel=info --schedule=/tmp/celery-beat-schedule.db --concurrency=1"
+
+    REGISTRY_CELERY_BEAT_CELERY_BACKEND_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
+    REGISTRY_CELERY_BEAT_CELERY_BROKER_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
+    REGISTRY_CELERY_BEAT_WORKER_QUEUE: registry_worker_queue
+
     REGISTRY_CELERY_BEAT_DB_DBNAME: '{{ tpl .Values.global.registryDB $ }}'
-    REGISTRY_CELERY_BEAT_DB_PORT: '{{ .Values.global.registryDBPort }}'
-    REGISTRY_CELERY_BEAT_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
+    REGISTRY_CELERY_BEAT_DB_HOSTNAME: '{{ .Values.global.postgresqlHost }}'
     # SQLAlchemy pool per beat process.
-    REGISTRY_CELERY_BEAT_DB_POOL_SIZE: 5
     REGISTRY_CELERY_BEAT_DB_POOL_MAX_OVERFLOW: 10
     REGISTRY_CELERY_BEAT_DB_POOL_PRE_PING: true
     REGISTRY_CELERY_BEAT_DB_POOL_RECYCLE: 1800
+    REGISTRY_CELERY_BEAT_DB_POOL_SIZE: 5
+    REGISTRY_CELERY_BEAT_DB_PORT: '{{ .Values.global.registryDBPort }}'
+    REGISTRY_CELERY_BEAT_DB_USERNAME: '{{ tpl .Values.global.registryDBUser $ }}'
 
-    REGISTRY_CELERY_BEAT_CELERY_BROKER_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
-    REGISTRY_CELERY_BEAT_CELERY_BACKEND_URL: redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0
-
-    REGISTRY_CELERY_BEAT_WORKER_QUEUE: registry_worker_queue
-    REGISTRY_CELERY_BEAT_BATCH_SIZE: 2000
+    # Shared fallback. A set per-producer frequency or NO_OF_TASKS replaces these.
+    # Enabled false makes that producer return without claiming rows.
+    # Every producer ticks every 60 seconds. The task count is the rows one
+    # process finished in that minute on the pod-1 runs (those runs used two
+    # processes, so the count is half). Dedup, topic registration, and
+    # functional id updation have no pod-1 drain, so they stay at 4.
     REGISTRY_CELERY_BEAT_NO_OF_TASKS_TO_PROCESS: 4
 
-    REGISTRY_CELERY_BEAT_DATA_TRANSFORMATION_BEAT_PRODUCER_FREQUENCY: 20
-    REGISTRY_CELERY_BEAT_INGEST_DATA_BEAT_PRODUCER_FREQUENCY: 20
-    REGISTRY_CELERY_BEAT_INGEST_DATA_CLASSIFICATION_BEAT_PRODUCER_FREQUENCY: 20
-    REGISTRY_CELERY_BEAT_OUTGEST_DATA_PUBLISH_BEAT_PRODUCER_FREQUENCY: 20
-    REGISTRY_CELERY_BEAT_OUTGEST_TOPIC_REGISTER_BEAT_PRODUCER_FREQUENCY: 20
-    REGISTRY_CELERY_BEAT_DEDUPLICATION_BEAT_PRODUCER_FREQUENCY: 30
-    CELERY_APP: "openg2p_registry_celery_beat.main.celery_app"
-    CELERY_OPTS: "worker --beat --loglevel=info --schedule=/tmp/celery-beat-schedule.db"
+    # Ingest. ingest_data also claims change-request (UPDATE) rows, so this
+    # count is the slower of those two drains.
+    REGISTRY_CELERY_BEAT_INGEST_DATA_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_INGEST_DATA_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_INGEST_DATA_BEAT_PRODUCER_NO_OF_TASKS: 858
+    REGISTRY_CELERY_BEAT_INGEST_DATA_CLASSIFICATION_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_INGEST_DATA_CLASSIFICATION_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_INGEST_DATA_CLASSIFICATION_BEAT_PRODUCER_NO_OF_TASKS: 1092
+    # Shared by ingest transformation and outgest transformation.
+    REGISTRY_CELERY_BEAT_DATA_TRANSFORMATION_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_INGEST_DATA_TRANSFORMATION_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_INGEST_DATA_TRANSFORMATION_BEAT_PRODUCER_NO_OF_TASKS: 328
+
+    # Outgest
+    REGISTRY_CELERY_BEAT_OUTGEST_DATA_TRANSFORMATION_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_OUTGEST_DATA_TRANSFORMATION_BEAT_PRODUCER_NO_OF_TASKS: 184
+    REGISTRY_CELERY_BEAT_OUTGEST_DATA_PUBLISH_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_OUTGEST_DATA_PUBLISH_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_OUTGEST_DATA_PUBLISH_BEAT_PRODUCER_NO_OF_TASKS: 1197
+    REGISTRY_CELERY_BEAT_OUTGEST_TOPIC_REGISTER_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_OUTGEST_TOPIC_REGISTER_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_OUTGEST_TOPIC_REGISTER_BEAT_PRODUCER_NO_OF_TASKS: 4
+
+    # Deduplication. One frequency for all four producers. No pod-1 run yet.
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_REGISTER_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_REGISTER_BEAT_PRODUCER_NO_OF_TASKS: 4
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_CHANGE_REQUEST_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_CHANGE_REQUEST_BEAT_PRODUCER_NO_OF_TASKS: 4
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_INTAKE_FORMS_VS_REGISTER_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_INTAKE_FORMS_VS_REGISTER_BEAT_PRODUCER_NO_OF_TASKS: 4
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_INTAKE_FORMS_VS_INTAKE_FORMS_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_DEDUPLICATION_INTAKE_FORMS_VS_INTAKE_FORMS_BEAT_PRODUCER_NO_OF_TASKS: 4
+
+    # Intake register ingest
+    REGISTRY_CELERY_BEAT_INTAKE_FORM_REGISTER_INGEST_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_INTAKE_FORM_REGISTER_INGEST_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_INTAKE_FORM_REGISTER_INGEST_BEAT_PRODUCER_NO_OF_TASKS: 283
+
+    # Functional id. Updation has no pod-1 run.
+    REGISTRY_CELERY_BEAT_FUNCTIONAL_ID_ALLOCATION_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_FUNCTIONAL_ID_ALLOCATION_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_FUNCTIONAL_ID_ALLOCATION_BEAT_PRODUCER_NO_OF_TASKS: 979
+    REGISTRY_CELERY_BEAT_FUNCTIONAL_ID_UPDATION_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_FUNCTIONAL_ID_UPDATION_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_FUNCTIONAL_ID_UPDATION_BEAT_PRODUCER_NO_OF_TASKS: 4
+
+    # Score
+    REGISTRY_CELERY_BEAT_SCORE_COMPUTE_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_SCORE_COMPUTE_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_SCORE_COMPUTE_BEAT_PRODUCER_NO_OF_TASKS: 3153
+    REGISTRY_CELERY_BEAT_COMPLETION_SCORE_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_COMPLETION_SCORE_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_COMPLETION_SCORE_BEAT_PRODUCER_NO_OF_TASKS: 3119
+
+    # Import file. One CSV is one task. A 10k-row file took about 15 minutes
+    # on one process, so a tick claims 1 file.
+    REGISTRY_CELERY_BEAT_IMPORT_FILE_PROCESS_BEAT_PRODUCER_FREQUENCY: 60
+    REGISTRY_CELERY_BEAT_IMPORT_FILE_PROCESS_BEAT_PRODUCER_ENABLED: true
+    REGISTRY_CELERY_BEAT_IMPORT_FILE_PROCESS_BEAT_PRODUCER_NO_OF_TASKS: 1
 
   envVarsFrom:
     REGISTRY_CELERY_BEAT_DB_PASSWORD:
@@ -1180,8 +1241,7 @@ celeryWorker:
   # Sizing mirrored from NSR (~600Mi idle measured there): request 1Gi reserves
   # the real footprint so the scheduler doesn't over-pack workers onto a node;
   # 2.5Gi limit is a generous runaway cap for the worst batch peak (no cpu
-  # limit — see staffApi rationale). If ingests OOM at the cap, lower
-  # REGISTRY_CELERY_WORKERS_BATCH_SIZE or scale out replicaCount.
+  # limit — see staffApi rationale). If ingests OOM at the cap, scale out replicaCount.
   resources:
     requests:
       cpu: 100m
@@ -1210,8 +1270,39 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_CELERY_BACKEND_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
     REGISTRY_CELERY_WORKERS_WORKER_QUEUE: "registry_worker_queue"
 
-    REGISTRY_CELERY_WORKERS_BATCH_SIZE: 2000
     REGISTRY_CELERY_WORKERS_WORKER_MAX_ATTEMPTS: 5
+    # Enabled false acknowledges the message and does not run it.
+
+    # Ingest. change_request shares the ingest_data beat producer.
+    REGISTRY_CELERY_WORKERS_INGEST_DATA_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_CHANGE_REQUEST_INGEST_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_INGEST_DATA_CLASSIFICATION_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_INGEST_DATA_TRANSFORMATION_WORKER_ENABLED: true
+
+    # Outgest
+    REGISTRY_CELERY_WORKERS_OUTGEST_DATA_TRANSFORMATION_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_OUTGEST_DATA_PUBLISH_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_OUTGEST_TOPIC_REGISTER_WORKER_ENABLED: true
+
+    # Deduplication
+    REGISTRY_CELERY_WORKERS_DEDUPLICATION_REGISTER_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_DEDUPLICATION_CHANGE_REQUEST_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_DEDUPLICATION_INTAKE_FORMS_VS_REGISTER_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_DEDUPLICATION_INTAKE_FORMS_VS_INTAKE_FORMS_WORKER_ENABLED: true
+
+    # Intake register ingest
+    REGISTRY_CELERY_WORKERS_INTAKE_FORM_REGISTER_INGEST_WORKER_ENABLED: true
+
+    # Functional id
+    REGISTRY_CELERY_WORKERS_FUNCTIONAL_ID_ALLOCATION_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_FUNCTIONAL_ID_UPDATION_WORKER_ENABLED: true
+
+    # Score
+    REGISTRY_CELERY_WORKERS_SCORE_COMPUTE_WORKER_ENABLED: true
+    REGISTRY_CELERY_WORKERS_COMPLETION_SCORE_WORKER_ENABLED: true
+
+    # Import file
+    REGISTRY_CELERY_WORKERS_IMPORT_FILE_PROCESS_WORKER_ENABLED: true
 
     REGISTRY_CELERY_WORKERS_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
     REGISTRY_CELERY_WORKERS_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
@@ -1220,7 +1311,9 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_FUNCTIONAL_ID_GENERATION_URL: '{{ tpl .Values.global.idGeneratorInternalUrl $ }}'
     REGISTRY_CELERY_WORKERS_ID_GENERATION_ALLOCATION_PATH: '/idgenerator/{id_type}/id'
     CELERY_APP: "openg2p_registry_celery_worker.main.celery_app"
-    CELERY_OPTS: "worker -Q registry_worker_queue --loglevel=info"
+    # One process. Producers share this queue, so two tasks at once would
+    # stack every producer that is due on the same tick.
+    CELERY_OPTS: "worker -Q registry_worker_queue --loglevel=info --concurrency=1"
 
   envVarsFrom:
     REGISTRY_CELERY_WORKERS_MINIO_ACCESS_KEY:
@@ -1286,6 +1379,16 @@ redis:
   master:
     persistence:
       enabled: false
+    # Measured on perftest: dataset 162MB, 364668 keys, OOMKilled at 192Mi
+    # during AOF rewrite. Rewrite peaks near 2x the dataset. A 20000-task
+    # queue adds about 80MB. (162+80) x 2 = 484MB. Limit is 1Gi.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 150m
+        memory: 1Gi
   auth:
     enabled: false
 

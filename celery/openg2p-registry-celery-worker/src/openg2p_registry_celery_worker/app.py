@@ -8,10 +8,21 @@ _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
 from celery import Celery
-from openg2p_registry_core.helpers import TemplateHelper, WebsubHelper, get_document_handler
+from openg2p_registry_core.cache import init_cache
+from openg2p_registry_core.helpers import (
+    ApplicationReferenceGenerator,
+    AweHelper,
+    TemplateHelper,
+    WebsubHelper,
+    get_document_handler,
+)
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
 from openg2p_fastapi_common.exception import BaseExceptionHandler        
 from openg2p_registry_core.services import (
+    G2PAweIntegrationService,
+    G2PAwePolicyConfigurationService,
+    G2PAttributeValueValidator,
+    G2PDocumentService,
     G2PIngestService,
     G2PIntakeFormDataService,
     G2PIntakeFormLinkService,
@@ -29,6 +40,9 @@ from openg2p_registry_extensions.register_domain.factory import G2PRegisterDomai
 class Initializer(BaseInitializer):
     def initialize(self, **kwargs):
         super().initialize()
+        # Register lookups used by ingest are cached. The cache decorator
+        # requires FastAPICache.init, which the API process does and this worker did not.
+        init_cache()
         BaseExceptionHandler()
 
         # Services
@@ -39,14 +53,20 @@ class Initializer(BaseInitializer):
         G2PRegisterChangeRequestService()
         G2PChangeRequestWorkerService()
         G2PGeoHierarchyService()
+        G2PAttributeValueValidator()
+        G2PDocumentService()
+        G2PAwePolicyConfigurationService()
+        G2PAweIntegrationService()
 
         # Domain factory (needed for dynamic domain resolution during approvals)
         G2PRegisterDomainFactory()
 
         # Helpers
         get_document_handler()
+        ApplicationReferenceGenerator(_config.application_reference_format)
         TemplateHelper()
         WebsubHelper()
+        AweHelper()
 
 
 celery_app = Celery(

@@ -25,6 +25,7 @@ from openg2p_registry_core.services import G2PIngestService
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -47,6 +48,9 @@ def import_file_process_worker(self, import_file_id: str):
         5. Write per-record log and commit.
         6. Update queue item status on success or failure.
     """
+    if not task_enabled():
+        _logger.info("%s is disabled", "import_file_process_worker")
+        return
     _logger.info(
         "Import file process worker started for import_file_id=%s", import_file_id
     )

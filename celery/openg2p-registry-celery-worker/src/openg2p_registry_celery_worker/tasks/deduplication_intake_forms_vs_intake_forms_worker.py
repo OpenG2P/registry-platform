@@ -17,6 +17,7 @@ from openg2p_registry_core.models import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -25,6 +26,9 @@ _engine = Engine.get_engine()
 
 @celery_app.task(name="deduplication_intake_forms_vs_intake_forms_worker", bind=True, max_retries=3)
 def deduplication_intake_forms_vs_intake_forms_worker(self, submission_id: str):
+    if not task_enabled():
+        _logger.info("%s is disabled", "deduplication_intake_forms_vs_intake_forms_worker")
+        return
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
 
     with session_maker() as session:

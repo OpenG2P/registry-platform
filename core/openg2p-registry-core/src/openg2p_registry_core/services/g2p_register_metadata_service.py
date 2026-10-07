@@ -79,10 +79,12 @@ class G2PRegisterMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[G2PRegisterUITabData], int, int]:
-        # Locust / UI call unpaginated — cache the full assembled payload per register.
-        if current_page is None or page_size is None:
-            return await self._get_cached_all_tabs(register_id)
-        return await self._assemble_all_tabs(register_id, current_page, page_size)
+        # Locust/UI always send pagination defaults (page 1, size 20), which
+        # used to skip cache. Always cache the full list, then slice.
+        tabs, total_items, number_of_pages = await self._get_cached_all_tabs(register_id)
+        return self._slice_cached_page(
+            tabs, total_items, number_of_pages, current_page, page_size
+        )
 
     @cache(
         expire=_config.cache_expires_in_seconds,
@@ -413,10 +415,14 @@ class G2PRegisterMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[G2PRegisterSectionData], int, int]:
-        # Locust / UI call unpaginated — cache the full assembled payload per register.
-        if current_page is None or page_size is None:
-            return await self._get_cached_all_sections(register_id)
-        return await self._assemble_all_sections(register_id, current_page, page_size)
+        # Locust/UI always send pagination defaults (page 1, size 20), which
+        # used to skip cache. Always cache the full list, then slice.
+        sections, total_items, number_of_pages = await self._get_cached_all_sections(
+            register_id
+        )
+        return self._slice_cached_page(
+            sections, total_items, number_of_pages, current_page, page_size
+        )
 
     @cache(
         expire=_config.cache_expires_in_seconds,
@@ -548,6 +554,20 @@ class G2PRegisterMetadataService(BaseService):
     # ---------------------------------------------------------------------
     # Shared helpers
     # ---------------------------------------------------------------------
+    @staticmethod
+    def _slice_cached_page(
+        items: list,
+        total_items: int,
+        number_of_pages: int,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list, int, int]:
+        if current_page is None or page_size is None:
+            return items, total_items, number_of_pages
+        offset = (current_page - 1) * page_size
+        pages = (total_items + page_size - 1) // page_size if page_size else 1
+        return items[offset : offset + page_size], total_items, max(pages, 1)
+
     def _apply_pagination(self, query, current_page: int | None, page_size: int | None):
         if current_page is None or page_size is None:
             return query

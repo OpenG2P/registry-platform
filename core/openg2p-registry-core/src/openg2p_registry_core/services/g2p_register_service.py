@@ -1032,11 +1032,14 @@ class G2PRegisterService(BaseService):
                 message=f"Register implementation not found for {g2p_register_definition.register_mnemonic}"
             )
         
-        # Build search query
-        search_query: str = f"%{search_text}%"
-
-        # Base filter: search_text applied on implementation_class.search_text
-        filter_conditions: list = [implementation_class.search_text.ilike(search_query)]
+        # Empty/whitespace search lists all rows; ILIKE '%%' still hits the
+        # trigram GIN and excludes NULL search_text.
+        filter_conditions: list = []
+        search_needle = (search_text or "").strip()
+        if search_needle:
+            filter_conditions.append(
+                implementation_class.search_text.ilike(f"%{search_needle}%")
+            )
 
         # Additional filters if provided
         if filter_by:
@@ -1062,7 +1065,8 @@ class G2PRegisterService(BaseService):
 
         # Query records
         query = select(implementation_class).filter(*filter_conditions)
-        query = self._apply_register_record_sort(query, implementation_class, sort_by)
+        if not search_needle:
+            query = self._apply_register_record_sort(query, implementation_class, sort_by)
         query = query.offset(offset).limit(page_size)
 
         results = (await session.execute(query)).scalars().all()
@@ -1164,11 +1168,14 @@ class G2PRegisterService(BaseService):
         display_fields_sorted: list = sorted(search_result_schema, key=lambda x: x.get("order", 999)) if search_result_schema else []
         display_field_names: set = {f["field_name"] for f in display_fields_sorted} if display_fields_sorted else set()
 
-        # Search using LIKE with trigram index optimization
-        search_query: str = f"%{search_text}%"
-
-        # Build base filter condition (search text)
-        filter_conditions: list = [implementation_class.search_text.ilike(search_query)]
+        # Empty/whitespace search lists all rows (plus status/policy/filters).
+        # ILIKE '%%' still hits the trigram GIN and excludes NULL search_text.
+        filter_conditions: list = []
+        search_needle = (search_text or "").strip()
+        if search_needle:
+            filter_conditions.append(
+                implementation_class.search_text.ilike(f"%{search_needle}%")
+            )
 
         # Default to ACTIVE records unless the caller explicitly filters on record_status.
         if not self._has_explicit_record_status_filter(filter_by):
@@ -1206,7 +1213,8 @@ class G2PRegisterService(BaseService):
 
         # Build query with filters applied
         query = select(implementation_class).where(*filter_conditions)
-        query = self._apply_register_record_sort(query, implementation_class, sort_by)
+        if not search_needle:
+            query = self._apply_register_record_sort(query, implementation_class, sort_by)
 
         # Apply pagination
         query = query.offset(offset).limit(page_size)
@@ -1275,11 +1283,9 @@ class G2PRegisterService(BaseService):
     def _apply_register_record_sort(self, query, implementation_class, sort_by: str | None):
         """Sort register records.
 
-        Default is heap order (ctid), not last_approved_at. A btree ORDER BY after a
-        GIN search_text ILIKE match forces Postgres to fetch every hit, sort, then
-        LIMIT — so LIMIT 10 still heap-scans thousands of rows. ctid matches bitmap
-        heap-scan order, so LIMIT can stop after page_size heap fetches. Callers that
-        pass sort_by still get an explicit column sort.
+        Default is heap order (ctid), not last_approved_at. Typed search must not
+        ORDER BY ctid: that Sort of every ILIKE hit is slower than unordered LIMIT.
+        sort_by only applies when there is no search needle.
         """
         if sort_by:
             column_name = sort_by.lstrip('-')

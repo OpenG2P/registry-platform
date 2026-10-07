@@ -26,6 +26,7 @@ from openg2p_registry_core.services.g2p_change_request_worker_service import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -36,6 +37,9 @@ asyncio.set_event_loop(_loop)
 
 @celery_app.task(name="change_request_ingest_worker")
 def change_request_ingest_worker(ingest_id: str) -> None:
+    if not task_enabled():
+        _logger.info("%s is disabled", "change_request_ingest_worker")
+        return
     _logger.info("Starting change_request_ingest_worker for ingest_id: %s", ingest_id)
     _loop.run_until_complete(_process_change_request_ingest_async(ingest_id))
     _logger.info("Completed change_request_ingest_worker for ingest_id: %s", ingest_id)

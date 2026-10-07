@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled, task_limit
 from ..utils import Workers
 
 _config = Settings.get_config()
@@ -21,6 +22,9 @@ def deduplication_register_beat_producer():
     Beat producer that finds pending deduplication work for register records
     and queues them to the deduplication worker.
     """
+    if not task_enabled():
+        _logger.info("%s is disabled", "deduplication_register_beat_producer")
+        return
     _logger.info("Checking for pending deduplication_register requests")
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
     
@@ -33,7 +37,8 @@ def deduplication_register_beat_producer():
                     G2PRegisterChangeRequest.deduplication_register_status
                     == DeduplicationStatusEnum.PENDING.value
                 )
-                .limit(_config.no_of_tasks_to_process)
+                .limit(task_limit())
+                # .with_for_update(skip_locked=True)
             )
             .scalars()
             .all()
@@ -42,16 +47,14 @@ def deduplication_register_beat_producer():
 
         for change_request in pending_change_requests:
             _logger.info(f"Queueing change_request {change_request.change_request_id} for register deduplication")
-
-            # Update status to INPROGRESS
             change_request.deduplication_register_status = DeduplicationStatusEnum.INPROGRESS.value
             session.add(change_request)
+        session.commit()
 
+        for change_request in pending_change_requests:
             _logger.info(
                 f"Updating status for {Workers.DEDUPLICATION_REGISTER_WORKER} to INPROGRESS for change_request: {change_request.change_request_id}"
             )
-
-            # Send task to celery worker
             celery_app.send_task(
                 Workers.DEDUPLICATION_REGISTER_WORKER,
                 args=(change_request.change_request_id,),
@@ -60,7 +63,6 @@ def deduplication_register_beat_producer():
             _logger.info(
                 f"Sent task to {Workers.DEDUPLICATION_REGISTER_WORKER} for change_request: {change_request.change_request_id}"
             )
-        session.commit()
 
     _logger.info("Completed processing pending deduplication_register requests")
 
