@@ -88,6 +88,16 @@ questions:
   label: Consent Manager URL
   group: Consent & Partner API
 
+- variable: global.websubBaseUrl
+  description: >-
+    MOSIP WebSub hub Service root, without /hub. Outgoing topics are registered
+    here, and async search results are published here. Defaults to the hub
+    installed by commons-services.
+  type: string
+  default: 'http://commons-services-websub'
+  label: WebSub Hub URL
+  group: Consent & Partner API
+
 - variable: beneApi.enabled
   description: Install Beneficiary Portal API
   type: boolean
