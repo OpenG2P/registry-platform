@@ -107,6 +107,9 @@ global:
   # Consent Manager partner-api base URL — the /validate PDP endpoint. CM is now
   # part of commons-services (service name commons-services-cm-*), matching PM.
   consentManagerUrl: 'http://commons-services-cm-partner-api'
+  # MOSIP WebSub hub installed by commons-services. Do not append /hub;
+  # WebsubHelper adds that. Same namespace as this registry.
+  websubBaseUrl: 'http://commons-services-websub'
   consentManagerTimeoutSeconds: 5
   # Used only by the sanity e2e (to seed the shared test partner):
   #  * PM staff-portal-api (onboard + approve the partner key)
@@ -485,6 +488,7 @@ partnerApi:
     REGISTRY_PARTNER_API_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
     REGISTRY_PARTNER_API_MASTER_DATA_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
     REGISTRY_PARTNER_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
+    REGISTRY_PARTNER_API_WEBSUB_BASE_URL: '{{ tpl .Values.global.websubBaseUrl $ }}'
 
     REGISTRY_PARTNER_API_KEYMANAGER_API_BASE_URL: "{{ .Values.global.keymanagerInstallationName }}/v1/keymanager"
     REGISTRY_PARTNER_API_KEYMANAGER_API_TIMEOUT: 10
@@ -1293,6 +1297,7 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_MASTER_DATA_API_URL: '{{ tpl .Values.global.masterDataApiUrl $ }}'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
     REGISTRY_CELERY_WORKERS_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
+    REGISTRY_CELERY_WORKERS_WEBSUB_BASE_URL: '{{ tpl .Values.global.websubBaseUrl $ }}'
 
     REGISTRY_CELERY_WORKERS_CELERY_BROKER_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
     REGISTRY_CELERY_WORKERS_CELERY_BACKEND_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"

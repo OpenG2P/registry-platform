@@ -76,7 +76,7 @@ class Settings(IamSettings):
     cache_expires_in_seconds: int = 60 * 5
 
     # WebSub Hub
-    websub_base_url: str = "http://websub.play.svc.cluster.local"
+    websub_base_url: str = "http://commons-services-websub"
 
     # Registrant Authentication (OIDC widget)
     registrant_auth_session_ttl_seconds: int = 300
