@@ -1,0 +1,24 @@
+# ID types for the reference registry (Individual + Household).
+# Mounted over the image default (farmer / test_perf_id) for the compose gate.
+id_generator:
+  sequence_limit: 3
+  repeating_limit: 2
+  repeating_block_limit: 2
+  conjugative_even_digits_limit: 3
+  digits_group_limit: 5
+  reverse_digits_group_limit: 5
+  not_start_with: ["0", "1"]
+  restricted_numbers: []
+
+  # Small pools for local gate — faster startup than production thresholds.
+  pool_min_threshold: 50
+  pool_generation_batch_size: 200
+  pool_check_interval_seconds: 30
+  exhaustion_max_attempts: 1000
+  sub_batch_size: 200
+
+  id_types:
+    individual:
+      id_length: 12
+    household:
+      id_length: 10
