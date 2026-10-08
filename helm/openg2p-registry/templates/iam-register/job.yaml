@@ -18,8 +18,13 @@ metadata:
     app.kubernetes.io/name: iam-register
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
+  {{- /* Hook annotations only when runAsHook (default true). A parent chart sets
+       runAsHook: false to run this as a regular resource: a null in a parent
+       chart's values.yaml cannot remove these default annotations. */}}
+  {{- if ne (toString .Values.iamRegister.runAsHook) "false" }}
   {{- with .Values.iamRegister.annotations }}
   annotations: {{- toYaml . | nindent 4 }}
+  {{- end }}
   {{- end }}
 spec:
   backoffLimit: {{ .Values.iamRegister.backoffLimit | default 5 }}

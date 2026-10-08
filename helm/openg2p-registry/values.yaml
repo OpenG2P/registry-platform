@@ -433,6 +433,11 @@ dbSeed:
 # iam-staff-portal-api/samples/README.md.
 iamRegister:
   enabled: true
+  # true: run as a Helm post-install/post-upgrade hook (standalone installs).
+  # false: run as a regular resource -- set this in a parent chart (e.g. a
+  # registry wrapper installed through Rancher, which may skip hooks). The Job
+  # name carries the release revision either way.
+  runAsHook: true
   # Human-readable name of this registry in the IAM application tile. The
   # roles/permissions catalog in files/iam-registration/payload.json is
   # registry-agnostic, so this description is the only variant-specific field —
