@@ -233,7 +233,7 @@ questions:
 
 # Master Data
 - variable: global.catalogueRelease
-  description: "Pin every Master Data read to a catalogue release (e.g. 2027.1): code lists and geography stay at the versions that release pins, so the registry does not change when newer versions are published. Leave empty to read the latest published versions."
+  description: "Pin every Master Data read to a catalogue release (e.g. 2027.1): datasets and geography stay at the versions that release pins, so the registry does not change when newer versions are published. Leave empty to read the latest published versions."
   type: string
   default: ""
   label: Pinned Catalogue Release
