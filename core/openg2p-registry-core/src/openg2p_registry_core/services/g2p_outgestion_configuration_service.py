@@ -8,9 +8,11 @@ from openg2p_fastapi_common.context import get_async_session_maker
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
+from ..helpers.partner_management import PartnerManagementClient
 from ..models import (
     DataModel,
     G2PRegisterDefinition,
+    OutgoingTopicType,
     ProcessStatusEnum,
     OutgoingTemplate,
     OutgoingTopic,
@@ -35,16 +37,28 @@ class G2POutgestionConfigurationService(BaseService):
         """Create a new outgoing topic"""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            await self._validate_register_id_exists(session, outgoing_topic_payload.register_id)
-            await self._validate_data_model_id_exists(session, outgoing_topic_payload.data_model_id)
-            await self._check_topic_exists(outgoing_topic_payload, session)
-            
+            topic_type, register_id, data_model_id, partner_id = self._topic_identity(
+                outgoing_topic_payload.topic_type,
+                outgoing_topic_payload.register_id,
+                outgoing_topic_payload.data_model_id,
+                outgoing_topic_payload.partner_id,
+            )
+            if register_id:
+                await self._validate_register_id_exists(session, register_id)
+            if data_model_id:
+                await self._validate_data_model_id_exists(session, data_model_id)
+            await self._check_topic_exists(
+                session, topic_type, register_id, data_model_id, partner_id, outgoing_topic_payload.websub_topic
+            )
+
             topic_id = outgoing_topic_payload.topic_id or str(uuid.uuid4())
 
             outgoing_topic = OutgoingTopic(
                 topic_id=topic_id,
-                register_id=outgoing_topic_payload.register_id,
-                data_model_id=outgoing_topic_payload.data_model_id,
+                topic_type=topic_type,
+                register_id=register_id,
+                data_model_id=data_model_id,
+                partner_id=partner_id,
                 websub_topic=outgoing_topic_payload.websub_topic,
                 description=outgoing_topic_payload.description,
             )
@@ -97,14 +111,48 @@ class G2POutgestionConfigurationService(BaseService):
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             topic_obj = await self._get_outgoing_topic(outgoing_topic_payload.topic_id, session)
+            topic_type = outgoing_topic_payload.topic_type or topic_obj.topic_type
+            if topic_type == OutgoingTopicType.PARTNER.value:
+                register_id = None
+                data_model_id = None
+                partner_id = (
+                    outgoing_topic_payload.partner_id
+                    if outgoing_topic_payload.partner_id is not None
+                    else topic_obj.partner_id
+                )
+            else:
+                partner_id = None
+                register_id = (
+                    outgoing_topic_payload.register_id
+                    if outgoing_topic_payload.register_id is not None
+                    else topic_obj.register_id
+                )
+                data_model_id = (
+                    outgoing_topic_payload.data_model_id
+                    if outgoing_topic_payload.data_model_id is not None
+                    else topic_obj.data_model_id
+                )
 
-            # Only update fields that are provided (not None)
-            if outgoing_topic_payload.register_id is not None:
-                await self._validate_register_id_exists(session, outgoing_topic_payload.register_id)
-                topic_obj.register_id = outgoing_topic_payload.register_id
-            if outgoing_topic_payload.data_model_id is not None:
-                await self._validate_data_model_id_exists(session, outgoing_topic_payload.data_model_id)
-                topic_obj.data_model_id = outgoing_topic_payload.data_model_id
+            topic_type, register_id, data_model_id, partner_id = self._topic_identity(
+                topic_type, register_id, data_model_id, partner_id
+            )
+            if register_id:
+                await self._validate_register_id_exists(session, register_id)
+            if data_model_id:
+                await self._validate_data_model_id_exists(session, data_model_id)
+            await self._check_topic_exists(
+                session,
+                topic_type,
+                register_id,
+                data_model_id,
+                partner_id,
+                topic_obj.websub_topic,
+                exclude_topic_id=topic_obj.topic_id,
+            )
+            topic_obj.topic_type = topic_type
+            topic_obj.register_id = register_id
+            topic_obj.data_model_id = data_model_id
+            topic_obj.partner_id = partner_id
             if outgoing_topic_payload.description is not None:
                 topic_obj.description = outgoing_topic_payload.description
 
@@ -263,38 +311,99 @@ class G2POutgestionConfigurationService(BaseService):
             return deleted_template_data
     
 
-    async def _check_topic_exists(self, outgoing_topic_payload: OutgoingTopicPayload, session: AsyncSession) -> None:
-        if not outgoing_topic_payload.register_id or not outgoing_topic_payload.data_model_id or not outgoing_topic_payload.websub_topic:
+    def _topic_identity(self, topic_type, register_id, data_model_id, partner_id):
+        kind = (topic_type or OutgoingTopicType.REGISTER.value).strip()
+        if kind == OutgoingTopicType.REGISTER.value:
+            if not register_id or not data_model_id or partner_id:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                    message="A REGISTER topic requires register_id and data_model_id, and no partner_id.",
+                )
+            return kind, register_id, data_model_id, None
+        if kind == OutgoingTopicType.PARTNER.value:
+            partner = (partner_id or "").strip()
+            if not partner or register_id or data_model_id:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                    message="A PARTNER topic requires partner_id, and no register_id or data_model_id.",
+                )
+            return kind, None, None, partner
+        raise G2PRegistryException(
+            code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+            message=f"Unsupported topic_type '{topic_type}'.",
+        )
+
+    async def _check_topic_exists(
+        self,
+        session: AsyncSession,
+        topic_type: str,
+        register_id: str | None,
+        data_model_id: str | None,
+        partner_id: str | None,
+        websub_topic: str,
+        exclude_topic_id: str | None = None,
+    ) -> None:
+        if not websub_topic:
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
                 message=G2PRegistryErrorCodes.INVALID_REQUEST.value[0],
             )
-        existing = await session.execute(
-            select(OutgoingTopic).where(
-                OutgoingTopic.register_id == outgoing_topic_payload.register_id,
-                OutgoingTopic.data_model_id == outgoing_topic_payload.data_model_id,
+        if topic_type == OutgoingTopicType.REGISTER.value:
+            stmt = select(OutgoingTopic).where(
+                OutgoingTopic.topic_type == OutgoingTopicType.REGISTER.value,
+                OutgoingTopic.register_id == register_id,
+                OutgoingTopic.data_model_id == data_model_id,
             )
-        )
+        else:
+            stmt = select(OutgoingTopic).where(
+                OutgoingTopic.topic_type == OutgoingTopicType.PARTNER.value,
+                OutgoingTopic.partner_id == partner_id,
+            )
+        if exclude_topic_id:
+            stmt = stmt.where(OutgoingTopic.topic_id != exclude_topic_id)
+        existing = await session.execute(stmt)
         if existing.scalar_one_or_none():
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.TOPIC_ALREADY_EXISTS.value[1],
                 message=G2PRegistryErrorCodes.TOPIC_ALREADY_EXISTS.value[0],
             )
 
+    async def _partner_name(self, partner_id: str | None) -> str | None:
+        if not partner_id:
+            return None
+        try:
+            client = PartnerManagementClient.get_component() or PartnerManagementClient()
+            partner = await client.lookup_active_partner(partner_id)
+        except Exception:
+            _logger.exception("Partner name lookup failed for partner_id=%s", partner_id)
+            return None
+        if partner is None:
+            return None
+        return partner.name or None
+
     async def _build_topic_data_with_mnemonics(
         self, session: AsyncSession, topic_obj: OutgoingTopic
     ) -> OutgoingTopicData:
-        register_obj = await self._validate_register_id_exists(session, topic_obj.register_id)
-        data_model_obj = await self._validate_data_model_id_exists(
-            session, topic_obj.data_model_id
-        )
+        register_mnemonic = None
+        data_model_mnemonic = None
+        if topic_obj.register_id:
+            register_obj = await self._validate_register_id_exists(session, topic_obj.register_id)
+            register_mnemonic = register_obj.register_mnemonic
+        if topic_obj.data_model_id:
+            data_model_obj = await self._validate_data_model_id_exists(
+                session, topic_obj.data_model_id
+            )
+            data_model_mnemonic = data_model_obj.data_model_mnemonic
 
         return OutgoingTopicData(
             topic_id=topic_obj.topic_id,
+            topic_type=topic_obj.topic_type,
             register_id=topic_obj.register_id,
-            register_mnemonic=register_obj.register_mnemonic,
+            register_mnemonic=register_mnemonic,
             data_model_id=topic_obj.data_model_id,
-            data_model_mnemonic=data_model_obj.data_model_mnemonic,
+            data_model_mnemonic=data_model_mnemonic,
+            partner_id=topic_obj.partner_id,
+            partner_name=await self._partner_name(topic_obj.partner_id),
             websub_topic=topic_obj.websub_topic,
             description=topic_obj.description,
             is_active=topic_obj.is_active,
