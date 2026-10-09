@@ -1108,6 +1108,7 @@ staffUi:
     KEYCLOAK_LOGOUT_URL: '{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/logout'
     LOGIN_PROVIDER_ID: '1'
     MASTERDATA_BACKEND_API_URL: '{{ .Values.global.masterDataApiUrl }}'
+    PARTNER_ADMIN_BACKEND_API_URL: '{{ tpl .Values.global.partnerManagementAdminApiUrl $ }}'
     NODE_ENV: production
     PARTNER_INGEST_URL: '{{ tpl .Values.partnerIngestUrl $ }}'
     REDIRECT_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'

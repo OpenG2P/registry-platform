@@ -12,36 +12,26 @@ import AddOutgestionTopicModal from '@/features/configuration/outgest/AddOutgest
 import EditOutgestionTopicModal from '@/features/configuration/outgest/EditOutgestionTopicModal';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import ViewOutgestionTopicModal from '@/features/configuration/outgest/ViewOutgestionTopicModal';
-import { useAllOutgestTopics } from '@/features/configuration/shared/hooks/useAllOutgestTopics';
+import { useAllOutgestTopics, OutgestTopic, TopicType, resolveTopicType } from '@/features/configuration/shared/hooks/useAllOutgestTopics';
 import { DeleteButton, EditButton, ViewButton, DataTable } from '@/features/configuration/shared/components';
 import ToggleStatusSwitch from '@/features/configuration/shared/components/ToggleStatusSwitch';
-
-
-export interface OutgestTopic {
-    topic_id: string;
-    register_id: string;
-    register_mnemonic: string;
-    data_model_id: string;
-    data_model_mnemonic: string;
-    websub_topic: string;
-    description: string;
-    is_active: boolean;
-    websub_register_status: string;
-    websub_register_datetime: string;
-    websub_register_number_of_attempts: string;
-    websub_register_latest_error_message: string;
-}
-
+import CustomDropdown from '@/features/configuration/shared/components/CustomDropdown';
 
 const OutgestTopicsPage = () => {
     const t = useTranslations();
+    const topicTypeOptions = [
+        { label: t('register'), value: 'REGISTER' },
+        { label: t('partner'), value: 'PARTNER' },
+    ];
 
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = usePageSize();
+    const [topicTypeFilter, setTopicTypeFilter] = useState<TopicType>('REGISTER');
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [pageSize]);
+    }, [pageSize, topicTypeFilter]);
+
     const [modalType, setModalType] = useState<'add' | 'edit' | 'view' | null>(null);
     const [selectedItem, setSelectedItem] = useState<OutgestTopic | null>(null);
     const [showPopup, setShowPopup] = useState(false);
@@ -107,19 +97,20 @@ const OutgestTopicsPage = () => {
     };
 
     const { can } = useRbac();
-    const canCreate = can(CONFIGURATION_OUTGESTION_TOPICS_ACTIONS.create)
+    const canCreate = can(CONFIGURATION_OUTGESTION_TOPICS_ACTIONS.create);
     const canEdit = can(CONFIGURATION_OUTGESTION_TOPICS_ACTIONS.edit);
 
     const { topics, pagination, loading, refresh } = useAllOutgestTopics(currentPage, pageSize);
 
+    // filter client-side by selected topic type
+    const filteredTopics = topics.filter((item) => resolveTopicType(item.topic_type) === topicTypeFilter);
 
     const { pageStart, pageEnd, total } = usePagination({
         totalItems: pagination?.number_of_items || 0,
         currentPage: currentPage,
         pageSize,
-        currentCount: topics.length,
+        currentCount: filteredTopics.length,
     });
-
 
     const handlePrev = () => {
         setCurrentPage((prev) => Math.max(1, prev - 1));
@@ -129,31 +120,31 @@ const OutgestTopicsPage = () => {
         setCurrentPage((prev) => prev + 1);
     };
 
-    const topicColumns = [
-        {
-            key: 'data_model_mnemonic',
-            label: t('data_model_mnemonic')
-        },
-        {
-            key: 'register_mnemonic',
-            label: t('register_mnemonic')
-        },
-        {
-            key: 'websub_topic',
-            label: t('websub_topic')
-        },
-        {
-            key: 'is_active',
-            label: t('status'),
-            render: (item: OutgestTopic) => (
-                <ToggleStatusSwitch
-                    disabled={!canEdit}
-                    isActive={item.is_active}
-                    onToggle={(e) => handleToggleStatus(e, item)}
-                />
-            ),
-        }
+    const statusColumn = {
+        key: 'is_active',
+        label: t('status'),
+        render: (item: OutgestTopic) => (
+            <ToggleStatusSwitch
+                disabled={!canEdit}
+                isActive={item.is_active}
+                onToggle={(e) => handleToggleStatus(e, item)}
+            />
+        ),
+    };
+
+    const registerColumns = [
+        { key: 'data_model_mnemonic', label: t('data_model_mnemonic') },
+        { key: 'register_mnemonic', label: t('register_mnemonic') },
+        statusColumn,
     ];
+
+    const partnerColumns = [
+        { key: 'partner_id', label: t('partner_id') },
+        { key: 'websub_topic', label: t('websub_topic') },
+        statusColumn,
+    ];
+
+    const topicColumns = topicTypeFilter === 'PARTNER' ? partnerColumns : registerColumns;
 
     return (
         <>
@@ -171,9 +162,18 @@ const OutgestTopicsPage = () => {
                 onNext={handleNext}
             />
 
+            <div className="px-7.5 pb-4 w-64">
+                <CustomDropdown
+                    label={t('topic_type')}
+                    options={topicTypeOptions}
+                    value={topicTypeFilter}
+                    onChange={(v) => setTopicTypeFilter(v as TopicType)}
+                />
+            </div>
+
             <DataTable
                 columns={topicColumns}
-                data={topics}
+                data={filteredTopics}
                 loading={loading}
                 rowKey={(i) => i.topic_id}
                 actions={(item) => (
