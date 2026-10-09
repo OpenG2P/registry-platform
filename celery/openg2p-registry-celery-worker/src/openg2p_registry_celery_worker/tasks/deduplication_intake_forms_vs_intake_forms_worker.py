@@ -1,12 +1,13 @@
 import logging
 import importlib
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sqlalchemy import select, inspect
+from sqlalchemy import or_, select, inspect
 from sqlalchemy.orm import sessionmaker
 from openg2p_registry_core.models import (
     G2PIntakeFormSubmission,
     G2PRegisterDefinition,
+    G2PRegisterSchema,
     G2PRegisterSection,
     RegisterPurposeEnum,
     ApprovalStatusEnum,
@@ -115,20 +116,6 @@ def deduplication_intake_forms_vs_intake_forms_worker(self, submission_id: str):
                 "openg2p_registry_extensions.register_domain.models"
             )
 
-            # Other non-approved submissions for the same register (fetched once, reused per section)
-            other_submissions = session.execute(
-                select(G2PIntakeFormSubmission).where(
-                    (G2PIntakeFormSubmission.register_id == submission.register_id) &
-                    (G2PIntakeFormSubmission.submission_id != submission_id) &
-                    (G2PIntakeFormSubmission.approval_status != ApprovalStatusEnum.APPROVED.value)
-                )
-            ).scalars().all()
-
-            _logger.info(
-                f"Found {len(other_submissions)} other non-approved submission(s) for register_id={submission.register_id} "
-                f"to compare against submission {submission_id}."
-            )
-
             for section, sec_reg_def in register_sections:
                 _logger.info(
                     f"Processing section: {section.section_mnemonic} "
@@ -170,34 +157,15 @@ def deduplication_intake_forms_vs_intake_forms_worker(self, submission_id: str):
 
                 _logger.info(f"Resolved domain service for mnemonic={sec_reg_def.register_mnemonic}: {type(domain_service).__name__}")
 
-                # Build candidate list from other submissions' records for this section.
-                # Multiple records per other submission (list sections) are each added separately;
-                # we later keep the best score per candidate_submission_id.
-                other_change_requests = []
-                for other in other_submissions:
-                    other_records = session.execute(
-                        select(intake_class).where(
-                            intake_class.submission_id == str(other.submission_id)
-                        )
-                    ).scalars().all()
-                    for other_record in other_records:
-                        other_change_requests.append({
-                            "change_request_id": str(other.submission_id),
-                            "change_payload": {
-                                col.name: getattr(other_record, col.name)
-                                for col in inspect(intake_class).columns
-                                if col.name not in {"submission_id"}
-                            },
-                        })
-
-                _logger.info(
-                    f"Built {len(other_change_requests)} candidate change request record(s) "
-                    f"from {len(other_submissions)} other submission(s) for section {section.section_mnemonic}."
-                )
-
-                if not other_change_requests:
+                schema_row = session.execute(
+                    select(G2PRegisterSchema).where(
+                        G2PRegisterSchema.register_id == str(section.section_register_id)
+                    )
+                ).scalar()
+                deduplicate_schema = (schema_row.deduplicate_schema if schema_row else None) or []
+                if not sec_reg_def.dedup_is_enabled or not deduplicate_schema:
                     _logger.info(
-                        f"No candidate records for section {section.section_mnemonic}; skipping score computation."
+                        f"Dedup schema is off for section {section.section_mnemonic}; skipping."
                     )
                     continue
 
@@ -207,6 +175,33 @@ def deduplication_intake_forms_vs_intake_forms_worker(self, submission_id: str):
                         for col in inspect(intake_class).columns
                         if col.name not in {"submission_id"}
                     }
+                    other_records = _find_intake_dedup_candidates(
+                        session,
+                        domain_service,
+                        intake_class,
+                        submission,
+                        incoming_dict,
+                        deduplicate_schema,
+                    )
+                    other_change_requests = [
+                        {
+                            "change_request_id": str(other_record.submission_id),
+                            "change_payload": {
+                                col.name: getattr(other_record, col.name)
+                                for col in inspect(intake_class).columns
+                                if col.name not in {"submission_id"}
+                            },
+                        }
+                        for other_record in other_records
+                    ]
+
+                    _logger.info(
+                        f"Found {len(other_change_requests)} intake candidate(s) for intake record "
+                        f"{idx + 1}/{len(intake_records)} in section {section.section_mnemonic}."
+                    )
+
+                    if not other_change_requests:
+                        continue
 
                     _logger.info(
                         f"Computing deduplication scores for intake record {idx + 1}/{len(intake_records)} "
@@ -283,3 +278,65 @@ def deduplication_intake_forms_vs_intake_forms_worker(self, submission_id: str):
                 session.commit()
 
             raise e
+
+
+def _find_intake_dedup_candidates(session, domain_service, intake_class, submission, incoming, deduplicate_schema):
+    """Other not-yet-approved intake rows that share a dedup field, same rules as register search."""
+    match_type = domain_service.DeduplicationMatchType
+    query_conditions = []
+    for dedup_field in deduplicate_schema:
+        field_name = dedup_field.get("field_name")
+        normalized = domain_service._normalize_match_type(
+            dedup_field.get("match_type", match_type.EXACT.value)
+        )
+        incoming_value = incoming.get(field_name)
+        if not incoming_value or not hasattr(intake_class, field_name):
+            continue
+        column = getattr(intake_class, field_name)
+        if normalized == match_type.EXACT.value:
+            query_conditions.append(column == incoming_value)
+        elif normalized == match_type.FUZZY.value:
+            query_conditions.append(column.ilike(f"%{incoming_value}%"))
+        elif normalized == match_type.PHONETIC.value:
+            phonetic_prefix = str(incoming_value).strip().lower()[:3]
+            query_conditions.append(column.ilike(f"{phonetic_prefix}%"))
+        elif normalized == match_type.NUMERIC_RANGE.value:
+            range_value = dedup_field.get("range_value", 0)
+            try:
+                incoming_num = float(incoming_value)
+                query_conditions.append(column.between(incoming_num - range_value, incoming_num + range_value))
+            except (ValueError, TypeError):
+                continue
+        elif normalized == match_type.DATE_RANGE.value:
+            range_days = dedup_field.get("range_days", 0)
+            try:
+                incoming_date = (
+                    datetime.fromisoformat(incoming_value).date()
+                    if isinstance(incoming_value, str)
+                    else incoming_value
+                )
+                query_conditions.append(column.between(
+                    incoming_date - timedelta(days=range_days),
+                    incoming_date + timedelta(days=range_days),
+                ))
+            except (ValueError, TypeError):
+                continue
+    if not query_conditions:
+        return []
+    return (
+        session.execute(
+            select(intake_class)
+            .join(
+                G2PIntakeFormSubmission,
+                G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+            )
+            .where(
+                G2PIntakeFormSubmission.register_id == submission.register_id,
+                intake_class.submission_id != submission.submission_id,
+                G2PIntakeFormSubmission.approval_status != ApprovalStatusEnum.APPROVED.value,
+                or_(*query_conditions),
+            )
+        )
+        .scalars()
+        .all()
+    )
