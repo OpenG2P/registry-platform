@@ -62,11 +62,17 @@ def deduplication_intake_forms_vs_intake_forms_worker(self, submission_id: str):
                 f"{[s.section_mnemonic for s in sections]}"
             )
 
-            # Keep only sections whose section_register has purpose == REGISTER
+            # Keep only sections whose section_register has purpose == REGISTER.
+            # Several sections share one section register and the same intake table.
+            # Score that table once so the same match is not written again.
             register_sections = []
+            seen_section_registers = set()
             for section in sections:
                 sec_reg_def = session.get(G2PRegisterDefinition, section.section_register_id)
                 if sec_reg_def and sec_reg_def.register_purpose == RegisterPurposeEnum.REGISTER.value:
+                    if section.section_register_id in seen_section_registers:
+                        continue
+                    seen_section_registers.add(section.section_register_id)
                     register_sections.append((section, sec_reg_def))
                 else:
                     _logger.info(
