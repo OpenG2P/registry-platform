@@ -160,7 +160,13 @@ class G2PRegistrantAuthenticationService(BaseService):
                 )
 
             provider = await session.get(G2PRegistrantAuthenticationProvider, provider_id)
-            if not provider:
+            # The provider id comes from the caller. Providers belong to a register
+            # (get_available_providers lists only this register's), and one that
+            # belongs elsewhere -- a test or mock IdP, say -- must not be usable
+            # to authenticate this register's records. Reported as "not found"
+            # rather than its own error so the response does not reveal which
+            # provider ids exist for other registers.
+            if not provider or provider.register_id != register_id:
                 raise G2PRegistryException(
                     code=G2PRegistryErrorCodes.REGISTRANT_AUTH_PROVIDER_NOT_FOUND.value[1],
                     message="Authentication provider not found.",
