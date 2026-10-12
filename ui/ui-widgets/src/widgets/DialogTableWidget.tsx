@@ -191,11 +191,8 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
     const emptyRow: Record<string, any> = {};
     columns.forEach((col) => {
       const key = col['column-key'];
-      if (col['widget-data-default'] !== undefined) {
-        emptyRow[key] = col['widget-data-default'];
-      } else if (col.widget === 'checkbox') {
-        emptyRow[key] = false;
-      }
+      const defaultValue = col['widget-data-default'];
+      emptyRow[key] = defaultValue !== undefined ? defaultValue : null;
     });
     return emptyRow;
   }, [columns]);
@@ -326,9 +323,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
           return;
         }
         const val = raw[key];
-        if (!isUnsetRowValue(val)) {
-          result[key] = val;
-        }
+        result[key] = isUnsetRowValue(val) ? null : val;
       });
       return result;
     },

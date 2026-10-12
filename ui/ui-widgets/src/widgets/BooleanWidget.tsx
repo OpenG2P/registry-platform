@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useId } from 'react';
+import React, { useMemo, useCallback, useId, useState, useEffect } from 'react';
 import { tSchema } from '../utils/tSchema';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
@@ -65,18 +65,21 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
     return Boolean(value);
   }, [value]);
 
+  const [choseNo, setChoseNo] = useState(false);
+
+  useEffect(() => {
+    if (currentValue === true || currentValue === false) {
+      setChoseNo(false);
+    }
+  }, [currentValue]);
+
   const handleChange = useCallback((newValue: boolean | null) => {
     onChange(newValue);
   }, [onChange]);
 
   const handleCheckboxChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const checked = e.target.checked;
-    if (allowUnset && !checked && currentValue === true) {
-      handleChange(null);
-    } else {
-      handleChange(checked);
-    }
-  }, [allowUnset, currentValue, handleChange]);
+    handleChange(e.target.checked ? true : null);
+  }, [handleChange]);
 
   const handleRadioChange = useCallback((selectedValue: boolean | null) => {
     handleChange(selectedValue);
@@ -170,8 +173,11 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                   <input
                     type="radio"
                     name={radioGroupName}
-                    checked={currentValue === null}
-                    onChange={() => handleRadioChange(null)}
+                    checked={currentValue === null && !choseNo}
+                    onChange={() => {
+                      setChoseNo(false);
+                      handleRadioChange(null);
+                    }}
                     disabled={radioDisabled}
                     className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check"
                   />
@@ -183,7 +189,10 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                   type="radio"
                   name={radioGroupName}
                   checked={currentValue === true}
-                  onChange={() => handleRadioChange(true)}
+                  onChange={() => {
+                    setChoseNo(false);
+                    handleRadioChange(true);
+                  }}
                   disabled={radioDisabled}
                   className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check"
                 />
@@ -193,8 +202,11 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                 <input
                   type="radio"
                   name={radioGroupName}
-                  checked={currentValue === false}
-                  onChange={() => handleRadioChange(false)}
+                  checked={currentValue === false || choseNo}
+                  onChange={() => {
+                    setChoseNo(true);
+                    handleRadioChange(null);
+                  }}
                   disabled={radioDisabled}
                   className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check"
                 />
@@ -224,10 +236,13 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
             {allowUnset && (
               <button
                 type="button"
-                onClick={() => handleChange(null)}
+                onClick={() => {
+                  setChoseNo(false);
+                  handleChange(null);
+                }}
                 disabled={!isEnabled || widgetConfig['widget-readonly']}
                 className={`px-3 py-1 text-sm ${
-                  currentValue === null
+                  currentValue === null && !choseNo
                     ? 'owt-boolean-chip owt-boolean-chip-selected'
                     : 'owt-boolean-chip'
                 } ${!isEnabled || widgetConfig['widget-readonly'] ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -238,7 +253,10 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
             )}
             <button
               type="button"
-              onClick={() => handleChange(true)}
+              onClick={() => {
+                setChoseNo(false);
+                handleChange(true);
+              }}
               disabled={!isEnabled || widgetConfig['widget-readonly']}
               className={`px-3 py-1 text-sm ${
                 currentValue === true
@@ -251,10 +269,13 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
             </button>
             <button
               type="button"
-              onClick={() => handleChange(false)}
+              onClick={() => {
+                setChoseNo(true);
+                handleChange(null);
+              }}
               disabled={!isEnabled || widgetConfig['widget-readonly']}
               className={`px-3 py-1 text-sm ${
-                currentValue === false
+                currentValue === false || choseNo
                   ? 'owt-boolean-chip owt-boolean-chip-selected'
                   : 'owt-boolean-chip'
               } ${!isEnabled || widgetConfig['widget-readonly'] ? 'opacity-50 cursor-not-allowed' : ''}`}

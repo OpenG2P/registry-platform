@@ -169,7 +169,7 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
         onChange={(e) => {
           const rawValue = e.target.value;
           if (rawValue === '') {
-            onValueChange(undefined);
+            onValueChange(null);
             return;
           }
           const selectedOption = dataSourceOptions.find(
@@ -249,7 +249,7 @@ const TableCellText = ({ config, value, onValueChange }: TableCellTextProps) => 
       <input
         type="text"
         value={displayValue}
-        onChange={(e) => onValueChange(e.target.value)}
+        onChange={(e) => onValueChange(e.target.value === '' ? null : e.target.value)}
         disabled={isReadonly}
         placeholder={placeholder}
         maxLength={maxLength}
@@ -313,7 +313,7 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
     const inputValue = e.target.value;
     if (inputValue === '') {
       setDraft(null);
-      onValueChange('');
+      onValueChange(null);
       return;
     }
     setDraft(inputValue);
@@ -454,7 +454,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const nextValue = e.target.value;
-    onValueChange(nextValue);
+    onValueChange(nextValue === '' ? null : nextValue);
     if (!nextValue) {
       setConstraintError(null);
       return;
@@ -778,7 +778,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     }
     const emptyRow: any = {};
     columns.forEach((col) => {
-      emptyRow[col['column-key']] = col['widget-data-default'] || '';
+      const defaultValue = col['widget-data-default'];
+      emptyRow[col['column-key']] = defaultValue !== undefined ? defaultValue : null;
     });
     setIsAdding(true);
     setNewRowData(emptyRow);
