@@ -78,6 +78,11 @@ class PipelineActionEnum(StrEnum):
     UPDATE = "UPDATE"
 
 
+class OutgoingTopicType(StrEnum):
+    REGISTER = "REGISTER"
+    PARTNER = "PARTNER"
+
+
 class ProcessStatusEnum(StrEnum):
     NOT_APPLICABLE = "NOT_APPLICABLE"
     PENDING = "PENDING"

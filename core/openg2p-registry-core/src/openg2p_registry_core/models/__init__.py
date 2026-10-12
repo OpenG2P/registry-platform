@@ -8,6 +8,7 @@ from .enum import (
     IntakeFormStatusEnum,
     MaritalStatusEnum,
     PipelineActionEnum,
+    OutgoingTopicType,
     ProcessStatusEnum,
     RecordStatusEnum,
     RegistryDataPolicyTypeEnum,
