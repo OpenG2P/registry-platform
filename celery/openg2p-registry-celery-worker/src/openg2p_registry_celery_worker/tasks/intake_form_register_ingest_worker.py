@@ -65,7 +65,9 @@ async def _process_submission_async(submission_id: str) -> None:
     try:
         async with session_maker() as session:
             async with session.begin():
-                await _mark_processing(submission_id, session)
+                submission = await _mark_processing(submission_id, session)
+                if submission is None:
+                    return
 
         async with session_maker() as session:
             async with session.begin():
@@ -132,7 +134,10 @@ async def _process_submission_async(submission_id: str) -> None:
 
 async def _mark_processing(submission_id: str, session) -> G2PIntakeFormSubmission:
     submission = await _get_submission(submission_id, session)
-    if submission.register_ingest_process_status != ProcessStatusEnum.PENDING.value:
+    status = submission.register_ingest_process_status
+    if status == ProcessStatusEnum.PROCESSED.value:
+        return None
+    if status not in (ProcessStatusEnum.PENDING.value, ProcessStatusEnum.PROCESSING.value):
         raise ValueError(f"Submission '{submission_id}' is not pending ingest")
     if submission.draft_status != IntakeFormStatusEnum.FINAL.value:
         raise ValueError(f"Submission '{submission_id}' must be FINAL before ingest")
