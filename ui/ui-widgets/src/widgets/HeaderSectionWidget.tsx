@@ -251,14 +251,14 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
 
     if (currentStatus === initialStatus) {
       if (String(statusReason || '') !== String(initialReason || '')) {
-        updateFieldValue('statusReason', initialReason);
+        updateFieldValue('statusReason', initialReason === '' ? null : initialReason);
       }
       setShowReasonRequired(false);
       return;
     }
 
     if (String(statusReason || '').trim().length > 0) {
-      updateFieldValue('statusReason', '');
+      updateFieldValue('statusReason', null);
     }
     setShowReasonRequired(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -732,7 +732,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
                 <select
                   className="hdr-select"
                   value={statusValue}
-                  onChange={(e) => updateFieldValue('status', e.target.value)}
+                  onChange={(e) => updateFieldValue('status', e.target.value === '' ? null : e.target.value)}
                 >
                   <option value="">
                     {getLabel('select')}
@@ -765,7 +765,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
                       if (isReasonMissing) setShowReasonRequired(true);
                     }}
                     onChange={(e) => {
-                      updateFieldValue('statusReason', e.target.value);
+                      updateFieldValue('statusReason', e.target.value === '' ? null : e.target.value);
                       if (showReasonRequired && String(e.target.value || '').trim().length > 0) {
                         setShowReasonRequired(false);
                       }

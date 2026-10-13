@@ -67,7 +67,7 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
               <input
                 type="checkbox"
                 checked={isChecked}
-                onChange={(e) => onChange(e.target.checked)}
+                onChange={(e) => onChange(e.target.checked ? true : null)}
                 onBlur={onBlur}
                 disabled={!isEnabled || widgetConfig['widget-readonly']}
                 className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check rounded"
@@ -114,7 +114,8 @@ export const CheckboxWidget = ({ config }: CheckboxWidgetProps) => {
     if (checked) {
       onChange([...selectedValues, optionValue]);
     } else {
-      onChange(selectedValues.filter((v: any) => v !== optionValue));
+      const next = selectedValues.filter((v: any) => v !== optionValue);
+      onChange(next.length === 0 ? null : next);
     }
   }, [selectedValues, onChange]);
 
