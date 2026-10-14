@@ -592,6 +592,50 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
               {t?.('sectionBuilder.dateRangeOptions') || 'Date Range Options'}
             </label>
+            {widget.widget === 'date' && (
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
+                  Calendar
+                </label>
+                <select
+                  value={widget['widget-data-format']?.calendar || 'gregory'}
+                  onChange={(e) =>
+                    handleNestedChange(
+                      'widget-data-format',
+                      'calendar',
+                      e.target.value === 'gregory' ? undefined : e.target.value
+                    )
+                  }
+                  style={{
+                    width: '100%',
+                    padding: '6px 8px',
+                    border: '1px solid var(--owt-color-border)',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    background: 'var(--owt-widget-input-bg)',
+                    color: 'var(--owt-color-text)',
+                  }}
+                >
+                  <option value="gregory">Gregorian</option>
+                  <option value="ethiopic">Ethiopic</option>
+                  <option value="islamic">Islamic</option>
+                  <option value="islamic-umalqura">Islamic (Umm al-Qura)</option>
+                  <option value="islamic-civil">Islamic (civil)</option>
+                  <option value="persian">Persian</option>
+                  <option value="nepali">Nepali</option>
+                  <option value="hebrew">Hebrew</option>
+                  <option value="coptic">Coptic</option>
+                  <option value="buddhist">Buddhist</option>
+                  <option value="indian">Indian</option>
+                  <option value="chinese">Chinese</option>
+                  <option value="japanese">Japanese</option>
+                  <option value="iso8601">ISO 8601</option>
+                </select>
+                <p style={{ margin: '4px 0 0', fontSize: '10px', color: 'var(--owt-color-text-muted, #555)' }}>
+                  Stored value stays Gregorian ISO (YYYY-MM-DD).
+                </p>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>

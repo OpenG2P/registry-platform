@@ -13,12 +13,14 @@
 
   // --- widget-data-format ---
   // "widget-data-format": {
+  //   "calendar": "ethiopic",              // gregory (default) | ethiopic | islamic | nepali | …
   //   "dateFormat": "DD/MM/YYYY",
   //   "inputMethod": "hybrid",             // picker | manual | hybrid
-  //   "dateConstraint": "past-only"        // any | past-only | future-only
+  //   "dateConstraint": "past-only",       // any | past-only | future-only
+  //   "locale": "am"
   // },
 
-  // --- widget-data-options (date bounds) ---
+  // --- widget-data-options (date bounds, always Gregorian ISO) ---
   // "widget-data-options": {
   //   "minDate": "1900-01-01",
   //   "maxDate": "today",

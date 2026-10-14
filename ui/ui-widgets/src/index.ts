@@ -56,6 +56,9 @@ export * from './utils/conditions';
 export * from './utils/dataSource';
 export * from './utils/textInput';
 export * from './utils/numberInput';
+export * from './utils/calendarDates';
+export { MultiCalendarDatePicker } from './components/MultiCalendarDatePicker';
+export type { MultiCalendarDatePickerProps } from './components/MultiCalendarDatePicker';
 
 export { WidgetEventBus } from './events/WidgetEventBus';
 export type { WidgetEventType, WidgetEvent } from './events/WidgetEventBus';
