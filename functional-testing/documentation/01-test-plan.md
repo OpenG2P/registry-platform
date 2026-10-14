@@ -48,7 +48,7 @@ Extension under test: `reference-extension` only (platform-owned gate).
 | **0 — Workflow gate**        | Happy-path intake → register → CR (Individual + Household), API↔DB on critical fields                               | **PR compose gate today**        |
 | **1 — Staff core endpoints** | Dedicated scenarios per core controller group (register-data, intake, CR, verifications, documents, metadata reads) | After Phase A docs; expand suite |
 | **2 — Staff secondary**      | Scores, completion, ingestion/outgestion, AWE, themes/languages, config writes, input mechanisms                    | After Tier-1                     |
-| **3 — Partner**              | `/partner/ingest_data`, `/dci/registry/sync/search` (+ DB / async settle)                                           | After Staff complete             |
+| **3 — Partner**              | `/partner/ingest_data`, `/dci/sync/search` (+ DB / async settle)                                           | After Staff complete             |
 
 
 PR gate stays **Tier-0 only** until we explicitly widen it.

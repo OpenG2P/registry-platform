@@ -183,7 +183,7 @@ Run: `pytest -c api/pytest.ini api/staff -m tier2` or `FUNC_RUN_STAFF_TIER2=1` o
 | Endpoint | Status | Notes |
 |---|---|---|
 | `/partner/ingest_data` | covered | Accept + correlation_id; ensures DCI key path; staff search/summary |
-| `/dci/registry/sync/search` | covered | Individual expression search vs functional seed (`FUNCSEEDInd001`) |
+| `/dci/sync/search` | covered | Individual expression search vs functional seed (`FUNCSEEDInd001`) |
 
 Run: `pytest -c api/pytest.ini api/partner -m tier3` or `FUNC_RUN_PARTNER_TIER3=1` on the compose gate (`FUNC_PARTNER_API_BASE=http://127.0.0.1:18083`).
 

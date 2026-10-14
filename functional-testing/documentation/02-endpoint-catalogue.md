@@ -156,7 +156,7 @@ AWE task proxy, webhook decision, policy CRUD — **Tier 2**.
 | Full path | Class | Tier |
 |---|---|---|
 | `/partner/ingest_data` | async | 3 |
-| `/dci/registry/sync/search` | search | 3 |
+| `/dci/sync/search` | search | 3 |
 
 UNDP / G2P Connect search packages are stubs — not catalogued until implemented.
 

@@ -37,9 +37,9 @@ def test_dci_sync_search_consented_individual(partner: PartnerClient, step):
     seeded = subject("individual")
     first_name = seeded["fields"]["first_name"]
 
-    step("POST /dci/registry/sync/search with signed consent (demographic_info)")
+    step("POST /dci/sync/search with signed consent (demographic_info)")
     response = partner.post_json(
-        "/dci/registry/sync/search",
+        "/dci/sync/search",
         build_search_envelope(first_name=first_name, with_consent=True),
     )
 
@@ -65,7 +65,7 @@ def test_dci_sync_search_clamps_to_consented_scopes(partner: PartnerClient, step
 
     step("assert unconsented top-level scopes are clamped away")
     response = partner.post_json(
-        "/dci/registry/sync/search",
+        "/dci/sync/search",
         build_search_envelope(first_name=first_name, with_consent=True),
     )
     if _meta(response).get("consent_enforcement") != "enabled":
@@ -84,7 +84,7 @@ def test_dci_sync_search_without_consent_is_rejected(partner: PartnerClient, ste
 
     step("POST without consent_jws — expect rjct when enforcement is on")
     response = partner.post_json(
-        "/dci/registry/sync/search",
+        "/dci/sync/search",
         build_search_envelope(first_name=first_name, with_consent=False),
     )
     header = response.get("header") or {}
@@ -99,7 +99,7 @@ def test_dci_sync_search_wrong_consent_audience_is_rejected(partner: PartnerClie
 
     step("POST with unknown consent audience — expect rjct")
     response = partner.post_json(
-        "/dci/registry/sync/search",
+        "/dci/sync/search",
         build_search_envelope(
             first_name=first_name,
             with_consent=True,
@@ -119,7 +119,7 @@ def test_dci_sync_search_bad_signature_is_rejected(partner: PartnerClient, step)
     step("POST signed with an unregistered key — expect rjct")
     impostor = ed25519.Ed25519PrivateKey.generate()
     response = partner.post_json(
-        "/dci/registry/sync/search",
+        "/dci/sync/search",
         build_search_envelope(first_name=first_name, with_consent=True, priv=impostor),
     )
     header = response.get("header") or {}

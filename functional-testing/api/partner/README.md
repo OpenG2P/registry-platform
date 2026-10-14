@@ -5,7 +5,7 @@ Catalogue endpoints:
 | Path | Test |
 |---|---|
 | `POST /partner/ingest_data` | `test_ingest_data.py` — accept + raw row via staff search |
-| `POST /dci/registry/sync/search` | `test_dci_sync_search.py` — consent + signature enforcement |
+| `POST /dci/sync/search` | `test_dci_sync_search.py` — consent + signature enforcement |
 
 ## Consent / Partner Management
 
