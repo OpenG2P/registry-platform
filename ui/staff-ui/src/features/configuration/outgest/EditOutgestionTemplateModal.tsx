@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { useFileUpload, useDocuments } from '@/features/shared/hooks';
-import { BaseModal, Field, FileUploadField } from '../shared/components';
+import { BaseModal, Field, FileUploadField, FilePreview } from '../shared/components';
 import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
 interface EditOutgestionTemplateModalProps {
@@ -124,12 +124,15 @@ export default function EditOutgestionTemplateModal({
                 fileInputRef={fileInputRef}
                 uploading={uploading}
                 fileId={formData.template_document_id}
-                fileName={uploadedFileName}
+                fileName={selectedFile ? uploadedFileName : undefined}
                 onFileChange={handleFileChange}
                 onRemove={handleRemoveFile}
                 accept={TEMPLATE_ACCEPT}
                 helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
             />
+            {!selectedFile && (
+                <FilePreview documentId={formData.template_document_id} />
+            )}
         </BaseModal>
     );
 }

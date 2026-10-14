@@ -61,7 +61,7 @@ export const PhoneInputWidget = ({ config }: PhoneInputWidgetProps) => {
           <input
             type="tel"
             value={displayValue}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
             onBlur={onBlur}
             disabled={!isEnabled || widgetConfig['widget-readonly']}
             placeholder={tSchema(t, widgetConfig['widget-data-placeholder'])}

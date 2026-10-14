@@ -11,7 +11,7 @@ import { useAllOutgestTemplates } from '@/features/configuration/shared/hooks/us
 import { CONFIGURATION_OUTGESTION_TEMPLATES_ACTIONS } from '@/features/shared/permissions';
 import ConfirmRemovePopup from '@/features/configuration/shared/components/ConfirmRemovePopup';
 import { AddOutgestionTemplateModal, EditOutgestionTemplateModal, ViewOutgestionTemplateModal } from '@/features/configuration/outgest';
-import { DeleteButton, EditButton, ViewButton, DataTable, FileLink } from '@/features/configuration/shared/components';
+import { DeleteButton, EditButton, ViewButton, DataTable, FilePreview } from '@/features/configuration/shared/components';
 
 
 type OutgestTemplate = {
@@ -110,9 +110,7 @@ const OutgestTemplatesPage = () => {
             key: 'template_document_id',
             label: t('template'),
             render: (item: OutgestTemplate) => (
-                <FileLink
-                    documentId={item.template_document_id}
-                />
+                <FilePreview documentId={item.template_document_id} />
             ),
         },
     ];

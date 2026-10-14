@@ -826,6 +826,7 @@
   "template_file_size_limit": "Template file must be less than or equal to 1MB.",
   "template_file_type_limit": "Only Jinja JSON template files (.json.j2) are allowed.",
   "template_upload_hint": "Max size: 1MB",
+  "unable_to_preview_file": "Unable to preview this file.",
   "template_id": "Template ID",
   "template_mnemonic": "Template Mnemonic",
   "template_mnemonic_required": "Template mnemonic is required",
