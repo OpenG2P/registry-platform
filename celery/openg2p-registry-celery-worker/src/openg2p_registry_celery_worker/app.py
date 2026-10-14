@@ -24,6 +24,7 @@ from openg2p_registry_core.services import (
     G2PAttributeValueValidator,
     G2PDocumentService,
     G2PIngestService,
+    G2PTemplateService,
     G2PIntakeFormDataService,
     G2PIntakeFormLinkService,
     G2PRegisterService,
@@ -55,6 +56,7 @@ class Initializer(BaseInitializer):
         G2PGeoHierarchyService()
         G2PAttributeValueValidator()
         G2PDocumentService()
+        G2PTemplateService()
         G2PAwePolicyConfigurationService()
         G2PAweIntegrationService()
 
