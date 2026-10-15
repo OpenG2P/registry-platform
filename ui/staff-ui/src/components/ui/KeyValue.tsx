@@ -32,11 +32,11 @@ export function KeyValue({
             <div
                 className={`flex w-full overflow-hidden font-normal leading-[26px] text-neutral-first${root ? ` ${root}` : ''}`}
             >
-                <span className="w-1/2 truncate text-[16px] text-neutral-first/50" title={label}>
+                <span className="w-1/2 min-w-0 truncate text-[16px] text-neutral-first/50" title={label}>
                     {label} :{' '}
                 </span>
                 <span
-                    className="w-1/2 truncate pl-4 text-[16px] font-normal text-neutral-first"
+                    className="w-1/2 min-w-0 truncate pl-4 text-[16px] font-normal text-neutral-first"
                     title={value}
                 >
                     {value}

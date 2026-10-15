@@ -78,9 +78,9 @@ export default function MoreMenu({
                     setKebabOpen((prev) => !prev);
                     setOpenSubmenuId(null);
                 }}
-                className="w-10 h-8.5 flex items-center justify-center rounded-[10px] bg-primary-first"
+                className="flex h-7 w-8 items-center justify-center rounded-[8px] bg-primary-first sm:h-8.5 sm:w-10 sm:rounded-[10px]"
             >
-                <EllipsisVertical size={18} />
+                <EllipsisVertical className="size-3.5 sm:size-[18px]" />
             </button>
 
             {kebabOpen && (

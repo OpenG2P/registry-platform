@@ -10,7 +10,14 @@ import {
 } from "react";
 import Image from "next/image";
 
-const VISIBLE_COUNT = 4;
+const DESKTOP_VISIBLE_COUNT = 4;
+
+function visibleCountForWidth(width: number) {
+    if (width < 520) return 1;
+    if (width < 780) return 2;
+    if (width < 1100) return 3;
+    return DESKTOP_VISIBLE_COUNT;
+}
 
 interface StatsCardsCarouselProps<T extends string> {
     cards: T[];
@@ -34,7 +41,7 @@ export default function StatsCardsCarousel<T extends string>({
     StatsCardComponent,
     statsEndpointFor,
 }: StatsCardsCarouselProps<T>) {
-    const maxOffset = Math.max(0, cards.length - VISIBLE_COUNT);
+    const [visibleCount, setVisibleCount] = useState(DESKTOP_VISIBLE_COUNT);
     const [offset, setOffset] = useState(0);
     const containerRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
@@ -43,6 +50,7 @@ export default function StatsCardsCarousel<T extends string>({
     const wheelLockRef = useRef(false);
     const [cardWidth, setCardWidth] = useState(0);
     const [slideStep, setSlideStep] = useState(0);
+    const maxOffset = Math.max(0, cards.length - visibleCount);
 
     offsetRef.current = offset;
 
@@ -53,9 +61,13 @@ export default function StatsCardsCarousel<T extends string>({
         const track = trackRef.current;
         if (!viewport || !track || cards.length === 0) return;
 
+        const count = Math.min(
+            cards.length,
+            visibleCountForWidth(viewport.clientWidth),
+        );
         const gap = parseFloat(getComputedStyle(track).columnGap || "0") || 0;
-        const width =
-            (viewport.clientWidth - gap * (VISIBLE_COUNT - 1)) / VISIBLE_COUNT;
+        const width = (viewport.clientWidth - gap * (count - 1)) / count;
+        setVisibleCount(count);
         setCardWidth(width);
         setSlideStep(width + gap);
     }, [cards.length]);
@@ -73,16 +85,21 @@ export default function StatsCardsCarousel<T extends string>({
         return () => observer.disconnect();
     }, [measureLayout]);
 
+    useLayoutEffect(() => {
+        setOffset((current) => Math.min(current, maxOffset));
+    }, [maxOffset]);
+
     useEffect(() => {
         if (activeIndex < 0) return;
         setOffset((current) => {
-            if (activeIndex < current) return activeIndex;
-            if (activeIndex >= current + VISIBLE_COUNT) {
-                return activeIndex - VISIBLE_COUNT + 1;
+            const next = Math.min(current, maxOffset);
+            if (activeIndex < next) return activeIndex;
+            if (activeIndex >= next + visibleCount) {
+                return Math.min(maxOffset, activeIndex - visibleCount + 1);
             }
-            return current;
+            return next;
         });
-    }, [activeIndex]);
+    }, [activeIndex, visibleCount, maxOffset]);
 
     const canScrollBack = offset > 0;
     const canScrollForward = offset < maxOffset;

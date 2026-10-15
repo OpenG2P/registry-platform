@@ -86,12 +86,12 @@ export default function EntityListPage<T>({
     );
 
     const topBar = (
-        <div className="w-full h-17.5 flex justify-center items-center">
-            <div className="w-full px-7.5 flex justify-between items-center">
-                <div className="flex items-center gap-4">
+        <div className="flex min-h-17.5 w-full items-center justify-center py-2">
+            <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-2 px-3 sm:px-6 lg:px-7.5">
+                <div className="flex max-w-full flex-1 items-start gap-4">
                     {breadcrumb.length > 0 && <BreadcrumbBar breadcrumb={breadcrumb} />}
                 </div>
-                <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 lg:gap-4">
                     {actions}
 
                     {showPagination && onPrev && onNext && (
@@ -178,7 +178,7 @@ export default function EntityListPage<T>({
         return (
             <div className="min-h-screen bg-secondary-first">
                 {topBar}
-                <div className="mx-7.5 mb-15">
+                <div className="mx-3 mb-15 sm:mx-6 lg:mx-7.5">
                     <div className="bg-neutral-second rounded-[10px]">
                         {filterRow}
                         <div className="overflow-hidden rounded-b-[10px]">
@@ -215,7 +215,7 @@ export default function EntityListPage<T>({
         return (
             <div className="min-h-screen bg-secondary-first">
                 {topBar}
-                <div className="mx-7.5 mb-15">
+                <div className="mx-3 mb-15 sm:mx-6 lg:mx-7.5">
                     <div className="bg-neutral-second rounded-[10px]">
                         {filterRow}
                         <div className="overflow-hidden rounded-b-[10px]">
@@ -244,7 +244,7 @@ export default function EntityListPage<T>({
     return (
         <div className="min-h-screen bg-secondary-first">
             {topBar}
-            <div className="px-7.5 mb-15">
+            <div className="mb-15 px-3 sm:px-6 lg:px-7.5">
                 {hasFilterRow && (
                     <div className="bg-neutral-second rounded-[10px] mb-4">
                         {filterRow}
