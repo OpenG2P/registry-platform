@@ -35,24 +35,23 @@ export default function BreadcrumbBar({ breadcrumb = [] }: BreadcrumbBarProps) {
     }
 
     return (
-        <div className="flex w-full max-w-full flex-wrap items-center gap-x-2 gap-y-1">
-            <Link href="/" passHref className="shrink-0">
-                <div className="flex h-7.5 shrink-0 cursor-pointer items-center pr-2">
-                    <Image src="/images/common/home.png" width={22} height={22} alt={t('home')} className="h-4 w-4 sm:h-5 sm:w-5 lg:h-[22px] lg:w-[22px]" />
-                </div>
+        <div className="flex w-full max-w-full items-start gap-2">
+            <Link href="/" passHref className="flex h-6 shrink-0 items-center sm:h-7">
+                <Image src="/images/common/home.png" width={22} height={22} alt={t('home')} className="h-4 w-4 sm:h-5 sm:w-5 lg:h-[22px] lg:w-[22px]" />
             </Link>
 
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
             {breadcrumb.map((item, index) => {
                 const isLast = index === breadcrumb.length - 1;
                 const textColor = isLast ? "text-neutral-first" : "text-neutral-first/50";
-                const labelClass = `block whitespace-nowrap ${textColor}`;
+                const labelClass = `block max-w-full truncate whitespace-nowrap ${textColor}`;
 
                 return (
                     <div
                         key={index}
-                        className="flex shrink-0 items-center gap-2"
+                        className="flex h-6 min-w-0 max-w-full translate-y-[2px] items-center gap-2 sm:h-7"
                     >
-                        <div className="text-base font-medium leading-snug sm:text-[20px]">
+                        <div className="text-base font-medium leading-none sm:text-[20px]">
                             {item.href && !isLast ? (
                                 <Link href={item.href} title={item.label} className={labelClass}>{item.label}</Link>
                             ) : (
@@ -73,6 +72,7 @@ export default function BreadcrumbBar({ breadcrumb = [] }: BreadcrumbBarProps) {
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 }

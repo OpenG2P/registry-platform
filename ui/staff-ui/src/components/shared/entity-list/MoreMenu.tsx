@@ -35,6 +35,9 @@ export default function MoreMenu({
     const [kebabOpen, setKebabOpen] = useState(false);
     const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const [narrowMenu, setNarrowMenu] = useState(false);
+    const [menuTop, setMenuTop] = useState(0);
 
     const hasViewToggle = showViewToggle && !!onViewChange;
     const hasExtraItems = extraItems.length > 0;
@@ -74,7 +77,15 @@ export default function MoreMenu({
                 aria-label={t.has('more') ? t('more') : 'More options'}
                 aria-haspopup="true"
                 aria-expanded={kebabOpen}
+                ref={buttonRef}
                 onClick={() => {
+                    if (!kebabOpen && buttonRef.current) {
+                        const narrow = window.matchMedia('(max-width: 639px)').matches;
+                        setNarrowMenu(narrow);
+                        if (narrow) {
+                            setMenuTop(buttonRef.current.getBoundingClientRect().bottom + 8);
+                        }
+                    }
                     setKebabOpen((prev) => !prev);
                     setOpenSubmenuId(null);
                 }}
@@ -84,7 +95,14 @@ export default function MoreMenu({
             </button>
 
             {kebabOpen && (
-                <div className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[240px] bg-neutral-second rounded-[10px] shadow-[0_8px_24px_rgba(42,42,42,0.16)] py-1.5">
+                <div
+                    className={
+                        narrowMenu
+                            ? 'fixed inset-x-3 z-[60] max-h-[70vh] overflow-y-auto rounded-[10px] bg-neutral-second py-1.5 shadow-[0_8px_24px_rgba(42,42,42,0.16)]'
+                            : 'absolute right-0 top-[calc(100%+8px)] z-50 min-w-[240px] rounded-[10px] bg-neutral-second py-1.5 shadow-[0_8px_24px_rgba(42,42,42,0.16)]'
+                    }
+                    style={narrowMenu ? { top: menuTop } : undefined}
+                >
                     {hasExtraItems && (
                         <>
                             {extraItems.map((item) => (

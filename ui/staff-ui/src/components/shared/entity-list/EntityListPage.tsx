@@ -86,12 +86,12 @@ export default function EntityListPage<T>({
     );
 
     const topBar = (
-        <div className="flex min-h-17.5 w-full items-center justify-center py-2">
-            <div className="flex w-full min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-2 px-3 sm:px-6 lg:px-7.5">
-                <div className="flex max-w-full flex-1 items-start gap-4">
+        <div className="flex min-h-17.5 w-full min-w-0 items-center py-2">
+            <div className="flex w-full min-w-0 max-w-full flex-wrap items-start gap-x-3 gap-y-2 px-3 sm:justify-between sm:px-6 lg:px-7.5">
+                <div className="flex min-w-0 max-w-full basis-full items-start sm:basis-auto sm:flex-1">
                     {breadcrumb.length > 0 && <BreadcrumbBar breadcrumb={breadcrumb} />}
                 </div>
-                <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 lg:gap-4">
+                <div className="flex min-w-0 max-w-full flex-wrap items-center justify-start gap-1.5 sm:shrink-0 sm:justify-end sm:gap-2 lg:gap-4">
                     {actions}
 
                     {showPagination && onPrev && onNext && (

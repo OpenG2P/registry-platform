@@ -91,18 +91,18 @@ export default function TopBar({
         <div
             className={
                 embedded
-                    ? 'flex items-center h-full'
-                    : 'w-full h-17.5 flex justify-center items-center'
+                    ? 'flex h-full items-center'
+                    : 'flex min-h-17.5 w-full items-center justify-center py-2'
             }
         >
             <div
                 className={
                     embedded
                         ? 'flex items-center'
-                        : 'w-full px-7.5 flex justify-between items-center'
+                        : 'flex w-full flex-wrap items-start justify-between gap-3 px-3 sm:px-6 lg:px-7.5'
                 }
             >
-                <div className="flex items-center gap-4">
+                <div className="flex min-w-0 max-w-full flex-1 items-start gap-4">
                     {breadcrumb && breadcrumb.length > 0 && (
                         <BreadcrumbBar breadcrumb={breadcrumb} />
                     )}
@@ -115,7 +115,7 @@ export default function TopBar({
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex shrink-0 items-center gap-2 sm:gap-4">
                     {showSearch && onSearch && (
                         <div className="ml-auto shrink-0 border border-primary-second rounded-[10px] h-8.5 flex items-center bg-neutral-second">
                             <SearchBar

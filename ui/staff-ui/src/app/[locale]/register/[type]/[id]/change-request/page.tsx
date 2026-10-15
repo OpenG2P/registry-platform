@@ -74,7 +74,7 @@ export default function ChangeRequestPage() {
     // Right side of TabsLayout-- Pending request + pagination
     const pendingRequestsCount = pendingData?.number_of_pending_change_requests ?? 0;
     const rightContent = !loading && (
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-3 sm:w-auto sm:gap-6 lg:gap-10">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-3 sm:w-auto sm:justify-end sm:gap-6 lg:gap-10">
             {pendingRequestsCount !== undefined && (
                 <div className="flex min-w-0 items-center gap-2">
                     <span className="text-base font-medium text-neutral-first sm:text-[18px]">
