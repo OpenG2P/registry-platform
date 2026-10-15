@@ -39,7 +39,14 @@ from .controller_services import (
     G2PAwePolicyConfigurationControllerService,
     G2PAweProxyControllerService,
 )
-from .helpers import AweHelper, ApplicationReferenceGenerator, PatternMatcher, TemplateHelper, get_document_handler
+from .helpers import (
+    AweHelper,
+    ApplicationReferenceGenerator,
+    PartnerManagementClient,
+    PatternMatcher,
+    TemplateHelper,
+    get_document_handler,
+)
 
 from .models import (
     DataModel,
@@ -155,6 +162,7 @@ class Initializer(BaseInitializer):
         get_document_handler()
         TemplateHelper()
         PatternMatcher()
+        PartnerManagementClient()
         ApplicationReferenceGenerator(_config.application_reference_format)
         KeymanagerCryptoHelper()
         AweHelper()

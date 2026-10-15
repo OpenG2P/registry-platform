@@ -58,6 +58,18 @@ class Settings(IamSettings):
     master_data_db_port: int = 5432
     master_data_db_dbname: str = "openg2p_gen2_master_data_db"
 
+    # Partner Management — ingest validates PARTNER here (no local partner table).
+    # Staff-portal-api GET /partners/{id} is preferred (client_credentials).
+    partner_mgmt_admin_api_url: str = ""  # e.g. http://commons-services-pm-staff-portal-api
+    partner_mgmt_admin_token_url: str = ""  # Keycloak token endpoint
+    partner_mgmt_admin_client_id: str = ""
+    partner_mgmt_admin_client_secret: str = ""
+    # Fallback: unauthenticated key-fetch (same partner_id space as staff API).
+    partner_mgmt_api_url: str = ""  # e.g. http://commons-services-pm-partner-api
+    partner_mgmt_timeout_seconds: float = 5.0
+    # In-process TTL for partner lookups (0 disables). Avoids one PM call per ingest row.
+    partner_mgmt_cache_seconds: int = 300
+
     # Cache Configuration
     cache_expires_in_seconds: int = 60 * 60
     cache_summary_expires_in_seconds: int = 60 * 10

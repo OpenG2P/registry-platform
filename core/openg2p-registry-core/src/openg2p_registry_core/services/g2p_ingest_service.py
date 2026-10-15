@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import get_async_session_maker
-from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
+from openg2p_fastapi_common.utils.crypto import build_crypto_helper
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
@@ -239,9 +239,8 @@ class G2PIngestService(BaseService):
         return incoming_partner, signature, signature_payload, incoming_model_key_path
 
     async def _validate_signature(self, keymanager_reference_id: str, signature: str, signature_payload: Dict):
-        keymanager_helper = KeymanagerCryptoHelper().get_component()
-        signature_valid = await keymanager_helper.verify_jwt(
-            self,
+        crypto_helper = build_crypto_helper()
+        signature_valid = await crypto_helper.verify_jwt(
             orig_jwt=signature,
             payload=signature_payload,
             km_app_id=None,
