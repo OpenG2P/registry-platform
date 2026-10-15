@@ -109,14 +109,14 @@ const ThemePage = () => {
                 showAddNewButton={false}
             />
 
-            <div className="mx-7.5 flex flex-col gap-5 pb-10">
-                <div className="bg-neutral-second rounded-[10px] p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center shadow-sm">
-                    <div className="flex flex-col gap-1.5">
+            <div className="mx-3 sm:mx-6 lg:mx-7.5 flex flex-col gap-5 pb-10">
+                <div className="bg-neutral-second rounded-[10px] p-4 sm:p-8 grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-8 items-center shadow-sm">
+                    <div className="flex flex-col gap-1.5 min-w-0">
                         <h1 className="text-[22px] font-bold text-neutral-first m-0 tracking-tight">{t('theme_config_title')}</h1>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-end">
-                        <div className="w-full sm:w-80">
+                    <div className="flex flex-col xl:flex-row items-stretch xl:items-center gap-4 xl:justify-end min-w-0">
+                        <div className="w-full xl:w-80 min-w-0">
                             <ThemeSelector
                                 themes={themes}
                                 themesLoading={themesLoading}
@@ -128,7 +128,7 @@ const ThemePage = () => {
                             <button
                                 id="create-theme-btn"
                                 onClick={() => router.push('/configuration/registry/themes/create')}
-                                className="h-10 px-5 bg-neutral-first text-neutral-second rounded-[10px] flex items-center justify-center gap-2 hover:bg-neutral-first/90 transition-all active:scale-95 shadow-lg shadow-neutral-first/10"
+                                className="h-10 w-full xl:w-auto px-5 bg-neutral-first text-neutral-second rounded-[10px] flex items-center justify-center gap-2 hover:bg-neutral-first/90 transition-all active:scale-95 shadow-lg shadow-neutral-first/10"
                             >
                                 <Plus size={16} strokeWidth={3} />
                                 <span className="text-sm font-bold">{t('theme_config_new_theme')}</span>

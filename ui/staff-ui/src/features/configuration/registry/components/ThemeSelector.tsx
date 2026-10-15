@@ -46,7 +46,8 @@ export default function ThemeSelector({
                 className={`flex items-center justify-between gap-2.5 px-4 py-2 bg-neutral-second border border-primary-second rounded-[10px] cursor-pointer truncate ${isOpen ? 'border-b-transparent rounded-b-none' : ''}`}
             >
                 <span
-                    className={`text-[16px] font-medium truncate ${selectedTheme ? 'text-neutral-first' : 'text-neutral-first/50'}`}
+                    className={`min-w-0 flex-1 text-[16px] font-medium truncate ${selectedTheme ? 'text-neutral-first' : 'text-neutral-first/50'}`}
+                    title={displayValue}
                 >
                     {displayValue}
                 </span>
@@ -72,6 +73,7 @@ export default function ThemeSelector({
                                 key={theme.theme_id}
                                 onClick={() => handleSelect(theme.theme_id)}
                                 className={`px-4 py-2 text-[16px] cursor-pointer hover:bg-secondary-first truncate transition-colors ${selectedThemeId === theme.theme_id ? 'bg-primary-first/10 font-semibold text-primary-second' : 'text-neutral-first'}`}
+                                title={theme.theme_mnemonic}
                             >
                                 {theme.theme_mnemonic}
                             </div>

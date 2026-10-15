@@ -187,29 +187,29 @@ export default function LanguageTranslationEditor({
 
     return (
         <div className="bg-neutral-second rounded-[10px] overflow-hidden shadow-sm">
-            <div className="px-8 py-5 border-b border-secondary-second flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-[18px] font-bold text-neutral-first m-0">{language_label}</h2>
+            <div className="px-4 py-5 sm:px-8 border-b border-secondary-second flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="min-w-0">
+                    <h2 className="text-[18px] font-bold text-neutral-first m-0 truncate" title={language_label}>{language_label}</h2>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
                 <button
                         type="button"
                         onClick={handleRemove}
-                        className="h-10 w-32 rounded-[10px] border border-primary-second text-primary-second text-sm font-semibold hover:bg-primary-second/10 transition-colors disabled:opacity-50"
+                        className="h-10 w-full sm:flex-1 lg:flex-none lg:w-32 rounded-[10px] border border-primary-second text-primary-second text-sm font-semibold hover:bg-primary-second/10 transition-colors disabled:opacity-50"
                     >
                         {t('remove')}
                     </button>
                     <button
                         type="button"
                         onClick={onCancelEdit}
-                        className="h-10 w-32 rounded-[10px] bg-secondary-second text-neutral-first/70 text-sm font-semibold hover:bg-secondary-third transition-colors disabled:opacity-50"
+                        className="h-10 w-full sm:flex-1 lg:flex-none lg:w-32 rounded-[10px] bg-secondary-second text-neutral-first/70 text-sm font-semibold hover:bg-secondary-third transition-colors disabled:opacity-50"
                     >
                         {t('cancel')}
                     </button>
                     <button
                         type="button"
                         onClick={handleSave}
-                        className="h-10 w-32 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold hover:bg-neutral-first/90 transition-colors shadow-lg disabled:opacity-50"
+                        className="h-10 w-full sm:flex-1 lg:flex-none lg:w-32 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold hover:bg-neutral-first/90 transition-colors shadow-lg disabled:opacity-50"
                     >
                         {t('language_save')}
                     </button>
@@ -223,7 +223,7 @@ export default function LanguageTranslationEditor({
                     <Image src="/images/common/loading.gif" alt="Loading" width={48} height={48} />
                 </div>
             ) : (
-                <div className="p-8 flex flex-col gap-8">
+                <div className="p-4 sm:p-8 flex flex-col gap-8">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <InputField
                             label={t('language_code')}
@@ -239,18 +239,18 @@ export default function LanguageTranslationEditor({
                         />
                         <div className="flex flex-col gap-2">
                             <label className="text-sm font-semibold text-neutral-first">{t('language_flag')}</label>
-                            <div className="flex items-end gap-3">
-                                <div className="h-10 w-52 px-4 rounded-[10px] border border-primary-second flex items-center gap-3">
+                            <div className="flex flex-col gap-3 min-w-0">
+                                <div className="h-10 w-full px-4 rounded-[10px] border border-primary-second flex items-center gap-3 min-w-0">
                                     {language_flag_base64 && (
                                         <div className="w-10 h-6 relative rounded-[6px] border border-secondary-second overflow-hidden shrink-0 bg-neutral-second">
                                             <Image src={language_flag_base64} alt={t('flag_image')} fill className="object-cover" />
                                         </div>
                                     )}
-                                    <span className="text-sm text-neutral-first/50 truncate">
+                                    <span className="text-sm text-neutral-first/50 truncate" title={flagFileName || (language_flag_base64 ? t('flag_image') : t('no_file_selected'))}>
                                         {flagFileName || (language_flag_base64 ? t('flag_image') : t('no_file_selected'))}
                                     </span>
                                 </div>
-                                <label className="h-10 w-52 px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                                <label className="h-10 w-full px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
                                     <Upload size={16} />
                                     {t('upload_flag')}
                                     <input
@@ -270,7 +270,7 @@ export default function LanguageTranslationEditor({
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('core')}
-                                className={`min-w-40 px-4 py-2 text-[16px] font-medium rounded-t-[10px] transition-all ${
+                                className={`min-w-0 max-w-full sm:min-w-40 px-4 py-2 text-[16px] font-medium rounded-t-[10px] transition-all ${
                                     activeTab === 'core'
                                         ? 'bg-neutral-first text-neutral-second'
                                         : 'bg-secondary-second text-neutral-first/70'
@@ -281,7 +281,7 @@ export default function LanguageTranslationEditor({
                             <button
                                 type="button"
                                 onClick={() => setActiveTab('domain')}
-                                className={`min-w-40 px-4 py-2 text-[16px] font-medium rounded-t-[10px] transition-all ${
+                                className={`min-w-0 max-w-full sm:min-w-40 px-4 py-2 text-[16px] font-medium rounded-t-[10px] transition-all ${
                                     activeTab === 'domain'
                                         ? 'bg-neutral-first text-neutral-second'
                                         : 'bg-secondary-second text-neutral-first/70'
@@ -294,7 +294,7 @@ export default function LanguageTranslationEditor({
                             <div className="flex flex-col gap-4 p-3">
                                 {Object.keys(draftCore).length === 0 && (
                                     <div className="px-3">
-                                        <label className="h-10 w-60 px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                                        <label className="h-10 w-full sm:w-60 px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer">
                                             <Upload size={16} />
                                             {t('upload_translation')}
                                             <input
@@ -324,7 +324,7 @@ export default function LanguageTranslationEditor({
                             <div className="flex flex-col gap-4 p-3">
                                 {Object.keys(draftDomain).length === 0 && (
                                     <div className="px-3">
-                                        <label className="h-10 w-60 px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                                        <label className="h-10 w-full sm:w-60 px-4 rounded-[10px] border border-primary-second text-primary-second text-sm font-bold hover:bg-primary-second/5 transition-colors flex items-center justify-center gap-2 cursor-pointer">
                                             <Upload size={16} />
                                             {t('upload_translation')}
                                             <input
