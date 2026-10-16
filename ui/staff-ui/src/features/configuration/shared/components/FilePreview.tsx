@@ -158,7 +158,7 @@ export default function FilePreview({ documentId }: Props) {
                     setOpen(true);
                 }}
                 disabled={!documentId}
-                className="truncate text-neutral-first transition-colors hover:text-toast-info hover:underline disabled:opacity-50"
+                className="block max-w-full truncate text-left text-neutral-first transition-colors hover:text-toast-info hover:underline disabled:opacity-50"
                 title={displayLabel}
             >
                 {displayLabel}
@@ -170,26 +170,26 @@ export default function FilePreview({ documentId }: Props) {
                     onClick={() => setOpen(false)}
                 >
                     <div
-                        className="relative flex max-h-[85vh] w-full max-w-200 flex-col rounded-[10px] border-5 border-primary-first bg-neutral-second px-8 py-6"
+                        className="relative flex max-h-[85vh] w-full max-w-200 flex-col overflow-hidden rounded-[10px] border-5 border-primary-first bg-neutral-second px-4 py-6 sm:px-8"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="mb-4 flex items-center justify-between gap-4">
-                            <h2 className="truncate text-[24px] font-medium text-primary-second" title={title}>
+                            <h2 className="min-w-0 truncate text-[18px] font-medium text-primary-second sm:text-[20px] lg:text-[24px]" title={title}>
                                 {title}
                             </h2>
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                className="opacity-50 transition hover:opacity-100"
+                                className="shrink-0 opacity-50 transition hover:opacity-100"
                                 aria-label={t('close')}
                             >
                                 <X size={30} />
                             </button>
                         </div>
 
-                        <div className="message-json-scroll min-h-[240px] flex-1 overflow-auto rounded-[10px] bg-secondary-second/50 px-6 py-4">
+                        <div className="message-json-scroll min-h-32 flex-1 overflow-auto rounded-[10px] bg-secondary-second/50 px-4 py-4 sm:px-6">
                             {loading ? (
-                                <div className="flex h-full min-h-[200px] items-center justify-center">
+                                <div className="flex h-full min-h-32 items-center justify-center">
                                     <div
                                         className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-second"
                                         role="status"
@@ -205,11 +205,11 @@ export default function FilePreview({ documentId }: Props) {
                             )}
                         </div>
 
-                        <div className="mt-4 flex gap-4">
+                        <div className="mt-4 flex flex-wrap gap-3 sm:gap-4">
                             <button
                                 type="button"
                                 onClick={() => setOpen(false)}
-                                className="rounded-[10px] bg-secondary-second px-6 py-2 text-[16px] font-bold text-neutral-first/50"
+                                className="shrink-0 whitespace-nowrap rounded-[10px] bg-secondary-second px-4 py-1.5 text-sm font-bold text-neutral-first/50 sm:px-6 sm:py-2 sm:text-[16px]"
                             >
                                 {t('close')}
                             </button>
@@ -217,7 +217,7 @@ export default function FilePreview({ documentId }: Props) {
                                 type="button"
                                 onClick={handleDownload}
                                 disabled={!canDownload || loading}
-                                className="rounded-[10px] bg-neutral-first px-6 py-2 text-[16px] font-bold text-neutral-second disabled:cursor-not-allowed disabled:opacity-50"
+                                className="shrink-0 whitespace-nowrap rounded-[10px] bg-neutral-first px-4 py-1.5 text-sm font-bold text-neutral-second disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:py-2 sm:text-[16px]"
                             >
                                 {t('download')}
                             </button>

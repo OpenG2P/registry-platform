@@ -123,7 +123,7 @@ export default function FilterDropdown({
 
     if (filterConfig.length === 0) {
         return (
-            <div className="flex items-center justify-center p-10 min-w-110">
+            <div className="flex max-w-[calc(100vw-1.5rem)] items-center justify-center p-6 sm:min-w-110 sm:p-10">
                 <p className="text-neutral-first/50">{t("filter_loading")}</p>
             </div>
         );
@@ -191,7 +191,7 @@ export default function FilterDropdown({
 
     return (
         <div
-            className="flex bg-neutral-second rounded-[10px] min-w-[500px] w-max min-h-[300px] font-['Roboto'] relative border border-primary-first"
+            className="relative flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-[10px] border border-primary-first bg-neutral-second font-['Roboto'] sm:min-h-[300px] sm:w-max sm:min-w-[min(500px,calc(100vw-2rem))] sm:max-w-[min(40rem,calc(100vw-2rem))] sm:overflow-visible sm:flex-row"
             style={{ boxShadow: '0 0 8px 0 rgba(0, 0, 0, 0.25)' }}
         >
             {/* Close Button */}
@@ -204,18 +204,19 @@ export default function FilterDropdown({
                     alt={t("filter_close")}
                     width={20}
                     height={20}
+                    className="h-4 w-4 sm:h-5 sm:w-5"
                 />
             </button>
 
             {/* Left Sidebar */}
-            <div className="w-[148.9px] shrink-0 bg-secondary-second/50 px-3 pt-[63.3px] pb-4 flex flex-col gap-2 rounded-l-[10px]">
+            <div className="flex w-full min-w-0 gap-2 overflow-x-auto bg-secondary-second/50 px-3 pb-3 pt-12 sm:w-[148.9px] sm:shrink-0 sm:flex-col sm:overflow-visible sm:rounded-l-[10px] sm:px-3 sm:pb-4 sm:pt-[63.3px]">
                 {sortedConfig.map(filter => {
                     const isActive = filter.field_name === selectedFieldName;
                     return (
                         <button
                             key={filter.field_name}
                             onClick={() => setSelectedFieldName(filter.field_name)}
-                            className={`w-full text-left py-2 px-4 min-h-[40px] flex items-center text-[14px] font-medium leading-tight capitalize transition-colors truncate
+                            className={`flex min-h-[40px] w-auto shrink-0 items-center truncate py-2 px-4 text-left text-[14px] font-medium capitalize leading-tight transition-colors sm:w-full
     ${isActive
                                     ? "bg-primary-first text-neutral-first rounded-[20px]"
                                     : "text-neutral-first/50 rounded-[20px]"}`}
@@ -227,7 +228,7 @@ export default function FilterDropdown({
             </div>
 
             {/* Right Side Content */}
-            <div className="flex-1 p-6 flex flex-col">
+            <div className="flex min-w-0 flex-1 flex-col p-4 sm:p-6">
                 <div className="text-[18px] font-medium text-primary-second leading-[20px] mb-6">
                     {selectedFilter && t("filter_search_by", { field: t(selectedFilter.display_label) })}
                 </div>

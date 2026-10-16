@@ -149,9 +149,9 @@ export default function VpVerificationModal({
 
 
     return (
-        <div className="fixed inset-0 bg-neutral-first/80 flex justify-center items-center z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-first/80 p-3 sm:p-4">
             <div
-                className={`relative bg-neutral-second rounded-[10px] p-10 border-10 border-primary-first flex flex-col transition-all duration-300 ${verificationStatus === 'success' ? 'w-200 h-160' : 'w-150 h-120'}`}
+                className={`relative flex w-full max-h-[92vh] max-w-[calc(100vw-1.5rem)] flex-col overflow-auto rounded-[10px] border-4 border-primary-first bg-neutral-second p-4 transition-all duration-300 sm:border-10 sm:p-10 ${verificationStatus === 'success' ? 'sm:h-160 sm:w-200 sm:max-w-none' : 'sm:h-120 sm:w-150 sm:max-w-none'}`}
             >
                 <div
                     className={`flex items-center mb-3 transition-all ${verificationComplete ? 'justify-between' : 'justify-center relative'}`}
@@ -166,7 +166,7 @@ export default function VpVerificationModal({
                         onClick={onClose}
                         className={`opacity-60 hover:opacity-100 transition-all ${verificationComplete ? 'static' : 'absolute right-0'}`}
                     >
-                        <Image src="/images/changerequest/cr_close.png" alt="Close" width={30} height={30} />
+                        <Image src="/images/changerequest/cr_close.png" alt="Close" width={30} height={30} className="h-5 w-5 sm:h-[30px] sm:w-[30px]" />
                     </button>
                 </div>
 
