@@ -22,6 +22,9 @@ class TemplateHelper(BaseService):
     def __init__(self):
         super().__init__()
         self.env = Environment()
+        # document_store_id is a new id on every upload, so a compiled
+        # template stays valid until that object is deleted.
+        self._compiled: dict[tuple[str, str], Template] = {}
 
     def get_template(
         self,
@@ -37,6 +40,7 @@ class TemplateHelper(BaseService):
         document_store_id: str,
         bucket: DocumentBucket = DocumentBucket.TEMPLATES,
     ):
+        self._compiled.pop((self._bucket_key(bucket), document_store_id), None)
         return get_document_handler().delete(document_store_id, bucket)
 
     def get_template_url(
@@ -56,7 +60,16 @@ class TemplateHelper(BaseService):
         document_store_id: str,
         bucket: DocumentBucket = DocumentBucket.TEMPLATES,
     ) -> Template:
-        return self.env.from_string(self.get_template(document_store_id, bucket))
+        key = (self._bucket_key(bucket), document_store_id)
+        compiled = self._compiled.get(key)
+        if compiled is None:
+            compiled = self.env.from_string(self.get_template(document_store_id, bucket))
+            self._compiled[key] = compiled
+        return compiled
+
+    @staticmethod
+    def _bucket_key(bucket: DocumentBucket) -> str:
+        return bucket.value if isinstance(bucket, DocumentBucket) else str(bucket)
 
     def render_with_template(
         self,

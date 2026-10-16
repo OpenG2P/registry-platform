@@ -7,8 +7,18 @@ from pydantic import BaseModel, Field
 # ----------------------------
 
 class DciQuery(BaseModel):
+    """ExpTemplate or IdentifierTypeValue.
+
+    ``value`` is an object for expression and graphql, a scalar for
+    idtype-value (``{"type": "UIN", "value": "123"}``), or a list when a
+    predicate array is wrapped in ``{type, value}``.
+    """
+
     type: str
-    value: Dict[str, Any]
+    value: Any
+
+    class Config:
+        extra = "allow"
 
 
 # ----------------------------
@@ -93,7 +103,13 @@ class DciSearchCriteria(BaseModel):
         description="DCI record type for the outbound payload shape (often an ``spdci-extensions-dci:`` type key). Does not substitute for ``reg_type``.",
     )
     query_type: str
-    query: DciQuery
+    query: Union[DciQuery, List[Any]] = Field(
+        ...,
+        description=(
+            "IdentifierTypeValue object, expression/graphql ExpTemplate object, "
+            "or a predicate array. Selected by query_type."
+        ),
+    )
     sort: Optional[List[DciSortItem]] = None
     pagination: Optional[DciPagination] = None
     consent: Optional[DciConsent] = None

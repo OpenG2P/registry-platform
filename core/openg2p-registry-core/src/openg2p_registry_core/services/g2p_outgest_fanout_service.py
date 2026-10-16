@@ -9,6 +9,7 @@ from ..models import (
     OutgoingRawData,
     OutgoingRawDataPayload,
     OutgoingTopic,
+    OutgoingTopicType,
     ProcessStatusEnum,
 )
 from .g2p_register_hierarchical_service import G2PRegisterHierarchicalService
@@ -46,6 +47,7 @@ async def fanout_outgest_rows(
         await session.execute(
             select(OutgoingTopic).where(
                 OutgoingTopic.register_id == register_definition.register_id,
+                OutgoingTopic.topic_type == OutgoingTopicType.REGISTER.value,
                 OutgoingTopic.is_active.is_(True),
             )
         )
