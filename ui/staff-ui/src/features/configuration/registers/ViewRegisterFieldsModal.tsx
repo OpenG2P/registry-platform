@@ -25,7 +25,7 @@ export default function ViewRegisterFieldsModal({
             secondaryActionLabel={t('close')}
             maxWidth="max-w-200"
         >
-            <div className="bg-secondary-second/50 px-8 pt-2 pb-4">
+            <div className="bg-secondary-second/50 pt-2 pb-4">
                 <Field label={t('registry_name')} value={data.register_mnemonic} />
                 <Field label={t('register_subject')} value={data.register_subject} />
                 <Field label={t('description')} value={data.register_description} />
