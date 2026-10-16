@@ -10,6 +10,7 @@ export function getBackendConfig() {
         backendApiUrl: env.backendApiUrl,
         masterdataBackendApiUrl: env.masterdataBackendApiUrl,
         iamUrl: env.iamUrl,
+        partnerAdminBackendApiUrl: env.partnerAdminBackendApiUrl,
         loginProviderId: env.loginProviderId,
         applicationMnemonic: env.applicationMnemonic,
         cookieDomain: env.cookieDomain,
