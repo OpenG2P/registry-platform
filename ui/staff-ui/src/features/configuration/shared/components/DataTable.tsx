@@ -29,16 +29,18 @@ export default function DataTable<T>({
 }: Props<T>) {
     const gridCols = columns.length + (actions ? 1 : 0);
     const gridStyle = {
-        gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+        gridTemplateColumns: actions
+            ? `repeat(${columns.length}, minmax(0, 1fr)) minmax(max-content, 1fr)`
+            : `repeat(${gridCols}, minmax(0, 1fr))`,
     };
-    const gridMinWidth = `calc(${gridCols} * 12rem + ${Math.max(gridCols - 1, 0)} * 1rem + 6rem)`;
+    const gridMinWidth = `calc(${gridCols} * 12rem + ${Math.max(gridCols - 1, 0)} * 1rem)`;
 
     return (
         <div className={`${embedded ? 'mx-0' : 'mx-3 sm:mx-6 lg:mx-7.5'} overflow-hidden rounded-[10px] bg-neutral-second py-4`}>
             <div className="overflow-x-auto">
                 <div style={{ minWidth: gridMinWidth }}>
                     <div
-                        className="grid gap-4 px-12 pb-2"
+                        className="grid gap-4 px-4 pb-2 sm:px-8 lg:px-12"
                         style={gridStyle}
                     >
                         {columns.map((col) => (
@@ -70,7 +72,7 @@ export default function DataTable<T>({
                             <div
                                 key={rowKey(item)}
                                 onClick={() => onRowClick?.(item)}
-                                className={`grid h-15 items-center gap-4 px-12 ${index % 2 === 0 ? 'bg-secondary-second/25' : 'bg-neutral-second'} ${onRowClick ? 'cursor-pointer' : ''}`}
+                                className={`grid min-h-15 items-center gap-4 px-4 py-2 sm:px-8 lg:px-12 ${index % 2 === 0 ? 'bg-secondary-second/25' : 'bg-neutral-second'} ${onRowClick ? 'cursor-pointer' : ''}`}
                                 style={gridStyle}
                             >
                                 {columns.map((col) => {
@@ -81,7 +83,7 @@ export default function DataTable<T>({
                                     return (
                                         <div
                                             key={String(col.key)}
-                                            className="text-[16px] font-medium truncate"
+                                            className="min-w-0 truncate text-[16px] font-medium"
                                             title={typeof value === 'string' ? value : undefined}
                                         >
                                             {value}
@@ -90,7 +92,7 @@ export default function DataTable<T>({
                                 })}
 
                                 {actions && (
-                                    <div className="flex min-w-0 items-center gap-2 sm:gap-6">
+                                    <div className="flex shrink-0 items-center gap-2 sm:gap-6">
                                         {actions(item)}
                                     </div>
                                 )}

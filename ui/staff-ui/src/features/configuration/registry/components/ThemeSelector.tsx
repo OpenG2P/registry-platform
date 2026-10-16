@@ -62,7 +62,7 @@ export default function ThemeSelector({
             </div>
 
             {isOpen && (
-                <div className="absolute z-[100] top-full left-0 bg-neutral-second rounded-b-[10px] shadow-xl border border-primary-second border-t-0 min-w-full max-h-60 overflow-y-auto">
+                <div className="absolute z-[100] top-full left-0 bg-neutral-second rounded-b-[10px] shadow-xl border border-primary-second border-t-0 w-max min-w-full max-w-[calc(100vw-2rem)] max-h-60 overflow-y-auto">
                     {themes.length === 0 && !themesLoading ? (
                         <div className="px-4 py-2 text-[16px] text-secondary-third">
                             {t('theme_config_no_themes')}

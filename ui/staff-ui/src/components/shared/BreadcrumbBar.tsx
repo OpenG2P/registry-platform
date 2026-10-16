@@ -49,9 +49,9 @@ export default function BreadcrumbBar({ breadcrumb = [] }: BreadcrumbBarProps) {
                 return (
                     <div
                         key={index}
-                        className="flex h-6 min-w-0 max-w-full translate-y-[2px] items-center gap-2 sm:h-7"
+                        className="flex h-6 min-w-0 max-w-full translate-y-[2px] items-center gap-2 overflow-hidden sm:h-7"
                     >
-                        <div className="text-base font-medium leading-none sm:text-[20px]">
+                        <div className="min-w-0 overflow-hidden text-base font-medium leading-none sm:text-[20px]">
                             {item.href && !isLast ? (
                                 <Link href={item.href} title={item.label} className={labelClass}>{item.label}</Link>
                             ) : (

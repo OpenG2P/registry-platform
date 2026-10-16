@@ -26,7 +26,7 @@ export default function ViewAwePolicyConfigurationModal({
 
     return (
         <BaseModal title={t('view_awe_policy_configuration')} onClose={onClose} maxWidth="max-w-220">
-            <div className="bg-secondary-second/50 px-8 pt-2 pb-4">
+            <div className="bg-secondary-second/50 px-4 pt-2 pb-4 sm:px-8">
                 <Field
                     label={t('policy_scope')}
                     value={scopeLabel ? t(scopeLabel) : data?.policy_scope}

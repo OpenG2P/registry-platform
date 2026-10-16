@@ -32,7 +32,7 @@ export default function BaseModal({
             <div className={`relative w-[calc(100%-1.5rem)] ${maxWidth} bg-neutral-second rounded-[10px] border-5 border-primary-first px-4 py-6 sm:px-8`}>
                 <div className="mb-4 flex items-center justify-between gap-3">
                     <h2
-                        className="min-w-0 break-words text-[24px] text-primary-second font-medium"
+                        className="min-w-0 break-words text-[18px] font-medium text-primary-second sm:text-[20px] lg:text-[24px]"
                         title={title}
                     >
                         {title}

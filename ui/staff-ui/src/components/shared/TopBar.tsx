@@ -121,7 +121,7 @@ export default function TopBar({
                     className={
                         embedded
                             ? 'flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-4'
-                            : 'flex w-full flex-wrap items-center justify-end gap-2 sm:gap-4 lg:w-auto lg:shrink-0'
+                            : 'flex w-full flex-wrap items-center justify-end gap-2 sm:gap-4 xl:w-auto xl:shrink-0'
                     }
                 >
                     {showSearch && onSearch && (
