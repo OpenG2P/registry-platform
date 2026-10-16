@@ -1,0 +1,644 @@
+# Docker Compose functional gate for registry-platform UI/API testing.
+#
+# Registry-platform services (staff-api, partner-api, celery, staff-ui, db-seed)
+# are **built from this repo**. Commons services (IAM, Keycloak, AWE, etc.) still
+# pull from Docker Hub.
+#
+# Starts: Postgres, Keycloak, Redis, MinIO, IAM, Master Data API, AWE,
+#         Partner Management 1.0.3 + Consent Manager 1.0.2,
+#         staff-api, partner-api, staff-ui, celery worker + beat, db-seed, id-generator.
+#
+# Usage:
+#   docker compose -f functional-testing/docker/docker-compose.gate.yaml up -d --wait
+#   # or: ./functional-testing/docker/run-compose-gate.sh
+x-pg-password: &pg-password functest123
+x-minio-root-user: &minio-root-user minioadmin
+x-minio-root-password: &minio-root-password minioadmin
+
+x-common-db-env: &common-db-env
+  PGHOST: postgres
+  PGPORT: "5432"
+
+x-staff-api-env: &staff-api-env
+  REGISTRY_STAFF_PORTAL_API_DB_HOSTNAME: postgres
+  REGISTRY_STAFF_PORTAL_API_DB_DBNAME: registry
+  REGISTRY_STAFF_PORTAL_API_DB_PORT: "5432"
+  REGISTRY_STAFF_PORTAL_API_DB_USERNAME: registry_user
+  REGISTRY_STAFF_PORTAL_API_DB_PASSWORD: *pg-password
+  REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_DRIVER: postgresql+asyncpg
+  REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_HOSTNAME: postgres
+  REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_PORT: "5432"
+  REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_DBNAME: master_data
+  REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_USERNAME: master_data_user
+  REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_PASSWORD: *pg-password
+  REGISTRY_STAFF_PORTAL_API_AUTH_PROVIDER_API_URL: http://iam-staff-portal-api:8000
+  REGISTRY_STAFF_PORTAL_API_AUTH_REDIS_URL: redis://redis:6379/0
+  REGISTRY_STAFF_PORTAL_API_AUTH_REFRESH_TOKEN_TTL_SECONDS: "86400"
+  REGISTRY_STAFF_PORTAL_API_CSRF_ENABLED: "false"
+  REGISTRY_STAFF_PORTAL_API_KEYCLOAK_CLIENT_ID: registry-staff-portal
+  REGISTRY_STAFF_PORTAL_API_MINIO_ENDPOINT: minio:9000
+  REGISTRY_STAFF_PORTAL_API_MINIO_SECURE: "false"
+  REGISTRY_STAFF_PORTAL_API_MINIO_BUCKET_NAME: documents
+  REGISTRY_STAFF_PORTAL_API_TEMPLATE_BUCKET_NAME: templates
+  REGISTRY_STAFF_PORTAL_API_MINIO_ACCESS_KEY: *minio-root-user
+  REGISTRY_STAFF_PORTAL_API_MINIO_SECRET_KEY: *minio-root-password
+  REGISTRY_STAFF_PORTAL_API_MINIO_READ_ACCESS_KEY: *minio-root-user
+  REGISTRY_STAFF_PORTAL_API_MINIO_READ_SECRET_KEY: *minio-root-password
+  REGISTRY_STAFF_PORTAL_API_AWE_ENABLED: "true"
+  REGISTRY_STAFF_PORTAL_API_AWE_BASE_URL: http://awe:8000
+  REGISTRY_STAFF_PORTAL_API_AWE_DEFAULT_CALLBACK_URL: http://staff-api:8000/awe/webhooks/decision
+  REGISTRY_STAFF_PORTAL_API_AWE_CALLBACK_SECRET_ID: func-gate-awe-secret
+  REGISTRY_STAFF_PORTAL_API_AWE_CALLBACK_HMAC_SECRET: func-gate-hmac-secret-value
+  REGISTRY_STAFF_PORTAL_API_AUDIT_ENABLED: "false"
+  REGISTRY_STAFF_PORTAL_API_EXPORT_QUEUE_VISIBILITY_DAYS: "30"
+  REGISTRY_STAFF_PORTAL_API_EXPORT_BATCH_SIZE: "100"
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_API_URL: http://pm-staff-api:8000
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_TOKEN_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/token
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_ID: partner-management
+  REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET: "func-gate-pm-admin-secret"
+  # Keep gate pool footprint small — many services share one Postgres.
+  REGISTRY_STAFF_PORTAL_API_DB_POOL_SIZE: "2"
+  REGISTRY_STAFF_PORTAL_API_DB_POOL_MAX_OVERFLOW: "2"
+  REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_POOL_SIZE: "2"
+  REGISTRY_STAFF_PORTAL_API_MASTER_DATA_DB_POOL_MAX_OVERFLOW: "2"
+  STAFF_PORTAL_NO_OF_WORKERS: "2"
+
+x-rp-version: &rp-version "1.2.0-rc.434"
+
+services:
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    command: ["postgres", "-c", "max_connections=300"]
+    environment:
+      POSTGRES_PASSWORD: *pg-password
+    volumes:
+      - ./compose-init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: keycloak
+      KC_DB_USERNAME: keycloak_user
+      KC_DB_PASSWORD: *pg-password
+      KC_HEALTH_ENABLED: "true"
+      KC_HOSTNAME_URL: http://keycloak:8080
+      KC_HOSTNAME_STRICT: "false"
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    volumes:
+      - ./compose-keycloak-realm.json:/opt/keycloak/data/import/staff-realm.json:ro
+    ports:
+      - "18080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "echo > /dev/tcp/127.0.0.1/8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  minio:
+    image: openg2p/minio:2023.12.23-debian-11-r2
+    # Bitnami image: do not override command (exec "server" → exit 127).
+    environment:
+      MINIO_ROOT_USER: *minio-root-user
+      MINIO_ROOT_PASSWORD: *minio-root-password
+      MINIO_BROWSER: "on"
+      MINIO_CONSOLE_PORT_NUMBER: "9001"
+      # Create gate buckets at startup (replaces former minio-init sidecar).
+      MINIO_DEFAULT_BUCKETS: documents,templates,images
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  # ── Commons platform services ──────────────────────────────────────────────
+
+  iam-staff-portal-api:
+    image: openg2p/iam-staff-portal-api:1.4.2
+    environment:
+      IAM_STAFF_DB_HOSTNAME: postgres
+      IAM_STAFF_DB_PORT: "5432"
+      IAM_STAFF_DB_DBNAME: iam_service
+      IAM_STAFF_DB_USERNAME: iam_service_user
+      IAM_STAFF_DB_PASSWORD: *pg-password
+      IAM_STAFF_KEYCLOAK_BASE_URL: http://keycloak:8080
+      IAM_STAFF_KEYCLOAK_ISSUER_URL: http://keycloak:8080/realms/staff
+      IAM_STAFF_AUTH_REDIS_URL: redis://redis:6379/0
+      # Multi-worker gunicorn: auth start + callback must share state via Redis
+      IAM_STAFF_AUTH_TRANSACTION_STORE_BACKEND: redis
+      IAM_STAFF_CSRF_ENABLED: "false"
+      IAM_STAFF_AUTH_COOKIE_DOMAIN: localhost
+      IAM_STAFF_AUTH_COOKIE_SECURE: "false"
+      LOGIN_PROVIDERS: '[{"id":"1","name":"Keycloak","type":"keycloak","clientId":"registry-staff-portal","clientSecret":"func-gate-client-secret","discoveryUrl":"http://keycloak:8080/realms/staff/.well-known/openid-configuration"}]'
+    ports:
+      - "18081:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  master-data-api:
+    image: openg2p/master-data-api:1.1.3
+    environment:
+      MASTER_DATA_API_DB_HOSTNAME: postgres
+      MASTER_DATA_API_DB_PORT: "5432"
+      MASTER_DATA_API_DB_DBNAME: master_data
+      MASTER_DATA_API_DB_USERNAME: master_data_user
+      MASTER_DATA_API_DB_PASSWORD: *pg-password
+      MASTER_DATA_API_AUTH_PROVIDER_API_URL: http://iam-staff-portal-api:8000
+      MASTER_DATA_API_AUTH_REDIS_URL: redis://redis:6379/0
+      MASTER_DATA_API_KEYCLOAK_CLIENT_ID: registry-staff-portal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  awe:
+    image: openg2p/openg2p-awe:1.2.2
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: awe
+      DB_USER: awe_user
+      DB_PASSWORD: *pg-password
+      CONFIG_PATH: ""
+      AWE__KEYCLOAK__BASE_URL: http://keycloak:8080
+      AWE__KEYCLOAK__REALM: staff
+      AWE__KEYCLOAK__ADMIN_CLIENT_ID: awe-admin-portal
+      AWE__KEYCLOAK__ADMIN_CLIENT_SECRET: func-gate-awe-admin-secret
+      AWE__KEYCLOAK__ISSUER: http://keycloak:8080/realms/staff
+      AWE__KEYCLOAK__JWKS_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/certs
+      AWE__KEYCLOAK__AUDIENCE: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/awe/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  # ── Partner Management (1.0.3) + Consent Manager (1.0.2) ───────────────────
+  # CM 1.0.3 ships fastapi-common 1.2.1 without openg2p_fastapi_common.utils
+  # while still importing utils.crypto.build_crypto_helper — pin 1.0.2 until fixed.
+
+  pm-partner-api:
+    image: openg2p/partner-management-partner-api:1.0.3
+    environment:
+      PARTNER_MANAGER_HOST: "0.0.0.0"
+      PARTNER_MANAGER_PORT: "8000"
+      PARTNER_MANAGER_NO_OF_WORKERS: "1"
+      PARTNER_MANAGER_DB_DRIVER: postgresql+asyncpg
+      PARTNER_MANAGER_DB_HOSTNAME: postgres
+      PARTNER_MANAGER_DB_PORT: "5432"
+      PARTNER_MANAGER_DB_DBNAME: partner_management
+      PARTNER_MANAGER_DB_USERNAME: partner_management_user
+      PARTNER_MANAGER_DB_PASSWORD: *pg-password
+      PARTNER_MANAGER_DB_POOL_SIZE: "2"
+      PARTNER_MANAGER_DB_POOL_MAX_OVERFLOW: "2"
+      PARTNER_MANAGER_CRYPTO_ALLOWED_ALGORITHMS: '["RS256","ES256","EdDSA"]'
+      COMMON_AUTH_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    ports:
+      - "18090:8000"
+
+  pm-staff-api:
+    image: openg2p/partner-management-staff-portal-api:1.0.3
+    environment:
+      PARTNER_MANAGER_HOST: "0.0.0.0"
+      PARTNER_MANAGER_PORT: "8000"
+      PARTNER_MANAGER_NO_OF_WORKERS: "1"
+      PARTNER_MANAGER_DB_DRIVER: postgresql+asyncpg
+      PARTNER_MANAGER_DB_HOSTNAME: postgres
+      PARTNER_MANAGER_DB_PORT: "5432"
+      PARTNER_MANAGER_DB_DBNAME: partner_management
+      PARTNER_MANAGER_DB_USERNAME: partner_management_user
+      PARTNER_MANAGER_DB_PASSWORD: *pg-password
+      PARTNER_MANAGER_DB_POOL_SIZE: "2"
+      PARTNER_MANAGER_DB_POOL_MAX_OVERFLOW: "2"
+      PARTNER_MANAGER_CRYPTO_ALLOWED_ALGORITHMS: '["RS256","ES256","EdDSA"]'
+      PARTNER_MANAGER_AUTH_ADMIN_ROLE: partner_manager
+      PARTNER_MANAGER_AUTH_ADMIN_CLIENT_ID: partner-management
+      PARTNER_MANAGER_AUDIT_ENABLED: "false"
+      # Prefer PARTNER_MANAGER_AUTH_* lists: COMMON_AUTH_* absorb passes raw strings
+      # and pydantic-settings will not JSON-decode them into list[str].
+      PARTNER_MANAGER_AUTH_ENABLED: "true"
+      PARTNER_MANAGER_AUTH_DEFAULT_ISSUERS: '["http://keycloak:8080/realms/staff"]'
+      PARTNER_MANAGER_AUTH_DEFAULT_JWKS_URLS: '["http://keycloak:8080/realms/staff/protocol/openid-connect/certs"]'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      pm-partner-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    ports:
+      - "18091:8000"
+
+  consent-manager-api:
+    image: openg2p/consent-manager-api:1.0.2
+    environment:
+      CONSENT_MANAGER_APP_HOST: "0.0.0.0"
+      CONSENT_MANAGER_APP_PORT: "8000"
+      CONSENT_MANAGER_NO_OF_WORKERS: "1"
+      CONSENT_MANAGER_API_AUDIENCE: staff
+      CONSENT_MANAGER_DB_DRIVER: postgresql+asyncpg
+      CONSENT_MANAGER_DB_HOSTNAME: postgres
+      CONSENT_MANAGER_DB_PORT: "5432"
+      CONSENT_MANAGER_DB_DBNAME: consent_manager
+      CONSENT_MANAGER_DB_USERNAME: consent_manager_user
+      CONSENT_MANAGER_DB_PASSWORD: *pg-password
+      CONSENT_MANAGER_DB_POOL_SIZE: "2"
+      CONSENT_MANAGER_DB_POOL_MAX_OVERFLOW: "2"
+      CONSENT_MANAGER_AUTH_ENABLED: "true"
+      CONSENT_MANAGER_AUTH_ISSUER: http://keycloak:8080/realms/staff
+      CONSENT_MANAGER_AUTH_JWKS_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/certs
+      CONSENT_MANAGER_AUTH_ADMIN_ROLE: CONSENT_MANAGER_ADMIN
+      CONSENT_MANAGER_AUTH_APPROVER_ROLE: CONSENT_MANAGER_APPROVER
+      CONSENT_MANAGER_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+      CONSENT_MANAGER_AWE_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      pm-partner-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    ports:
+      - "18092:8000"
+
+  consent-manager-partner-api:
+    image: openg2p/consent-manager-api:1.0.2
+    environment:
+      CONSENT_MANAGER_APP_HOST: "0.0.0.0"
+      CONSENT_MANAGER_APP_PORT: "8000"
+      CONSENT_MANAGER_NO_OF_WORKERS: "1"
+      CONSENT_MANAGER_API_AUDIENCE: partner
+      CONSENT_MANAGER_DB_DRIVER: postgresql+asyncpg
+      CONSENT_MANAGER_DB_HOSTNAME: postgres
+      CONSENT_MANAGER_DB_PORT: "5432"
+      CONSENT_MANAGER_DB_DBNAME: consent_manager
+      CONSENT_MANAGER_DB_USERNAME: consent_manager_user
+      CONSENT_MANAGER_DB_PASSWORD: *pg-password
+      CONSENT_MANAGER_DB_POOL_SIZE: "2"
+      CONSENT_MANAGER_DB_POOL_MAX_OVERFLOW: "2"
+      CONSENT_MANAGER_AUTH_ENABLED: "false"
+      CONSENT_MANAGER_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+      CONSENT_MANAGER_AWE_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pm-partner-api:
+        condition: service_healthy
+      consent-manager-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 40s
+    ports:
+      - "18093:8000"
+
+  id-generator:
+    image: openg2p/openg2p-id-generator:1.1.2
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: registry_idgenerator
+      DB_USER: registry_idgenerator_user
+      DB_PASSWORD: *pg-password
+    volumes:
+      - ./compose-id-generator.yaml:/app/config/default.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/v1/idgenerator/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  # ── Registry platform services (built from this repo) ─────────────────────
+
+  staff-api:
+    build:
+      context: ../..
+      dockerfile: docker/staff-api/Dockerfile
+    environment:
+      <<: *staff-api-env
+    ports:
+      - "18082:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      iam-staff-portal-api:
+        condition: service_healthy
+      awe:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  partner-api:
+    build:
+      context: ../..
+      dockerfile: docker/partner-api/Dockerfile
+    environment:
+      REGISTRY_PARTNER_API_DB_HOSTNAME: postgres
+      REGISTRY_PARTNER_API_DB_DBNAME: registry
+      REGISTRY_PARTNER_API_DB_PORT: "5432"
+      REGISTRY_PARTNER_API_DB_USERNAME: registry_user
+      REGISTRY_PARTNER_API_DB_PASSWORD: *pg-password
+      REGISTRY_PARTNER_API_MASTER_DATA_DB_DRIVER: postgresql+asyncpg
+      REGISTRY_PARTNER_API_MASTER_DATA_DB_HOSTNAME: postgres
+      REGISTRY_PARTNER_API_MASTER_DATA_DB_PORT: "5432"
+      REGISTRY_PARTNER_API_MASTER_DATA_DB_DBNAME: master_data
+      REGISTRY_PARTNER_API_MASTER_DATA_DB_USERNAME: master_data_user
+      REGISTRY_PARTNER_API_MASTER_DATA_DB_PASSWORD: *pg-password
+      REGISTRY_PARTNER_API_MINIO_ENDPOINT: minio:9000
+      REGISTRY_PARTNER_API_MINIO_SECURE: "false"
+      REGISTRY_PARTNER_API_MINIO_ACCESS_KEY: *minio-root-user
+      REGISTRY_PARTNER_API_MINIO_SECRET_KEY: *minio-root-password
+      REGISTRY_PARTNER_API_MINIO_READ_ACCESS_KEY: *minio-root-user
+      REGISTRY_PARTNER_API_MINIO_READ_SECRET_KEY: *minio-root-password
+      REGISTRY_PARTNER_API_SIGNATURE_VALIDATION_ENABLED: "true"
+      REGISTRY_PARTNER_API_CONSENT_ENFORCEMENT_ENABLED: "true"
+      REGISTRY_PARTNER_API_CRYPTO_BACKEND: partner-mgmt
+      REGISTRY_PARTNER_API_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+      REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_API_URL: http://pm-staff-api:8000
+      REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_TOKEN_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/token
+      REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_ID: partner-management
+      REGISTRY_PARTNER_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET: func-gate-pm-admin-secret
+      REGISTRY_PARTNER_API_CONSENT_MANAGER_URL: http://consent-manager-partner-api:8000
+      REGISTRY_PARTNER_API_CONSENT_MANAGER_TIMEOUT: "10"
+      REGISTRY_PARTNER_API_DB_POOL_SIZE: "2"
+      REGISTRY_PARTNER_API_DB_POOL_MAX_OVERFLOW: "2"
+      REGISTRY_PARTNER_API_MASTER_DATA_DB_POOL_SIZE: "2"
+      REGISTRY_PARTNER_API_MASTER_DATA_DB_POOL_MAX_OVERFLOW: "2"
+      PARTNER_NO_OF_WORKERS: "2"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      pm-partner-api:
+        condition: service_healthy
+      consent-manager-partner-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ping')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+    ports:
+      - "18083:8000"
+
+  celery-worker:
+    build:
+      context: ../..
+      dockerfile: docker/celery/Dockerfile
+    environment:
+      REGISTRY_CELERY_WORKERS_DB_HOSTNAME: postgres
+      REGISTRY_CELERY_WORKERS_DB_DBNAME: registry
+      REGISTRY_CELERY_WORKERS_DB_PORT: "5432"
+      REGISTRY_CELERY_WORKERS_DB_USERNAME: registry_user
+      REGISTRY_CELERY_WORKERS_DB_PASSWORD: *pg-password
+      REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_DRIVER: postgresql+asyncpg
+      REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_HOSTNAME: postgres
+      REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_PORT: "5432"
+      REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_DBNAME: master_data
+      REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_USERNAME: master_data_user
+      REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_PASSWORD: *pg-password
+      REGISTRY_CELERY_WORKERS_CELERY_BROKER_URL: redis://redis:6379/0
+      REGISTRY_CELERY_WORKERS_CELERY_BACKEND_URL: redis://redis:6379/0
+      REGISTRY_CELERY_WORKERS_WORKER_QUEUE: registry_worker_queue
+      REGISTRY_CELERY_WORKERS_BATCH_SIZE: "500"
+      REGISTRY_CELERY_WORKERS_WORKER_MAX_ATTEMPTS: "5"
+      REGISTRY_CELERY_WORKERS_MINIO_ENDPOINT: minio:9000
+      REGISTRY_CELERY_WORKERS_MINIO_SECURE: "false"
+      REGISTRY_CELERY_WORKERS_MINIO_BUCKET_NAME: documents
+      REGISTRY_CELERY_WORKERS_TEMPLATE_BUCKET_NAME: templates
+      REGISTRY_CELERY_WORKERS_MINIO_ACCESS_KEY: *minio-root-user
+      REGISTRY_CELERY_WORKERS_MINIO_SECRET_KEY: *minio-root-password
+      REGISTRY_CELERY_WORKERS_MINIO_READ_ACCESS_KEY: *minio-root-user
+      REGISTRY_CELERY_WORKERS_MINIO_READ_SECRET_KEY: *minio-root-password
+      REGISTRY_CELERY_WORKERS_FUNCTIONAL_ID_GENERATION_URL: http://id-generator:8000/v1
+      REGISTRY_CELERY_WORKERS_ID_GENERATION_ALLOCATION_PATH: "/idgenerator/{id_type}/id"
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_API_URL: http://pm-partner-api:8000
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_API_URL: http://pm-staff-api:8000
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_TOKEN_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/token
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_ID: partner-management
+      REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_SECRET: func-gate-pm-admin-secret
+      REGISTRY_CELERY_WORKERS_DB_POOL_SIZE: "2"
+      REGISTRY_CELERY_WORKERS_DB_POOL_MAX_OVERFLOW: "2"
+      REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_POOL_SIZE: "2"
+      REGISTRY_CELERY_WORKERS_MASTER_DATA_DB_POOL_MAX_OVERFLOW: "2"
+      CELERY_APP: "openg2p_registry_celery_worker.main.celery_app"
+      CELERY_OPTS: "worker -Q registry_worker_queue --loglevel=info --concurrency=2"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      id-generator:
+        condition: service_healthy
+
+  celery-beat:
+    build:
+      context: ../..
+      dockerfile: docker/celery/Dockerfile
+    environment:
+      REGISTRY_CELERY_BEAT_DB_HOSTNAME: postgres
+      REGISTRY_CELERY_BEAT_DB_DBNAME: registry
+      REGISTRY_CELERY_BEAT_DB_PORT: "5432"
+      REGISTRY_CELERY_BEAT_DB_USERNAME: registry_user
+      REGISTRY_CELERY_BEAT_DB_PASSWORD: *pg-password
+      REGISTRY_CELERY_BEAT_CELERY_BROKER_URL: redis://redis:6379/0
+      REGISTRY_CELERY_BEAT_CELERY_BACKEND_URL: redis://redis:6379/0
+      REGISTRY_CELERY_BEAT_WORKER_QUEUE: registry_worker_queue
+      REGISTRY_CELERY_BEAT_BATCH_SIZE: "500"
+      REGISTRY_CELERY_BEAT_NO_OF_TASKS_TO_PROCESS: "4"
+      REGISTRY_CELERY_BEAT_DATA_TRANSFORMATION_BEAT_PRODUCER_FREQUENCY: "20"
+      REGISTRY_CELERY_BEAT_INGEST_DATA_BEAT_PRODUCER_FREQUENCY: "20"
+      REGISTRY_CELERY_BEAT_INGEST_DATA_CLASSIFICATION_BEAT_PRODUCER_FREQUENCY: "20"
+      REGISTRY_CELERY_BEAT_OUTGEST_DATA_PUBLISH_BEAT_PRODUCER_FREQUENCY: "20"
+      REGISTRY_CELERY_BEAT_OUTGEST_TOPIC_REGISTER_BEAT_PRODUCER_FREQUENCY: "20"
+      REGISTRY_CELERY_BEAT_DEDUPLICATION_BEAT_PRODUCER_FREQUENCY: "30"
+      REGISTRY_CELERY_BEAT_REGISTER_EXPORT_BEAT_PRODUCER_FREQUENCY: "60"
+      REGISTRY_CELERY_BEAT_DB_POOL_SIZE: "1"
+      REGISTRY_CELERY_BEAT_DB_POOL_MAX_OVERFLOW: "1"
+      CELERY_APP: "openg2p_registry_celery_beat.main.celery_app"
+      CELERY_OPTS: "worker --beat --loglevel=info --schedule=/tmp/celery-beat-schedule.db"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db-seed:
+    # Reference meta SQL + entrypoint from this workspace.
+    # Published rc images omit load_sample_data.py by design — keep
+    # LOAD_SAMPLE_DATA=false and seed a fixture household in run-compose-gate.sh.
+    build:
+      context: ../..
+      dockerfile: docker/db-seed/Dockerfile
+    environment:
+      <<: *common-db-env
+      PGDATABASE: registry
+      PGUSER: registry_user
+      PGPASSWORD: *pg-password
+      REGISTRY_PGHOST: postgres
+      REGISTRY_PGPORT: "5432"
+      REGISTRY_PGDATABASE: registry
+      REGISTRY_PGUSER: registry_user
+      REGISTRY_PGPASSWORD: *pg-password
+      MD_PGHOST: postgres
+      MD_PGPORT: "5432"
+      MD_PGDATABASE: master_data
+      MD_PGUSER: master_data_user
+      MD_PGPASSWORD: *pg-password
+      AWE_PGHOST: postgres
+      AWE_PGPORT: "5432"
+      AWE_PGDATABASE: awe
+      AWE_PGUSER: awe_user
+      AWE_PGPASSWORD: *pg-password
+      AWE_DB_SEED_ENABLED: "true"
+      AWE_CALLBACK_SECRET_ID: func-gate-awe-secret
+      AWE_CALLBACK_SECRET_VALUE: func-gate-hmac-secret-value
+      AWE_CALLBACK_HMAC_SECRET: func-gate-hmac-secret-value
+      AWE_CALLBACK_CALLER_SERVICE: http://staff-api:8000/awe/webhooks/decision
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: *minio-root-user
+      MINIO_SECRET_KEY: *minio-root-password
+      MINIO_SECURE: "false"
+      TEMPLATE_BUCKET_NAME: templates
+      IMAGE_BUCKET_NAME: documents
+      LOAD_GEO_DATA: "false"
+      SYNC_GEO_WIDGETS: "false"
+      LOAD_SAMPLE_DATA: "false"
+      LOAD_IMAGES: "false"
+      LOAD_TEMPLATES: "true"
+      STAFF_API_URL: http://staff-api:8000
+      STAFF_TOKEN_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/token
+      STAFF_CLIENT_ID: registry-staff-portal
+      STAFF_CLIENT_SECRET: func-gate-client-secret
+      STAFF_API_PING_URL: http://staff-api:8000/ping
+      PARTNER_API_PING_URL: http://partner-api:8000/ping
+      STAFF_UI_PING_URL: http://staff-ui:3000/
+      AWE_HEALTH_URL: http://awe:8000/v1/awe/health
+    depends_on:
+      staff-api:
+        condition: service_healthy
+      partner-api:
+        condition: service_healthy
+      awe:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  staff-ui:
+    build:
+      context: ../../ui/staff-ui
+      dockerfile: Dockerfile
+    environment:
+      BACKEND_API_URL: http://staff-api:8000
+      IAM_URL: http://iam-staff-portal-api:8000
+      MASTERDATA_BACKEND_API_URL: http://master-data-api:8000
+      APPLICATION_MNEMONIC: registry-staff-portal
+      APP_MNEMONIC: registry-ui
+      APP_URL: http://localhost:3000
+      COOKIE_DOMAIN: localhost
+      KEYCLOAK_LOGOUT_URL: http://localhost:18080/realms/staff/protocol/openid-connect/logout
+      LOGIN_PROVIDER_ID: "1"
+      NODE_ENV: production
+      REDIRECT_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      staff-api:
+        condition: service_healthy
+      iam-staff-portal-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
