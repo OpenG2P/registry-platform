@@ -39,6 +39,24 @@ export const SectionStyles = ({
       text-overflow: ellipsis !important;
       white-space: nowrap !important;
     }
+    @media (max-width: 639px) {
+      .${sectionClassId} label.owt-text,
+      .${sectionClassId} label.owt-field-label,
+      .${sectionClassId} .owt-field-label,
+      .${sectionClassId} .text-base.owt-text-muted {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+      }
+      ${readonlySingleLineValueTextCss} {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+      }
+    }
     .${sectionClassId} .owt-text {
       color: var(--owt-color-text) !important;
     }
@@ -128,6 +146,8 @@ export const SectionStyles = ({
     }
     .${sectionClassId} .supporting-documents-container {
       width: 100%;
+      min-width: 0;
+      max-width: 100%;
     }
     .${sectionClassId} .supporting-documents-title-button {
       background: none;

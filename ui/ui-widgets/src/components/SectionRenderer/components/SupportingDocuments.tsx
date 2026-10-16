@@ -31,7 +31,7 @@ export const SupportingDocuments = ({
   const title = t?.('common.supportedDocuments') || 'Supported Documents';
 
   return (
-    <div className="supporting-documents-container">
+    <div className="supporting-documents-container min-w-0 max-w-full">
       {collapsible ? (
         <button
           type="button"
@@ -57,7 +57,7 @@ export const SupportingDocuments = ({
           {documents.map((doc, index) => {
             const docConfig = createDocumentWidgetConfig(doc, sectionId, index, mode, isDraft);
             return (
-              <div key={`${sectionId}-doc-${index}`} className="supporting-document-item">
+              <div key={`${sectionId}-doc-${index}`} className="supporting-document-item min-w-0 max-w-full">
                 <FileInputWidget config={docConfig} />
               </div>
             );

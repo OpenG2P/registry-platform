@@ -135,7 +135,7 @@ const DialogTableField = memo(function DialogTableField({
   }, [col, cellWidgetId, isRequired, isReadonly, widgetType]);
 
   return (
-    <div className="min-w-0">
+    <div className="dialog-table-field min-w-0 max-w-full">
       <WidgetRenderer config={fieldConfig} />
     </div>
   );
@@ -484,35 +484,70 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
   const tableWidgetId = `dialog-table-widget-${widgetConfig['widget-id']}`;
   const columnSpan = widgetConfig['widget-column-span'] || 2;
-  const minWidth = columnSpan * 200;
 
   return (
     <>
       <style>{`
         .${tableWidgetId} {
           width: 100%;
-          min-width: ${minWidth}px;
+          min-width: 0;
+          max-width: 100%;
         }
 
         .widget-container[data-widget-id="${widgetConfig['widget-id']}"] {
-          min-width: ${minWidth}px;
+          min-width: 0;
+          max-width: 100%;
           width: 100%;
           flex: none;
         }
 
-        .panel-horizontal .widget-container[data-widget-id="${widgetConfig['widget-id']}"],
-        [data-panel-orientation="horizontal"] .widget-container[data-widget-id="${widgetConfig['widget-id']}"] {
-          grid-column: span ${columnSpan};
+        @media (min-width: 1024px) {
+          .panel-horizontal .widget-container[data-widget-id="${widgetConfig['widget-id']}"],
+          [data-panel-orientation="horizontal"] .widget-container[data-widget-id="${widgetConfig['widget-id']}"] {
+            grid-column: span ${columnSpan};
+          }
+
+          .panel-horizontal > div:only-child .widget-container[data-widget-id="${widgetConfig['widget-id']}"],
+          [data-panel-orientation="horizontal"] > div:only-child .widget-container[data-widget-id="${widgetConfig['widget-id']}"] {
+            grid-column: 1 / -1;
+            width: 100%;
+            flex: 1 1 100%;
+          }
+        }
+
+        .dialog-table-modal .dialog-table-field .flex {
+          flex-direction: column !important;
+          align-items: stretch !important;
+        }
+
+        .dialog-table-modal .dialog-table-field .owt-field-label,
+        .dialog-table-modal .dialog-table-field label.owt-text,
+        .dialog-table-modal .dialog-table-field label.owt-field-label {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: unset !important;
+        }
+
+        .dialog-table-modal .dialog-table-field input,
+        .dialog-table-modal .dialog-table-field select,
+        .dialog-table-modal .dialog-table-field textarea {
+          width: 100% !important;
+          max-width: 100% !important;
+          min-width: 0 !important;
+          box-sizing: border-box;
         }
       `}</style>
 
       <div className={`table-widget-container ${tableWidgetId}`}>
         {operations.add && !isReadonly && isEnabled && (
-          <div className="flex justify-end mb-2">
+          <div className="mb-2 flex justify-end">
             <button
               type="button"
               onClick={openAddDialog}
-              className="px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="max-w-full px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 borderRadius: 'var(--owt-btn-border-radius)',
                 border: '1px solid var(--owt-btn-primary-border)',
@@ -526,7 +561,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
         )}
 
         <div
-          className="overflow-x-auto border"
+          className="max-w-full min-w-0 overflow-x-auto border"
           style={{
             borderRadius: 'var(--owt-widget-table-border-radius)',
             borderColor: 'var(--owt-widget-table-border-color)',
@@ -692,22 +727,23 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
       </div>
 
       {dialogOpen && (
-        <div className={`${themeRoot.className} fixed inset-0 flex items-center justify-center z-50`} style={{ ...themeRoot.style, backgroundColor: 'var(--owt-color-overlay)' }}>
+        <div className={`${themeRoot.className} dialog-table-modal fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4`} style={{ ...themeRoot.style, backgroundColor: 'var(--owt-color-overlay)' }}>
           <div
-            className="rounded-lg p-6 w-full mx-4"
+            className="my-auto flex max-h-[calc(100vh-1.5rem)] w-full min-w-0 flex-col rounded-lg p-4 sm:max-h-[calc(100vh-2rem)] sm:p-6"
             style={{
-              maxWidth: '900px',
+              maxWidth: 'min(900px, 100%)',
               backgroundColor: 'var(--owt-color-bg)',
               borderRadius: 'var(--owt-widget-card-border-radius)',
             }}
           >
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <h3 className="text-lg font-semibold" style={{ color: 'var(--owt-color-text)' }}>
+            <div className="mb-4 flex shrink-0 items-start justify-between gap-3">
+              <h3 className="min-w-0 break-words text-base font-semibold sm:text-lg" style={{ color: 'var(--owt-color-text)' }}>
                 {dialogMode === 'add' ? addDialogTitle : editDialogTitle}
               </h3>
               <button
                 type="button"
                 onClick={closeDialog}
+                className="shrink-0"
                 style={{
                   border: 'none',
                   background: 'transparent',
@@ -724,8 +760,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
 
             <div
               key={`dialog-fields-${dialogSessionId}`}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              style={{ maxHeight: '70vh', overflow: 'auto' }}
+              className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-auto md:grid-cols-2"
             >
               {dialogColumnSegments.map((segment) => {
                 if (segment.type === 'single') {
@@ -743,7 +778,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
               })}
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="mt-6 flex shrink-0 flex-wrap justify-end gap-3">
               <button
                 type="button"
                 onClick={closeDialog}

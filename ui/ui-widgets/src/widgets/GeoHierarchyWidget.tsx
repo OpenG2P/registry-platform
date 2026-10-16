@@ -270,7 +270,7 @@ export const GeoHierarchyWidget = ({ config }: GeoHierarchyWidgetProps) => {
       <div
         className="flex flex-col lg:grid w-full"
         style={{
-          gridTemplateColumns: `repeat(${layoutColumnCount}, minmax(200px, 1fr))`,
+          gridTemplateColumns: `repeat(${layoutColumnCount}, minmax(0, 1fr))`,
         }}
       >
         {visibleColumns.map((column, position) => {
