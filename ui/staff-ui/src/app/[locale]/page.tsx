@@ -207,10 +207,25 @@ export default function Home() {
     };
 
     const useStatsCarousel = STATS_CARDS.length > 4;
+    const dashboardImage = config?.branding?.dashboard_image;
 
     return (
-        <div className="min-h-screen bg-primary-first pt-8 sm:pt-10 md:pt-12 overflow-hidden text-secondary-second-900 bg-[url('/images/common/bg_pattern.png')]">
-            <div className="relative">
+        <div className={`relative isolate min-h-screen bg-primary-first pt-8 sm:pt-10 md:pt-12 overflow-hidden text-secondary-second-900 ${dashboardImage ? '' : "bg-[url('/images/common/bg_pattern.png')]"}`}>
+            {dashboardImage && (
+                <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+                    <Image
+                        src={dashboardImage}
+                        alt=""
+                        fill
+                        sizes="100vw"
+                        className="object-cover object-center"
+                        priority
+                        unoptimized
+                    />
+                    <div className="absolute inset-0 bg-neutral-second/30" />
+                </div>
+            )}
+            <div className="relative z-10">
                 <div className="mx-auto flex max-w-6xl flex-col items-center px-4 sm:px-6 py-8 sm:py-10 lg:py-12 space-y-10 sm:space-y-12 lg:space-y-14">
 
                     {/* stats cards */}
@@ -298,17 +313,18 @@ export default function Home() {
                         </div>
                     </Can>
                 </div>
-                <div className="bottom-0 w-full px-4">
-                    <Image
-                        src={config?.branding?.dashboard_image || "/images/common/people.svg"}
-                        alt={t('peoples_image_alt')}
-                        width={1200}
-                        height={600}
-                        className="w-full h-auto select-none"
-                        priority
-                        unoptimized={!!config?.branding?.dashboard_image}
-                    />
-                </div>
+                {!dashboardImage && (
+                    <div className="bottom-0 w-full px-4">
+                        <Image
+                            src="/images/common/people.svg"
+                            alt={t('peoples_image_alt')}
+                            width={1200}
+                            height={600}
+                            className="w-full h-auto select-none"
+                            priority
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );
