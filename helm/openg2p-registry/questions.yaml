@@ -64,7 +64,7 @@ questions:
   group: Components
 
 - variable: global.partnerSignatureValidationEnabled
-  description: Verify the partner's signature on every Partner API call (DCI search, ingest, activities, data scopes) against Partner Management keys. ON by default (fail-closed). Turn OFF only for testing or bring-up before Partner Management is wired — doing so accepts unsigned requests.
+  description: Check the partner's signature on every Partner API call against the partner's key in Partner Management. On by default. If off, requests are accepted without checking who signed them, and data is returned to them. Turn off only for testing, or before Partner Management is set up.
   type: boolean
   default: true
   label: Verify Partner Signature
@@ -78,7 +78,7 @@ questions:
   group: Consent & Partner API
 
 - variable: global.consentEnforcementEnabled
-  description: Enforce consent via the Consent Manager before returning data (Partner API), clamping fields to consented scopes. Requires a reachable Consent Manager. ON by default (fail-closed). Turn OFF only for testing or bring-up — doing so returns records unclamped to any caller.
+  description: Ask the Consent Manager before the Partner API returns data, and return only the fields the consent covers. Needs a reachable Consent Manager. On by default. If off, records are returned in full, with no consent check. Turn off only for testing, or before the Consent Manager is set up.
   type: boolean
   default: true
   label: Enforce Consent
@@ -282,7 +282,7 @@ questions:
   show_if: global.auditEnabled=true
 
 - variable: sanity.enabled
-  description: Run the in-cluster sanity suite on every install/upgrade (smoke checks the Partner API is live and the DCI route is served). Best-effort — a failure does not block the deploy.
+  description: Run the in-cluster sanity suite on every install and upgrade. The smoke tests check the Partner API is live and serves DCI search, and create nothing. A failing test fails the deploy unless "Sanity - Fail the Deploy on Test Failure" is off.
   type: boolean
   default: true
   label: Run Sanity Tests
