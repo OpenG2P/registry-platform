@@ -15,7 +15,7 @@ dependencies = [
 [tool.pytest.ini_options]
 markers = [
   "smoke: liveness/wiring checks that need no auth and create no data",
-  "e2e: signed DCI search round-trip (seeds a persistent PM partner + CM binding)",
+  "e2e: signed DCI search round-trip (seeds a persistent PM partner, key + policy)",
   "cr: change request -> AWE approval -> version history -> audit",
 ]
 # -s (no capture) so the titled banners + timestamped step lines print live and

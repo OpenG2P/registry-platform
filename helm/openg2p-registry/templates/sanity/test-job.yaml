@@ -2,7 +2,7 @@
 # In-cluster sanity for the partner-api, on every install/upgrade.
 #   runE2e=false → smoke only (needs nothing but the partner-api).
 #   runE2e=true  → smoke + signed DCI/consent e2e (seeded by the pm-seed and
-#                  cm-seed Jobs that ran at lower hook-weights).
+#                  data-seed Jobs that ran at lower hook-weights).
 apiVersion: batch/v1
 kind: Job
 metadata:

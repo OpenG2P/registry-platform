@@ -78,7 +78,7 @@ questions:
   group: Consent & Partner API
 
 - variable: global.consentEnforcementEnabled
-  description: Ask the Consent Manager before the Partner API returns data, and return only the fields the consent covers. Needs a reachable Consent Manager. On by default. If off, records are returned in full, with no consent check. Turn off only for testing, or before the Consent Manager is set up.
+  description: Ask the Consent Manager before the Partner API returns data, and return only the fields the consent covers. The Consent Manager checks the consent and the partner's access policy in Partner Management. Needs a reachable Consent Manager. On by default. If off, records are returned in full, with no consent check. Turn off only for testing, or before the Consent Manager is set up.
   type: boolean
   default: true
   label: Enforce Consent
@@ -289,7 +289,7 @@ questions:
   group: Sanity
 
 - variable: sanity.runE2e
-  description: Also run the full e2e. (1) Signed DCI + consent search — asserts a permitted, field-clamped result and that missing consent / bad signature are rejected. (2) Change request → AWE approval → applied change → version history → audit. This seeds test fixtures (a Keycloak user, a test record, a Partner Management key, a Consent Manager binding) and leaves them in place for inspection. Needs reachable PM, CM, AWE, Keycloak admin and the DBs, the enforcement switches ON, and the AWE issuer set to the external Keycloak URL. OFF by default; enable only on test environments.
+  description: Also run the full e2e. (1) Signed DCI + consent search — asserts a permitted, field-clamped result and that missing consent / bad signature are rejected. (2) Change request → AWE approval → applied change → version history → audit. This seeds test fixtures (a Keycloak user, a test record, a Partner Management partner with its key and access policy) and leaves them in place for inspection. Needs reachable PM, CM, AWE, Keycloak admin and the DBs, the enforcement switches ON, and the AWE issuer set to the external Keycloak URL. OFF by default; enable only on test environments.
   type: boolean
   default: false
   label: Sanity - Run Full E2E

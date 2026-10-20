@@ -1,18 +1,23 @@
 """Idempotent seeding of the sanity test partner into Partner Management (PM).
 
-CM no longer stores partner keys, so the signed e2e needs a real partner in PM
-whose public key matches the sanity's private key. This module ensures such a
-partner exists and is active — creating it once via PM's admin API and then
-leaving it in place (persistent test fixture, never deleted).
+The signed e2e needs a real partner in PM whose public key matches the sanity's
+private key, and an active PM **policy** for this registry's data controller that
+allows the scopes the consent object asks for: the registry calls the Consent
+Manager ``/validate``, and CM reads the policy of partner ``PARTNER_<AUD>`` from
+PM. This module ensures both exist — creating them once via PM's admin API and
+then leaving them in place (persistent test fixture, never deleted).
 
 Flow (all idempotent):
-  1. If PM's key-fetch API already serves the (partner_id, kid), we're done.
-  2. Otherwise, using a partner_manager admin token, submit an onboarding request
-     with the derived public key and approve it → partner active, key active.
-  3. If the partner already exists but the key isn't served, submit a key-update
-     request for the kid and approve it, and enable the partner. NB PM signals
+  1. Key: if PM's key-fetch API already serves the (partner_id, kid), keep it.
+     Otherwise, using a partner_manager admin token, submit an onboarding request
+     with the derived public key AND the policy, and approve it → partner, key and
+     policy active. If the partner already exists, submit a key-update request for
+     the kid instead, approve it, and enable the partner. NB PM signals
      already-exists as HTTP 400 with body code PM-PRT-409, not HTTP 409 — see
      _already_exists().
+  2. Policy: if PM's policy API already serves an active policy for this data
+     controller covering the sanity scopes, keep it. Otherwise submit a ``policy``
+     request and approve it (a new version supersedes the old one).
 """
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, ed25519, rsa
@@ -48,29 +53,19 @@ def key_servable(cfg) -> bool:
 
 
 def _admin_token(cfg):
-    """Obtain a client-credentials token for PM's admin API.
+    """Obtain a client-credentials token for PM's admin API (SANITY_PM_ADMIN_*).
 
-    Prefers dedicated PM admin creds (SANITY_PM_ADMIN_*); otherwise falls back to
-    the sanity Keycloak client (SANITY_TOKEN_URL/CLIENT_ID/CLIENT_SECRET) — that
-    client must then be granted the `partner_manager` role in the staff realm.
-    Returns None only when no credentials are configured at all (PM auth off).
+    The client must hold PM's `partner_manager` role. Returns None when no
+    credentials are configured (PM auth off).
     """
-    if cfg.pm_admin_token_url and cfg.pm_admin_client_secret:
-        token_url, client_id, client_secret = (
-            cfg.pm_admin_token_url, cfg.pm_admin_client_id, cfg.pm_admin_client_secret,
-        )
-    elif cfg.token_url and cfg.client_secret:
-        token_url, client_id, client_secret = (
-            cfg.token_url, cfg.client_id, cfg.client_secret,
-        )
-    else:
+    if not (cfg.pm_admin_token_url and cfg.pm_admin_client_secret):
         return None
     r = httpx.post(
-        token_url,
+        cfg.pm_admin_token_url,
         data={
             "grant_type": "client_credentials",
-            "client_id": client_id,
-            "client_secret": client_secret,
+            "client_id": cfg.pm_admin_client_id,
+            "client_secret": cfg.pm_admin_client_secret,
         },
         verify=cfg.verify_tls,
         timeout=20,
@@ -111,35 +106,99 @@ def _detail(r) -> str:
     return f"HTTP {r.status_code} at {r.request.url} -> {(r.text or '')[:400]}"
 
 
-def ensure_seeded(cfg) -> str:
-    """Ensure the sanity partner + key exist and are servable in PM.
+# What the sanity consent object asks for (sanity/dci.py) — the policy must allow it.
+SANITY_PURPOSE = "share_farm_profile"
+SANITY_SUBJECT_ID_TYPE = "national_id"
 
-    Returns "exists" | "onboarded" | "key-added". Raises RuntimeError if seeding
-    is impossible (no admin URL) or did not result in a servable key.
-    """
-    if key_servable(cfg):
-        return "exists"
-    if not cfg.pm_admin_url:
+
+def policy_input(cfg) -> dict:
+    """The sanity partner's scope policy for this registry's data controller."""
+    return {
+        "data_controller": cfg.controller_id,
+        "allowed_data_scopes": list(cfg.data_scopes),
+        "allowed_purposes": [SANITY_PURPOSE],
+        "allowed_subject_id_types": [SANITY_SUBJECT_ID_TYPE],
+        "allowed_signing_algs": ["EdDSA", "ES256", "RS256"],
+        "max_validity_duration": "P1Y",
+        "fetch_type": "oneshot",
+    }
+
+
+def _allows(values, wanted) -> bool:
+    """An empty policy list means "any"."""
+    return not values or wanted in values
+
+
+def policy_active(cfg) -> bool:
+    """True if PM serves an active policy for (partner, controller) covering the
+    sanity scopes, purpose and subject id type."""
+    if not cfg.pm_partner_api_url:
+        return False
+    r = httpx.get(
+        f"{cfg.pm_partner_api_url}/policies/{cfg.pm_partner_id}",
+        params={"data_controller": cfg.controller_id},
+        verify=cfg.verify_tls,
+        timeout=20,
+    )
+    if r.status_code != 200:
+        return False
+    for policy in r.json().get("policies") or []:
+        if policy.get("data_controller") != cfg.controller_id:
+            continue
+        if (
+            set(cfg.data_scopes) <= set(policy.get("allowed_data_scopes") or [])
+            and _allows(policy.get("allowed_purposes"), SANITY_PURPOSE)
+            and _allows(policy.get("allowed_subject_id_types"), SANITY_SUBJECT_ID_TYPE)
+        ):
+            return True
+    return False
+
+
+def _rejected(r, token) -> None:
+    """Raise a diagnosable error for a failed PM admin call."""
+    if r.status_code in (401, 403):
         raise RuntimeError(
-            "PM key not servable and SANITY_PM_ADMIN_URL not set — cannot seed "
-            f"partner '{cfg.pm_partner_id}'"
+            f"PM admin API rejected the seed ({r.status_code}) at {r.request.url}. "
+            f"The seed needs a Keycloak client with the 'partner_manager' role "
+            f"(token_sent={token is not None}); set SANITY_PM_ADMIN_* to it."
         )
+    if r.status_code >= 400:
+        # Include the body: raise_for_status() drops it, which is how a plain
+        # "already exists" became an unexplained skip.
+        raise RuntimeError(f"PM seed failed: {_detail(r)}")
 
-    pub_pem, alg = public_pem_and_alg(cfg.pm_private_key_pem)
-    token = _admin_token(cfg)
+
+def _approve(cfg, token, request_id) -> None:
+    a = httpx.post(
+        f"{cfg.pm_admin_url}/partners/requests/{request_id}/approve",
+        headers=_headers(token),
+        json={"notes": "auto-approved by registry sanity seed"},
+        verify=cfg.verify_tls,
+        timeout=30,
+    )
+    _rejected(a, token)
+
+
+def _seed_key(cfg, token) -> str:
+    """Onboard the partner (key + policy), or add the key to an existing one.
+
+    Returns "onboarded" (policy included) | "key-added" (policy not touched).
+    """
     admin = cfg.pm_admin_url
+    pub_pem, alg = public_pem_and_alg(cfg.pm_private_key_pem)
     key_input = {"public_key": pub_pem, "kid": cfg.pm_kid, "algorithm": alg}
 
-    # 1. Try a fresh onboarding request.
+    # Try a fresh onboarding request, with the policy in the same request.
     r = httpx.post(
         f"{admin}/partners/requests/onboarding",
         headers=_headers(token),
         json={
             "partner_id": cfg.pm_partner_id,
-            "name": "CM Sanity Test Partner",
-            "org_name": "OpenG2P Consent Manager sanity suite",
-            "description": "Persistent test partner for the CM signed-validate e2e. Test only.",
+            "name": "Sanity Test Partner",
+            "org_name": "OpenG2P sanity suites",
+            "description": "Persistent test partner for the signed DCI / consent e2e. Test only.",
             "keys": [key_input],
+            "policies": [policy_input(cfg)],
         },
         verify=cfg.verify_tls,
         timeout=30,
@@ -160,29 +219,8 @@ def ensure_seeded(cfg) -> str:
             verify=cfg.verify_tls,
             timeout=30,
         )
-    if r.status_code in (401, 403):
-        raise RuntimeError(
-            f"PM admin API rejected the seed ({r.status_code}) at {r.request.url}. "
-            f"The seed needs a Keycloak client with the 'partner_manager' role "
-            f"(token_sent={token is not None}). Either set SANITY_PM_ADMIN_* to a "
-            f"dedicated partner_manager client, or grant the sanity client "
-            f"'{cfg.client_id}' the partner_manager role in the staff realm."
-        )
-    if r.status_code >= 400:
-        # Include the body: raise_for_status() drops it, which is how a plain
-        # "already exists" became an unexplained skip.
-        raise RuntimeError(f"PM seed failed: {_detail(r)}")
-    request_id = r.json()["id"]
-
-    # 2. Approve the request → partner/key become active.
-    a = httpx.post(
-        f"{admin}/partners/requests/{request_id}/approve",
-        headers=_headers(token),
-        json={"notes": "auto-approved by CM sanity seed"},
-        verify=cfg.verify_tls,
-        timeout=30,
-    )
-    a.raise_for_status()
+    _rejected(r, token)
+    _approve(cfg, token, r.json()["id"])
 
     if not key_servable(cfg):
         raise RuntimeError(
@@ -190,6 +228,54 @@ def ensure_seeded(cfg) -> str:
             "not servable by PM's fetch API"
         )
     return outcome
+
+
+def _seed_policy(cfg, token) -> None:
+    """Raise and approve a PM `policy` request for this data controller."""
+    r = httpx.post(
+        f"{cfg.pm_admin_url}/partners/requests/policy",
+        headers=_headers(token),
+        json={
+            "partner_id": cfg.pm_partner_id,
+            "description": f"Sanity e2e scope policy for {cfg.controller_id}. Test only.",
+            "policies": [policy_input(cfg)],
+        },
+        verify=cfg.verify_tls,
+        timeout=30,
+    )
+    _rejected(r, token)
+    _approve(cfg, token, r.json()["id"])
+
+
+def ensure_seeded(cfg) -> str:
+    """Ensure the sanity partner, its key and its policy for this registry's data
+    controller exist and are servable in PM.
+
+    Returns "<key status>, policy <policy status>": key "exists" | "onboarded" |
+    "key-added"; policy "exists" | "added". Raises RuntimeError if seeding is
+    impossible (no admin URL) or did not result in a servable key and policy.
+    """
+    key_ok = key_servable(cfg)
+    policy_ok = policy_active(cfg)
+    if key_ok and policy_ok:
+        return "exists, policy exists"
+    if not cfg.pm_admin_url:
+        raise RuntimeError(
+            "PM key or policy not servable and SANITY_PM_ADMIN_URL not set — cannot "
+            f"seed partner '{cfg.pm_partner_id}'"
+        )
+    token = _admin_token(cfg)
+
+    key_status = "exists" if key_ok else _seed_key(cfg, token)
+    policy_status = "exists" if policy_ok else "added"
+    if not policy_ok and not policy_active(cfg):
+        _seed_policy(cfg, token)
+        if not policy_active(cfg):
+            raise RuntimeError(
+                f"seeded a policy for partner '{cfg.pm_partner_id}' / controller "
+                f"'{cfg.controller_id}' but PM's policy API does not serve it"
+            )
+    return f"{key_status}, policy {policy_status}"
 
 
 def main() -> int:
@@ -207,7 +293,10 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"[pm-seed] FAILED to seed partner '{cfg.pm_partner_id}': {exc}")
         return 1
-    print(f"[pm-seed] partner '{cfg.pm_partner_id}' key '{cfg.pm_kid}': {status}")
+    print(
+        f"[pm-seed] partner '{cfg.pm_partner_id}' key '{cfg.pm_kid}' / policy "
+        f"'{cfg.controller_id}': {status}"
+    )
     return 0
 
 

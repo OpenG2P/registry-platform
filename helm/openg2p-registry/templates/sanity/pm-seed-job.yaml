@@ -1,6 +1,8 @@
 {{- if and .Values.sanity.enabled .Values.sanity.runE2e -}}
-# Deploy-time seeding of the shared sanity partner's KEY into Partner Management.
-# Only runs for the e2e (runE2e), before the cm-seed and test Jobs. Best-effort:
+# Deploy-time seeding of the shared sanity partner's KEY and its access POLICY
+# for this registry's data controller into Partner Management (raised and
+# approved as PM requests). Only runs for the e2e (runE2e), before the data-seed
+# and test Jobs. Best-effort:
 # a failure is logged but does NOT block the deploy — the e2e itself gates and
 # skips gracefully when PM is unreachable.
 apiVersion: batch/v1

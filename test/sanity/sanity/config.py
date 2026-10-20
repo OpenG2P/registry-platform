@@ -52,7 +52,7 @@ class Config:
     readiness_timeout: int
 
     # ── Shared sanity partner identity (same partner as CM) ─────────────────
-    pm_partner_id: str       # PM reference, e.g. PARTNER_CM_SANITY
+    pm_partner_id: str       # PM partner id, e.g. PARTNER_CM_SANITY (key + policy)
     pm_kid: str              # kid registered in PM
     pm_private_key_pem: str  # PEM private key the e2e signs both JWSs with
 
@@ -63,25 +63,18 @@ class Config:
     reg_record_type: str     # DCI record type for the payload shape
     search_text: str         # value to search for; matched as ILIKE '%text%'
 
-    # ── Consent Manager binding + consent object ────────────────────────────
-    cm_staff_url: str        # CM staff-portal-api base (to seed the binding + policy)
-    cm_audience: str         # the consent object's `aud` == the CM binding audience
-    controller_id: str       # data_controller (must match the binding's controller)
+    # ── Consent object ──────────────────────────────────────────────────────
+    consent_audience: str    # the consent object's `aud`; PARTNER_<AUD upper> == pm_partner_id
+    controller_id: str       # data_controller (== the PM policy's data_controller)
     data_scopes: List[str] = field(default_factory=lambda: list(DEFAULT_DATA_SCOPES))
     denied_scopes: List[str] = field(default_factory=lambda: list(DEFAULT_DENIED_SCOPES))
 
-    # ── Partner Management seeding (key) ────────────────────────────────────
-    pm_partner_api_url: str = ""   # PM key-fetch base (servability check)
+    # ── Partner Management seeding (key + policy) ───────────────────────────
+    pm_partner_api_url: str = ""   # PM partner-api base (key + policy servability checks)
     pm_admin_url: str = ""         # PM staff-portal-api base (to onboard/approve)
     pm_admin_token_url: str = ""
     pm_admin_client_id: str = "partner-management"
     pm_admin_client_secret: str = ""
-
-    # ── Consent Manager admin auth (to create the binding via staff API) ────
-    cm_auth_enabled: bool = True
-    cm_token_url: str = ""
-    cm_client_id: str = "consent-manager"
-    cm_client_secret: str = ""
 
     # ── Registry staff-portal-api (change-request e2e) ───────────────────────
     #
@@ -162,6 +155,7 @@ class Config:
 
         staff_client_id = os.environ.get("SANITY_STAFF_CLIENT_ID", "")
         controller_id = os.environ.get("SANITY_CONTROLLER_ID") or "openg2p-sanity-controller"
+        dci_sender_id = os.environ.get("SANITY_DCI_SENDER_ID") or "cm_sanity"
         return cls(
             partner_base_url=(os.environ.get("SANITY_PARTNER_BASE_URL") or "http://localhost:8000").rstrip("/"),
             verify_tls=_bool(os.environ.get("SANITY_VERIFY_TLS"), True),
@@ -170,13 +164,14 @@ class Config:
             pm_partner_id=os.environ.get("SANITY_PM_PARTNER_ID") or DEFAULT_PARTNER_ID,
             pm_kid=os.environ.get("SANITY_PM_KID") or DEFAULT_KID,
             pm_private_key_pem=os.environ.get("SANITY_PM_PRIVATE_KEY_PEM") or TEST_PRIVATE_KEY_PEM,
-            dci_sender_id=os.environ.get("SANITY_DCI_SENDER_ID") or "cm_sanity",
+            dci_sender_id=dci_sender_id,
             dci_receiver_id=os.environ.get("SANITY_DCI_RECEIVER_ID") or "openg2p-registry",
             reg_type=os.environ.get("SANITY_DCI_REG_TYPE") or "Individual",
             reg_record_type=os.environ.get("SANITY_DCI_REG_RECORD_TYPE") or "spdci-extensions-dci:Individual",
             search_text=os.environ.get("SANITY_DCI_SEARCH_TEXT") or "SANITY-INDIVIDUAL-0001",
-            cm_staff_url=(os.environ.get("SANITY_CM_STAFF_URL") or "").rstrip("/"),
-            cm_audience=os.environ.get("SANITY_CM_AUDIENCE") or "OPENG2P_SANITY_PARTNER",
+            # The same partner signs the envelope and issues the consent, so `aud`
+            # defaults to the DCI sender (both map to PARTNER_<UPPER> in PM).
+            consent_audience=os.environ.get("SANITY_CONSENT_AUDIENCE") or dci_sender_id,
             controller_id=controller_id,
             data_scopes=scope_ids(_list(os.environ.get("SANITY_DATA_SCOPES"), DEFAULT_DATA_SCOPES), controller_id),
             denied_scopes=scope_ids(_list(os.environ.get("SANITY_DENIED_SCOPES"), DEFAULT_DENIED_SCOPES),
@@ -186,10 +181,6 @@ class Config:
             pm_admin_token_url=os.environ.get("SANITY_PM_ADMIN_TOKEN_URL", ""),
             pm_admin_client_id=os.environ.get("SANITY_PM_ADMIN_CLIENT_ID", "partner-management"),
             pm_admin_client_secret=os.environ.get("SANITY_PM_ADMIN_CLIENT_SECRET", ""),
-            cm_auth_enabled=_bool(os.environ.get("SANITY_CM_AUTH_ENABLED"), True),
-            cm_token_url=os.environ.get("SANITY_CM_TOKEN_URL", ""),
-            cm_client_id=os.environ.get("SANITY_CM_CLIENT_ID", "consent-manager"),
-            cm_client_secret=os.environ.get("SANITY_CM_CLIENT_SECRET", ""),
             staff_base_url=(os.environ.get("SANITY_STAFF_BASE_URL") or "").rstrip("/"),
             staff_token_url=os.environ.get("SANITY_STAFF_TOKEN_URL", ""),
             staff_client_id=staff_client_id,
@@ -242,20 +233,6 @@ class Config:
             audit_timeout=int(os.environ.get("SANITY_AUDIT_TIMEOUT", "60")),
         )
 
-    # Aliases so the reused CM pm_seed module (which reads cfg.token_url /
-    # cfg.client_* as a fallback) works unchanged against this config.
-    @property
-    def token_url(self) -> str:
-        return self.cm_token_url
-
-    @property
-    def client_id(self) -> str:
-        return self.cm_client_id
-
-    @property
-    def client_secret(self) -> str:
-        return self.cm_client_secret
-
     @property
     def farmer_register_id(self) -> str:
         """Deprecated alias of `register_id`, for variant overlays written against
@@ -265,10 +242,6 @@ class Config:
     @property
     def can_reach_pm(self) -> bool:
         return bool(self.pm_partner_api_url)
-
-    @property
-    def can_reach_cm(self) -> bool:
-        return bool(self.cm_staff_url)
 
     @property
     def can_reach_agent(self) -> bool:

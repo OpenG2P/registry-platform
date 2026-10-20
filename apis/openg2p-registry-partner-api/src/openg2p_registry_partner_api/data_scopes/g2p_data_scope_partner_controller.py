@@ -1,7 +1,7 @@
 """The registry's data scope catalogue, for partners choosing what to ask consent for.
 
 Not tied to DCI: a scope is a named group of this registry's own fields, with
-ID ``<controller>.<name>``. Consents and Consent Manager policies name scope
+ID ``<controller>.<name>``. Consents and Partner Management policies name scope
 IDs; this catalogue says which fields each ID means, version by version.
 
 * ``POST /partner/data_scopes`` — the catalogue, as a signed partner message

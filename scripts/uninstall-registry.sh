@@ -33,9 +33,9 @@
 #   8. Delete PVs still bound to those PVCs
 #      (typically `Released` PVs created with reclaimPolicy=Retain)
 #
-# NOT removed (deliberately): the sanity partner/binding/policy seeded into
-# Partner Management and the Consent Manager. Those are shared, persistent test
-# fixtures, and both seeders are idempotent — a reinstall reuses them.
+# NOT removed (deliberately): the sanity partner, its key and its access policy
+# seeded into Partner Management. Those are shared, persistent test fixtures, and
+# the seeder is idempotent — a reinstall reuses them.
 #
 # Refuses to start while a Helm operation on the release is still running
 # (status pending-install / pending-upgrade / pending-rollback, or a Rancher

@@ -4,7 +4,7 @@
 #
 #   SANITY_RUN_E2E=false (default) -> smoke only (creates NO data, needs no PM/CM).
 #                       true       -> also the signed DCI search round-trip, which
-#                                     seeds a persistent PM partner + CM binding.
+#                                     seeds a persistent PM partner (key + policy).
 #   SANITY_FAIL_ON_ERROR=true (default) -> propagate pytest's exit code, so a
 #                       failing suite fails the Job and the install/upgrade.
 #                       false      -> always exit 0 (opt-out; read the logs).

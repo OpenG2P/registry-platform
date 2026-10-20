@@ -251,7 +251,7 @@ Render Env values section
 {{- end -}}
 
 {{/*
-Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
+Sanity suite env — shared by the pm-seed, data-seed and test Jobs.
 */}}
 {{- define "registrySanity.env" -}}
 - name: SANITY_PARTNER_BASE_URL
@@ -266,10 +266,9 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   value: {{ .Values.sanity.readinessTimeout | quote }}
 # The sanity partner's consent must be for this registry's data controller: the
 # partner API sends it to CM, which denies a consent for any other controller.
+# pm-seed creates the partner's PM policy for this same controller.
 - name: SANITY_CONTROLLER_ID
   value: {{ (tpl (.Values.global.consentDataController | default "") $) | default .Values.sanity.controllerId | quote }}
-- name: SANITY_CM_AUDIENCE
-  value: {{ .Values.sanity.cmAudience | quote }}
 - name: SANITY_DCI_SENDER_ID
   value: {{ .Values.sanity.dciSenderId | quote }}
 - name: SANITY_DCI_RECEIVER_ID
@@ -428,7 +427,8 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
       name: {{ include "common.tplvalues.render" (dict "value" .Values.sanity.auditDbSecret "context" $) | quote }}
       key: {{ include "common.tplvalues.render" (dict "value" .Values.sanity.auditDbUserPasswordKey "context" $) | quote }}
       optional: true
-# Partner Management — key servability check + admin seed (staff-portal-api).
+# Partner Management — key + policy servability checks (partner-api) and the
+# admin seed (staff-portal-api: onboarding / key-update / policy requests).
 - name: SANITY_PM_PARTNER_API_URL
   value: {{ tpl .Values.global.partnerManagementApiUrl $ | quote }}
 - name: SANITY_PM_ADMIN_URL
@@ -442,24 +442,6 @@ Sanity suite env — shared by the pm-seed, cm-seed, and test Jobs.
   valueFrom:
     secretKeyRef:
       name: {{ tpl .Values.global.pmSeedClientId $ | quote }}
-      key: client_secret
-      optional: true
-# Consent Manager — staff-portal-api (binding+policy seed) + admin token.
-- name: SANITY_CM_STAFF_URL
-  value: {{ tpl .Values.global.consentManagerStaffUrl $ | quote }}
-- name: SANITY_CM_AUTH_ENABLED
-  value: "true"
-- name: SANITY_CM_TOKEN_URL
-  value: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
-- name: SANITY_CM_CLIENT_ID
-  value: {{ tpl .Values.global.consentManagerAuthClientId $ | quote }}
-# The CM Keycloak client's secret. Must hold CONSENT_MANAGER_ADMIN (for the CM
-# binding) and partner_manager (for the PM key seed — pm_seed falls back to
-# these creds). Optional: absent → the e2e seed is skipped, not failed.
-- name: SANITY_CM_CLIENT_SECRET
-  valueFrom:
-    secretKeyRef:
-      name: {{ tpl .Values.global.consentManagerAuthClientId $ | quote }}
       key: client_secret
       optional: true
 {{- end -}}

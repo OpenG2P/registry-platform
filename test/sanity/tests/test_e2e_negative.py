@@ -73,19 +73,19 @@ def test_search_with_unverifiable_signature_is_rejected(
 def test_search_with_wrong_consent_audience_is_rejected(
     partner_client, cfg, priv, seeded, record_seeded
 ):
-    """A consent object whose `aud` matches no CM binding must be denied.
+    """A consent object whose `aud` maps to no Partner Management policy must be denied.
 
-    `aud` is how the Consent Manager finds the partner binding that carries the
-    policy; pointing it at a non-existent audience must not fall through to a
-    permit.
+    `aud` is how the Consent Manager finds the partner (PARTNER_<AUD>) whose PM
+    policy it applies; pointing it at a partner with no policy must not fall
+    through to a permit.
     """
     if _posture(partner_client, cfg, priv).get("consent_enforcement") != "enabled":
         pytest.skip("consent enforcement disabled — consent contents are not inspected")
 
     import dataclasses
 
-    bogus = dataclasses.replace(cfg, cm_audience="OPENG2P_SANITY_NO_SUCH_AUDIENCE")
+    bogus = dataclasses.replace(cfg, consent_audience="openg2p_sanity_no_such_audience")
     resp = _post_search(partner_client, build_search_envelope(bogus, priv, with_consent=True))
     assert _status(resp) == "rjct", (
-        f"expected 'rjct' for a consent bound to an unknown audience, got: {resp.get('header')}"
+        f"expected 'rjct' for a consent whose audience has no PM policy, got: {resp.get('header')}"
     )

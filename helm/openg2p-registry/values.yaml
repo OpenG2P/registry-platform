@@ -224,19 +224,17 @@ global:
   # part of commons-services (service name commons-services-cm-*), matching PM.
   consentManagerUrl: 'http://commons-services-cm-partner-api'
   consentManagerTimeoutSeconds: 5
-  # This registry's data-controller ID in the Consent Manager, sent with every
-  # /validate so CM uses this registry's grant in a consent covering several
-  # registries. Defaults to the registry variant (global.registryVariant).
-  # Also the namespace of this registry's data scope IDs (<controller>.<name>,
-  # e.g. farmer-registry.fr_farmer_land), which consents and CM policies name.
+  # This registry's data-controller ID, sent with every CM /validate so CM uses
+  # this registry's grant in a consent covering several registries, and the
+  # data_controller of partners' access policies in Partner Management. Defaults
+  # to the registry variant (global.registryVariant). Also the namespace of this
+  # registry's data scope IDs (<controller>.<name>, e.g.
+  # farmer-registry.fr_farmer_land), which consents and PM policies name.
   consentDataController: '{{ .Values.global.registryVariant }}'
-  # Used only by the sanity e2e (to seed the shared test partner):
-  #  * PM staff-portal-api (onboard + approve the partner key)
-  #  * CM staff-portal-api (create the partner binding + policy)
-  #  * the CM Keycloak client that holds the CONSENT_MANAGER_ADMIN role
+  # PM staff-portal-api. Used by the sanity e2e to seed the shared test partner
+  # (onboard + approve its key and its access policy for this registry), and by
+  # the registry's own PM admin calls.
   partnerManagementAdminApiUrl: 'http://commons-services-pm-staff-portal-api'
-  consentManagerStaffUrl: 'http://commons-services-cm-api'
-  consentManagerAuthClientId: 'consent-manager'
   # Keycloak client the sanity seed authenticates AS to call PM's admin API — it
   # holds PM's `partner_manager` role. PM provisions it as `<pm-release>-staff-portal`
   # with its secret in a Secret of the same name (key client_secret). In the
@@ -2423,11 +2421,11 @@ idgenerator:
 #   runE2e=false (default) → smoke only (partner-api liveness + DCI route). Needs
 #     nothing else — no PM, no CM, no auth, no data created.
 #   runE2e=true → also the signed DCI search round-trip. Seeds the shared sanity
-#     partner into Partner Management (key) and the Consent Manager (binding +
-#     policy) first, then signs a DCI envelope + consent JWS and asserts the
-#     response is permitted and clamped. Needs reachable PM + CM + the seed
-#     clients' Keycloak roles (partner_manager on PM, CONSENT_MANAGER_ADMIN on CM),
-#     and the enforcement switches ON to exercise consent (global.*Enabled).
+#     partner into Partner Management (key + access policy for this registry's
+#     data controller) first, then signs a DCI envelope + consent JWS and asserts
+#     the response is permitted and clamped. Needs reachable PM + CM, the PM seed
+#     client's partner_manager role (global.pmSeedClientId), and the enforcement
+#     switches ON to exercise consent (global.*Enabled).
 sanity:
   # On by default. A bare platform install carries no sample and no bulk data —
   # every dbSeed loader below is off — so the smoke suite is the ONLY thing that
@@ -2464,12 +2462,11 @@ sanity:
   # National (foundational) ID the VC e2e issues against.
   vcNationalId: TEST_SANITY_VC_0001
 
-  # The consent object's audience (== the CM binding audience) + the registry's
-  # controller id (== data_controller). Kept stable so the binding is reused.
-  cmAudience: OPENG2P_SANITY_PARTNER
+  # The registry's controller id (== data_controller of the consent and of the
+  # seeded PM policy) when global.consentDataController is empty.
   controllerId: openg2p-sanity-controller
-  # DCI envelope sender id — PARTNER_<UPPER> must equal the PM partner reference
-  # (PARTNER_CM_SANITY), i.e. sender "cm_sanity".
+  # DCI envelope sender id, also the consent object's `aud` — PARTNER_<UPPER>
+  # must equal the PM partner id (PARTNER_CM_SANITY), i.e. sender "cm_sanity".
   dciSenderId: cm_sanity
   regType: Individual
   regRecordType: 'spdci-extensions-dci:Individual'
@@ -2481,7 +2478,7 @@ sanity:
   # appears in no seeded sample data, so the e2e only ever matches its own record.
   # data_seed.py builds the record from this same value, so the two cannot drift.
   searchText: SANITY-INDIVIDUAL-0001
-  # Data scopes the seeded CM policy allows + the consent object requests:
+  # Data scopes the seeded PM policy allows + the consent object requests:
   # names from the registry's data scope catalogue (GET /partner/data_scopes;
   # one scope per register section by default, plus any the extension ships).
   # A bare name is prefixed with the consent data controller ID. The registry

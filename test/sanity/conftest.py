@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from sanity import awe_seed, cm_seed, data_seed, keycloak_seed, pm_seed
+from sanity import awe_seed, data_seed, keycloak_seed, pm_seed
 from sanity.config import Config
 from sanity.signing import load_private_key_pem
 from sanity.staff import StaffClient
@@ -9,7 +9,7 @@ from sanity.staff import StaffClient
 
 # SKIP vs FAIL
 # ------------
-# A dependency that is NOT CONFIGURED (e2e off, or a PM/CM/Keycloak URL unset) is
+# A dependency that is NOT CONFIGURED (e2e off, or a PM/Keycloak URL unset) is
 # a legitimate skip: the suite still gives smoke coverage on a bring-up install
 # with no commons-services. But a dependency that IS configured and then fails to
 # seed is a real defect, and skipping it produced green runs in which every
@@ -35,25 +35,23 @@ def priv(cfg):
 
 @pytest.fixture(scope="session")
 def seeded(cfg):
-    """Ensure the shared sanity partner exists in BOTH Partner Management (key)
-    and the Consent Manager (binding + policy).
+    """Ensure the shared sanity partner exists in Partner Management with its key
+    and an active policy for this registry's data controller (the policy the
+    Consent Manager reads when the registry calls /validate).
 
-    Skips the e2e (rather than failing) when e2e is off or PM/CM aren't
-    reachable/seedable, so smoke coverage stays green everywhere. The seeded
-    partner + binding are intentionally left in place after the run.
+    Skips the e2e (rather than failing) when e2e is off or PM isn't configured,
+    so smoke coverage stays green everywhere. The seeded partner, key and policy
+    are intentionally left in place after the run.
     """
     if not cfg.run_e2e:
         pytest.skip("SANITY_RUN_E2E not enabled")
     if not cfg.can_reach_pm:
         pytest.skip("SANITY_PM_PARTNER_API_URL not set — cannot seed Partner Management")
-    if not cfg.can_reach_cm:
-        pytest.skip("SANITY_CM_STAFF_URL not set — cannot seed the Consent Manager binding")
     try:
         pm_status = pm_seed.ensure_seeded(cfg)
-        cm_status = cm_seed.ensure_binding(cfg)
-    except Exception as exc:  # noqa: BLE001 — surface as a skip with the reason
+    except Exception as exc:  # noqa: BLE001 — configured but failed: a real defect
         pytest.fail(f"could not seed the sanity partner: {exc}", pytrace=False)
-    return {"pm": pm_status, "cm": cm_status}
+    return {"pm": pm_status}
 
 
 @pytest.fixture(scope="session")

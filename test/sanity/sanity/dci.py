@@ -24,7 +24,7 @@ def make_consent_claims(cfg) -> dict:
         # request is denied.
         "subject_id": {"type": "national_id", "value": fixtures.RECORD_FOUNDATIONAL_ID},
         "data_controller": cfg.controller_id,
-        "aud": cfg.cm_audience,
+        "aud": cfg.consent_audience,
         "purpose": {"code": "share_farm_profile", "text": "FR sanity"},
         "data_scopes": list(cfg.data_scopes),
         "fetch_type": "oneshot",

@@ -46,7 +46,6 @@ P_PARTNER=18081
 P_STAFF=18082
 P_PM_PARTNER=18083
 P_PM_ADMIN=18084
-P_CM_STAFF=18085
 P_PG=15432
 
 RUN_E2E=false
@@ -74,7 +73,6 @@ pf "${RELEASE}-partner-api"                 "$P_PARTNER"    80
 pf "${RELEASE}-staff-portal-api"            "$P_STAFF"      80
 pf "${COMMONS_SVC}-pm-partner-api"          "$P_PM_PARTNER" 80
 pf "${COMMONS_SVC}-pm-staff-portal-api"     "$P_PM_ADMIN"   80
-pf "${COMMONS_SVC}-cm-api"                  "$P_CM_STAFF"   80
 # All three databases (registry, awe, audit) live on this one host.
 pf "${COMMONS}-postgresql"                  "$P_PG"         5432
 sleep 4
@@ -84,13 +82,11 @@ export SANITY_PARTNER_BASE_URL="http://localhost:${P_PARTNER}"
 export SANITY_STAFF_BASE_URL="http://localhost:${P_STAFF}"
 export SANITY_PM_PARTNER_API_URL="http://localhost:${P_PM_PARTNER}"
 export SANITY_PM_ADMIN_URL="http://localhost:${P_PM_ADMIN}"
-export SANITY_CM_STAFF_URL="http://localhost:${P_CM_STAFF}"
 export SANITY_KEYCLOAK_BASE_URL="${KEYCLOAK_URL}"
 export SANITY_KEYCLOAK_REALM="${REALM}"
 
 TOKEN_URL="${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token"
 export SANITY_STAFF_TOKEN_URL="$TOKEN_URL"
-export SANITY_CM_TOKEN_URL="$TOKEN_URL"
 export SANITY_PM_ADMIN_TOKEN_URL="$TOKEN_URL"
 
 # The registry echoes this back as the DCI envelope receiver.
@@ -104,8 +100,6 @@ export SANITY_KEYCLOAK_ADMIN_USER=admin
 export SANITY_KEYCLOAK_ADMIN_PASSWORD="$(secret "${COMMONS}-keycloak" admin-password)"
 export SANITY_STAFF_CLIENT_ID="${RELEASE}-staff-portal"
 export SANITY_STAFF_CLIENT_SECRET="$(secret "${RELEASE}-staff-portal" client_secret)"
-export SANITY_CM_CLIENT_ID=consent-manager
-export SANITY_CM_CLIENT_SECRET="$(secret consent-manager client_secret)"
 export SANITY_PM_ADMIN_CLIENT_ID="${COMMONS_SVC}-staff-portal"
 export SANITY_PM_ADMIN_CLIENT_SECRET="$(secret "${COMMONS_SVC}-staff-portal" client_secret)"
 
@@ -127,7 +121,7 @@ export SANITY_AUDIT_PGPASSWORD="$(secret audit-manager-db-user audit-manager-db-
 # ── report what resolved, so a skip is diagnosable ───────────────────────────
 echo "[run-local] resolved:"
 for v in SANITY_KEYCLOAK_ADMIN_PASSWORD SANITY_STAFF_CLIENT_SECRET \
-         SANITY_CM_CLIENT_SECRET SANITY_REGISTRY_PGPASSWORD \
+         SANITY_PM_ADMIN_CLIENT_SECRET SANITY_REGISTRY_PGPASSWORD \
          SANITY_AWE_PGPASSWORD SANITY_AUDIT_PGPASSWORD; do
   if [ -n "${!v:-}" ]; then echo "    $v = <set>"; else echo "    $v = MISSING (dependent tests will skip)"; fi
 done

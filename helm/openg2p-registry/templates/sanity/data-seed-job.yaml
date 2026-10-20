@@ -12,7 +12,7 @@
 #     (additively — the shipped demo-user rules are left alone), so the
 #     change-request e2e can clear each stage.
 #
-# Runs after pm-seed/cm-seed and before the test Job. Best-effort: a failure is
+# Runs after pm-seed and before the test Job. Best-effort: a failure is
 # logged but does NOT block the deploy — the e2e gates and skips gracefully.
 # Nothing is deleted afterwards; the fixtures are left in place for inspection
 # (see sanity/fixtures.py for the teardown predicates).
