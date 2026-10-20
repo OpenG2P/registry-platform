@@ -196,7 +196,7 @@ questions:
   show_if: dbSeed.enabled=true
 
 - variable: dbSeed.loadImages
-  description: "Upload sample profile images to the object store and link them to the sample records."
+  description: "Upload sample profile images to the object store and link them to the sample records. Skipped, with a warning, for a registry that ships no sample images."
   type: boolean
   label: Load Sample Images
   group: DB Seed

@@ -10,8 +10,8 @@
 # NOT here: load_sample_data.py / upload_images.py. Sample data is written against
 # a specific register's tables and seed JSON, so each variant ships its own pair
 # (see the variant repos). The entrypoint keeps the
-# LOAD_SAMPLE_DATA / LOAD_IMAGES hooks and errors clearly if they are enabled on
-# an image that carries no loader.
+# LOAD_SAMPLE_DATA / LOAD_IMAGES hooks: it errors clearly if sample data is enabled
+# on an image that carries no loader, and skips images with a warning.
 #
 # It ships NO registry-specific data. A concrete registry adds its seed content:
 #

@@ -7,7 +7,7 @@ set -e
 # Registry database:
 #   PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD
 #   LOAD_SAMPLE_DATA — "true" to load sample data from openg2p-data (default: "false")
-#   LOAD_IMAGES      — "true" to upload profile images to MinIO (default: "false")
+#   LOAD_IMAGES      — "true" to upload sample profile images to the object store, if the registry ships any (default: "false")
 #   LOAD_TEMPLATES   — "true" to upload templates to MinIO (default: "false")
 #   OPENG2P_DATA_DIR — cloned shared seed data (default: /openg2p-data)
 #   MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY — MinIO connection
@@ -147,17 +147,17 @@ else
   echo "[db-seed] Skipping sample data (LOAD_SAMPLE_DATA=${LOAD_SAMPLE_DATA})."
 fi
 
-# 3. Optionally upload profile images to MinIO. Variant-supplied, same as above:
-#    the images are linked to the sample records that loader created.
+# 3. Optionally upload profile images to the object store. Variant-supplied, same
+#    as above: the images are linked to the sample records that loader created.
+#    Not every registry ships sample images (e.g. an activity register), so a
+#    missing uploader is skipped with a warning rather than failing the seed.
 if [ "$LOAD_IMAGES" = "true" ]; then
   if [ -f /seed/upload_images.py ]; then
-    echo "[db-seed] Uploading profile images to MinIO ..."
+    echo "[db-seed] Uploading profile images to the object store ..."
     python3 /seed/upload_images.py
   else
-    echo "[db-seed] ERROR: LOAD_IMAGES=true but this image ships no" \
-         "/seed/upload_images.py. Profile images accompany a variant's sample" \
-         "data — use a variant's db-seed image, or set loadImages=false." >&2
-    exit 1
+    echo "[db-seed] WARNING: LOAD_IMAGES=true but this registry ships no sample" \
+         "images (/seed/upload_images.py). Skipping image upload." >&2
   fi
 else
   echo "[db-seed] Skipping image upload (LOAD_IMAGES=${LOAD_IMAGES})."
