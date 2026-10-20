@@ -71,10 +71,10 @@ questions:
   group: Consent & Partner API
 
 - variable: global.partnerDataScopesPublicGetEnabled
-  description: Allow the unsigned GET /partner/data_scopes (catalogue of field names, no values). OFF by default — partners use the signed POST.
+  description: "Off by default: partners read the catalogue with a signed request. Turn on only if this deployment wants the list of data scopes (field names, never data) readable by anyone."
   type: boolean
   default: false
-  label: Public Data Scope Catalogue (GET)
+  label: Allow Unsigned Read of Data Scope Catalogue
   group: Consent & Partner API
 
 - variable: global.consentEnforcementEnabled
