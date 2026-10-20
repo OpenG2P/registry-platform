@@ -374,16 +374,14 @@ questions:
 
 - variable: agentPortalApi.vcIssuance.bootstrap.enabled
   description: >-
-    Create the beneficiary-authentication setup automatically: the eSignet OIDC
-    client (with a generated keypair), this register's eSignet provider row, the
-    IAM application/role/permission that authorises issuance, and the register's
-    "requires authentication" flag. Writes into eSignet's and IAM's databases as
-    well as the registry's. Turn OFF only if another system owns that state — the
-    four steps then have to be done by hand. Safe to re-run; it never replaces a
-    key that is already in use.
+    Leave ON (the default). The install then sets up everything a beneficiary's
+    eSignet login needs before a credential is issued: this registry's client
+    in eSignet, and the permission in IAM to issue credentials. Safe on every
+    upgrade; it never replaces a key in use. Turn OFF only if your team sets
+    these up by hand or with its own tooling.
   type: boolean
   default: true
-  label: Bootstrap Beneficiary Authentication
+  label: Set Up Beneficiary Login Automatically
   group: VC Issuance
   show_if: agentPortalApi.vcIssuance.enabled=true
 
