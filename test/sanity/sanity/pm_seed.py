@@ -16,7 +16,8 @@ Flow (all idempotent):
      already-exists as HTTP 400 with body code PM-PRT-409, not HTTP 409 — see
      _already_exists().
   2. Policy: if PM's policy API already serves an active policy for this data
-     controller covering the sanity scopes, keep it. Otherwise submit a ``policy``
+     controller covering the sanity scopes and allowing partner-signed consents
+     (allow_partner_consents), keep it. Otherwise submit a ``policy``
      request and approve it (a new version supersedes the old one).
 """
 from cryptography.hazmat.primitives import serialization
@@ -121,6 +122,9 @@ def policy_input(cfg) -> dict:
         "allowed_signing_algs": ["EdDSA", "ES256", "RS256"],
         "max_validity_duration": "P1Y",
         "fetch_type": "oneshot",
+        # The sanity signs its own consents (consent_jws); the CM accepts a
+        # partner-signed consent only when the partner's policy allows it.
+        "allow_partner_consents": True,
     }
 
 
@@ -131,7 +135,8 @@ def _allows(values, wanted) -> bool:
 
 def policy_active(cfg) -> bool:
     """True if PM serves an active policy for (partner, controller) covering the
-    sanity scopes, purpose and subject id type."""
+    sanity scopes, purpose and subject id type, and allowing partner-signed
+    consents (allow_partner_consents; absent means not allowed)."""
     if not cfg.pm_partner_api_url:
         return False
     r = httpx.get(
@@ -149,6 +154,7 @@ def policy_active(cfg) -> bool:
             set(cfg.data_scopes) <= set(policy.get("allowed_data_scopes") or [])
             and _allows(policy.get("allowed_purposes"), SANITY_PURPOSE)
             and _allows(policy.get("allowed_subject_id_types"), SANITY_SUBJECT_ID_TYPE)
+            and policy.get("allow_partner_consents") is True
         ):
             return True
     return False

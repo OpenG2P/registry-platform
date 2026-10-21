@@ -20,7 +20,7 @@ from ..helpers import (
     DciQueryHelper,
 )
 from ..services import ConsentScopeGrant, G2PDciService
-from ....audit_context import set_audit_actor, set_audit_outcome
+from ....audit_context import add_audit_consent, set_audit_actor, set_audit_outcome
 from ....config import Settings
 
 _config = Settings.get_config()
@@ -89,7 +89,9 @@ class G2PDciController(BaseController):
             scopes_by_ref: Optional[Dict[str, ConsentScopeGrant]] = None
             subjects_by_ref: Optional[Dict[str, str]] = None
             if _config.consent_enforcement_enabled:
-                scopes_by_ref, subjects_by_ref = await self._enforce_consent(raw_body, header, message, bulk_refs)
+                scopes_by_ref, subjects_by_ref = await self._enforce_consent(
+                    raw_body, header, message, bulk_refs, request=request
+                )
             else:
                 _logger.warning(
                     "consent_enforcement_enabled=false — SKIPPING Consent Manager "
@@ -157,14 +159,19 @@ class G2PDciController(BaseController):
 
     async def _enforce_consent(
         self, raw_body: Dict[str, Any], header: DciRequestHeader, message: DciSearchRequest,
-        bulk_refs: Optional[Dict[str, List[str]]] = None,
+        bulk_refs: Optional[Dict[str, List[str]]] = None, request: Optional[Request] = None,
     ) -> tuple[Dict[str, ConsentScopeGrant], Dict[str, str]]:
         """Validate the embedded consent object for each search item against the
         Consent Manager and return ({reference_id -> scopes + consent issue time},
         {reference_id -> consented subject}).
 
-        Fail-closed: a missing consent object or any non-permit decision raises,
-        rejecting the whole request (no partial data leak).
+        An item without a consent object is looked up: the Consent Manager finds
+        the consent it holds for this partner and the subject searched (an
+        ``idtype-value`` search). Any other search without a consent object is
+        refused.
+
+        Fail-closed: any non-permit decision raises, rejecting the whole
+        request (no partial data leak).
         """
         raw_items = ((raw_body or {}).get("message") or {}).get("search_request") or []
         raw_by_ref: Dict[str, Dict[str, Any]] = {
@@ -178,13 +185,40 @@ class G2PDciController(BaseController):
             if bulk_refs and reference_id in bulk_refs:
                 # Operator-configured, no per-person consent: the scopes as they are now.
                 scopes_by_ref[reference_id] = ConsentScopeGrant(bulk_refs[reference_id], datetime.utcnow())
+                add_audit_consent(request, reference_id, decision="bulk_allow_list",
+                                  data_scopes=bulk_refs[reference_id])
                 continue
             raw_item = raw_by_ref.get(reference_id, {})
             consent_jws = self._extract_consent_jws(raw_item)
+            # The identifier searched: lets the CM check a consent's subject, or
+            # find the consent when the partner sent none.
+            subject = self._searched_subject(search_request_item.search_criteria)
+            if not consent_jws and subject is None:
+                add_audit_consent(request, reference_id, decision="deny", reason="missing_consent")
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                    message=(
+                        f"Consent denied for reference_id '{reference_id}': missing_consent - "
+                        "send a consent (search_criteria.authorize.consent_jws), or search one "
+                        "subject by identifier (query_type idtype-value: id_type and id_value) "
+                        "so the registry can look up the consent its Consent Manager holds"
+                    ),
+                )
 
             decision = await self.consent_helper.validate(
                 consent_jws=consent_jws,
                 sender_id=header.sender_id,
+                subject_id=subject,
+            )
+            add_audit_consent(
+                request, reference_id,
+                decision=str(decision.get("decision") or "deny"),
+                consent_id=decision.get("consent_id"),
+                token_id=decision.get("receipt_id") or DciConsentHelper.consent_jti(consent_jws),
+                data_scopes=decision.get("effective_data_scopes") or [],
+                reason=None if decision.get("decision") == "permit" else decision.get("reason_code"),
+                policy_ref=decision.get("policy_ref"),
+                policy_version=decision.get("policy_version"),
             )
             if decision.get("decision") != "permit":
                 raise G2PRegistryException(
@@ -213,6 +247,22 @@ class G2PDciController(BaseController):
                 _logger.info("Search by '%s' on behalf of '%s'", header.sender_id, on_behalf_of)
 
         return scopes_by_ref, subjects_by_ref
+
+    @staticmethod
+    def _searched_subject(search_criteria) -> Optional[Dict[str, str]]:
+        """``{"type", "value"}`` of the one subject an ``idtype-value`` search names,
+        its type mapped to the consent's subject ID type
+        (``consent_subject_id_types``); None for any other search (an
+        expression names no identifier type)."""
+        if search_criteria.query_type != "idtype-value":
+            return None
+        value = search_criteria.query.value or {}
+        id_type, id_value = value.get("id_type"), value.get("id_value")
+        if not (isinstance(id_type, str) and id_type.strip() and isinstance(id_value, str) and id_value.strip()):
+            return None
+        id_type = id_type.strip()
+        mapped = (_config.consent_subject_id_types or {}).get(id_type)
+        return {"type": str(mapped).strip() if mapped else id_type, "value": id_value.strip()}
 
     @staticmethod
     def _extract_consent_jws(raw_item: Dict[str, Any]) -> Optional[str]:

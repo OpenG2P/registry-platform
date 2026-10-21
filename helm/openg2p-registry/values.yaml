@@ -235,6 +235,12 @@ global:
   # registry's data scope IDs (<controller>.<name>, e.g.
   # farmer-registry.fr_farmer_land), which consents and PM policies name.
   consentDataController: '{{ .Values.global.registryVariant }}'
+  # A partner may search without a consent: the registry then asks its CM for
+  # the consent it holds for the partner and the subject searched (an
+  # idtype-value search's id_type and id_value). The CM matches subject ID
+  # types exactly, so map the search's identifier type to the consent's subject
+  # ID type here, e.g. {"UIN": "FAYDA_FAN"}. A type not listed is sent as is.
+  consentSubjectIdTypes: {}
   # PM staff-portal-api. Used by the sanity e2e to seed the shared test partner
   # (onboard + approve its key and its access policy for this registry), and by
   # the registry's own PM admin calls.
@@ -625,6 +631,8 @@ partnerApi:
     REGISTRY_PARTNER_API_CONSENT_MANAGER_URL: '{{ tpl .Values.global.consentManagerUrl $ }}'
     REGISTRY_PARTNER_API_CONSENT_MANAGER_TIMEOUT: '{{ .Values.global.consentManagerTimeoutSeconds }}'
     REGISTRY_PARTNER_API_CONSENT_DATA_CONTROLLER: '{{ tpl .Values.global.consentDataController $ }}'
+    # Search identifier type -> consent subject ID type (global.consentSubjectIdTypes).
+    REGISTRY_PARTNER_API_CONSENT_SUBJECT_ID_TYPES: '{{ .Values.global.consentSubjectIdTypes | default dict | toJson }}'
 
     REGISTRY_PARTNER_API_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
     REGISTRY_PARTNER_API_MINIO_SECURE: '{{ .Values.global.minioSecure }}'

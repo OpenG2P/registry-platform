@@ -46,6 +46,11 @@ controllers call `audit_context.set_audit_outcome(request, "failure" |
 honours `request.state.audit_outcome` over the HTTP status and records
 `request.state.audit_reason` (a code, never a message) as `data.reason`.
 
+Consent: a consent-checked call (DCI search) records, per search item, the
+consent it was checked against via `audit_context.add_audit_consent(...)`;
+the middleware puts that list in `data.context.consents` (consent_id,
+token_id, data_scopes, decision, reason on deny; never the subject).
+
 Emission is fire-and-forget via `asyncio.create_task` — never delays the
 response. All errors are logged, never raised to the caller.
 
@@ -325,6 +330,11 @@ class AuditMiddleware(BaseHTTPMiddleware):
             "http_status": status_code,
             "request_id": request.headers.get("x-request-id"),
         }
+        # Consent-checked calls: per search item, the consent used (IDs,
+        # released data scopes, decision / deny reason) — never the subject.
+        consents = getattr(request.state, "audit_consents", None)
+        if isinstance(consents, list) and consents:
+            context["consents"] = [dict(c) for c in consents if isinstance(c, dict)]
         data: dict = {
             "actor": actor,
             "action": action,

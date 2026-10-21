@@ -24,8 +24,13 @@ class DciConsentHelper(BaseService):
     ``effective_data_scopes`` (data scope IDs) the registry filters its records
     to before rendering them (see ``G2PDataScopeService``).
 
-    Fail-closed: any transport error, non-2xx, or a missing consent JWS yields
-    a synthetic ``deny`` so a failure never leaks data.
+    A partner may omit the consent: the registry then sends the searched
+    subject with no ``consent_jws`` and the Consent Manager looks up the
+    consent it holds for (partner, subject, this data controller).
+
+    Fail-closed: any transport error, non-2xx, or neither a consent JWS nor a
+    subject to look one up by yields a synthetic ``deny`` so a failure never
+    leaks data.
     """
 
     @property
@@ -53,10 +58,12 @@ class DciConsentHelper(BaseService):
 
         ``consent_jws`` is the compact JWS exactly as the partner sent it. It is
         self-contained (its signed bytes travel in the payload segment), so the
-        registry forwards it verbatim — no reshaping needed.
+        registry forwards it verbatim — no reshaping needed. Without it, the CM
+        looks the consent up by ``subject_id`` (``{"type", "value"}``, the
+        identifier searched); with neither, the request is denied.
         """
-        if not consent_jws:
-            _logger.warning("Consent enforcement: no consent JWS present in request")
+        if not consent_jws and not subject_id:
+            _logger.warning("Consent enforcement: no consent JWS and no subject to look one up by")
             return self._deny("missing_consent", "no consent JWS embedded in request")
 
         if not _config.consent_manager_url:
@@ -69,10 +76,9 @@ class DciConsentHelper(BaseService):
         if subject_id:
             request_context["subject_id"] = subject_id
 
-        body: Dict[str, Any] = {
-            "consent_jws": consent_jws,
-            "partner_id": sender_id,
-        }
+        body: Dict[str, Any] = {"partner_id": sender_id}
+        if consent_jws:
+            body["consent_jws"] = consent_jws
         if _config.consent_data_controller:
             body["data_controller"] = _config.consent_data_controller
         if request_context:
@@ -116,14 +122,8 @@ class DciConsentHelper(BaseService):
         consent-object claim. None when absent or unreadable — data scopes then
         read each scope's first version.
         """
-        if not isinstance(consent_jws, str) or consent_jws.count(".") != 2:
-            return None
-        try:
-            segment = consent_jws.split(".")[1]
-            claims = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
-        except Exception:
-            return None
-        if not isinstance(claims, dict):
+        claims = DciConsentHelper._claims(consent_jws)
+        if claims is None:
             return None
         # consent_issued_at: either form; iat: epoch seconds only; issued_at: ISO only.
         for name, kinds in (("consent_issued_at", (int, float, str)), ("iat", (int, float)), ("issued_at", (str,))):
@@ -132,6 +132,24 @@ class DciConsentHelper(BaseService):
             if value is not None:
                 return value
         return None
+
+    @staticmethod
+    def consent_jti(consent_jws: Optional[str]) -> Optional[str]:
+        """The ``jti`` of the consent JWS (a consent token's or consent object's ID), for the audit trail."""
+        jti = (DciConsentHelper._claims(consent_jws) or {}).get("jti")
+        return str(jti) if isinstance(jti, (str, int)) and str(jti) else None
+
+    @staticmethod
+    def _claims(consent_jws: Optional[str]) -> Optional[Dict[str, Any]]:
+        """The JWS payload claims (not verified here: CM verified this exact string), or None."""
+        if not isinstance(consent_jws, str) or consent_jws.count(".") != 2:
+            return None
+        try:
+            segment = consent_jws.split(".")[1]
+            claims = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
+        except Exception:
+            return None
+        return claims if isinstance(claims, dict) else None
 
     @staticmethod
     def _as_naive_utc(value: Any) -> Optional[datetime]:

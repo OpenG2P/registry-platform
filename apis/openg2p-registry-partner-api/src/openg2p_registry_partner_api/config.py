@@ -90,6 +90,12 @@ class Settings(ExtSettings):
     # "social-registry"). Sent with every /validate so CM uses this registry's
     # grant in a consent that covers several registries.
     consent_data_controller: str = ""
+    # A search without a consent: the registry asks the CM for the consent it
+    # holds for the partner and the subject searched (an idtype-value search).
+    # The CM matches subject ID types exactly: map the search's identifier
+    # type to the consent's subject ID type. JSON in env, e.g.
+    # {"UIN": "FAYDA_FAN"}; a type not listed is sent as is.
+    consent_subject_id_types: dict[str, str] = {}
 
     # Summaries across subjects (an activity register's aggregates searched with
     # no subject_id, e.g. every worker's monthly attendance for a benefit run).

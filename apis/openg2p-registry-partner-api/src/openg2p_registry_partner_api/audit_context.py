@@ -8,6 +8,7 @@ shapes. The audit middleware sees neither, so the controllers say so here:
 
     set_audit_actor(request, header.sender_id, verified=True)   # after the signature checks out
     set_audit_outcome(request, "failure", reason="rjct.search_criteria.invalid")
+    add_audit_consent(request, "ref-1", decision="permit", consent_id="…", data_scopes=[...])
 
 Only identifiers and status/error codes go in: never request bodies, record
 data or exception text. Nothing here can fail a request.
@@ -16,7 +17,7 @@ data or exception text. Nothing here can fail a request.
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Iterable, Optional
 
 from fastapi import Request
 
@@ -28,6 +29,7 @@ _logger = logging.getLogger(_config.logging_default_logger_name)
 ACTOR_STATE_KEY = "audit_actor"
 OUTCOME_STATE_KEY = "audit_outcome"
 REASON_STATE_KEY = "audit_reason"
+CONSENTS_STATE_KEY = "audit_consents"
 
 _OUTCOMES = ("success", "failure", "denied")
 
@@ -66,3 +68,46 @@ def set_audit_outcome(request: Request, outcome: str, *, reason: Optional[str] =
             setattr(request.state, REASON_STATE_KEY, str(reason)[:100])
     except Exception:
         _logger.warning("Could not record audit outcome", exc_info=True)
+
+
+def add_audit_consent(
+    request: Optional[Request],
+    reference_id: Optional[str],
+    *,
+    decision: str,
+    consent_id: Optional[str] = None,
+    token_id: Optional[str] = None,
+    data_scopes: Optional[Iterable[str]] = None,
+    reason: Optional[str] = None,
+    policy_ref: Optional[str] = None,
+    policy_version: Optional[int] = None,
+) -> None:
+    """Record the consent a search item was checked against (one entry per item).
+
+    Identifiers and codes only: the consent's ID, the consent token's ID
+    (``jti``), the data scopes released, the decision and, on deny, its reason
+    code. Never the subject or any record data.
+    """
+    try:
+        if request is None:
+            return
+        entry = {"reference_id": reference_id, "decision": str(decision)}
+        if consent_id:
+            entry["consent_id"] = str(consent_id)
+        if token_id:
+            entry["token_id"] = str(token_id)
+        if data_scopes is not None:
+            entry["data_scopes"] = [str(scope) for scope in data_scopes]
+        if reason:
+            entry["reason"] = str(reason)[:100]
+        if policy_ref:
+            entry["policy_ref"] = str(policy_ref)
+        if policy_version is not None:
+            entry["policy_version"] = policy_version
+        consents = getattr(request.state, CONSENTS_STATE_KEY, None)
+        if not isinstance(consents, list):
+            consents = []
+            setattr(request.state, CONSENTS_STATE_KEY, consents)
+        consents.append(entry)
+    except Exception:
+        _logger.warning("Could not record audit consent", exc_info=True)
