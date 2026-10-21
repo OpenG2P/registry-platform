@@ -16,6 +16,7 @@ from ..schemas import (
     GetIntakeAllowedParentsRequest,
     GetInflightRegisterParentsRequest,
     IntakeAllowedParentsData,
+    SearchResultData,
     SaveIntakeFormSubmissionRequest,
     SearchInSubmissionRequest,
     SectionPayloadResponseItem,
@@ -160,10 +161,14 @@ class G2PIntakeFormDataControllerService(BaseService):
     async def get_inflight_register_parents(
         self,
         request: GetInflightRegisterParentsRequest,
-    ) -> IntakeAllowedParentsData:
+    ) -> tuple[list[SearchResultData], int, int]:
         payload = request.request_body.request_payload
+        pagination = request.request_body.pagination_request
         return await G2PIntakeFormDataService.get_component().get_inflight_register_parents(
             register_id=payload.register_id,
+            search_text=pagination.search_text if pagination else None,
+            current_page=pagination.current_page if pagination else 1,
+            page_size=pagination.page_size if pagination else 10,
         )
 
     async def get_intake_form_submissions_summary(

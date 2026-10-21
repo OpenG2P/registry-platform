@@ -27,9 +27,8 @@ from openg2p_registry_core.schemas import (
     GetIntakeAllowedParentsResponse,
     GetIntakeAllowedParentsResponseBody,
     GetInflightRegisterParentsRequest,
-    GetInflightRegisterParentsResponse,
-    GetInflightRegisterParentsResponseBody,
     IntakeAllowedParentsData,
+    SearchResultsResponse,
     SearchInSubmissionRequest,
     SubmissionResponse,
     SubmissionResponseBody,
@@ -132,7 +131,7 @@ class G2PIntakeFormDataController(BaseController):
         self.router.add_api_route(
             "/get_inflight_register_parents",
             self.get_inflight_register_parents,
-            responses={200: {"model": GetInflightRegisterParentsResponse}},
+            responses={200: {"model": SearchResultsResponse}},
             methods=["POST"],
         )
     
@@ -181,14 +180,16 @@ class G2PIntakeFormDataController(BaseController):
     async def get_inflight_register_parents(
         self,
         g2p_request: GetInflightRegisterParentsRequest,
-    ) -> GetInflightRegisterParentsResponse:
+    ) -> SearchResultsResponse:
         try:
-            allowed_parents_data: IntakeAllowedParentsData = (
+            search_results_list, total_items, number_of_pages = (
                 await self.service.get_inflight_register_parents(g2p_request)
             )
-            return self.helper.construct_success_response(
-                GetInflightRegisterParentsResponseBody(response_payload=allowed_parents_data),
-                g2p_request,
+            return self.helper.construct_search_results_success_response(
+                search_results_list=search_results_list,
+                g2p_request=g2p_request,
+                number_of_items=total_items,
+                number_of_pages=number_of_pages,
             )
         except Exception as error_exception:
             _logger.error("Error in get_inflight_register_parents: %s", error_exception)

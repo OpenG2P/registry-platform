@@ -343,8 +343,8 @@ async def test_resolve_optional_subject_validates_live_parent(link_service, sess
         ):
             with patch.object(
                 link_service,
-                "list_inflight_register_parents",
-                AsyncMock(return_value=SimpleNamespace(allowed_parents=[])),
+                "inflight_register_parent_exists",
+                AsyncMock(return_value=False),
             ):
                 with patch.object(
                     link_service, "validate_live_parent_link", AsyncMock()
@@ -521,8 +521,8 @@ async def test_resolve_accepts_inflight_register_parent(link_service, session):
         ):
             with patch.object(
                 link_service,
-                "list_inflight_register_parents",
-                AsyncMock(return_value=SimpleNamespace(allowed_parents=[inflight_parent])),
+                "inflight_register_parent_exists",
+                AsyncMock(return_value=True),
             ):
                 result = await link_service.resolve_link_internal_record_id(
                     submission_id="sub",

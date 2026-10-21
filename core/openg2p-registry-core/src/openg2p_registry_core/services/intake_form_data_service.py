@@ -1,5 +1,6 @@
 import importlib
 import logging
+import math
 import uuid
 from datetime import datetime
 
@@ -48,6 +49,7 @@ from ..schemas import (
     DeduplicationIntakeFormIntakeFormResultData,
     DisplayField,
     IntakeAllowedParentsData,
+    SearchResultData,
     SectionPayloadInput,
     SectionPayloadResponseItem,
     SubmissionResponsePayload,
@@ -96,13 +98,92 @@ class G2PIntakeFormDataService(BaseService):
     async def get_inflight_register_parents(
         self,
         register_id: str,
-    ) -> IntakeAllowedParentsData:
+        search_text: str | None = None,
+        current_page: int = 1,
+        page_size: int = 10,
+    ) -> tuple[list[SearchResultData], int, int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            return await G2PIntakeFormLinkService.get_component().list_inflight_register_parents(
+            rows, total_items = await G2PIntakeFormLinkService.get_component().search_inflight_register_records(
                 register_id,
                 session,
+                search_text=search_text,
+                current_page=current_page,
+                page_size=page_size,
             )
+            register_schema = await session.get(G2PRegisterSchema, register_id)
+            search_result_schema = (
+                register_schema.search_result_schema
+                if register_schema and register_schema.search_result_schema
+                else []
+            )
+            display_fields_sorted = (
+                sorted(search_result_schema, key=lambda field: field.get("order", 999))
+                if search_result_schema
+                else []
+            )
+            image_ids = [
+                image_id
+                for image_id in (getattr(row, "record_image_document_id", None) for row in rows)
+                if image_id
+            ]
+            record_image_urls = {}
+            if image_ids:
+                from .g2p_document_service import G2PDocumentService
+
+                record_image_urls = await G2PDocumentService.get_component().get_document_urls(
+                    session,
+                    image_ids,
+                )
+            results = [
+                self._intake_row_to_search_result(row, display_fields_sorted, record_image_urls)
+                for row in rows
+            ]
+            number_of_pages = math.ceil(total_items / page_size) if page_size else 0
+            return results, total_items, number_of_pages
+
+    @staticmethod
+    def _intake_row_to_search_result(
+        row,
+        display_fields_sorted: list,
+        record_image_urls: dict,
+    ) -> SearchResultData:
+        display_fields_list: list[DisplayField] = []
+        for field_config in display_fields_sorted:
+            field_name = field_config.get("field_name")
+            value = getattr(row, field_name, None) if field_name else None
+            if value is not None and hasattr(value, "isoformat"):
+                value = value.isoformat()
+            if value is not None and not isinstance(value, str):
+                value = str(value)
+            display_fields_list.append(
+                DisplayField(
+                    field_name=field_name,
+                    value=value,
+                    order=field_config.get("order", 999),
+                )
+            )
+        image_id = getattr(row, "record_image_document_id", None)
+        created_at = getattr(row, "created_at", None)
+        last_approved_at = getattr(row, "last_approved_at", None)
+        return SearchResultData(
+            internal_record_id=row.internal_record_id,
+            functional_record_id=getattr(row, "functional_record_id", None),
+            link_internal_record_id=getattr(row, "link_internal_record_id", None),
+            foundational_id=getattr(row, "foundational_id", None),
+            link_foundational_id=getattr(row, "link_foundational_id", None),
+            record_name=getattr(row, "record_name", None),
+            record_image_url=record_image_urls.get(image_id) if image_id else None,
+            created_by=getattr(row, "created_by", None),
+            created_at=created_at.isoformat() if created_at is not None and hasattr(created_at, "isoformat") else None,
+            last_approved_at=(
+                last_approved_at.isoformat()
+                if last_approved_at is not None and hasattr(last_approved_at, "isoformat")
+                else None
+            ),
+            last_approved_by=getattr(row, "last_approved_by", None),
+            display_fields=display_fields_list or None,
+        )
 
     async def save_intake_form_submission(
         self,

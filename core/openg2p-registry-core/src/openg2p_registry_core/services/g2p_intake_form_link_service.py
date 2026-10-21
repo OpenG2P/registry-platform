@@ -2,7 +2,7 @@ import importlib
 import logging
 
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import inspect as sa_inspect, select, update
+from sqlalchemy import func, inspect as sa_inspect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -239,6 +239,82 @@ class G2PIntakeFormLinkService(BaseService):
             allowed_parents=allowed_parents,
         )
 
+    async def search_inflight_register_records(
+        self,
+        register_id: str,
+        session: AsyncSession,
+        search_text: str | None = None,
+        current_page: int = 1,
+        page_size: int = 10,
+    ) -> tuple[list, int]:
+        """Page of FINAL, not-yet-approved intake rows for a REGISTER parent."""
+        register = await self._get_register_definition(register_id, session)
+        if not self._is_register_purpose(register.register_purpose):
+            return [], 0
+
+        intake_class = self.get_intake_model_class(register.register_mnemonic)
+        filters = [
+            G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value,
+            G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value,
+        ]
+        if search_text:
+            filters.append(intake_class.search_text.ilike(f"%{search_text}%"))
+
+        joined_from = intake_class
+        count_query = (
+            select(func.count())
+            .select_from(joined_from)
+            .join(
+                G2PIntakeFormSubmission,
+                G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+            )
+            .where(*filters)
+        )
+        total_items = (await session.execute(count_query)).scalar_one()
+        offset = max(current_page - 1, 0) * page_size
+        rows = (
+            await session.execute(
+                select(intake_class)
+                .join(
+                    G2PIntakeFormSubmission,
+                    G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+                )
+                .where(*filters)
+                .order_by(intake_class.created_at.desc())
+                .offset(offset)
+                .limit(page_size)
+            )
+        ).scalars().all()
+        return list(rows), total_items
+
+    async def inflight_register_parent_exists(
+        self,
+        register_id: str,
+        internal_record_id: str,
+        session: AsyncSession,
+    ) -> bool:
+        """True when this id is one FINAL, not-yet-approved intake row. One indexed lookup."""
+        register = await self._get_register_definition(register_id, session)
+        if not self._is_register_purpose(register.register_purpose):
+            return False
+        intake_class = self.get_intake_model_class(register.register_mnemonic)
+        found = (
+            await session.execute(
+                select(intake_class.internal_record_id)
+                .join(
+                    G2PIntakeFormSubmission,
+                    G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+                )
+                .where(
+                    intake_class.internal_record_id == internal_record_id,
+                    G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value,
+                    G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        return found is not None
+
     async def validate_live_parent_link(
         self,
         parent_register_id: str,
@@ -333,14 +409,14 @@ class G2PIntakeFormLinkService(BaseService):
             parent_register = await self._get_register_definition(
                 section_register.master_register_id, session
             )
-            if self._is_register_purpose(parent_register.register_purpose):
-                inflight = await self.list_inflight_register_parents(
-                    parent_register.register_id,
-                    session,
+            if (
+                payload_link not in candidate_ids
+                and self._is_register_purpose(parent_register.register_purpose)
+                and await self.inflight_register_parent_exists(
+                    parent_register.register_id, payload_link, session
                 )
-                candidate_ids.update(
-                    parent.internal_record_id for parent in inflight.allowed_parents
-                )
+            ):
+                candidate_ids.add(payload_link)
             await self._validate_resolved_link(
                 payload_link,
                 section_register.master_register_id,
