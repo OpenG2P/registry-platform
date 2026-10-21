@@ -308,3 +308,23 @@ class GetIntakeAllowedParentsResponseBody(G2PResponseBody):
 
 class GetIntakeAllowedParentsResponse(G2PResponse):
     response_body: Optional[GetIntakeAllowedParentsResponseBody] = None
+
+
+class GetInflightRegisterParentsRequestPayload(BaseModel):
+    register_id: str
+
+
+class GetInflightRegisterParentsRequestBody(G2PRequestBody):
+    request_payload: GetInflightRegisterParentsRequestPayload
+
+
+class GetInflightRegisterParentsRequest(G2PRequest):
+    request_body: GetInflightRegisterParentsRequestBody
+
+
+class GetInflightRegisterParentsResponseBody(G2PResponseBody):
+    response_payload: Optional[IntakeAllowedParentsData] = None
+
+
+class GetInflightRegisterParentsResponse(G2PResponse):
+    response_body: Optional[GetInflightRegisterParentsResponseBody] = None

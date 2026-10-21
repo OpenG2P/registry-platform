@@ -14,6 +14,7 @@ from ..schemas import (
     DeduplicationIntakeFormRegisterResultData,
     DeduplicationIntakeFormIntakeFormResultData,
     GetIntakeAllowedParentsRequest,
+    GetInflightRegisterParentsRequest,
     IntakeAllowedParentsData,
     SaveIntakeFormSubmissionRequest,
     SearchInSubmissionRequest,
@@ -154,6 +155,15 @@ class G2PIntakeFormDataControllerService(BaseService):
             submission_id=payload.submission_id,
             section_register_id=payload.section_register_id,
             form_register_id=payload.form_register_id,
+        )
+
+    async def get_inflight_register_parents(
+        self,
+        request: GetInflightRegisterParentsRequest,
+    ) -> IntakeAllowedParentsData:
+        payload = request.request_body.request_payload
+        return await G2PIntakeFormDataService.get_component().get_inflight_register_parents(
+            register_id=payload.register_id,
         )
 
     async def get_intake_form_submissions_summary(

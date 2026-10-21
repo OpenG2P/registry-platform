@@ -26,6 +26,9 @@ from openg2p_registry_core.schemas import (
     GetIntakeAllowedParentsRequest,
     GetIntakeAllowedParentsResponse,
     GetIntakeAllowedParentsResponseBody,
+    GetInflightRegisterParentsRequest,
+    GetInflightRegisterParentsResponse,
+    GetInflightRegisterParentsResponseBody,
     IntakeAllowedParentsData,
     SearchInSubmissionRequest,
     SubmissionResponse,
@@ -126,6 +129,12 @@ class G2PIntakeFormDataController(BaseController):
             responses={200: {"model": GetIntakeAllowedParentsResponse}},
             methods=["POST"],
         )
+        self.router.add_api_route(
+            "/get_inflight_register_parents",
+            self.get_inflight_register_parents,
+            responses={200: {"model": GetInflightRegisterParentsResponse}},
+            methods=["POST"],
+        )
     
     @require_permissions({})
     @data_policy
@@ -166,6 +175,23 @@ class G2PIntakeFormDataController(BaseController):
             )
         except Exception as error_exception:
             _logger.error("Error in get_intake_allowed_parents: %s", error_exception)
+            return self.helper.construct_error_response(error_exception, g2p_request)
+
+    @require_permissions({"intakeSubmission:view"})
+    async def get_inflight_register_parents(
+        self,
+        g2p_request: GetInflightRegisterParentsRequest,
+    ) -> GetInflightRegisterParentsResponse:
+        try:
+            allowed_parents_data: IntakeAllowedParentsData = (
+                await self.service.get_inflight_register_parents(g2p_request)
+            )
+            return self.helper.construct_success_response(
+                GetInflightRegisterParentsResponseBody(response_payload=allowed_parents_data),
+                g2p_request,
+            )
+        except Exception as error_exception:
+            _logger.error("Error in get_inflight_register_parents: %s", error_exception)
             return self.helper.construct_error_response(error_exception, g2p_request)
 
     @require_permissions({"intakeSubmission:edit"})

@@ -93,6 +93,17 @@ class G2PIntakeFormDataService(BaseService):
                 allowed_parents=candidates.allowed_parents,
             )
 
+    async def get_inflight_register_parents(
+        self,
+        register_id: str,
+    ) -> IntakeAllowedParentsData:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
+            return await G2PIntakeFormLinkService.get_component().list_inflight_register_parents(
+                register_id,
+                session,
+            )
+
     async def save_intake_form_submission(
         self,
         submission_id: str | None,
@@ -179,6 +190,11 @@ class G2PIntakeFormDataService(BaseService):
         await G2PIntakeFormLinkService.get_component().null_child_links_for_deleted_parents(
             submission.submission_id,
             deleted_ids,
+            session,
+        )
+        await G2PIntakeFormLinkService.get_component().backfill_null_child_links_for_same_submission_parent(
+            submission.submission_id,
+            section_register_id,
             session,
         )
 
