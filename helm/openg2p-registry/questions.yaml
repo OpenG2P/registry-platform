@@ -71,9 +71,9 @@ questions:
   group: Consent & Partner API
 
 - variable: global.partnerDataScopesPublicGetEnabled
-  description: "Off by default: partners read the catalogue with a signed request. Turn on only if this deployment wants the list of data scopes (field names, never data) readable by anyone."
+  description: "On by default: anyone who can reach the partner API can read the list of data scopes (scope IDs, labels and field names, never data), and Partner Management can offer them as a checklist when policies are written. Turn off to keep field names private: partners then read the catalogue with a signed request, and Partner Management falls back to free text."
   type: boolean
-  default: false
+  default: true
   label: Allow Unsigned Read of Data Scope Catalogue
   group: Consent & Partner API
 

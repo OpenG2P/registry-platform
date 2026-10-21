@@ -207,10 +207,14 @@ global:
   # off by default (sanity.runE2e), so a disabled install is unaffected.
   partnerSignatureValidationEnabled: true
   consentEnforcementEnabled: true
-  # GET /partner/data_scopes is the only unsigned partner API read. Off by
-  # default: partners read the catalogue with the signed POST. Turn on only to
-  # publish the catalogue (field names, no values) openly.
-  partnerDataScopesPublicGetEnabled: false
+  # GET /partner/data_scopes is the only unsigned partner API read: the data
+  # scope catalogue (scope IDs, labels and field names; never data). On by
+  # default so Partner Management, which has no signing key, can offer the
+  # scopes as a checklist when policies are written; partners can use it or the
+  # signed POST. Anyone who can reach the partner API can then list the scopes.
+  # Turn off to keep field names private: partners use the signed POST, and PM
+  # falls back to free text.
+  partnerDataScopesPublicGetEnabled: true
   # Partner-key crypto backend: partner-mgmt | keymanager | local. Not in the
   # Rancher form: partner-mgmt is the only production choice. 'keymanager' (the
   # standalone MOSIP Keymanager, global.keymanagerInstallationName) is legacy;
