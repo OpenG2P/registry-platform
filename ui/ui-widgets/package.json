@@ -11,6 +11,7 @@
     "README.md"
   ],
   "scripts": {
+    "test": "node --test --require ./tests/register-typescript.cjs tests/intake-documents.test.cjs tests/widgets.test.cjs",
     "build": "rollup -c",
     "dev": "rollup -c -w",
     "type-check": "tsc --noEmit",

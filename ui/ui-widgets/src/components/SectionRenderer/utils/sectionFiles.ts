@@ -90,7 +90,7 @@ const collectProfileFiles = (
       value,
       tag: SECTION_FILE_TAG.PROFILE,
       field,
-      label: isStoredDocumentRef(value) ? value.label : 'profile image',
+      label: isStoredDocumentRef(value) ? value.label : widget['widget-label'] || field,
     });
   }
 
@@ -143,7 +143,10 @@ const collectDirectFileWidgetFiles = (
     const widgetPath = widget['widget-data-path'];
     if (!widgetPath || typeof widgetPath !== 'string' || skipPaths.has(widgetPath)) continue;
 
-    const value = getValueByPath(sourceData, widgetPath);
+    const rawValue = getValueByPath(sourceData, widgetPath);
+    const value = typeof rawValue === 'string' && rawValue
+      ? { document_id: rawValue, label: widget['widget-label'] || fieldFromPath(widgetPath) }
+      : rawValue;
     if (!isCollectableFileValue(value)) continue;
 
     const field = fieldFromPath(widgetPath);
@@ -301,6 +304,8 @@ export const stripSectionFileBlobs = (
     const copy = { ...(record as Record<string, unknown>) };
     for (const key of fieldKeys) {
       if (!Object.prototype.hasOwnProperty.call(copy, key)) continue;
+      // Explicit clears must reach the backend, rather than leave an old ID intact.
+      if (copy[key] === null || copy[key] === '') continue;
       delete copy[key];
     }
     return copy;

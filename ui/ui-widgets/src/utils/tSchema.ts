@@ -14,6 +14,8 @@ export function toTitleCase(value: string): string {
   if (!normalized) return '';
   return normalized
     .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => /^[A-Z]{2,}$/.test(word)
+      ? word
+      : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 }

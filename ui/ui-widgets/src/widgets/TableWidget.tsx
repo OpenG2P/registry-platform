@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { tSchema, toTitleCase } from '../utils/tSchema';
+import { DocumentDisplay } from '../components/DocumentDisplay';
 import { useDispatch, useSelector } from 'react-redux';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
@@ -1056,6 +1057,9 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } else {
       const widgetType = column.widget || 'text';
       const displayValue = getDisplayValue(rowIndex, column);
+      if (widgetType === 'file') {
+        return <DocumentDisplay value={cellValue} source={column['widget-data-options']?.documentSource} />;
+      }
       
       if (widgetType === 'select' && displayValue === null) {
         const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;

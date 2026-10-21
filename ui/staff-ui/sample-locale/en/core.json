@@ -89,6 +89,8 @@
   "clear_all": "Clear All",
   "close": "Close",
   "common": {
+    "viewDocument": "View document",
+    "documentUnavailable": "Document unavailable",
     "actions": "Actions",
     "addItem": "Add Item",
     "addRow": "Add Row",

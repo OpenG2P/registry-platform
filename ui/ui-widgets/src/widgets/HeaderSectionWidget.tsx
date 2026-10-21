@@ -323,8 +323,10 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
   const handleImageDelete = useCallback(() => {
     if (!paths.imageUrl) return;
     setPreviewUrl(null);
-    dispatch(setValues(setValueByPath({ ...values }, paths.imageUrl, null)));
-  }, [paths.imageUrl, values, dispatch]);
+    let cleared = setValueByPath(values, paths.imageUrl, null);
+    if (paths.image) cleared = setValueByPath(cleared, paths.image, null);
+    dispatch(setValues(cleared));
+  }, [paths.imageUrl, paths.image, values, dispatch]);
 
   const cls = `header-section-widget-${widgetConfig['widget-id']}`;
 
@@ -357,6 +359,10 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           gap: 0.5rem;
           flex: 1 1 40%;
           min-width: 220px;
+        }
+
+        .${cls} .hdr-info[hidden], .${cls} .hdr-right[hidden] {
+          display: none;
         }
 
         .${cls} .hdr-right-top {
@@ -768,7 +774,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
               </>
             )}
           </div>
-          <div className="hdr-info">
+          <div className="hdr-info" hidden={widgetConfig['widget-data-options']?.showInfo === false}>
             {displayName && <div className="hdr-name">{displayName}</div>}
             <div className="hdr-field-row">
               <span className="hdr-field-label" title={`${getLabel('functionalId')} :`}>
@@ -847,7 +853,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
             </div>
           </div>
         </div>
-        <div className="hdr-right">
+        <div className="hdr-right" hidden={widgetConfig['widget-data-options']?.showMetadata === false}>
           <div className="hdr-right-top">
             <div className="hdr-meta-col">
               <div className="hdr-meta-row">

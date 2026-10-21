@@ -5,8 +5,8 @@ import { toast } from 'react-toastify';
 import { IntakeFormSection } from '../types/intake-form';
 import ActionModal from '@/components/shared/ActionModal';
 import type { SectionChanges } from '@openg2p/registry-widgets';
-import { extractFilesFromSection, intakeNormalisedRecords } from '@/features/register/utils';
-import { UploadedDocument } from '@/features/shared/types';
+import { intakeNormalisedRecords } from '@/features/register/utils';
+import { prepareIntakeDocuments } from '../utils/prepareIntakeDocuments';
 import { useTranslations } from 'next-intl';
 import { useFileUpload } from '@/features/shared/hooks';
 import { SectionPayload } from '../types/intake-form';
@@ -128,36 +128,29 @@ export const useIntakeFormSectionAction = ({
         if (!activeSection || !registerId) return false;
 
 
-        const { filesToUpload = [], fileLabels } = extractFilesFromSection(
-            change?.section_files,
-            '_direct_file',
-        );
-
-        let documentsResponse: UploadedDocument[] = [];
-
-        if (filesToUpload.length > 0) {
-            const uploadResult = await uploadFile(filesToUpload);
-            if (!uploadResult || uploadResult.length === 0) {
-                return false;
-            }
-            documentsResponse.push(...uploadResult);
+        let prepared: Awaited<ReturnType<typeof prepareIntakeDocuments>>;
+        try {
+            prepared = await prepareIntakeDocuments(
+                change.records, change.section_files, uploadFile, activeSection.section_ui_schema,
+            );
+        } catch (error) {
+            console.error('Intake document upload failed', error);
+            toast.error(t('file_upload_failed'));
+            return false;
         }
 
         const savePayload = {
             submission_id: activeSubmissionId || submissionId,
             section_id: activeSection.section_id,
             section_payload: intakeNormalisedRecords(
-                change?.records,
+                prepared.records,
                 sectionInternalIds[activeSection.section_register_id],
                 listSectionRecordIds[activeSection.section_register_id],
             ),
             section_register_id: activeSection.section_register_id,
             form_id: formId,
             register_id: registerId,
-            documents: documentsResponse.map((document, index) => ({
-                document_id: document.document_id,
-                label: fileLabels[index] || "unknown_label",
-            })),
+            documents: prepared.documents,
         };
 
         const saveResult = await executeSave('/api/intake-form/save-intake-form-submission', {

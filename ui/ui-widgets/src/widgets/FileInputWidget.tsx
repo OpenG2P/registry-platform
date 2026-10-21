@@ -4,17 +4,14 @@ import { useWidgetContext } from '../components/WidgetProvider';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
-import { openFileInNewTab } from '../utils/filePreview';
-import { serializeValue, deserializeValue, isSerializedFile, deserializeFile } from '../utils/fileSerialization';
-import { isStoredDocumentRef, StoredDocumentRef } from '../utils/storedDocument';
+import { serializeValue, deserializeValue } from '../utils/fileSerialization';
+import { documentDisplayValue } from '../utils/documentDisplay';
 import { uploadIcon, attachmentIcon, remove } from '../assets';
+import { DocumentDisplay } from '../components/DocumentDisplay';
 
 interface FileInputWidgetProps {
   config: BaseWidgetConfig;
 }
-
-const getFileName = (file: File | string): string =>
-  file instanceof File ? file.name : file.split('/').pop() || file;
 
 const iconButtonClass =
   'inline-flex items-center justify-center shrink-0 p-0 border-0 bg-transparent focus:outline-none';
@@ -47,12 +44,6 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
     if (!value) return null;
     return deserializeValue(value);
   }, [value]);
-
-  const storedDocument: StoredDocumentRef | null = useMemo(() => {
-    if (isStoredDocumentRef(deserializedValue)) return deserializedValue;
-    if (isStoredDocumentRef(value)) return value;
-    return null;
-  }, [deserializedValue, value]);
 
   useEffect(() => {
     if (deserializedValue instanceof File) {
@@ -100,50 +91,11 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
     }
   };
 
-  const getFile = (): File | string | null => {
-    if (localFile instanceof File) {
-      return localFile;
-    }
-
-    if (deserializedValue instanceof File) {
-      return deserializedValue;
-    }
-    if (typeof deserializedValue === 'string') {
-      return deserializedValue;
-    }
-    if (storedDocument) {
-      return storedDocument.presigned_url;
-    }
-    if (deserializedValue && typeof deserializedValue === 'object' && isSerializedFile(deserializedValue)) {
-      try {
-        return deserializeFile(deserializedValue);
-      } catch (e) {
-        console.error('Error deserializing file:', e);
-      }
-    }
-
-    return null;
-  };
-
-  const file = getFile();
-  const hasFile = !!file || !!storedDocument;
-  const displayFileName = storedDocument
-    ? storedDocument.source_filename || storedDocument.label
-    : file
-      ? getFileName(file)
-      : '';
+  const hasFile = Boolean(localFile || value);
+  const displayFileName = documentDisplayValue(localFile || value).name || '';
   const isEmptyRequired = isRequired && !hasFile;
   const showValidationError = touched && error.length > 0 && isEmptyRequired;
   const label = tSchema(t, widgetConfig['widget-label']);
-
-  const handlePreview = (previewFile: File | string, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    if (!previewFile) return;
-    openFileInNewTab(previewFile);
-  };
 
   if (isReadonly) {
     return (
@@ -158,23 +110,9 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
           </div>
         )}
         <div className="flex min-h-[1.5rem] w-full min-w-0 max-w-full items-center sm:w-1/2">
-          {hasFile && file ? (
-            <>
-              <span
-                className="w-10/12 min-w-0 truncate text-base owt-text font-medium"
-                title={displayFileName}
-              >
-                {displayFileName}
-              </span>
-              <button
-                type="button"
-                onClick={(e) => handlePreview(file, e)}
-                className={`w-2/12 ${iconButtonClass}`}
-                title={displayFileName}
-              >
-                <img src={attachmentIcon} alt={t?.('common.view') ?? 'View'} className="h-4 w-4" />
-              </button>
-            </>
+          {value ? (
+            <DocumentDisplay value={localFile || value}
+              source={widgetConfig['widget-data-options']?.documentSource} />
           ) : (
             <span className="text-base owt-text font-medium">-</span>
           )}
@@ -219,26 +157,20 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
               />
             </label>
           )}
-          {hasFile && file && (
+          {hasFile && (
             <div
               className={`${docControlClass} gap-2 border owt-border owt-bg`}
               title={displayFileName}
             >
-              <button
-                type="button"
-                onClick={(e) => handlePreview(file, e)}
-                className={`${iconButtonClass} min-w-0 flex-1 gap-2 justify-start`}
-                title={displayFileName}
-              >
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 <img
                   src={attachmentIcon}
                   alt=""
                   className="h-4 w-4 shrink-0"
                 />
-                <span className="min-w-0 truncate text-sm font-medium owt-text">
-                  {displayFileName}
-                </span>
-              </button>
+                <DocumentDisplay value={localFile || value}
+                  source={widgetConfig['widget-data-options']?.documentSource} />
+              </div>
               <button
                 type="button"
                 onClick={handleRemove}

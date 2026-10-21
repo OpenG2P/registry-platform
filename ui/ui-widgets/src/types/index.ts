@@ -215,6 +215,13 @@ export interface WidgetOptions {
   minDateMessage?: string;
   maxDateMessage?: string;
   showCalendar?: boolean;
+  /** Header section: hide record/status fields or audit metadata (default true). */
+  showInfo?: boolean;
+  showMetadata?: boolean;
+  /** File widget document lookup through the host's authenticated request handler. */
+  documentSource?: { service: string; endpoint: string };
+  /** Dialog file fields: send null when a condition hides the field (opt-in). */
+  clearFileWhenHidden?: boolean;
   [key: string]: any;
 }
 

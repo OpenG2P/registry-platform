@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { tSchema, toTitleCase } from '../utils/tSchema';
+import { DocumentDisplay } from '../components/DocumentDisplay';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 import { useDispatch, useSelector } from 'react-redux';
@@ -320,6 +321,10 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
       columns.forEach((col) => {
         const key = col['column-key'];
         if (!shouldShowWidget(col['widget-data-options'], conditionValues)) {
+          // Hidden file fields still need an explicit clear in an UPDATE.
+          if (col.widget === 'file' && col['widget-data-options']?.clearFileWhenHidden === true) {
+            result[key] = null;
+          }
           return;
         }
         const val = raw[key];
@@ -627,6 +632,11 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
                     const key = col['column-key'];
                     const widgetType = col.widget || 'text';
                     const displayValue = getDisplayValue(rowIndex, col);
+                    if (widgetType === 'file') {
+                      return <td key={key} className="px-4 py-3 whitespace-nowrap" style={cellStyle}>
+                        <DocumentDisplay value={row?.[key]} source={col['widget-data-options']?.documentSource} />
+                      </td>;
+                    }
 
                     if (widgetType === 'select' && displayValue === null) {
                       const displayConfig: BaseWidgetConfig = {
