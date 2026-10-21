@@ -2,17 +2,28 @@ name: UI CI
 
 # Lightweight pre-merge check for the npm UI packages (ui-widgets + staff-ui):
 # install + type-check + build, NO publish and NO image/chart build. Runs on pull
-# requests that touch ui/** — including Dependabot dependency-bump PRs — so a
+# requests and fork pushes that touch ui/** — including dependency-bump PRs — so a
 # dependency update is verified to still compile/build before it lands on
 # develop, without triggering the (publishing) build-publish pipeline.
 on:
+  push:
+    paths:
+      - 'ui/**'
+      - '.github/workflows/ui-ci.yml'
+      - '.github/workflows/build-publish.yml'
   pull_request:
     paths:
       - 'ui/**'
       - '.github/workflows/ui-ci.yml'
+      - '.github/workflows/build-publish.yml'
+
+permissions:
+  contents: read
 
 jobs:
   ui-widgets:
+    # Fork pushes can validate without publishing or awaiting upstream approval.
+    if: github.event_name == 'pull_request' || github.event.repository.fork == true
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,6 +39,7 @@ jobs:
       - run: npm run build
 
   staff-ui:
+    if: github.event_name == 'pull_request' || github.event.repository.fork == true
     runs-on: ubuntu-latest
     defaults:
       run:

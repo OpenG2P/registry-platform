@@ -29,6 +29,7 @@ jobs:
     # staff-ui image builds. Tags retag that RC image; develop uses [skip ci]
     # on the widget pin. Job-level `if` cannot use regex.
     if: >-
+      github.event.repository.fork == false &&
       github.ref_type == 'branch' && contains(github.ref_name, '.') &&
       github.ref != 'refs/heads/develop'
     runs-on: ubuntu-latest
@@ -113,7 +114,13 @@ jobs:
 
   build-publish:
     needs: await-widgets
+    # Match the reusable workflow's image/chart permissions explicitly, including
+    # on repositories whose default GITHUB_TOKEN permissions are read-only.
+    permissions:
+      contents: read
+      packages: write
     if: >-
+      github.event.repository.fork == false &&
       always() &&
       (needs.await-widgets.result == 'skipped' ||
        (needs.await-widgets.result == 'success' && needs.await-widgets.outputs.proceed == 'true'))
