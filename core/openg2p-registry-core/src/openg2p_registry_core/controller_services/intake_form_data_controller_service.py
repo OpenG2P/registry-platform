@@ -16,6 +16,7 @@ from ..schemas import (
     GetIntakeAllowedParentsRequest,
     GetInflightRegisterParentsRequest,
     IntakeAllowedParentsData,
+    RegisterAndInflightSearchResult,
     SearchResultData,
     SaveIntakeFormSubmissionRequest,
     SearchInSubmissionRequest,
@@ -24,7 +25,7 @@ from ..schemas import (
     GetIntakeFormSubmissionsSummaryRequest,
     IntakeFormSubmissionsSummaryData
 )
-from ..services import G2PIntakeFormDataService
+from ..services import G2PIntakeFormDataService, G2PRegisterService
 
 _logger = logging.getLogger("g2p-intake-form-data-controller-service")
 
@@ -169,7 +170,88 @@ class G2PIntakeFormDataControllerService(BaseService):
             search_text=pagination.search_text if pagination else None,
             current_page=pagination.current_page if pagination else 1,
             page_size=pagination.page_size if pagination else 10,
+            internal_record_id=(payload.internal_record_id or "").strip() or None,
         )
+
+    async def search_in_register_and_inflight_intake(
+        self,
+        request: GetInflightRegisterParentsRequest,
+        data_policies: list[dict] | None = None,
+    ) -> tuple[list[RegisterAndInflightSearchResult], int, int]:
+        payload = request.request_body.request_payload
+        pagination = request.request_body.pagination_request
+        register_id = payload.register_id
+        record_id = (payload.internal_record_id or "").strip() or None
+        search_text = pagination.search_text if pagination else None
+        current_page = pagination.current_page if pagination else 1
+        page_size = pagination.page_size if pagination else 10
+        intake_service = G2PIntakeFormDataService.get_component()
+        register_service = G2PRegisterService.get_component()
+
+        if record_id:
+            live_rows, live_total = await register_service.search_in_a_register(
+                register_id,
+                search_text,
+                internal_record_id=record_id,
+                data_policies=data_policies,
+            )
+            if live_total and live_rows:
+                return [self._with_record_source(live_rows[0], "REGISTER")], 1, 1
+            intake_rows, intake_total, _pages = await intake_service.get_inflight_register_parents(
+                register_id,
+                internal_record_id=record_id,
+                page_size=1,
+            )
+            if intake_total and intake_rows:
+                return [self._with_record_source(intake_rows[0], "INTAKE")], 1, 1
+            return [], 0, 0
+
+        filter_by = pagination.filter_by if pagination else None
+        if filter_by == "":
+            filter_by = None
+        live_rows, live_total = await register_service.search_in_a_register(
+            register_id,
+            search_text or "",
+            current_page,
+            page_size,
+            pagination.sort_by if pagination else None,
+            filter_by,
+            data_policies=data_policies,
+        )
+        intake_rows: list[SearchResultData] = []
+        if current_page == 1:
+            intake_rows, intake_total, _pages = await intake_service.get_inflight_register_parents(
+                register_id,
+                search_text=search_text,
+                current_page=1,
+                page_size=page_size,
+            )
+        else:
+            _ignored, intake_total, _pages = await intake_service.get_inflight_register_parents(
+                register_id,
+                search_text=search_text,
+                current_page=1,
+                page_size=1,
+            )
+        live_ids = {row.internal_record_id for row in live_rows}
+        intake_page = [
+            row for row in intake_rows if row.internal_record_id not in live_ids
+        ]
+        merged = [
+            self._with_record_source(row, "INTAKE") for row in intake_page
+        ] + [
+            self._with_record_source(row, "REGISTER") for row in live_rows
+        ]
+        number_of_items = live_total + intake_total
+        number_of_pages = (
+            math.ceil(live_total / page_size) if page_size and live_total else (1 if intake_total else 0)
+        )
+        return merged, number_of_items, number_of_pages
+
+    @staticmethod
+    def _with_record_source(row: SearchResultData, record_source: str) -> RegisterAndInflightSearchResult:
+        data = row.model_dump() if hasattr(row, "model_dump") else row.dict()
+        return RegisterAndInflightSearchResult(**data, record_source=record_source)
 
     async def get_intake_form_submissions_summary(
         self,

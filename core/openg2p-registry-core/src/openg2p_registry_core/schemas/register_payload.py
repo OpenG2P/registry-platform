@@ -235,6 +235,10 @@ class SearchResultData(BaseModel):
     class Config:
         from_attributes: bool = True
 
+
+class RegisterAndInflightSearchResult(SearchResultData):
+    record_source: str
+
 class DeepSearchResultData(BaseModel):
     internal_record_id: str
     functional_record_id: Optional[str] = None
@@ -914,6 +918,7 @@ class ChildRegisterRequestPayload(BaseModel):
 
 class SearchRegisterRequestPayload(BaseModel):
     register_id: str
+    internal_record_id: Optional[str] = None
 
 
 class SearchChangeRequestRequestPayload(BaseModel):

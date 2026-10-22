@@ -101,6 +101,7 @@ class G2PIntakeFormDataService(BaseService):
         search_text: str | None = None,
         current_page: int = 1,
         page_size: int = 10,
+        internal_record_id: str | None = None,
     ) -> tuple[list[SearchResultData], int, int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
@@ -110,6 +111,7 @@ class G2PIntakeFormDataService(BaseService):
                 search_text=search_text,
                 current_page=current_page,
                 page_size=page_size,
+                internal_record_id=internal_record_id,
             )
             register_schema = await session.get(G2PRegisterSchema, register_id)
             search_result_schema = (

@@ -246,8 +246,12 @@ class G2PIntakeFormLinkService(BaseService):
         search_text: str | None = None,
         current_page: int = 1,
         page_size: int = 10,
+        internal_record_id: str | None = None,
     ) -> tuple[list, int]:
-        """Page of FINAL, not-yet-approved intake rows for a REGISTER parent."""
+        """Page of FINAL, not-yet-approved intake rows for a REGISTER parent.
+
+        When internal_record_id is set, load that one row and skip the text search.
+        """
         register = await self._get_register_definition(register_id, session)
         if not self._is_register_purpose(register.register_purpose):
             return [], 0
@@ -257,6 +261,22 @@ class G2PIntakeFormLinkService(BaseService):
             G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value,
             G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value,
         ]
+        record_id = (internal_record_id or "").strip()
+        if record_id:
+            filters.append(intake_class.internal_record_id == record_id)
+            row = (
+                await session.execute(
+                    select(intake_class)
+                    .join(
+                        G2PIntakeFormSubmission,
+                        G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+                    )
+                    .where(*filters)
+                    .limit(1)
+                )
+            ).scalars().first()
+            return ([row] if row is not None else []), (1 if row is not None else 0)
+
         if search_text:
             filters.append(intake_class.search_text.ilike(f"%{search_text}%"))
 

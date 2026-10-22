@@ -4,9 +4,8 @@ from typing import Dict, List, Optional
 from openg2p_fastapi_common.schemas import G2PRequest, G2PRequestBody, G2PResponse, G2PResponseBody
 from pydantic import BaseModel, ConfigDict
 
-from .register_payload import DisplayField
 from .file_payload import DocumentAttachment, DocumentData
-from .register_payload import AllowedParentRecordData, DisplayField
+from .register_payload import AllowedParentRecordData, DisplayField, RegisterAndInflightSearchResult
 
 
 class G2PIntakeFormSchemaBase:
@@ -312,6 +311,7 @@ class GetIntakeAllowedParentsResponse(G2PResponse):
 
 class GetInflightRegisterParentsRequestPayload(BaseModel):
     register_id: str
+    internal_record_id: Optional[str] = None
 
 
 class GetInflightRegisterParentsRequestBody(G2PRequestBody):
@@ -328,3 +328,11 @@ class GetInflightRegisterParentsResponseBody(G2PResponseBody):
 
 class GetInflightRegisterParentsResponse(G2PResponse):
     response_body: Optional[GetInflightRegisterParentsResponseBody] = None
+
+
+class SearchInRegisterAndInflightIntakeResponseBody(G2PResponseBody):
+    response_payload: Optional[List[RegisterAndInflightSearchResult]] = None
+
+
+class SearchInRegisterAndInflightIntakeResponse(G2PResponse):
+    response_body: Optional[SearchInRegisterAndInflightIntakeResponseBody] = None

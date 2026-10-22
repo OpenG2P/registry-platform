@@ -500,11 +500,14 @@ class G2PRegisterService(BaseService):
         section_data: RegisterSectionData = await self._build_register_section_data(section, session)
         return section_data
 
-    async def search_in_a_register(self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
+    async def search_in_a_register(self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None, data_policies: list[dict] | None = None, internal_record_id: str | None = None) -> tuple[list[SearchResultData], int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             await self.validate_register_definition(register_id, session)
-            search_results_list, total_items = await self._search_in_register(register_id, search_text, current_page, page_size, sort_by, filter_by, session, data_policies)
+            search_results_list, total_items = await self._search_in_register(
+                register_id, search_text, current_page, page_size, sort_by, filter_by, session, data_policies,
+                internal_record_id=internal_record_id,
+            )
             return search_results_list, total_items
     
     async def deep_search_in_a_register(
@@ -1047,7 +1050,7 @@ class G2PRegisterService(BaseService):
             message=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[0],
         )
 
-    async def _search_in_register(self, register_id: str, search_text: str, current_page: int, page_size: int, sort_by: str, filter_by: dict, session, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
+    async def _search_in_register(self, register_id: str, search_text: str, current_page: int, page_size: int, sort_by: str, filter_by: dict, session, data_policies: list[dict] | None = None, internal_record_id: str | None = None) -> tuple[list[SearchResultData], int]:
         g2p_register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
 
         # Get the implementation class for this register
@@ -1074,6 +1077,23 @@ class G2PRegisterService(BaseService):
         # Sort display fields by order if schema exists
         display_fields_sorted: list = sorted(search_result_schema, key=lambda x: x.get("order", 999)) if search_result_schema else []
         display_field_names: set = {f["field_name"] for f in display_fields_sorted} if display_fields_sorted else set()
+
+        record_id = (internal_record_id or "").strip()
+        if record_id:
+            id_filters = [implementation_class.internal_record_id == record_id]
+            policy_condition = self._build_register_policy_condition(
+                register_id, implementation_class, data_policies, session
+            )
+            if policy_condition is not None:
+                id_filters.append(policy_condition)
+            row = (
+                await session.execute(
+                    select(implementation_class).where(*id_filters).limit(1)
+                )
+            ).scalars().first()
+            if row is None:
+                return [], 0
+            return await self._build_search_result_list([row], display_fields_sorted, session), 1
 
         # Search using LIKE with trigram index optimization
         search_query: str = f"%{search_text}%"
@@ -1126,20 +1146,23 @@ class G2PRegisterService(BaseService):
             await session.execute(query)
         ).scalars().all()
 
-        search_results_list: list[SearchResultData] = []
+        return await self._build_search_result_list(search_results, display_fields_sorted, session), total_items
 
-        # Batch-resolve presigned URLs for record images through the document catalog
+    async def _build_search_result_list(self, search_results, display_fields_sorted: list, session) -> list[SearchResultData]:
         from .g2p_document_service import G2PDocumentService
         document_service: G2PDocumentService = G2PDocumentService.get_component()
-        record_image_urls = await document_service.get_document_urls(
-            session,
-            [
-                getattr(result, 'record_image_document_id', None)
-                for result in search_results
-            ],
+        image_ids = [
+            image_id
+            for image_id in (
+                getattr(result, "record_image_document_id", None) for result in search_results
+            )
+            if image_id
+        ]
+        record_image_urls = (
+            await document_service.get_document_urls(session, image_ids) if image_ids else {}
         )
 
-        # Convert ORM objects to SearchResultData while still in session context
+        search_results_list: list[SearchResultData] = []
         for result in search_results:
             # Build display_fields list from schema with actual values
             display_fields_list: list[DisplayField] = []
@@ -1181,7 +1204,7 @@ class G2PRegisterService(BaseService):
             )
             search_results_list.append(search_result_data)
 
-        return search_results_list, total_items
+        return search_results_list
 
     def _apply_register_record_sort(self, query, implementation_class, sort_by: str | None):
         """Sort register records; newest first when no sort is specified."""
