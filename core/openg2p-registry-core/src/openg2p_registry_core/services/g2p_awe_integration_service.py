@@ -44,17 +44,8 @@ class G2PAweIntegrationService(BaseService):
             )
         return token
 
-    async def _resolve_change_request_bearer(
-        self, bearer_token: str | None
-    ) -> str | None:
-        """Prefer the caller's token; otherwise fetch once via MasterDataClient Settings.
-
-        Called only after AWE is enabled and an effective policy exists. A missing
-        token means skip AWE (pending CR is still created), not abort creation.
-        """
-        token = (bearer_token or "").strip()
-        if token:
-            return token
+    async def _resolve_service_bearer_token(self) -> str | None:
+        """Client-credentials token from MasterDataClient Settings (cached)."""
         try:
             from ..helpers.master_data import MasterDataClient
 
@@ -127,6 +118,7 @@ class G2PAweIntegrationService(BaseService):
         *,
         bearer_token: str | None,
         requester: str | None,
+        skip_awe_when_token_missing: bool = False,
     ) -> None:
         if not self._awe_enabled():
             return
@@ -141,14 +133,19 @@ class G2PAweIntegrationService(BaseService):
         if policy is None:
             return
 
-        token = await self._resolve_change_request_bearer(bearer_token)
-        if not token:
-            _logger.warning(
-                "Skipping AWE for change_request_id=%s: no bearer token "
-                "(AWE enabled and a policy applies).",
-                change_request.change_request_id,
-            )
-            return
+        token = (bearer_token or "").strip()
+        if not token and skip_awe_when_token_missing:
+            # eSignet / registrant-auth path: no staff JWT; try service token once.
+            token = (await self._resolve_service_bearer_token() or "").strip()
+            if not token:
+                _logger.warning(
+                    "Skipping AWE for change_request_id=%s: no bearer token "
+                    "(AWE enabled and a policy applies).",
+                    change_request.change_request_id,
+                )
+                return
+        else:
+            token = self._require_bearer(bearer_token)
 
         base = {
             "record_name": change_request.record_name,

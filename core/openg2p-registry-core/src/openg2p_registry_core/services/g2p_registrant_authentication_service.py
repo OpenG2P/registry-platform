@@ -524,13 +524,14 @@ class G2PRegistrantAuthenticationService(BaseService):
             change_payload=[change_payload],
             created_by=created_by,
         )
-        # Bearer resolved in start_change_request_workflow only when AWE+policy.
+        # No staff JWT on this path; allow AWE to soft-skip if service token is missing.
         change_request = await change_request_service.create_change_request(
             change_request_request_payload=request_payload,
             created_by=created_by,
             change_request_source=ChangeRequestSourceEnum.STAFF_PORTAL.value,
             bearer_token=None,
             requester_sub=created_by,
+            skip_awe_when_token_missing=True,
         )
         _logger.info(
             "Created pending UPDATE CR %s from userinfo for section %s on record %s",

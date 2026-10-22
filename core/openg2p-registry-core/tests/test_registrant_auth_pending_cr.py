@@ -176,6 +176,7 @@ async def test_create_pending_crs_from_userinfo_creates_update_crs():
     for call in created_payloads:
         assert call["change_request_source"] == "STAFF_PORTAL"
         assert call["bearer_token"] is None
+        assert call["skip_awe_when_token_missing"] is True
 
     demo_row = created_payloads[0]["change_request_request_payload"].change_payload[0]
     assert demo_row.edit_action == "UPDATE"
