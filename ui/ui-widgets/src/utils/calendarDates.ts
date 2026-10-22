@@ -151,6 +151,138 @@ export const formatInCalendar = (
     .replace(/DD/g, day);
 };
 
+type DatePatternToken =
+  | { kind: 'YYYY' | 'YY' | 'MM' | 'DD' }
+  | { kind: 'lit'; value: string };
+
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Tokenize a date format pattern into YYYY/YY/MM/DD and literal separators.
+ * Longer year token (YYYY) is matched before YY.
+ */
+export const tokenizeDatePattern = (pattern: string): DatePatternToken[] => {
+  const tokens: DatePatternToken[] = [];
+  let i = 0;
+  while (i < pattern.length) {
+    if (pattern.startsWith('YYYY', i)) {
+      tokens.push({ kind: 'YYYY' });
+      i += 4;
+      continue;
+    }
+    if (pattern.startsWith('YY', i)) {
+      tokens.push({ kind: 'YY' });
+      i += 2;
+      continue;
+    }
+    if (pattern.startsWith('MM', i)) {
+      tokens.push({ kind: 'MM' });
+      i += 2;
+      continue;
+    }
+    if (pattern.startsWith('DD', i)) {
+      tokens.push({ kind: 'DD' });
+      i += 2;
+      continue;
+    }
+    let literal = '';
+    while (
+      i < pattern.length &&
+      !pattern.startsWith('YYYY', i) &&
+      !pattern.startsWith('YY', i) &&
+      !pattern.startsWith('MM', i) &&
+      !pattern.startsWith('DD', i)
+    ) {
+      literal += pattern[i];
+      i += 1;
+    }
+    if (literal) {
+      tokens.push({ kind: 'lit', value: literal });
+    }
+  }
+  return tokens;
+};
+
+/**
+ * Extract day/month/year from a user-typed string using pattern tokens.
+ * Day/month accept 1–2 digits; YYYY is 4 digits; YY is 2 digits.
+ */
+export const extractDatePartsFromPattern = (
+  input: string,
+  pattern: string
+): { day: number; month: number; year: number; yearIsShort: boolean } | null => {
+  const trimmed = input.trim();
+  if (!trimmed || !pattern) {
+    return null;
+  }
+
+  const tokens = tokenizeDatePattern(pattern);
+  const fieldKinds = tokens
+    .filter((t): t is { kind: 'YYYY' | 'YY' | 'MM' | 'DD' } => t.kind !== 'lit')
+    .map((t) => t.kind);
+
+  if (
+    !fieldKinds.includes('DD') ||
+    !fieldKinds.includes('MM') ||
+    !(fieldKinds.includes('YYYY') || fieldKinds.includes('YY'))
+  ) {
+    return null;
+  }
+
+  let source = '';
+  for (const token of tokens) {
+    if (token.kind === 'YYYY') {
+      source += '(\\d{4})';
+    } else if (token.kind === 'YY') {
+      source += '(\\d{2})';
+    } else if (token.kind === 'MM' || token.kind === 'DD') {
+      source += '(\\d{1,2})';
+    } else {
+      // Allow flexible whitespace around/within literal separators.
+      const lit = escapeRegExp(token.value).replace(/\\\s+/g, '\\s+');
+      source += lit.replace(/ +/g, '\\s+');
+    }
+  }
+
+  const match = trimmed.match(new RegExp(`^${source}$`));
+  if (!match) {
+    return null;
+  }
+
+  let day: number | undefined;
+  let month: number | undefined;
+  let year: number | undefined;
+  let yearIsShort = false;
+  let groupIndex = 1;
+  for (const kind of fieldKinds) {
+    const raw = match[groupIndex++];
+    const n = parseInt(raw, 10);
+    if (Number.isNaN(n)) {
+      return null;
+    }
+    if (kind === 'DD') {
+      day = n;
+    } else if (kind === 'MM') {
+      month = n;
+    } else if (kind === 'YYYY') {
+      year = n;
+    } else if (kind === 'YY') {
+      year = n;
+      yearIsShort = true;
+    }
+  }
+
+  if (day == null || month == null || year == null) {
+    return null;
+  }
+  if (day < 1 || day > 31 || month < 1 || month > 13) {
+    return null;
+  }
+
+  return { day, month, year, yearIsShort };
+};
+
 /**
  * Parse a user-typed calendar-local string (using pattern tokens) to Gregorian ISO.
  */
@@ -163,31 +295,15 @@ export const parseCalendarInputToGregorianISO = (
     return '';
   }
 
-  const dayIndex = pattern.indexOf('DD');
-  const monthIndex = pattern.indexOf('MM');
-  const yearIndex = pattern.indexOf('YYYY');
-  const yearShortIndex = pattern.indexOf('YY');
-
-  if (dayIndex === -1 || monthIndex === -1 || (yearIndex === -1 && yearShortIndex === -1)) {
-    // Fall back to ISO-shaped input
-    return toGregorianISO(input, calendar);
+  const parts = extractDatePartsFromPattern(input, pattern);
+  if (!parts) {
+    // Fall back to ISO-shaped input (YYYY-MM-DD)
+    return toGregorianISO(input.trim(), calendar);
   }
 
   try {
-    let day = '';
-    let month = '';
-    let year = '';
-
-    if (dayIndex !== -1) {
-      day = input.substring(dayIndex, dayIndex + 2);
-    }
-    if (monthIndex !== -1) {
-      month = input.substring(monthIndex, monthIndex + 2);
-    }
-    if (yearIndex !== -1) {
-      year = input.substring(yearIndex, yearIndex + 4);
-    } else if (yearShortIndex !== -1) {
-      const yearShort = input.substring(yearShortIndex, yearShortIndex + 2);
+    let year = parts.year;
+    if (parts.yearIsShort) {
       const currentParts = fromGregorianISO(
         new Date().toISOString().slice(0, 10),
         calendar
@@ -196,16 +312,14 @@ export const parseCalendarInputToGregorianISO = (
         ? currentParts.eraYear ?? currentParts.year
         : new Date().getFullYear();
       const century = Math.floor(currentYear / 100) * 100;
-      const parsedYear = parseInt(yearShort, 10);
-      year = String(
-        parsedYear <= 50 ? century + parsedYear : century - 100 + parsedYear
-      );
+      // 00-50 → current century; 51-99 → previous century
+      year = parts.year <= 50 ? century + parts.year : century - 100 + parts.year;
     }
 
-    if (!day || !month || !year) {
-      return '';
-    }
-    return toGregorianISO(`${year}-${month}-${day}`, calendar);
+    return toGregorianISO(
+      `${year}-${pad2(parts.month)}-${pad2(parts.day)}`,
+      calendar
+    );
   } catch {
     return '';
   }

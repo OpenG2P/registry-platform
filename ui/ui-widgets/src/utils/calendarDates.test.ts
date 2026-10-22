@@ -61,6 +61,32 @@ describe('calendarDates', () => {
     );
   });
 
+  it('parses unpadded day/month for non-ISO patterns', () => {
+    expect(parseCalendarInputToGregorianISO('1/1/2017', 'ethiopic', 'DD/MM/YYYY')).toBe(
+      '2024-09-11'
+    );
+    expect(parseCalendarInputToGregorianISO('1/01/2017', 'ethiopic', 'DD/MM/YYYY')).toBe(
+      '2024-09-11'
+    );
+  });
+
+  it('parses YYYY-MM-DD with unpadded month/day', () => {
+    expect(parseCalendarInputToGregorianISO('2017-1-1', 'ethiopic', 'YYYY-MM-DD')).toBe(
+      '2024-09-11'
+    );
+  });
+
+  it('trims whitespace around typed calendar dates', () => {
+    expect(parseCalendarInputToGregorianISO('  01/01/2017  ', 'ethiopic', 'DD/MM/YYYY')).toBe(
+      '2024-09-11'
+    );
+  });
+
+  it('returns empty for garbage manual input that does not match the pattern', () => {
+    expect(parseCalendarInputToGregorianISO('not-a-date', 'ethiopic', 'DD/MM/YYYY')).toBe('');
+    expect(parseCalendarInputToGregorianISO('01-01-2017', 'ethiopic', 'DD/MM/YYYY')).toBe('');
+  });
+
   it('leaves Gregorian ISO unchanged for gregory calendar', () => {
     expect(toGregorianISO('2024-09-11', 'gregory')).toBe('2024-09-11');
     expect(formatInCalendar('2024-09-11', 'gregory', 'YYYY-MM-DD')).toBe('2024-09-11');
