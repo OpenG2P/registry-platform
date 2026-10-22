@@ -314,6 +314,8 @@ async def test_create_pending_crs_from_userinfo_creates_update_crs(auth_mod):
     for call in created_payloads:
         assert call["change_request_source"] == "STAFF_PORTAL"
         assert call["change_request_request_payload"].change_payload[0].edit_action == "UPDATE"
+        # Token is resolved inside AWE start only when enabled + policy applies.
+        assert call["bearer_token"] is None
 
 
 @pytest.mark.asyncio

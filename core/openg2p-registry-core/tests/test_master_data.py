@@ -292,3 +292,68 @@ def test_get_attribute_codes_ttl_refresh():
         client._codes_expires_at = time.monotonic() - 1
         asyncio.run(client.get_attribute_codes())
     assert calls["n"] == 2
+
+
+def test_get_staff_access_token_returns_none_when_auth_unconfigured():
+    client = MasterDataClient()
+    with patch.object(
+        master_data_mod,
+        "get_master_data_settings",
+        return_value=_cfg(master_data_api_url="http://ms"),
+    ):
+        assert asyncio.run(client.get_staff_access_token()) is None
+
+
+def test_get_staff_access_token_uses_settings_and_caches():
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(200, json={"access_token": "svc-tok", "expires_in": 300})
+
+    client = MasterDataClient()
+    with (
+        patch.object(
+            master_data_mod,
+            "get_master_data_settings",
+            return_value=_cfg(
+                master_data_api_url="http://ms",
+                master_data_token_url="http://kc/token",
+                master_data_client_id="cid",
+                master_data_client_secret="secret",
+            ),
+        ),
+        patch.object(
+            master_data_mod.httpx,
+            "AsyncClient",
+            _patched_client(handler),
+        ),
+    ):
+        assert asyncio.run(client.get_staff_access_token()) == "svc-tok"
+        assert asyncio.run(client.get_staff_access_token()) == "svc-tok"
+    assert calls["n"] == 1
+
+
+def test_get_staff_access_token_returns_none_on_http_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"error": "down"})
+
+    client = MasterDataClient()
+    with (
+        patch.object(
+            master_data_mod,
+            "get_master_data_settings",
+            return_value=_cfg(
+                master_data_api_url="http://ms",
+                master_data_token_url="http://kc/token",
+                master_data_client_id="cid",
+                master_data_client_secret="secret",
+            ),
+        ),
+        patch.object(
+            master_data_mod.httpx,
+            "AsyncClient",
+            _patched_client(handler),
+        ),
+    ):
+        assert asyncio.run(client.get_staff_access_token()) is None

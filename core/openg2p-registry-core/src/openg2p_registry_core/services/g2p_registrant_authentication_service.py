@@ -405,41 +405,6 @@ class G2PRegistrantAuthenticationService(BaseService):
                 await session.commit()
                 return auth
 
-    async def _service_bearer_token_for_awe(self) -> str | None:
-        """Client-credentials token for AWE when creating CRs from OIDC callback (no staff JWT)."""
-        import os
-        import httpx
-
-        token_url = (
-            os.environ.get("REGISTRY_STAFF_PORTAL_API_MASTER_DATA_TOKEN_URL")
-            or os.environ.get("REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_TOKEN_URL")
-            or ""
-        ).strip()
-        client_id = (
-            os.environ.get("REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_ID")
-            or os.environ.get("REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_ID")
-            or ""
-        ).strip()
-        client_secret = (
-            os.environ.get("REGISTRY_STAFF_PORTAL_API_MASTER_DATA_CLIENT_SECRET")
-            or os.environ.get("REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_SECRET")
-            or ""
-        ).strip()
-        if not (token_url and client_id and client_secret):
-            _logger.warning("No client credentials for AWE token; CR create may fail if AWE policy applies.")
-            return None
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
-                token_url,
-                data={
-                    "grant_type": "client_credentials",
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                },
-            )
-            resp.raise_for_status()
-            return resp.json().get("access_token")
-
     async def _create_pending_crs_from_userinfo(
         self,
         *,
@@ -506,12 +471,12 @@ class G2PRegistrantAuthenticationService(BaseService):
                 change_payload=[change_payload],
                 created_by=created_by,
             )
-            bearer_token = await self._service_bearer_token_for_awe()
+            # Bearer resolved in start_change_request_workflow only when AWE+policy.
             change_request = await change_request_service.create_change_request(
                 change_request_request_payload=request_payload,
                 created_by=created_by,
                 change_request_source=ChangeRequestSourceEnum.STAFF_PORTAL.value,
-                bearer_token=bearer_token,
+                bearer_token=None,
                 requester_sub=created_by,
             )
             created_change_request_ids.append(change_request.change_request_id)

@@ -44,6 +44,30 @@ class G2PAweIntegrationService(BaseService):
             )
         return token
 
+    async def _resolve_change_request_bearer(
+        self, bearer_token: str | None
+    ) -> str | None:
+        """Prefer the caller's token; otherwise fetch once via MasterDataClient Settings.
+
+        Called only after AWE is enabled and an effective policy exists. A missing
+        token means skip AWE (pending CR is still created), not abort creation.
+        """
+        token = (bearer_token or "").strip()
+        if token:
+            return token
+        try:
+            from ..helpers.master_data import MasterDataClient
+
+            client = MasterDataClient.get_component()
+            if client is None:
+                client = MasterDataClient()
+            return (await client.get_staff_access_token() or "").strip() or None
+        except Exception:
+            _logger.exception(
+                "Failed to fetch staff access token for AWE change-request start."
+            )
+            return None
+
     @staticmethod
     def _build_context(
         base: dict[str, Any],
@@ -117,7 +141,15 @@ class G2PAweIntegrationService(BaseService):
         if policy is None:
             return
 
-        token = self._require_bearer(bearer_token)
+        token = await self._resolve_change_request_bearer(bearer_token)
+        if not token:
+            _logger.warning(
+                "Skipping AWE for change_request_id=%s: no bearer token "
+                "(AWE enabled and a policy applies).",
+                change_request.change_request_id,
+            )
+            return
+
         base = {
             "record_name": change_request.record_name,
             "section_mnemonic": await self._resolve_section_mnemonic(
