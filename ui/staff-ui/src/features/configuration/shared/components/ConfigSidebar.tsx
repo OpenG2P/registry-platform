@@ -75,7 +75,13 @@ const sidebarOptions: SidebarOption[] = [
     },
 ];
 
-export default function ConfigSidebar({ activeOption }: { activeOption: string }) {
+export default function ConfigSidebar({
+    activeOption,
+    onNavigate,
+}: {
+    activeOption: string;
+    onNavigate?: () => void;
+}) {
     const t = useTranslations();
     return (
         <div className="w-full h-full bg-primary-first rounded-r-[10px] p-4 pt-8">
@@ -96,6 +102,7 @@ export default function ConfigSidebar({ activeOption }: { activeOption: string }
                             <div className="relative z-10">
                                 <Link
                                     href={option.path}
+                                    onClick={onNavigate}
                                     className="flex items-center px-4 py-3 cursor-pointer"
                                 >
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isActive ? 'bg-neutral-first' : 'bg-neutral-second'} `}>
@@ -120,6 +127,7 @@ export default function ConfigSidebar({ activeOption }: { activeOption: string }
                                             <Link
                                                 key={sub.id}
                                                 href={sub.path}
+                                                onClick={onNavigate}
                                                 className={`block text-sm transition-colors ${activeOption === sub.id
                                                     ? 'text-neutral-second font-bold'
                                                     : 'text-neutral-first font-medium'

@@ -11,6 +11,53 @@ export interface PanelRendererProps {
   isEditMode?: boolean;
 }
 
+const PANEL_LAYOUT_CSS = `
+.panel-horizontal-grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.panel-horizontal-grid > .panel-nested {
+  min-width: 0;
+  max-width: 100%;
+  position: relative;
+}
+.panel-horizontal-divider {
+  display: none;
+}
+.panel-widget-row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  gap: 0;
+}
+@media (min-width: 1024px) {
+  .panel-horizontal-grid {
+    grid-template-columns: repeat(var(--panel-columns, 1), minmax(0, 1fr));
+    gap: 0;
+  }
+  .panel-horizontal-grid > .panel-nested {
+    grid-column: span var(--panel-span, 1);
+  }
+  .panel-horizontal-grid > .panel-nested.panel-nested-pad-left {
+    padding-left: 40px;
+  }
+  .panel-horizontal-grid > .panel-nested.panel-nested-pad-right {
+    padding-right: 40px;
+  }
+  .panel-horizontal-divider {
+    display: block;
+  }
+  .panel-widget-row {
+    flex-direction: row;
+    gap: 16px;
+  }
+}
+`;
+
 export const PanelRenderer = ({
   panel,
   dataSourceRequestHandler,
@@ -21,9 +68,10 @@ export const PanelRenderer = ({
   const orientation = panel['panel-orientation'] || 'vertical';
   const nestedPanels = panel.panels || [];
   const widgets = panel.widgets || [];
+  const isHorizontalGrid = orientation === 'horizontal' && nestedPanels.length > 0;
 
-  const getContainerClassAndStyle = () => {
-    if (orientation === 'horizontal' && nestedPanels.length > 0) {
+  const getContainerClassAndStyle = (): { className: string; style: CSSProperties } => {
+    if (isHorizontalGrid) {
       let totalColumns = 0;
       nestedPanels.forEach((nestedPanel) => {
         const columnSpan = nestedPanel['panel-column-span'] || 1;
@@ -33,15 +81,13 @@ export const PanelRenderer = ({
       totalColumns = Math.max(totalColumns, nestedPanels.length);
 
       return {
-        className: 'grid',
-        style: { gridTemplateColumns: `repeat(${totalColumns}, minmax(200px, 1fr))` },
+        className: 'panel-horizontal-grid',
+        style: { ['--panel-columns' as string]: String(totalColumns) },
       };
     }
     return {
-      className: orientation === 'horizontal'
-        ? 'flex flex-row'
-        : 'flex flex-col',
-      style: { gap: orientation === 'horizontal' ? '16px' : '0px' },
+      className: orientation === 'horizontal' ? 'panel-widget-row' : 'flex flex-col',
+      style: {},
     };
   };
 
@@ -58,48 +104,28 @@ export const PanelRenderer = ({
       {nestedPanels.map((nestedPanel, index) => {
         const isLastPanel = index === nestedPanels.length - 1;
         const isFirstPanel = index === 0;
-        const nestedOrientation = nestedPanel['panel-orientation'] || 'vertical';
-        const columnSpan = nestedPanel['panel-column-span'];
+        const columnSpan = nestedPanel['panel-column-span'] || 1;
 
-        const getNestedPanelStyle = (): CSSProperties => {
-          if (orientation === 'horizontal') {
-            const baseStyle: CSSProperties = {
-              minWidth: '200px',
-              paddingRight: !isLastPanel ? '40px' : undefined,
-              paddingLeft: !isFirstPanel ? '40px' : undefined,
-              position: 'relative',
-            };
+        const nestedPanelStyle: CSSProperties = isHorizontalGrid
+          ? { ['--panel-span' as string]: String(columnSpan) }
+          : { width: '100%', maxWidth: '100%', minWidth: 0 };
 
-            if (nestedOrientation === 'vertical' && columnSpan && columnSpan > 1) {
-              return {
-                ...baseStyle,
-                gridColumn: `span ${columnSpan}`,
-                minWidth: 'auto',
-              };
-            }
-
-            return baseStyle;
-          }
-
-          if (columnSpan && columnSpan > 1) {
-            const width = columnSpan * 200;
-            return {
-              width: `${width}px`,
-              maxWidth: '100%',
-              flexShrink: 0,
-            };
-          }
-          return { width: '100%' };
-        };
-
-        const nestedPanelStyle = getNestedPanelStyle();
+        const nestedClassName = isHorizontalGrid
+          ? [
+              'panel-nested',
+              !isFirstPanel ? 'panel-nested-pad-left' : '',
+              !isLastPanel ? 'panel-nested-pad-right' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
+          : 'w-full min-w-0';
 
         return (
           <Fragment key={nestedPanel['panel-id'] || `panel-${index}`}>
             <div
-              className={orientation === 'horizontal' ? 'min-w-200 relative' : 'w-full'}
+              className={nestedClassName}
               style={nestedPanelStyle}
-              data-panel-column-span={columnSpan || undefined}
+              data-panel-column-span={columnSpan > 1 ? columnSpan : undefined}
             >
               <PanelRenderer
                 panel={nestedPanel}
@@ -110,6 +136,7 @@ export const PanelRenderer = ({
               />
               {orientation === 'horizontal' && !isLastPanel && (
                 <div
+                  className="panel-horizontal-divider"
                   style={{
                     position: 'absolute',
                     right: 0,
@@ -143,8 +170,9 @@ export const PanelRenderer = ({
     <div
       className={`panel panel-${orientation}`}
       data-panel-id={panel['panel-id']}
-      style={orientation === 'horizontal' ? { width: '100%' } : {}}
+      style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
     >
+      <style>{PANEL_LAYOUT_CSS}</style>
       {content}
     </div>
   );

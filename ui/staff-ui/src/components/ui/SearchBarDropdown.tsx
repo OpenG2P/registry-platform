@@ -40,22 +40,22 @@ const SearchBarDropdown = ({
         options.find((o) => o.value === selected)?.label || t('select');
 
     return (
-        <div ref={dropdownRef} className="relative min-w-45 -mx-px z-10">
+        <div ref={dropdownRef} className="relative z-10 -mx-px w-[46%] max-w-56 shrink-0 min-w-0 sm:w-auto sm:min-w-45 sm:max-w-none">
             {/* BUTTON */}
             <button
                 type="button"
                 onClick={() => setOpen((v) => !v)}
-                className={`flex h-14 w-full items-center justify-between rounded-[10px] border border-primary-second bg-neutral-second px-6 gap-5 text-[20px] font-semibold text-neutral-first transition-colors
+                className={`flex h-14 w-full items-center justify-between rounded-[10px] border border-primary-second bg-neutral-second px-3 sm:px-6 gap-2 sm:gap-5 text-base sm:text-[20px] font-semibold text-neutral-first transition-colors
                 ${open
                     ? "rounded-b-none border-b-0"
                     : `rounded-r-none border-r-0 after:absolute after:right-0 after:top-2.5 after:bottom-2.5 after:w-px after:bg-primary-second after:content-['']`}
                 `}
             >
-                <span className={`truncate text-[20px] ${open ? "text-neutral-first/50 font-medium" : "text-neutral-first font-medium"}`}>
+                <span className={`min-w-0 truncate text-base sm:text-[20px] ${open ? "text-neutral-first/50 font-medium" : "text-neutral-first font-medium"}`}>
                     {selectedLabel}
                 </span>
 
-                <span className={`text-4xl transition-transform duration-200 opacity-60 ${open ? "rotate-180" : ""}`}>
+                <span className={`shrink-0 text-3xl sm:text-4xl transition-transform duration-200 opacity-60 ${open ? "rotate-180" : ""}`}>
                     <MdOutlineArrowDropDown />
                 </span>
             </button>
@@ -72,7 +72,7 @@ const SearchBarDropdown = ({
                                 onChange(opt.value);
                                 setOpen(false);
                             }}
-                            className={`block w-full h-14 px-6 py-1 text-left text-[20px] font-medium transition-colors ${selected === opt.value ? "bg-secondary-second" : ""}`}
+                            className={`block w-full min-h-14 h-auto px-3 sm:px-6 py-2 text-left text-base sm:text-[20px] font-medium break-words transition-colors ${selected === opt.value ? "bg-secondary-second" : ""}`}
                         >
                             {opt.label}
                         </button>

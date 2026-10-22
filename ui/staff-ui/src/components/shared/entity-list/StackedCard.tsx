@@ -39,7 +39,7 @@ export default function StackedCard({
     const heading = title?.trim() || '—';
 
     return (
-        <div className="rounded-[10px] bg-neutral-second px-10 py-5">
+        <div className="rounded-[10px] bg-neutral-second px-4 py-5 sm:px-6 lg:px-10">
             <div className="mb-4 flex items-start gap-3">
                 {selectable ? (
                     <label
@@ -63,12 +63,14 @@ export default function StackedCard({
                 </h3>
             </div>
 
-            <div className="grid grid-cols-4 items-stretch gap-6 text-[16px] text-neutral-first/50">
+            <div className="grid grid-cols-1 items-stretch gap-4 text-[16px] text-neutral-first/50 sm:grid-cols-2 sm:gap-6 xl:grid-cols-4">
                 {columns.map((column, index) => (
-                    <div key={index} className="flex h-full min-h-0 flex-col">
+                    <div key={index} className="flex h-full min-h-0 min-w-0 flex-col">
                         <div
                             className={`flex flex-1 flex-col space-y-2 ${
-                                index > 0 ? 'border-l-2 border-secondary-second pl-6' : ''
+                                index % 2 === 1 ? 'sm:border-l-2 sm:border-secondary-second sm:pl-6' : ''
+                            } ${
+                                index > 0 ? 'xl:border-l-2 xl:border-secondary-second xl:pl-6' : 'xl:border-l-0 xl:pl-0'
                             }`}
                         >
                             {column.content ??
@@ -92,7 +94,7 @@ export default function StackedCard({
                     type="button"
                     disabled={viewDetailsDisabled || !onViewDetails}
                     onClick={() => onViewDetails?.()}
-                    className="flex items-center gap-2 text-[14px] font-normal text-neutral-first opacity-60 transition hover:opacity-100 disabled:cursor-default disabled:opacity-40 disabled:hover:opacity-40"
+                    className="flex items-center gap-2 whitespace-nowrap text-[14px] font-normal text-neutral-first opacity-60 transition hover:opacity-100 disabled:cursor-default disabled:opacity-40 disabled:hover:opacity-40"
                 >
                     {t.has('view_details') ? t('view_details') : 'View details'}
                     <Image
@@ -100,6 +102,7 @@ export default function StackedCard({
                         alt=""
                         width={14}
                         height={14}
+                        className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5"
                     />
                 </button>
             </div>

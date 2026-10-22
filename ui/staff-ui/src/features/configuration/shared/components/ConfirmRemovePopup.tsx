@@ -19,8 +19,8 @@ export default function ConfirmRemovePopup({
     const t = useTranslations();
 
     return (
-        <div className="fixed inset-0 bg-neutral-first/80 flex items-center justify-center z-50">
-            <div className="relative bg-neutral-second rounded-[10px] border-5 border-toast-failed w-120 p-6 flex flex-col items-center gap-6">
+        <div className="fixed inset-0 bg-neutral-first/80 flex items-center justify-center z-50 p-4">
+            <div className="relative bg-neutral-second rounded-[10px] border-5 border-toast-failed w-full max-w-120 p-6 flex flex-col items-center gap-6">
                 <button
                     className="absolute top-4 right-4 opacity-50"
                     onClick={onClose}

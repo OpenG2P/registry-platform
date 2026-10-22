@@ -1135,27 +1135,29 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
 
   const tableWidgetId = `table-widget-${widgetConfig['widget-id']}`;
   const columnSpan = widgetConfig['widget-column-span'] || 2;
-  const minWidth = columnSpan * 200; // Each column is 200px
   const actionsHeaderLabel = toTitleCase(t?.('common.actions') || 'Actions');
 
   return (
     <>
       <style>{`
-        /* Table widget styling - width based on column span */
+        /* Table stays inside its section; columns scroll inside the table */
         .${tableWidgetId} {
           width: 100%;
-          min-width: ${minWidth}px;
+          min-width: 0;
+          max-width: 100%;
         }
         
         /* Target the widget-container parent when it contains a table widget */
         .widget-container[data-widget-id="${widgetConfig['widget-id']}"] {
-          min-width: ${minWidth}px;
+          min-width: 0;
+          max-width: 100%;
           width: 100%;
           /* Remove flex properties to avoid height issues */
           flex: none;
         }
         
         /* In horizontal panels, make table widget span specified columns */
+        @media (min-width: 1024px) {
         .panel-horizontal .widget-container[data-widget-id="${widgetConfig['widget-id']}"],
         [data-panel-orientation="horizontal"] .widget-container[data-widget-id="${widgetConfig['widget-id']}"] {
           grid-column: span ${columnSpan};
@@ -1167,6 +1169,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
           grid-column: 1 / -1; /* Span all columns in grid */
           width: 100%;
           flex: 1 1 100%;
+        }
         }
         
         /* Compact styling for widgets inside table cells - hide labels and reduce margins */
@@ -1217,15 +1220,15 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       `}</style>
       <div className={`table-widget-container ${tableWidgetId}`}>
       {confirmationState?.show && (
-        <div className={`${themeRoot.className} fixed inset-0 flex items-center justify-center z-50`} style={{ ...themeRoot.style, backgroundColor: 'var(--owt-color-overlay)' }}>
-          <div className="rounded-lg p-6 max-w-md w-full mx-4" style={{ backgroundColor: 'var(--owt-color-bg)' }}>
-            <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--owt-color-text)' }}>
+        <div className={`${themeRoot.className} fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-3 sm:p-4`} style={{ ...themeRoot.style, backgroundColor: 'var(--owt-color-overlay)' }}>
+          <div className="my-auto w-full min-w-0 max-w-md rounded-lg p-4 sm:p-6" style={{ backgroundColor: 'var(--owt-color-bg)' }}>
+            <h3 className="mb-4 text-base font-semibold sm:text-lg" style={{ color: 'var(--owt-color-text)' }}>
               {t?.('table.confirm') || 'Confirm Action'}
             </h3>
-            <p className="mb-6" style={{ color: 'var(--owt-color-text)' }}>
+            <p className="mb-6 break-words" style={{ color: 'var(--owt-color-text)' }}>
               {confirmationState.message}
             </p>
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-wrap justify-end gap-3">
               <button
                 onClick={confirmationState.onCancel}
                 className="px-4 py-2 text-sm font-medium"
@@ -1255,12 +1258,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         </div>
       )}
       {operations.add && !isReadonly && isEnabled && (isSectionEditMode || !isAnyRowEditing) && (
-        <div className="flex justify-end mb-2">
+        <div className="mb-2 flex justify-end">
           <button
             type="button"
             onClick={startAdd}
             disabled={loadingRowIndex !== null}
-            className="px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="max-w-full px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               borderRadius: 'var(--owt-btn-border-radius)',
               border: '1px solid var(--owt-btn-primary-border)',
@@ -1273,7 +1276,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         </div>
       )}
 
-        <div className="overflow-x-auto border" style={{ borderRadius: 'var(--owt-widget-table-border-radius)', borderColor: 'var(--owt-widget-table-border-color)' }}>
+        <div className="max-w-full min-w-0 overflow-x-auto border" style={{ borderRadius: 'var(--owt-widget-table-border-radius)', borderColor: 'var(--owt-widget-table-border-color)' }}>
           <table className="min-w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead style={{ backgroundColor: 'var(--owt-widget-table-header-bg)' }}>
               <tr style={{ borderBottom: '1px solid var(--owt-widget-table-row-divider)' }}>
