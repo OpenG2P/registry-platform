@@ -9,15 +9,13 @@ from typing import Any
 
 USERINFO_CHANGE_REQUEST_CONFIG_KEY = "userinfo_change_request"
 
-GENDER_CLAIM_TO_VALUE = {
+# Minimal aliases only. Domain-specific values (OTHERS, UNKNOWN, …) belong in
+# provider_config via claim rule ``map`` or top-level ``gender_map``.
+_DEFAULT_GENDER_CLAIM_MAP = {
     "male": "MALE",
     "m": "MALE",
     "female": "FEMALE",
     "f": "FEMALE",
-    "other": "OTHERS",
-    "others": "OTHERS",
-    "unknown": "UNKNOWN",
-    "": "UNKNOWN",
 }
 
 
@@ -32,6 +30,7 @@ class UserinfoChangeRequestMapping:
     tab_keys: tuple[str, ...]
     claim_rules: dict[str, dict[str, Any]]
     sections: tuple[UserinfoSectionMapping, ...]
+    gender_map: dict[str, str]
 
 
 def parse_userinfo_change_request_mapping(
@@ -40,8 +39,9 @@ def parse_userinfo_change_request_mapping(
     """
     Read CR mapping from provider_config.
 
-    Extension/seed owns section keys, tab keys, and claim→field rules.
-    Platform only interprets this shape; missing config means skip CR creation.
+    Extension/seed owns section keys, tab keys, claim→field rules, and optional
+    gender_map. Platform only interprets this shape; missing config means skip
+    CR creation.
     """
     if not isinstance(provider_config, dict):
         return None
@@ -73,10 +73,14 @@ def parse_userinfo_change_request_mapping(
         tab_keys=tab_keys,
         claim_rules=claim_rules,
         sections=tuple(sections),
+        gender_map=_parse_gender_map(raw.get("gender_map")),
     )
 
 
-def normalize_gender(value: Any) -> str | None:
+def normalize_gender(
+    value: Any,
+    gender_map: dict[str, str] | None = None,
+) -> str | None:
     if value is None:
         return None
     if isinstance(value, list):
@@ -84,10 +88,13 @@ def normalize_gender(value: Any) -> str | None:
     if not isinstance(value, str):
         value = str(value)
     first_token = value.split(",", 1)[0].strip()
-    mapped = GENDER_CLAIM_TO_VALUE.get(first_token.lower())
+    if not first_token:
+        return None
+    lookup = {**_DEFAULT_GENDER_CLAIM_MAP, **(gender_map or {})}
+    mapped = lookup.get(first_token.lower())
     if mapped:
         return mapped
-    return first_token.upper() if first_token else None
+    return first_token.upper()
 
 
 def normalize_birth_date(value: Any) -> str | None:
@@ -134,19 +141,43 @@ def normalize_address(value: Any) -> str | None:
     return str(value).strip() or None
 
 
-def split_full_name(full_name: str) -> dict[str, str]:
+def split_full_name_into_fields(
+    full_name: str,
+    split_into: list[str],
+) -> dict[str, str]:
+    """Map whitespace-split name parts onto ordered ``split_into`` field names.
+
+    Extension chooses the field names. Platform only applies positional rules:
+    one field gets the whole name; two fields get first + remainder; three or
+    more get first, joined middle, last (extra middle field names are unused).
+    """
+    field_names = [name for name in split_into if isinstance(name, str) and name]
     parts = [p for p in re.split(r"\s+", full_name.strip()) if p]
-    if not parts:
+    if not field_names or not parts:
         return {}
+    if len(field_names) == 1:
+        return {field_names[0]: " ".join(parts)}
     if len(parts) == 1:
-        return {"first_name": parts[0]}
-    if len(parts) == 2:
-        return {"first_name": parts[0], "last_name": parts[1]}
-    return {
-        "first_name": parts[0],
-        "middle_name": " ".join(parts[1:-1]),
-        "last_name": parts[-1],
+        return {field_names[0]: parts[0]}
+    if len(field_names) == 2:
+        return {
+            field_names[0]: parts[0],
+            field_names[1]: " ".join(parts[1:]),
+        }
+    result = {
+        field_names[0]: parts[0],
+        field_names[-1]: parts[-1],
     }
+    if len(parts) > 2:
+        result[field_names[1]] = " ".join(parts[1:-1])
+    return result
+
+
+# Backward-compatible name used by older call sites / docs.
+def split_full_name(full_name: str) -> dict[str, str]:
+    return split_full_name_into_fields(
+        full_name, ["first_name", "middle_name", "last_name"]
+    )
 
 
 def map_userinfo_to_register_fields(
@@ -174,7 +205,9 @@ def map_userinfo_to_register_fields(
 
         normalize = rule.get("normalize")
         if normalize == "gender":
-            value = normalize_gender(raw_value)
+            claim_map = rule.get("map") if isinstance(rule.get("map"), dict) else None
+            merged_map = {**mapping.gender_map, **_string_map(claim_map)}
+            value = normalize_gender(raw_value, merged_map)
         elif normalize == "birth_date":
             value = normalize_birth_date(raw_value)
         elif normalize == "address":
@@ -191,13 +224,10 @@ def map_userinfo_to_register_fields(
 
         split_into = rule.get("split_into")
         if isinstance(split_into, list) and isinstance(value, str):
-            name_parts = split_full_name(value)
-            for part_field in split_into:
-                if not isinstance(part_field, str):
-                    continue
-                part_value = name_parts.get(part_field)
-                if part_value:
-                    fields.setdefault(part_field, part_value)
+            for part_field, part_value in split_full_name_into_fields(
+                value, split_into
+            ).items():
+                fields.setdefault(part_field, part_value)
 
     fields.pop("foundational_id", None)
     fields.pop("individual_id", None)
@@ -229,3 +259,17 @@ def _as_str_frozenset(value: Any) -> frozenset[str]:
     if not isinstance(value, list):
         return frozenset()
     return frozenset(item for item in value if isinstance(item, str) and item)
+
+
+def _string_map(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    return {
+        str(key).strip().lower(): str(mapped).strip()
+        for key, mapped in value.items()
+        if key is not None and mapped is not None and str(mapped).strip()
+    }
+
+
+def _parse_gender_map(value: Any) -> dict[str, str]:
+    return _string_map(value)

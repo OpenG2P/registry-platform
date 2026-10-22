@@ -42,6 +42,11 @@ from .registrant_auth_userinfo_mapper import (
 _logger = logging.getLogger("g2p-registrant-auth-service")
 _config = Settings.get_config()
 
+# Matches G2PRegisterChangeRequestService.validate_change_request_creation.
+_PENDING_CR_EXISTS_MESSAGE = (
+    "A pending change request already exists for this record and section"
+)
+
 
 class _ClaimsCrypto:
     def __init__(self, fernet_key: str | None):
@@ -446,48 +451,99 @@ class G2PRegistrantAuthenticationService(BaseService):
         for section_mapping, section_fields in split_fields_by_section(
             mapped_fields, change_request_mapping
         ):
-            register_section = await self._find_register_section(
-                session, register_id, section_mapping
-            )
-            if not register_section:
-                _logger.warning(
-                    "No register section matching keys %s for register %s; skipping that CR.",
+            # Isolate each section: one create commits before return, so a later
+            # section failure must not abort siblings or discard earlier CRs.
+            try:
+                created_id = await self._create_pending_cr_for_section(
+                    session=session,
+                    change_request_service=change_request_service,
+                    register_id=register_id,
+                    internal_record_id=internal_record_id,
+                    created_by=created_by,
+                    tab_id=tab_id,
+                    section_mapping=section_mapping,
+                    section_fields=section_fields,
+                )
+            except Exception as section_exc:
+                if self._is_pending_cr_already_exists(section_exc):
+                    _logger.info(
+                        "Skipping userinfo CR for section keys %s on record %s: "
+                        "pending change request already exists.",
+                        section_mapping.section_keys,
+                        internal_record_id,
+                    )
+                    continue
+                _logger.error(
+                    "Userinfo CR failed for section keys %s on record %s: %s",
                     section_mapping.section_keys,
-                    register_id,
+                    internal_record_id,
+                    section_exc,
+                    exc_info=True,
                 )
                 continue
 
-            change_payload = ChangePayload(
-                internal_record_id=internal_record_id,
-                edit_action=ChangeActionEnum.UPDATE.value,
-                **section_fields,
-            )
-            request_payload = ChangeRequestRequestPayload(
-                register_id=register_id,
-                tab_id=tab_id,
-                section_id=register_section.section_id,
-                section_register_id=register_section.section_register_id,
-                internal_record_id=internal_record_id,
-                change_payload=[change_payload],
-                created_by=created_by,
-            )
-            # Bearer resolved in start_change_request_workflow only when AWE+policy.
-            change_request = await change_request_service.create_change_request(
-                change_request_request_payload=request_payload,
-                created_by=created_by,
-                change_request_source=ChangeRequestSourceEnum.STAFF_PORTAL.value,
-                bearer_token=None,
-                requester_sub=created_by,
-            )
-            created_change_request_ids.append(change_request.change_request_id)
-            _logger.info(
-                "Created pending UPDATE CR %s from userinfo for section %s on record %s",
-                change_request.change_request_id,
-                register_section.section_id,
-                internal_record_id,
-            )
+            if created_id:
+                created_change_request_ids.append(created_id)
 
         return created_change_request_ids
+
+    async def _create_pending_cr_for_section(
+        self,
+        *,
+        session,
+        change_request_service,
+        register_id: str,
+        internal_record_id: str,
+        created_by: str | None,
+        tab_id: str,
+        section_mapping: UserinfoSectionMapping,
+        section_fields: dict[str, Any],
+    ) -> str | None:
+        register_section = await self._find_register_section(
+            session, register_id, section_mapping
+        )
+        if not register_section:
+            _logger.warning(
+                "No register section matching keys %s for register %s; skipping that CR.",
+                section_mapping.section_keys,
+                register_id,
+            )
+            return None
+
+        change_payload = ChangePayload(
+            internal_record_id=internal_record_id,
+            edit_action=ChangeActionEnum.UPDATE.value,
+            **section_fields,
+        )
+        request_payload = ChangeRequestRequestPayload(
+            register_id=register_id,
+            tab_id=tab_id,
+            section_id=register_section.section_id,
+            section_register_id=register_section.section_register_id,
+            internal_record_id=internal_record_id,
+            change_payload=[change_payload],
+            created_by=created_by,
+        )
+        # Bearer resolved in start_change_request_workflow only when AWE+policy.
+        change_request = await change_request_service.create_change_request(
+            change_request_request_payload=request_payload,
+            created_by=created_by,
+            change_request_source=ChangeRequestSourceEnum.STAFF_PORTAL.value,
+            bearer_token=None,
+            requester_sub=created_by,
+        )
+        _logger.info(
+            "Created pending UPDATE CR %s from userinfo for section %s on record %s",
+            change_request.change_request_id,
+            register_section.section_id,
+            internal_record_id,
+        )
+        return change_request.change_request_id
+
+    @staticmethod
+    def _is_pending_cr_already_exists(exc: BaseException) -> bool:
+        message = getattr(exc, "message", None) or str(exc)
+        return _PENDING_CR_EXISTS_MESSAGE in message
 
     @staticmethod
     async def _find_register_section(

@@ -268,3 +268,119 @@ async def test_skips_when_no_mappable_claims():
 
     assert ids == []
     cr_mock.create_change_request.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_section_failure_does_not_stop_remaining_sections():
+    service = G2PRegistrantAuthenticationService.__new__(
+        G2PRegistrantAuthenticationService
+    )
+
+    demographic_section = _demographic_section()
+    contact_section = _contact_section()
+
+    async def find_section(_session, _register_id, section_mapping):
+        keys = set(section_mapping.section_keys)
+        if "individual_demographic_section" in keys:
+            return demographic_section
+        if "individual_contact_section" in keys:
+            return contact_section
+        return None
+
+    service._find_register_section = find_section  # type: ignore[method-assign]
+    service._find_tab_id = AsyncMock(return_value="individual_info_tab")  # type: ignore[method-assign]
+
+    created_payloads: list[dict] = []
+
+    class FakeCR:
+        def __init__(self, change_request_id):
+            self.change_request_id = change_request_id
+
+    class FakeCRService:
+        async def create_change_request(self, **kwargs):
+            section_id = kwargs["change_request_request_payload"].section_id
+            if section_id == "individual_demographic_section":
+                raise RuntimeError(
+                    "A pending change request already exists for this record and section"
+                )
+            created_payloads.append(kwargs)
+            return FakeCR("cr-contact")
+
+    with patch.object(
+        G2PRegisterChangeRequestService,
+        "get_component",
+        return_value=FakeCRService(),
+    ):
+        ids = await service._create_pending_crs_from_userinfo(
+            session=MagicMock(),
+            register_id=REGISTER_ID,
+            internal_record_id="rec-1",
+            created_by="staff-42",
+            user_claims={
+                "name": "Abebe Bekele Tessema",
+                "gender": "Male",
+                "birthdate": "1990-01-02",
+                "phone_number": "+251911223344",
+                "address": "Addis Ababa",
+            },
+            provider_config=NSR_STYLE_PROVIDER_CONFIG,
+        )
+
+    assert ids == ["cr-contact"]
+    assert len(created_payloads) == 1
+    assert (
+        created_payloads[0]["change_request_request_payload"].section_id
+        == "individual_contact_section"
+    )
+
+
+@pytest.mark.asyncio
+async def test_non_pending_section_error_continues_loop():
+    service = G2PRegistrantAuthenticationService.__new__(
+        G2PRegistrantAuthenticationService
+    )
+
+    demographic_section = _demographic_section()
+    contact_section = _contact_section()
+
+    async def find_section(_session, _register_id, section_mapping):
+        keys = set(section_mapping.section_keys)
+        if "individual_demographic_section" in keys:
+            return demographic_section
+        if "individual_contact_section" in keys:
+            return contact_section
+        return None
+
+    service._find_register_section = find_section  # type: ignore[method-assign]
+    service._find_tab_id = AsyncMock(return_value="individual_info_tab")  # type: ignore[method-assign]
+
+    class FakeCR:
+        def __init__(self, change_request_id):
+            self.change_request_id = change_request_id
+
+    class FakeCRService:
+        async def create_change_request(self, **kwargs):
+            section_id = kwargs["change_request_request_payload"].section_id
+            if section_id == "individual_demographic_section":
+                raise RuntimeError("section schema rejected a field")
+            return FakeCR("cr-contact")
+
+    with patch.object(
+        G2PRegisterChangeRequestService,
+        "get_component",
+        return_value=FakeCRService(),
+    ):
+        ids = await service._create_pending_crs_from_userinfo(
+            session=MagicMock(),
+            register_id=REGISTER_ID,
+            internal_record_id="rec-1",
+            created_by="staff-42",
+            user_claims={
+                "name": "Abebe Bekele Tessema",
+                "phone_number": "+251911223344",
+                "address": "Addis Ababa",
+            },
+            provider_config=NSR_STYLE_PROVIDER_CONFIG,
+        )
+
+    assert ids == ["cr-contact"]

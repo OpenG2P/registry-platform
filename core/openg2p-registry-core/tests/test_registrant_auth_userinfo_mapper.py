@@ -10,6 +10,7 @@ from openg2p_registry_core.services.registrant_auth_userinfo_mapper import (
     normalize_gender,
     parse_userinfo_change_request_mapping,
     split_fields_by_section,
+    split_full_name_into_fields,
 )
 
 SAMPLE_PROVIDER_CONFIG = {
@@ -138,6 +139,39 @@ def test_split_fields_by_section_uses_config_keys():
 
 def test_normalize_helpers():
     assert normalize_gender("f") == "FEMALE"
+    # Domain codes like OTHERS are not hard-coded; without a map, pass through.
+    assert normalize_gender("other") == "OTHER"
+    assert normalize_gender("other", {"other": "OTHERS"}) == "OTHERS"
     assert normalize_birth_date("15/03/1988") == "1988-03-15"
     assert normalize_birth_date(date(2001, 2, 3)) == "2001-02-03"
     assert normalize_birth_date(datetime(2001, 2, 3, 12, 0)) == "2001-02-03"
+
+
+def test_split_into_uses_ordered_field_names():
+    assert split_full_name_into_fields(
+        "Abebe Bekele Tessema", ["given", "middle", "family"]
+    ) == {
+        "given": "Abebe",
+        "middle": "Bekele",
+        "family": "Tessema",
+    }
+    assert split_full_name_into_fields("Abebe Tessema", ["first_name", "last_name"]) == {
+        "first_name": "Abebe",
+        "last_name": "Tessema",
+    }
+
+
+def test_gender_map_from_provider_config():
+    config = {
+        "userinfo_change_request": {
+            "tab_keys": ["t"],
+            "gender_map": {"other": "OTHERS", "unknown": "UNKNOWN"},
+            "claims": {
+                "gender": {"field": "gender", "normalize": "gender"},
+            },
+            "sections": [{"section_keys": ["s"], "fields": ["gender"]}],
+        }
+    }
+    mapping = parse_userinfo_change_request_mapping(config)
+    fields = map_userinfo_to_register_fields({"gender": "other"}, mapping)
+    assert fields == {"gender": "OTHERS"}
