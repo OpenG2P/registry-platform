@@ -182,11 +182,8 @@
               "widget-required": true,
               "widget-data-path": "birth_date",
               "widget-data-format": {
-                "calendar": "ethiopic",
-                "dateFormat": "YYYY-MM-DD",
                 "inputMethod": "picker",
-                "dateConstraint": "past-only",
-                "locale": "am"
+                "dateConstraint": "past-only"
               },
               "widget-data-options": {
                 "maxDate": "today"

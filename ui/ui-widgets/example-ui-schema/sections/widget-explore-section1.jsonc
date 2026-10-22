@@ -37,22 +37,8 @@
               "widget": "date",
               "widget-type": "input",
               "widget-id": "date_of_birth",
-              "widget-label": "Date (Ethiopic)",
-              "widget-data-path": "register-id.date_of_birth",
-              "widget-data-format": {
-                "calendar": "ethiopic",
-                "dateFormat": "YYYY-MM-DD",
-                "inputMethod": "picker",
-                "locale": "am"
-              }
-            },
-            {
-              "widget": "display",
-              "widget-type": "input",
-              "widget-id": "date_of_birth_stored_iso",
-              "widget-label": "Date (Gregorian ISO)",
-              "widget-data-path": "register-id.date_of_birth",
-              "widget-readonly": true
+              "widget-label": "Date",
+              "widget-data-path": "register-id.date_of_birth"
             },
             {
               "widget": "datetime",
