@@ -6,6 +6,7 @@ A process restart after the HTTP ACK drops this callback. There is no queue.
 import logging
 from datetime import datetime
 
+from fastapi_cache.decorator import cache
 from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_registry_core.errors import G2PRegistryException
 from openg2p_registry_core.helpers import WebsubHelper
@@ -27,6 +28,7 @@ from .g2p_dci_service import G2PDciService
 
 _logger = logging.getLogger("g2p-dci-async-search")
 _SIGNATURE_DISABLED_MARKER = "signature_validation_disabled"
+_config = Settings.get_config(strict=False)
 
 
 def ack_envelope(correlation_id: str, ack_status: str, error: Exception | None = None) -> DciAckEnvelope:
@@ -47,8 +49,17 @@ def ack_envelope(correlation_id: str, ack_status: str, error: Exception | None =
     )
 
 
+@cache(
+    expire=_config.partner_mgmt_cache_seconds,
+    namespace="dci-partner-topic",
+)
 async def find_partner_topic(sender_id: str) -> str | None:
-    """Return the hub topic URL, or None when no active registered PARTNER row exists."""
+    """Return the hub topic URL, or None when no active registered PARTNER row exists.
+
+    Cached in the process FastAPI cache for ``partner_mgmt_cache_seconds``.
+    A miss is cached too, so a sender with no topic does not hit Postgres again
+    until that entry expires.
+    """
     partner_id = partner_reference_id(sender_id)
     if not partner_id:
         return None
