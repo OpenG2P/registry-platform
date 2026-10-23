@@ -148,7 +148,7 @@ export default function AddRegisterSectionModal({
                 }
             />
 
-            <div className="grid grid-cols-2 gap-4 pt-2">
+            <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
                 <CheckboxField
                     label={t('is_core_section')}
                     checked={formData.is_core_section}

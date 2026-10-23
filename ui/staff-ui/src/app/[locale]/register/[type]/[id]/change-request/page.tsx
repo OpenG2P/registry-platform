@@ -74,18 +74,18 @@ export default function ChangeRequestPage() {
     // Right side of TabsLayout-- Pending request + pagination
     const pendingRequestsCount = pendingData?.number_of_pending_change_requests ?? 0;
     const rightContent = !loading && (
-        <div className="flex items-center gap-10">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-start gap-3 sm:w-auto sm:justify-end sm:gap-6 lg:gap-10">
             {pendingRequestsCount !== undefined && (
-                <div className="flex items-center gap-2">
-                    <span className="text-[18px] font-medium text-neutral-first">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className="text-base font-medium text-neutral-first sm:text-[18px]">
                         {t('pending_requests')}
                     </span>
-                    <span className="text-[24px] font-bold text-primary-second">
+                    <span className="shrink-0 text-xl font-bold text-primary-second sm:text-[24px]">
                         {pendingRequestsCount.toString().padStart(2, '0')}
                     </span>
                 </div>
             )}
-            <div className='mb-2.5'>
+            <div className="sm:mb-2.5">
                 <PaginationBar
                     pageStart={pageStart ?? 0}
                     pageEnd={pageEnd ?? 0}
@@ -107,7 +107,7 @@ export default function ChangeRequestPage() {
         >
             {loading ? (
                 <>
-                    {(tabs.length === 0 && <div className="flex gap-2 px-10">
+                    {(tabs.length === 0 && <div className="flex gap-2">
                         {[1, 2, 3].map(i => (
                             <div
                                 key={i}

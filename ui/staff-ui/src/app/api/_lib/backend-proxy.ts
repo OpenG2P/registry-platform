@@ -16,7 +16,7 @@ interface BackendProxyOptions {
 	transformResponse?: ResponseTransformer; // Transforms backend response for client
 	caching?: RequestInit; // this is used for Nextjs caching
 	responseHeaders?: HeadersInit; // HTTP headers for client response or caching
-	backend?: "default" | "masterdata";
+	backend?: "default" | "masterdata" | "partneradmin";
 }
 
 const errorCodeMap: Record<string, number> = {
@@ -49,24 +49,63 @@ export async function proxyToBackend({
 		const isFormData = contentType.includes("multipart/form-data");
 
 		let body: any = {};
+		let hasRequestBody = false;
 		if (req.method !== 'GET') {
 			if (isFormData) {
 				body = await req.formData();
+				hasRequestBody = true;
 			} else {
 				try {
 					body = await req.json();
+					hasRequestBody = true;
 				} catch (e) {
 					// ignore JSON parse error for empty body or if already read
 				}
 			}
 		}
 
-		const baseUrl =
-			backend === "masterdata"
-				? backendConfig.masterdataBackendApiUrl
-				: backendConfig.backendApiUrl;
+		let baseUrl: string;
+		switch (backend) {
+			case "masterdata":
+				baseUrl = backendConfig.masterdataBackendApiUrl;
+				break;
+			case "partneradmin":
+				baseUrl = backendConfig.partnerAdminBackendApiUrl;
+				break;
+			default:
+				baseUrl = backendConfig.backendApiUrl;
+				break;
+		}
 
-		const backendUrl = `${baseUrl}${targetEndpoint}`;
+		const backendUrl = `${baseUrl.replace(/\/$/, "")}${targetEndpoint}`;
+
+		if (backend === "partneradmin") {
+			const headers = { ...auth.backendHeaders };
+			if (!hasRequestBody) {
+				delete headers["Content-Type"];
+			}
+			const response = await fetch(`${backendUrl}${req.nextUrl.search}`, {
+				method: req.method,
+				headers,
+				body: hasRequestBody
+					? isFormData
+						? body
+						: JSON.stringify(body)
+					: undefined,
+				...caching,
+			});
+
+			const responseBody = await response.json().catch(() => ({
+				statusText: response.statusText,
+				code: response.status,
+			}));
+			const clientResponse = NextResponse.json(responseBody, {
+				status: response.status,
+				headers: responseHeaders,
+			});
+			applyBackendSetCookies(response, clientResponse);
+			return clientResponse;
+		}
 
 		const fetchOptions: RequestInit = {
 			method: "POST",

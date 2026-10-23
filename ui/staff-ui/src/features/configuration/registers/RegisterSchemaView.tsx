@@ -60,7 +60,7 @@ export default function RegisterSchemaView({
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center p-8 bg-neutral-second rounded-[10px] mx-7.5">
+            <div className="mx-3 flex items-center justify-center rounded-[10px] bg-neutral-second p-8 sm:mx-6 lg:mx-7.5">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-second"></div>
             </div>
         );
@@ -68,12 +68,12 @@ export default function RegisterSchemaView({
 
 
     if (!schema) {
-        return <div className="p-6 text-neutral-first/50">{t('no_schema_found') || "No schema found"}</div>;
+        return <div className="mx-3 p-6 text-neutral-first/50 sm:mx-6 lg:mx-7.5">{t('no_schema_found') || "No schema found"}</div>;
     }
 
     return (
-        <div className="mx-7.5 bg-neutral-second rounded-[10px] p-6 relative">
-            <div className="flex justify-between items-center mb-4">
+        <div className="relative mx-3 rounded-[10px] bg-neutral-second p-4 sm:mx-6 sm:p-6 lg:mx-7.5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-neutral-first capitalize">
                     {activeTab} {t('schema') || "Schema"}
                 </h3>

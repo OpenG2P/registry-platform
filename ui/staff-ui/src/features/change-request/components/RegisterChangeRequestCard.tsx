@@ -62,41 +62,41 @@ export default function RegisterChangeRequestCard({
 
     if (loading) {
         return (
-            <div className="relative rounded-[10px] bg-primary-first px-7.25 pt-4 pb-7.25 overflow-hidden animate-pulse">
-                <div className="flex items-center justify-between">
-                    <div className="h-6 w-40 rounded bg-neutral-first/20" />
-                    <div className="h-15 w-20 rounded-[20px] bg-neutral-first/20" />
+            <div className="relative overflow-hidden rounded-[10px] bg-primary-first px-4 pt-4 pb-5 animate-pulse sm:px-7.25 sm:pb-7.25">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="h-6 w-40 max-w-[60%] rounded bg-neutral-first/20" />
+                    <div className="h-11 w-14 shrink-0 rounded-[10px] bg-neutral-first/20 sm:h-15 sm:w-20" />
                 </div>
 
-                <div className="mt-3 h-3 w-56 rounded bg-neutral-first/20" />
+                <div className="mt-3 h-3 w-56 max-w-full rounded bg-neutral-first/20" />
 
-                <div className="mt-25 h-10 w-32 rounded-full bg-neutral-first/20" />
+                <div className="mt-8 h-10 w-32 rounded-full bg-neutral-first/20 sm:mt-25" />
 
-                <div className="absolute bottom-4 right-4 h-30 w-30 rounded-full bg-neutral-first/20" />
+                <div className="absolute bottom-0 right-2 h-20 w-20 rounded-full bg-neutral-first/20 sm:h-[164px] sm:w-[164px]" />
             </div>
         );
     }
 
     return (
-        <div className="relative rounded-[10px] bg-primary-first px-7.25 pt-5 pb-7.25 overflow-hidden">
-            <div className="flex items-center justify-between">
-                <h3 className="text-[24px] font-semibold text-neutral-first leading-none">
+        <div className="relative overflow-hidden rounded-[10px] bg-primary-first px-4 pt-4 pb-5 sm:px-7.25 sm:pt-5 sm:pb-7.25">
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="min-w-0 truncate text-xl font-semibold leading-none text-neutral-first sm:text-[24px]">
                     {t("change_request")}
                 </h3>
-                <div className="flex h-15 w-20 items-center justify-center rounded-[10px] border-3 border-white bg-primary-first text-[34px] font-bold text-neutral-first">
+                <div className="flex h-11 w-14 shrink-0 items-center justify-center rounded-[10px] border-3 border-white bg-primary-first text-2xl font-bold text-neutral-first sm:h-15 sm:w-20 sm:text-[34px]">
                     {count.toString().padStart(2, '0')}
                 </div>
             </div>
 
-            <p className="mt-3 text-[16px] text-neutral-first font-normal">
+            <p className="mt-3 text-[16px] font-normal text-neutral-first">
                 {count > 0
                     ? t("pending_changes")
                     : t("no_pending_changes")}
             </p>
 
-            <div className="mt-25">
+            <div className="relative z-10 mt-8 pr-24 sm:mt-25 sm:pr-36">
                 <div
-                    className={isDisabled ? "invisible cursor-not-allowed pointer-events-none" : ""}
+                    className={`w-fit max-w-full ${isDisabled ? "invisible cursor-not-allowed pointer-events-none" : ""}`}
                 >
                     <ViewAll
                         href={href}
@@ -104,14 +104,14 @@ export default function RegisterChangeRequestCard({
                         label={t("know_more")}
                     />
                 </div>
-                <Image
-                    src="/images/changerequest/cr.png"
-                    alt="Change Request"
-                    width={164}
-                    height={164}
-                    className="absolute bottom-0 right-2"
-                />
             </div>
+            <Image
+                src="/images/changerequest/cr.png"
+                alt="Change Request"
+                width={164}
+                height={164}
+                className="pointer-events-none absolute bottom-0 right-2 h-20 w-20 sm:h-[164px] sm:w-[164px]"
+            />
         </div>
     );
 }

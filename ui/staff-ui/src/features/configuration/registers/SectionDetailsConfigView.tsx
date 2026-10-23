@@ -76,7 +76,7 @@ export default function SectionDetailsConfigView({
     };
 
     return (
-        <div className="flex flex-1 flex-col min-h-0 mx-8 mt-6 mb-6 overflow-hidden rounded-[10px] bg-neutral-second px-8 pb-8 pt-12">
+        <div className="mx-3 mb-4 mt-4 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-neutral-second px-3 pb-4 pt-4 sm:mx-6 sm:px-6 lg:mx-8 lg:mb-6 lg:mt-6 lg:px-8 lg:pb-8 lg:pt-12">
             <RegistryWidgetProvider>
                 <SectionBuilder
                     initialSection={sectionUISchema}

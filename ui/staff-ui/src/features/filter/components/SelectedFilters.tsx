@@ -109,20 +109,20 @@ export default function SelectedFilters({
                 aria-label={t('remove')}
                 className="shrink-0"
             >
-                <Image src="/images/common/close.png" width={16} height={16} alt={t('common.remove')} />
+                <Image src="/images/common/close.png" width={16} height={16} alt={t('common.remove')} className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
         </div>
     );
 
     return (
-        <div className="bg-neutral-second px-4 py-4 mb-2 flex items-center rounded-[10px] gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
+        <div className="mb-2 flex flex-col gap-3 rounded-[10px] bg-neutral-second px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-4 sm:py-4">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3 sm:gap-4">
                 {leading ? (
-                    <div className="flex items-center shrink-0 pr-4 border-r border-secondary-second -ml-2 sm:ml-0 lg:ml-2">
+                    <div className="flex shrink-0 items-center border-r border-secondary-second pr-4 -ml-1 sm:ml-0 lg:ml-2">
                         {leading}
                     </div>
                 ) : null}
-                <span className="w-27.5 shrink-0 font-normal text-[16px] text-neutral-first pl-1 truncate" title={t('selected_filters')}>
+                <span className="shrink-0 pl-1 text-[14px] font-normal text-neutral-first sm:w-27.5 sm:text-[16px]" title={t('selected_filters')}>
                     {t('selected_filters')}
                 </span>
 
@@ -131,7 +131,7 @@ export default function SelectedFilters({
                         {t('none')}
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                         {visibleFilters.map((filter, index) => renderChip(filter, index, true))}
                         {hiddenCount > 0 ? (
                             <div className="relative shrink-0" ref={moreRef}>
@@ -145,7 +145,7 @@ export default function SelectedFilters({
                                         : `+${hiddenCount} more`}
                                 </button>
                                 {moreOpen ? (
-                                    <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-80 max-h-72 overflow-y-auto modal-scroll bg-neutral-second border border-primary-second rounded-[10px] shadow-lg p-3 flex flex-col gap-2">
+                                    <div className="absolute left-0 top-[calc(100%+8px)] z-50 flex max-h-72 w-[min(20rem,calc(100vw-2rem))] flex-col gap-2 overflow-y-auto modal-scroll rounded-[10px] border border-primary-second bg-neutral-second p-3 shadow-lg">
                                         {appliedFilters.slice(VISIBLE_FILTER_COUNT).map((filter, offset) =>
                                             renderChip(filter, offset + VISIBLE_FILTER_COUNT),
                                         )}
@@ -168,8 +168,8 @@ export default function SelectedFilters({
             </div>
 
             {onSearch && (
-                <div className="relative ml-auto shrink-0" ref={filterRef}>
-                    <div className="w-[360px] border border-primary-second rounded-[10px] h-8.5 flex items-center bg-neutral-second">
+                <div className="relative w-full shrink-0 sm:ml-auto sm:w-auto" ref={filterRef}>
+                    <div className="flex h-8.5 w-full items-center rounded-[10px] border border-primary-second bg-neutral-second sm:w-[280px] lg:w-[360px]">
                         {showFilters && (
                             <button
                                 type="button"
@@ -187,6 +187,7 @@ export default function SelectedFilters({
                             category=""
                             searchValue={searchValue}
                             iconSize={16}
+                            iconClassName="h-3.5 w-3.5 sm:h-4 sm:w-4"
                             onSearch={onSearch}
                             pxClass={pxClass}
                             textClass="text-[16px]"
@@ -196,7 +197,7 @@ export default function SelectedFilters({
                     {filterOpen && !filterLoading && (
                         <>
                             <div className="absolute left-[12px] top-[calc(100%+8px-9px)] z-[60] bg-neutral-second border-t border-r border-primary-first w-[20px] h-[20px] -rotate-45 rounded-[2px] shadow-[0_0_4px_0_rgba(0,0,0,0.25)] [clip-path:polygon(-20px_-20px,_40px_-20px,_40px_40px)]" />
-                            <div className="absolute right-0 top-[calc(100%+8px)] z-50">
+                            <div className="absolute inset-x-0 top-[calc(100%+8px)] z-50 w-full sm:inset-x-auto sm:right-0 sm:w-auto">
                                 <div className="relative z-10">
                                     <FilterDropdown
                                         onApply={handleApplyFilters}

@@ -125,6 +125,8 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
     }
   };
 
+  const visualBuilderTitle = t?.('sectionBuilder.visualBuilder') || 'Visual Builder';
+
   return (
     <div
       style={{
@@ -133,22 +135,82 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
         flex: '1 1 0%',
         width: '100%',
         minHeight: 0,
+        minWidth: 0,
       }}
     >
+      <style>{`
+        .owt-builder-split {
+          flex: 1 1 0%;
+          display: flex;
+          overflow: hidden;
+          border: 1px solid var(--owt-color-border);
+          border-radius: 10px;
+          min-height: 0;
+          min-width: 0;
+        }
+        .owt-builder-tree,
+        .owt-builder-properties {
+          flex: 1 1 0%;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .owt-builder-tree {
+          width: 45%;
+          border-right: 1px solid var(--owt-color-border);
+        }
+        .owt-builder-properties {
+          width: 55%;
+        }
+        @container owt-section-builder (max-width: 720px) {
+          .owt-builder-split {
+            flex-direction: column;
+            overflow: auto;
+          }
+          .owt-builder-tree {
+            width: 100%;
+            flex: 1 1 240px;
+            min-height: 240px;
+            border-right: none;
+            border-bottom: 1px solid var(--owt-color-border);
+          }
+          .owt-builder-properties {
+            width: 100%;
+            flex: 1 1 280px;
+            min-height: 280px;
+          }
+        }
+      `}</style>
       <div
         style={{
-          padding: '20px',
+          padding: '12px 16px',
           background: 'var(--owt-color-bg)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px',
           flexShrink: 0,
         }}
       >
-        <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--owt-color-text)', paddingTop: '5px' }}>
-          {t?.('sectionBuilder.visualBuilder') || 'Visual Builder'}
+        <div
+          title={visualBuilderTitle}
+          style={{
+            fontWeight: 600,
+            fontSize: '16px',
+            color: 'var(--owt-color-text)',
+            minWidth: 0,
+            flex: '1 1 auto',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {visualBuilderTitle}
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', flexShrink: 0 }}>
           <button
             onClick={handleAddPanel}
             style={{
@@ -208,27 +270,8 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
           )}
         </div>
       </div>
-      <div
-        style={{
-          flex: '1 1 0%',
-          display: 'flex',
-          overflow: 'hidden',
-          border: '1px solid var(--owt-color-border)',
-          borderRadius: '10px',
-          minHeight: 0,
-        }}
-      >
-        <div
-          style={{
-            flex: '1 1 0%',
-            width: '45%',
-            borderRight: '1px solid var(--owt-color-border)',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
+      <div className="owt-builder-split">
+        <div className="owt-builder-tree">
           <div
             style={{
               padding: '12px 15px',
@@ -292,16 +335,7 @@ export const VisualBuilderPanel: React.FC<VisualBuilderPanelProps> = ({
           </div>
         </div>
 
-        <div
-          style={{
-            flex: '1 1 0%',
-            width: '55%',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
+        <div className="owt-builder-properties">
           <PropertyEditor
             node={selectedNode}
             onChange={handleNodeChange}

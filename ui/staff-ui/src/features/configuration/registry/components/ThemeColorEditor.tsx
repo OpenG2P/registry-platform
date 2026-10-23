@@ -61,21 +61,21 @@ export default function ThemeColorEditor({
 
     return (
         <div className="bg-neutral-second rounded-[10px] overflow-hidden">
-            <div className="px-8 py-5 border-b border-secondary-second flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <div>
-                        <h2 className="text-[18px] font-bold text-neutral-first m-0">{selectedTheme?.theme_mnemonic}</h2>
+            <div className="px-4 py-5 sm:px-8 border-b border-secondary-second flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
+                    <div className="min-w-0">
+                        <h2 className="text-[18px] font-bold text-neutral-first m-0 truncate" title={selectedTheme?.theme_mnemonic}>{selectedTheme?.theme_mnemonic}</h2>
                     </div>
                 </div>
 
                 {selectedThemeId !== 'NEW' && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                         <Can action={CONFIGURATION_REGISTRY_ACTIONS.edit}>
                             <button
                                 id="reset-theme-btn"
                                 onClick={onReset}
                                 disabled={isFactoryTheme}
-                                className="h-8.5 px-4 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="h-8.5 w-full sm:w-auto px-4 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 {t("reset")}
                             </button>
@@ -84,7 +84,7 @@ export default function ThemeColorEditor({
                                 id="delete-theme-btn"
                                 onClick={() => setShowDeleteConfirm(true)}
                                 disabled={isFactoryTheme}
-                                className="h-8.5 px-4 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="h-8.5 w-full sm:w-auto px-4 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 {t("remove")}
                             </button>
@@ -115,7 +115,7 @@ export default function ThemeColorEditor({
                     </div>
                 </div>
             ) : (
-                <div className="p-8 flex flex-col gap-8">
+                <div className="p-4 sm:p-8 flex flex-col gap-8">
 
                     <div className="rounded-[10px] overflow-hidden border border-secondary-second shadow-sm bg-neutral-second">
                         <div className="h-1.5 flex">
@@ -123,9 +123,9 @@ export default function ThemeColorEditor({
                                 <div key={i} className="flex-1" style={{ backgroundColor: c }} />
                             ))}
                         </div>
-                        <div className="px-5 py-3.5 flex items-center justify-between">
+                        <div className="px-4 py-3.5 sm:px-5 flex flex-wrap items-center justify-between gap-3">
                             <span className="text-[14px] font-medium text-secondary-third">{t('theme_config_palette_preview')}</span>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 {previewColors.map((c, i) => (
                                     <span
                                         key={i}
@@ -194,7 +194,7 @@ export default function ThemeColorEditor({
                                 return (
                                     <div key={attr.key} className="flex flex-col gap-2">
                                         <div className="flex flex-col px-1">
-                                            <span className="text-base font-medium text-neutral-first">
+                                            <span className="text-base font-medium text-neutral-first break-words">
                                                 {t(`theme_attr_${attr.key}_label`)}
                                                 {attr.key === 'dashboard_image' && ' (1200 X 600 px)'}
                                             </span>
@@ -214,7 +214,7 @@ export default function ThemeColorEditor({
                                                     alt={t(`theme_attr_${attr.key}_label`)}
                                                     width={300}
                                                     height={300}
-                                                    className="object-contain"
+                                                    className="max-h-full max-w-full object-contain"
                                                     unoptimized
                                                 />
                                             ) : (
@@ -224,7 +224,7 @@ export default function ThemeColorEditor({
                                             )}
 
                                             {!isFactoryTheme && (
-                                                <div className="absolute inset-0 bg-neutral-first/40 flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                                <div className="absolute inset-0 bg-neutral-first/40 hidden md:flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                                     <button
                                                         onClick={() => document.getElementById(`image-upload-${attr.key}`)?.click()}
                                                         className="flex items-center justify-center gap-2 w-23.75 py-1.5 bg-neutral-second rounded-[10px] text-primary-second shadow-md hover:bg-secondary-first transition-all active:scale-95"
@@ -244,6 +244,28 @@ export default function ThemeColorEditor({
                                                 </div>
                                             )}
                                         </div>
+                                        {!isFactoryTheme && (
+                                            <div className="flex gap-2 md:hidden w-full">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => document.getElementById(`image-upload-${attr.key}`)?.click()}
+                                                    className="flex min-w-0 flex-1 items-center justify-center gap-2 py-1.5 bg-neutral-second rounded-[10px] text-primary-second shadow-md border border-secondary-second"
+                                                >
+                                                    <Upload size={15} strokeWidth={2.5} />
+                                                    <span className="text-[13px] leading-none">{t('upload')}</span>
+                                                </button>
+                                                {val && val !== '/images/config/blank_image.png' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onColorChange(attr.key, '')}
+                                                        className="flex shrink-0 items-center justify-center gap-2 px-3 py-1.5 bg-neutral-second rounded-[10px] text-primary-second shadow-md border border-secondary-second"
+                                                        aria-label={t('remove')}
+                                                    >
+                                                        <Trash2 size={15} strokeWidth={2.5} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -251,11 +273,11 @@ export default function ThemeColorEditor({
                     </div>
 
                     {selectedThemeId !== 'NEW' && (
-                        <div className="mt-8 flex justify-end gap-3 pt-6 border-t border-secondary-second">
+                        <div className="mt-8 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6 border-t border-secondary-second">
                             <button
                                 id="discard-theme-btn"
                                 onClick={onDiscard}
-                                className="px-6 h-10 rounded-[10px] bg-secondary-second text-neutral-first/70 text-sm font-semibold hover:bg-secondary-third transition-colors"
+                                className="px-6 h-10 w-full sm:w-auto rounded-[10px] bg-secondary-second text-neutral-first/70 text-sm font-semibold hover:bg-secondary-third transition-colors"
                             >
                                 {t('theme_config_discard')}
                             </button>
@@ -263,7 +285,7 @@ export default function ThemeColorEditor({
                                 id="save-theme-btn"
                                 onClick={onSave}
                                 disabled={isFactoryTheme}
-                                className="px-6 h-10 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold hover:bg-neutral-first/90 transition-colors shadow-lg active:scale-95 transform disabled:opacity-40 disabled:cursor-not-allowed"
+                                className="px-6 h-10 w-full sm:w-auto rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold hover:bg-neutral-first/90 transition-colors shadow-lg active:scale-95 transform disabled:opacity-40 disabled:cursor-not-allowed"
                             >
                                 {t('theme_config_save_changes')}
                             </button>

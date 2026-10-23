@@ -93,10 +93,10 @@ const CreateThemePage = () => {
                 showAddNewButton={false}
             />
 
-            <div className="mx-7.5 flex flex-col gap-5 pb-10 font-roboto">
+            <div className="mx-3 sm:mx-6 lg:mx-7.5 flex flex-col gap-5 pb-10 font-roboto">
                 {/* Header card */}
-                <div className="bg-neutral-second rounded-[10px] p-6 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
+                <div className="bg-neutral-second rounded-[10px] p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
                         <button
                             onClick={() => router.back()}
                             className="w-9 h-9 rounded-[10px] bg-secondary-first hover:bg-secondary-second flex items-center justify-center transition-colors"
@@ -106,28 +106,28 @@ const CreateThemePage = () => {
                         <div className="flex items-center gap-3">
 
                             <div>
-                                <h1 className="text-lg font-semibold text-neutral-first m-0">{t('theme_config_new_theme')}</h1>
+                                <h1 className="text-lg font-semibold text-neutral-first m-0 truncate" title={t('theme_config_new_theme')}>{t('theme_config_new_theme')}</h1>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
                         <button
                             onClick={() => router.back()}
-                            className="px-5 h-8.5 rounded-[10px] bg-secondary-second text-neutral-first/70 text-sm font-semibold hover:bg-secondary-third transition-colors flex items-center gap-2"
+                            className="flex-1 sm:flex-none px-5 h-8.5 rounded-[10px] bg-secondary-second text-neutral-first/70 text-sm font-semibold hover:bg-secondary-third transition-colors flex items-center justify-center gap-2"
                         >
                             {t('theme_config_cancel')}
                         </button>
                         <button
                             onClick={handleSave}
-                            className="px-5 h-8.5 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold transition-colors shadow-lg flex items-center gap-2"
+                            className="flex-1 sm:flex-none px-5 h-8.5 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold transition-colors shadow-lg flex items-center justify-center gap-2"
                         >
                             {t('theme_config_create')}
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-neutral-second rounded-[10px] p-6">
+                <div className="bg-neutral-second rounded-[10px] p-4 sm:p-6">
                     <div className="space-y-6">
                         <div>
                             <label className="block text-sm font-semibold text-neutral-first mb-2">

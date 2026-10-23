@@ -194,17 +194,17 @@ const StatsCard = ({
                     width={20}
                     height={20}
                     alt=""
-                    className={active ? "invert" : "opacity-60"}
+                    className={`shrink-0 ${active ? "invert" : "opacity-60"}`}
                 />
             )}
 
             {/* value */}
-            <span className="font-roboto text-[16px] font-bold leading-7 truncate overflow-hidden whitespace-nowrap" title={String(row.value)}>
+            <span className="shrink-0 font-roboto text-[16px] font-bold leading-7" title={String(row.value)}>
                 {row.value}
             </span>
 
             {/* label */}
-            <span className="font-roboto text-[16px] font-medium leading-7 opacity-80 truncate overflow-hidden whitespace-nowrap" title={row.label}>
+            <span className="min-w-0 flex-1 font-roboto text-[16px] font-medium leading-snug opacity-80 max-md:line-clamp-2 md:overflow-hidden md:text-ellipsis md:whitespace-nowrap" title={row.label}>
                 {row.label}
             </span>
         </>
@@ -216,7 +216,7 @@ const StatsCard = ({
             tabIndex={0}
             onClick={handleCardClick}
             onKeyDown={handleCardKeyDown}
-            className={`flex flex-col justify-between transition-all duration-200 w-full rounded-[10px] px-7 py-6 cursor-pointer ${active ? "border-black bg-neutral-first text-neutral-second" : "bg-secondary-second text-secondary-third"}`}
+            className={`flex flex-col justify-between transition-all duration-200 w-full min-w-0 rounded-[10px] px-4 py-5 sm:px-5 sm:py-6 cursor-pointer ${active ? "border-black bg-neutral-first text-neutral-second" : "bg-secondary-second text-secondary-third"}`}
         >
             <div className="min-h-40">
                 {/* count and title */}
@@ -228,10 +228,10 @@ const StatsCard = ({
                         </div>
                     ) : (
                         <>
-                            <h2 className="font-roboto text-[45px] font-bold leading-none truncate overflow-hidden whitespace-nowrap" title={String(totalCount ?? "")}>
+                            <h2 className="font-roboto text-[32px] sm:text-[40px] lg:text-[45px] font-bold leading-none truncate" title={String(totalCount ?? "")}>
                                 {totalCount}
                             </h2>
-                            <h3 className="font-roboto text-[22px] font-bold leading-7 truncate overflow-hidden whitespace-nowrap" title={title}>
+                            <h3 className="font-roboto text-lg sm:text-xl lg:text-[22px] font-bold leading-snug max-md:line-clamp-2 md:overflow-hidden md:text-ellipsis md:whitespace-nowrap" title={title}>
                                 {title}
                             </h3>
                         </>
@@ -248,19 +248,19 @@ const StatsCard = ({
                     <p className="text-sm text-toast-failed">{t('failed_to_load')}</p>
                 ) : (
                     // items
-                    <ul>
+                    <ul className="min-w-0">
                         {rows.map((row) => (
-                            <li key={row.id}>
+                            <li key={row.id} className="min-w-0">
                                 {row.href ? (
                                     <Link
                                         href={row.href}
                                         onClick={(event) => event.stopPropagation()}
-                                        className="flex items-center gap-2 cursor-pointer no-underline"
+                                        className="flex items-center gap-2 min-w-0 cursor-pointer no-underline"
                                     >
                                         {rowContent(row)}
                                     </Link>
                                 ) : (
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
                                         {rowContent(row)}
                                     </div>
                                 )}

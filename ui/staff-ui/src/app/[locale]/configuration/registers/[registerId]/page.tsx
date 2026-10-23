@@ -177,7 +177,7 @@ const RegisterConfigurationPage = () => {
 
     return (
         <>
-            <div className="pt-10 px-7.5 mb-6">
+            <div className="mb-6 px-3 pt-4 sm:px-6 sm:pt-6 lg:px-7.5 lg:pt-10">
                 <BreadcrumbBar breadcrumb={breadcrumb} />
             </div>
 
@@ -194,9 +194,9 @@ const RegisterConfigurationPage = () => {
                 onView={() => setIsViewModalOpen(true)}
             />
 
-            <div className="ml-4 mt-4 px-7.5">
-                <div className="flex justify-between items-end">
-                    <div className="relative z-10 shrink-0">
+            <div className="mt-4 px-3 sm:px-6 lg:px-7.5 xl:ml-4">
+                <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+                    <div className="relative z-10 min-w-0">
                         <ConfigurationTabs
                             activeTab={activeTab}
                             setActiveTab={setActiveTab}
@@ -204,7 +204,8 @@ const RegisterConfigurationPage = () => {
                         />
                     </div>
 
-                    <div className="flex items-center shrink-0 min-h-14">
+                    {activePaginatedTab && (
+                    <div className="flex min-h-14 min-w-0 items-center xl:shrink-0">
                         <TopBar
                             embedded
                             breadcrumb={[]}
@@ -251,6 +252,7 @@ const RegisterConfigurationPage = () => {
                             showCapsule={false}
                         />
                     </div>
+                    )}
                 </div>
             </div>
 

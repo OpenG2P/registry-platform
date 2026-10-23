@@ -123,15 +123,15 @@ export default function EditScoreContributingAttributeModal({
     return (
         <div className="fixed inset-0 bg-neutral-first/80 z-50 flex items-center justify-center p-4">
             <div className="relative w-full max-w-200 max-h-[90vh] bg-primary-first rounded-[10px] overflow-hidden flex p-1">
-                <div className="flex-1 w-full bg-neutral-second relative rounded-[10px] overflow-y-auto p-10 max-h-[90vh]">
+                <div className="relative max-h-[90vh] min-w-0 w-full flex-1 overflow-y-auto rounded-[10px] bg-neutral-second p-4 sm:p-10">
                     <button
                         onClick={onClose}
-                        className="absolute top-6 right-6 text-secondary-third hover:text-neutral-first/70 transition-colors"
+                        className="absolute top-4 right-4 text-secondary-third transition-colors hover:text-neutral-first/70 sm:top-6 sm:right-6"
                     >
-                        <X size={40} strokeWidth={2} />
+                        <X className="h-6 w-6 sm:h-10 sm:w-10" strokeWidth={2} />
                     </button>
 
-                    <h2 className="text-2xl font-bold text-primary-second mb-4">
+                    <h2 className="mb-4 break-words pr-10 text-2xl font-bold text-primary-second">
                         {t('edit_contributing_attribute')}
                     </h2>
 
@@ -147,13 +147,13 @@ export default function EditScoreContributingAttributeModal({
                             disabled={!fieldsLoading && dropdownOptions.length === 0}
                         />
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                             <input
                                 type="checkbox"
                                 id="edit_comp_req"
                                 checked={computationRequired}
                                 onChange={(e) => setComputationRequired(e.target.checked)}
-                                className="h-4 w-4 rounded border-primary-second text-primary-second focus:ring-primary-second"
+                                className="h-4 w-4 shrink-0 rounded border-primary-second text-primary-second focus:ring-primary-second"
                             />
                             <label htmlFor="edit_comp_req" className="text-sm font-semibold text-neutral-first">
                                 {t('attribute_computation_required')}
@@ -187,16 +187,16 @@ export default function EditScoreContributingAttributeModal({
                             />
                         </div>
 
-                        <div className="flex gap-4 pt-4">
+                        <div className="flex flex-wrap gap-4 pt-4">
                             <button
                                 onClick={onClose}
-                                className="px-12 py-2.5 bg-secondary-third text-neutral-first rounded-[10px]"
+                                className="rounded-[10px] bg-secondary-third px-6 py-2.5 text-neutral-first sm:px-12"
                             >
                                 {t('cancel')}
                             </button>
                             <button
                                 onClick={handleSubmit}
-                                className="px-12 py-2.5 bg-neutral-first text-neutral-second rounded-[10px]"
+                                className="rounded-[10px] bg-neutral-first px-6 py-2.5 text-neutral-second sm:px-12"
                             >
                                 {t('save')}
                             </button>
