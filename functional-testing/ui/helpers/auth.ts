@@ -8,6 +8,43 @@ function rewriteKeycloakUrl(url: string): string {
   return url.replaceAll(KEYCLOAK_DOCKER_ORIGIN, KEYCLOAK_BROWSER_ORIGIN);
 }
 
+const pagesWithKeycloakRewrite = new WeakSet<Page>();
+
+/** IAM issues http://keycloak:8080 URLs; the host browser can only reach localhost:18080. */
+async function ensureKeycloakHostRewrite(page: Page) {
+  if (pagesWithKeycloakRewrite.has(page)) {
+    return;
+  }
+  await page.route(/keycloak:8080/, async (route) => {
+    await route.continue({ url: rewriteKeycloakUrl(route.request().url()) });
+  });
+  pagesWithKeycloakRewrite.add(page);
+}
+
+async function gotoRewritten(page: Page, url: string) {
+  const target = rewriteKeycloakUrl(url);
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await page.goto(target, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      if (page.url().startsWith("chrome-error:")) {
+        throw new Error(`navigation landed on chrome-error (attempt ${attempt})`);
+      }
+      if (page.url().includes("keycloak:8080")) {
+        await page.goto(rewriteKeycloakUrl(page.url()), {
+          waitUntil: "domcontentloaded",
+          timeout: 60_000,
+        });
+      }
+      return;
+    } catch (err) {
+      lastError = err;
+      await page.waitForTimeout(1_000 * attempt);
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Staff UI auth goes: /api/login -> IAM -> Keycloak password form -> back to UI.
  *
@@ -24,10 +61,7 @@ export async function loginViaKeycloak(page: Page, username: string, password: s
     throw new Error("FUNC_UI_BASE is required for UI tests");
   }
 
-  // Rewrite any subsequent navigations/resources that still use the docker hostname.
-  await page.route(/keycloak:8080/, async (route) => {
-    await route.continue({ url: rewriteKeycloakUrl(route.request().url()) });
-  });
+  await ensureKeycloakHostRewrite(page);
 
   const loginUrl = `${uiBase.replace(/\/$/, "")}/api/login?redirect_uri=${encodeURIComponent(uiBase)}`;
 
@@ -39,11 +73,7 @@ export async function loginViaKeycloak(page: Page, username: string, password: s
     );
   }
 
-  await page.goto(rewriteKeycloakUrl(location), { waitUntil: "domcontentloaded" });
-
-  if (page.url().includes("keycloak:8080")) {
-    await page.goto(rewriteKeycloakUrl(page.url()), { waitUntil: "domcontentloaded" });
-  }
+  await gotoRewritten(page, location);
 
   const user = page
     .locator(
@@ -88,12 +118,16 @@ export async function logoutOfStaffUi(page: Page) {
   if (!uiBase) {
     throw new Error("FUNC_UI_BASE is required for UI logout");
   }
+  await ensureKeycloakHostRewrite(page);
   await page.goto(`${uiBase.replace(/\/$/, "")}/api/logout`, { waitUntil: "domcontentloaded" });
 }
 
 export async function reloginViaKeycloak(page: Page, username: string, password: string) {
+  await ensureKeycloakHostRewrite(page);
   await page.context().clearCookies();
-  await logoutOfStaffUi(page).catch(() => undefined);
+  // Cancel any in-flight logout/IAM redirect (often to keycloak:8080) before a
+  // fresh /api/login. Racing those navigations lands on chrome-error://.
+  await page.goto("about:blank", { waitUntil: "domcontentloaded" }).catch(() => undefined);
   await loginViaKeycloak(page, username, password);
 }
 

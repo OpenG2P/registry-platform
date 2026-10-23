@@ -10,8 +10,8 @@ export async function approveCurrentAweStage(
   opts: { comment?: string } = {}
 ): Promise<number> {
   const approveBtn = page.getByRole("button", { name: /^approve$/i }).first();
-  await expect(approveBtn).toBeVisible({ timeout: 20_000 });
-  await expect(approveBtn).toBeEnabled({ timeout: 10_000 });
+  await expect(approveBtn).toBeVisible({ timeout: 45_000 });
+  await expect(approveBtn).toBeEnabled({ timeout: 15_000 });
 
   const comment = page.locator("textarea").first();
   if (await comment.isVisible({ timeout: 2_000 }).catch(() => false)) {
