@@ -111,7 +111,7 @@ async def publish_dci_search(
     callback.signature = await _sign(callback)
     try:
         publisher = WebsubHelper.get_component() or WebsubHelper()
-        publisher.publish(websub_topic, callback.model_dump())
+        await publisher.publish(websub_topic, callback.model_dump())
     except Exception:
         _logger.exception(
             "WebSub publish failed for correlation_id=%s topic=%s",

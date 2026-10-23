@@ -14,36 +14,36 @@ class WebsubHelper(BaseService):
         super().__init__()
         self.websub_base_url = _config.websub_base_url
 
-    def register_topic(self, topic: str):
-        with httpx.Client() as client:
-            url = f"{self.websub_base_url}/hub/"
-            data = {
+    async def register_topic(self, topic: str):
+        await self._post(
+            {
                 "hub.mode": "register",
                 "hub.topic": topic,
             }
-            response = client.post(url, data=data)
-            self._raise_for_hub(response)
+        )
 
-    def deregister_topic(self, topic: str):
-        with httpx.Client() as client:
-            url = f"{self.websub_base_url}/hub/"
-            data = {
+    async def deregister_topic(self, topic: str):
+        await self._post(
+            {
                 "hub.mode": "deregister",
                 "hub.topic": topic,
             }
-            response = client.post(url, data=data)
-            self._raise_for_hub(response)
+        )
 
-    def publish(self, topic: str, payload: dict):
-        with httpx.Client() as client:
-            url = f"{self.websub_base_url}/hub/"
-            data = {
+    async def publish(self, topic: str, payload: dict):
+        await self._post(
+            {
                 "hub.mode": "publish",
                 "hub.topic": topic,
                 "hub.content": json.dumps(payload),
             }
-            response = client.post(url, data=data)
-            self._raise_for_hub(response)
+        )
+
+    async def _post(self, data: dict) -> None:
+        url = f"{self.websub_base_url}/hub/"
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, data=data)
+        self._raise_for_hub(response)
 
     @staticmethod
     def _raise_for_hub(response: httpx.Response) -> None:
