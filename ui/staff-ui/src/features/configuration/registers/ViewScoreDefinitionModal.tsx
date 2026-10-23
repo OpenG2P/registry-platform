@@ -19,52 +19,52 @@ export default function ViewScoreDefinitionModal({
     return (
         <div className="fixed inset-0 bg-neutral-first/80 z-50 flex items-center justify-center p-4">
             <div className="relative w-full max-w-200 max-h-[95vh] bg-primary-first rounded-[10px] overflow-hidden flex p-1">
-                <div className="flex-1 w-full bg-neutral-second relative rounded-[10px] p-10 overflow-y-auto">
+                <div className="relative w-full flex-1 overflow-y-auto rounded-[10px] bg-neutral-second p-4 sm:p-10">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="absolute top-6 right-6 text-secondary-third hover:text-neutral-first/70 transition-colors focus:outline-none"
+                        className="absolute top-4 right-4 text-secondary-third transition-colors hover:text-neutral-first/70 focus:outline-none sm:top-6 sm:right-6"
                     >
-                        <X size={40} strokeWidth={2} />
+                        <X className="h-6 w-6 sm:h-10 sm:w-10" strokeWidth={2} />
                     </button>
 
-                    <h2 className="text-2xl font-bold text-primary-second mb-6">
+                    <h2 className="mb-6 break-words pr-10 text-2xl font-bold text-primary-second">
                         {data.score_type} — {t('details')}
                     </h2>
 
                     <div className="space-y-6">
-                        <div className="flex items-start">
-                            <div className="w-55 text-[16px] text-secondary-third font-medium shrink-0">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start">
+                            <div className="w-full text-[16px] font-medium text-secondary-third sm:w-55 sm:shrink-0">
                                 {t('score_definition_id')}
                             </div>
-                            <div className="flex-1 text-[16px] text-neutral-first font-bold wrap-break-word">
+                            <div className="min-w-0 flex-1 break-words text-[16px] font-bold text-neutral-first">
                                 {data.score_definition_id || '-'}
                             </div>
                         </div>
 
-                        <div className="flex items-start">
-                            <div className="w-55 text-[16px] text-secondary-third font-medium shrink-0">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start">
+                            <div className="w-full text-[16px] font-medium text-secondary-third sm:w-55 sm:shrink-0">
                                 {t('score_type')}
                             </div>
-                            <div className="flex-1 text-[16px] text-neutral-first font-bold">
+                            <div className="min-w-0 flex-1 break-words text-[16px] font-bold text-neutral-first">
                                 {data.score_type || '-'}
                             </div>
                         </div>
 
-                        <div className="flex items-start">
-                            <div className="w-55 text-[16px] text-secondary-third font-medium shrink-0">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start">
+                            <div className="w-full text-[16px] font-medium text-secondary-third sm:w-55 sm:shrink-0">
                                 {t('mnemonic')}
                             </div>
-                            <div className="flex-1 text-[16px] text-neutral-first font-bold">
+                            <div className="min-w-0 flex-1 break-words text-[16px] font-bold text-neutral-first">
                                 {data.register_mnemonic || '-'}
                             </div>
                         </div>
 
-                        <div className="flex items-start">
-                            <div className="w-55 text-[16px] text-secondary-third font-medium shrink-0">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start">
+                            <div className="w-full text-[16px] font-medium text-secondary-third sm:w-55 sm:shrink-0">
                                 {t('status')}
                             </div>
-                            <div className="flex-1 text-[16px] text-neutral-first font-bold">
+                            <div className="min-w-0 flex-1 break-words text-[16px] font-bold text-neutral-first">
                                 {data.is_enabled ? t('active') : t('inactive')}
                             </div>
                         </div>

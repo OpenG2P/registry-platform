@@ -16,11 +16,11 @@ export default function CheckboxField({
     disabled = false,
 }: Props) {
     return (
-        <div className="flex items-center gap-3 select-none">
+        <div className="flex min-w-0 items-center gap-3 select-none">
             <div
                 onClick={() => !disabled && onChange(!checked)}
                 className={`
-                    w-5 h-5 rounded border transition-all flex items-center justify-center cursor-pointer
+                    h-5 w-5 shrink-0 rounded border transition-all flex items-center justify-center cursor-pointer
                     ${checked 
                         ? 'bg-amber-600 border-amber-600 shadow-sm' 
                         : 'bg-white border-secondary-second hover:border-amber-600/50'}
@@ -31,7 +31,7 @@ export default function CheckboxField({
             </div>
             <label 
                 onClick={() => !disabled && onChange(!checked)}
-                className={`block truncate text-sm font-semibold cursor-pointer ${disabled ? 'text-neutral-first/30' : 'text-neutral-first/70'}`}
+                className={`block min-w-0 flex-1 truncate text-sm font-semibold cursor-pointer ${disabled ? 'text-neutral-first/30' : 'text-neutral-first/70'}`}
                 title={label}
             >
                 {label}

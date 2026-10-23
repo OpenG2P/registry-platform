@@ -26,7 +26,7 @@ export function ChangeRequestValuesTabs({
     const { results: regResults, loading: regLoading } = useDeduplication(changeId, "register");
 
     const tabClass = (isActive: boolean) =>
-        `relative shrink-0 px-3 py-2 text-[14px] font-medium whitespace-nowrap rounded-t-[10px] text-neutral-first transition-all sm:px-6 sm:text-[16px] lg:px-8 lg:text-[18px] ${
+        `relative max-w-full shrink px-3 py-2 text-left text-[14px] font-medium whitespace-normal rounded-t-[10px] text-neutral-first transition-all sm:shrink-0 sm:whitespace-nowrap sm:px-6 sm:text-[16px] lg:px-8 lg:text-[18px] ${
             isActive ? "bg-primary-first" : "bg-secondary-second"
         }`;
 

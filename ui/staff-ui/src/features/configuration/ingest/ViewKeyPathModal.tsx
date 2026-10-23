@@ -22,7 +22,7 @@ export default function ViewKeyPathModal({
             maxWidth='max-w-220'
             secondaryActionLabel={t('close')}
         >
-            <div className="bg-secondary-second/50 px-8 pt-2 pb-4">
+            <div className="bg-secondary-second/50 px-4 pt-2 pb-4 sm:px-8">
                 <Field label={t('data_model')} value={data?.data_model_mnemonic} />
 
                 <Field

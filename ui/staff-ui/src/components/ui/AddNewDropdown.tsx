@@ -209,6 +209,9 @@ export default function AddNewDropdown({
     const t = useTranslations();
 
     const [open, setOpen] = useState(false);
+    const [narrowMenu, setNarrowMenu] = useState(false);
+    const [menuTop, setMenuTop] = useState(0);
+    const buttonRef = useRef<HTMLButtonElement>(null);
     const [showImportModal, setShowImportModal] = useState(false);
 
     const [selectedVC, setSelectedVC] = useState<any | null>(null);
@@ -242,14 +245,24 @@ export default function AddNewDropdown({
 
     return (
         <>
-            <div ref={ref} className="relative z-21">
+            <div ref={ref} className="relative z-21 min-w-0 max-w-full">
                 <button
-                    onClick={() => setOpen((prev) => !prev)}
+                    ref={buttonRef}
+                    onClick={() => {
+                        if (!open && buttonRef.current) {
+                            const narrow = window.matchMedia('(max-width: 639px)').matches;
+                            setNarrowMenu(narrow);
+                            if (narrow) {
+                                setMenuTop(buttonRef.current.getBoundingClientRect().bottom + 4);
+                            }
+                        }
+                        setOpen((prev) => !prev);
+                    }}
                     disabled={loading}
-                    className="h-8.5 px-6 bg-primary-first rounded-[10px] flex items-center gap-2"
+                    className="flex h-8.5 max-w-full items-center gap-2 rounded-[10px] bg-primary-first px-4 sm:px-6"
                     title={t('create_new_submission')}
                 >
-                    <span className="text-[16px] font-medium text-neutral-first truncate overflow-hidden whitespace-nowrap">
+                    <span className="min-w-0 truncate whitespace-nowrap text-[16px] font-medium text-neutral-first" title={t('create_new_submission')}>
                         {t('create_new_submission')}
                     </span>
                     <span className="text-[20px] font-bold text-neutral-first leading-none">
@@ -258,7 +271,14 @@ export default function AddNewDropdown({
                 </button>
 
                 {open && (
-                    <div className="absolute right-0 top-full mt-1 w-100 bg-neutral-second border border-primary-second rounded-[10px] overflow-hidden z-50">
+                    <div
+                        className={
+                            narrowMenu
+                                ? 'fixed inset-x-3 z-[60] max-h-[70vh] overflow-y-auto rounded-[10px] border border-primary-second bg-neutral-second'
+                                : 'absolute right-0 top-full z-50 mt-1 w-[min(25rem,calc(100vw-1.5rem))] overflow-hidden rounded-[10px] border border-primary-second bg-neutral-second'
+                        }
+                        style={narrowMenu ? { top: menuTop } : undefined}
+                    >
                         <MechanismMenu
                             mechanisms={mechanisms}
                             loading={loading}

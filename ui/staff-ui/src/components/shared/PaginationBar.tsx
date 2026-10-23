@@ -36,43 +36,41 @@ export default function PaginationBar({
 
     return (
         <div className="flex items-center gap-2">
-            <span className="min-w-20 px-2 h-4.75 text-center font-normal text-[16px] text-neutral-first whitespace-nowrap">
+            <span className="whitespace-nowrap px-1 text-center text-sm font-normal text-neutral-first sm:px-2 sm:text-[16px]">
                 {formatNumber(pageStart)} - {formatNumber(pageEnd)} of {formatNumber(total)}
             </span>
 
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
                     onClick={onPrev}
                     disabled={isPrevDisabled}
-                    className={`w-10 h-8.5 flex items-center justify-center rounded-[10px]
-            ${isPrevDisabled
-                            ? "bg-primary-first cursor-not-allowed"
-                            : "bg-primary-first"
-                        }`}
+                    className={`flex h-7 w-8 items-center justify-center rounded-[8px] bg-primary-first sm:h-8.5 sm:w-10 sm:rounded-[10px] ${
+                        isPrevDisabled ? "cursor-not-allowed" : ""
+                    }`}
                 >
                     <Image
                         src="/images/common/arrow_back_01.png"
                         width={12}
                         height={12}
                         alt="prev"
+                        className="h-2.5 w-2.5 sm:h-3 sm:w-3"
                     />
                 </button>
 
                 <button
                     onClick={onNext}
                     disabled={isNextDisabled}
-                    className={`w-10 h-8.5 flex items-center justify-center rounded-[10px]
-            ${isNextDisabled
-                            ? "bg-primary-first cursor-not-allowed"
-                            : "bg-primary-first"
-                        }`}
+                    className={`flex h-7 w-8 items-center justify-center rounded-[8px] bg-primary-first sm:h-8.5 sm:w-10 sm:rounded-[10px] ${
+                        isNextDisabled ? "cursor-not-allowed" : ""
+                    }`}
                 >
                     <Image
                         src="/images/common/arrow_next_01.png"
                         width={12}
                         height={12}
                         alt="next"
+                        className="h-2.5 w-2.5 sm:h-3 sm:w-3"
                     />
                 </button>
             </div>

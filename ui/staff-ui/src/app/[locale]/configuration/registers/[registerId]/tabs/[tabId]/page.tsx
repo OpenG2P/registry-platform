@@ -83,7 +83,7 @@ const TabConfigurationPage = () => {
 
     return (
         <>
-            <div className="pt-10 px-7.5 mb-6">
+            <div className="mb-6 px-3 pt-4 sm:px-6 sm:pt-6 lg:px-7.5 lg:pt-10">
                 <BreadcrumbBar breadcrumb={breadcrumb} />
             </div>
 
