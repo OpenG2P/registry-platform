@@ -118,6 +118,7 @@ class G2PRegisterChangeRequestService(BaseService):
         change_request_source: str | None = None,
         bearer_token: str | None = None,
         requester_sub: str | None = None,
+        skip_awe_when_token_missing: bool = False,
     ):
         session_maker = get_async_session_maker()
         async with session_maker() as session:
@@ -183,6 +184,7 @@ class G2PRegisterChangeRequestService(BaseService):
                 serialized_payloads,
                 bearer_token=bearer_token,
                 requester=requester_sub or created_by,
+                skip_awe_when_token_missing=skip_awe_when_token_missing,
             )
             await session.commit()
             await session.refresh(g2p_register_change_request)
