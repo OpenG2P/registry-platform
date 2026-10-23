@@ -7,7 +7,7 @@ from cryptography.fernet import Fernet
 
 from sqlalchemy import desc, select
 from openg2p_fastapi_common.service import BaseService
-from openg2p_fastapi_common.context import dbengine
+from openg2p_fastapi_common.context import dbengine, get_async_session_maker
 from openg2p_fastapi_common.crypto import CryptoFactory
 
 from iam_core.models import LoginProvider
