@@ -152,7 +152,10 @@ export const formatInCalendar = (
 };
 
 type DatePatternToken =
-  | { kind: 'YYYY' | 'YY' | 'MM' | 'DD' }
+  | { kind: 'YYYY' }
+  | { kind: 'YY' }
+  | { kind: 'MM' }
+  | { kind: 'DD' }
   | { kind: 'lit'; value: string };
 
 const escapeRegExp = (value: string): string =>
@@ -219,7 +222,9 @@ export const extractDatePartsFromPattern = (
 
   const tokens = tokenizeDatePattern(pattern);
   const fieldKinds = tokens
-    .filter((t): t is { kind: 'YYYY' | 'YY' | 'MM' | 'DD' } => t.kind !== 'lit')
+    .filter(
+      (t): t is Exclude<DatePatternToken, { kind: 'lit' }> => t.kind !== 'lit'
+    )
     .map((t) => t.kind);
 
   if (
