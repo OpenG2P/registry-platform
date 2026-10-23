@@ -1,6 +1,7 @@
 import { WidgetFormat } from '../types';
 import { formatNumber } from './numberInput';
-import { parseDate } from './dateInput';
+import { parseDate, formatDateToISO } from './dateInput';
+import { formatInCalendar, isGregorianCalendar, resolveCalendar } from './calendarDates';
 
 export const formatDate = (value: any, format: WidgetFormat | undefined): string => {
   if (!value) {
@@ -8,8 +9,17 @@ export const formatDate = (value: any, format: WidgetFormat | undefined): string
   }
 
   const dateFormat = format?.dateFormat || 'DD-MM-YYYY';
+  const calendar = resolveCalendar(format?.calendar);
 
   try {
+    if (!isGregorianCalendar(calendar)) {
+      const iso =
+        typeof value === 'string'
+          ? value.split('T')[0]
+          : formatDateToISO(value instanceof Date ? value : new Date(value));
+      return formatInCalendar(iso, calendar, dateFormat, format?.locale);
+    }
+
     const date = typeof value === 'string' ? parseDate(value) : new Date(value);
     if (!date || isNaN(date.getTime())) {
       return value?.toString() || '';

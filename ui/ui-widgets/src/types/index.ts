@@ -146,8 +146,33 @@ export type BooleanControlType =
   | 'radio'
   | 'toggle';
 
+/** Temporal calendar id (gregory, ethiopic, islamic, nepali, …). */
+export type WidgetCalendar =
+  | 'iso8601'
+  | 'hebrew'
+  | 'islamic'
+  | 'islamic-umalqura'
+  | 'islamic-tbla'
+  | 'islamic-civil'
+  | 'islamic-rgsa'
+  | 'persian'
+  | 'ethiopic'
+  | 'ethioaa'
+  | 'coptic'
+  | 'chinese'
+  | 'dangi'
+  | 'roc'
+  | 'indian'
+  | 'buddhist'
+  | 'japanese'
+  | 'gregory'
+  | 'nepali'
+  | string;
+
 export interface WidgetFormat {
   dateFormat?: string;
+  /** Non-Gregorian calendar for picker/display. Stored value stays Gregorian ISO. */
+  calendar?: WidgetCalendar;
   currency?: string;
   locale?: string;
   decimals?: number;
