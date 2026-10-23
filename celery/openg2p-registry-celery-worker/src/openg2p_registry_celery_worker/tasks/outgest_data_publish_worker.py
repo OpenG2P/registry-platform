@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime
 from httpx import HTTPStatusError
@@ -77,7 +78,7 @@ def _publish_content(session: Session, topic_id: str, transformed_data_json: Dic
         raise Exception(f"OutgoingTopic not found for topic_id: {topic_id}")
     websub_helper = WebsubHelper.get_component()
     try:
-        websub_helper.publish(outgoing_topic.websub_topic, transformed_data_json)
+        asyncio.run(websub_helper.publish(outgoing_topic.websub_topic, transformed_data_json))
     except HTTPStatusError as http_e:
         _logger.error(f"Error during publishing content to websub topic {outgoing_topic.websub_topic}: {str(http_e)}")
         raise http_e
