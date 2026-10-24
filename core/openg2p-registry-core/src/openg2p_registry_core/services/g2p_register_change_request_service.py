@@ -52,6 +52,7 @@ from .g2p_awe_status_reconcile import (
     reconcile_artifact_status_summary,
 )
 from .g2p_attribute_value_validator import G2PAttributeValueValidator
+from .g2p_widget_rule_validator import G2PWidgetRuleValidator
 from .g2p_register_domain_service import G2PRegisterDomainService
 from .g2p_register_history_service import G2PRegisterHistoryService
 from .g2p_register_service import G2PRegisterService
@@ -2374,6 +2375,11 @@ class G2PRegisterChangeRequestService(BaseService):
         await G2PAttributeValueValidator.get_component().validate_records(
             records_for_validation,
             field_map=field_map,
+        )
+        (G2PWidgetRuleValidator.get_component() or G2PWidgetRuleValidator()).validate_records(
+            records_for_validation,
+            rules=G2PWidgetRuleValidator.rules_from_ui_schema(section_ui_schema),
+            check_required=True,
         )
 
         domain_service = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)

@@ -19,6 +19,7 @@ from openg2p_registry_core.cache import init_cache
 from openg2p_fastapi_common.exception import BaseExceptionHandler        
 from openg2p_registry_core.services import (
     G2PAttributeValueValidator,
+    G2PWidgetRuleValidator,
     G2PIngestService,
     G2PIntakeFormDataService,
     G2PIntakeFormLinkService,
@@ -61,6 +62,7 @@ class Initializer(BaseInitializer):
         G2PChangeRequestWorkerService()
         G2PGeoHierarchyService()
         G2PAttributeValueValidator()
+        G2PWidgetRuleValidator()
 
         # Factories
         G2PRegisterDomainFactory()

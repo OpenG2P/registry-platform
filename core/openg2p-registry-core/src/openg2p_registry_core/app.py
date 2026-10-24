@@ -133,6 +133,7 @@ from .services import (
     G2PDataModelService,
     G2PDocumentService,
     G2PAttributeValueValidator,
+    G2PWidgetRuleValidator,
     G2PChangeRequestWorkerService,
     G2PIngestionConfigurationService,
     G2PIngestionDataService,
@@ -224,6 +225,7 @@ class Initializer(BaseInitializer):
         G2POutgestionConfigurationService()
         G2PTemplateService()
         G2PAttributeValueValidator()
+        G2PWidgetRuleValidator()
         G2PVcConfigurationService()
         InputMechanismMetadataService()
         InputMechanismDataService()

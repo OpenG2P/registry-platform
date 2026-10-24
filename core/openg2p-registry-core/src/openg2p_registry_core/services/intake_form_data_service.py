@@ -40,6 +40,7 @@ from ..models import (
     SubmissionSourceEnum,
 )
 from .g2p_attribute_value_validator import G2PAttributeValueValidator
+from .g2p_widget_rule_validator import G2PWidgetRuleValidator
 from .filter_builder import FilterBuilder
 from ..schemas import (
     DocumentAttachment,
@@ -156,6 +157,13 @@ class G2PIntakeFormDataService(BaseService):
         await G2PAttributeValueValidator.get_component().validate_records(
             records_for_validation,
             field_map=field_map,
+        )
+        # A draft section is saved while the form is still being filled in, so
+        # only formats are checked here; required fields are the submit's job.
+        (G2PWidgetRuleValidator.get_component() or G2PWidgetRuleValidator()).validate_records(
+            records_for_validation,
+            rules=G2PWidgetRuleValidator.rules_from_ui_schema(_section.section_ui_schema),
+            check_required=False,
         )
 
         if domain_service:
