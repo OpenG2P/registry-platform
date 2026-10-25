@@ -27,6 +27,7 @@
 #   FUNC_RUN_STAFF_TIER2=1  also run api/staff -m tier2 after workflows
 #   FUNC_RUN_PARTNER_TIER3=1 also run api/partner -m tier3 after workflows
 #   FUNC_SKIP_PARTNER_CONSENT_SEED=1  skip PM/CM partner+consent seed
+#   FUNC_SKIP_PIP=1         skip pip install if .venv already has pytest
 #
 # Staff Tier-2 env-gated extras (off by default; set when running Tier-2):
 #   FUNC_AWE_ENABLED=1              AWE proxy list/stats
@@ -47,10 +48,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT}/functional-testing/docker/docker-compose.gate.yaml"
 PROJECT_NAME="${FUNC_COMPOSE_PROJECT:-func-gate-rp}"
 
+COMPOSE=(docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}")
+
 cleanup() {
   if [ "${FUNC_SKIP_TEARDOWN:-0}" != "1" ] && [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
     echo "[compose-gate] tearing down"
-    docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" down -v --remove-orphans 2>/dev/null || true
+    "${COMPOSE[@]}" down -v --remove-orphans 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -64,7 +67,7 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
   # stop leftover containers (permission denied), fail clearly so the operator
   # can `sudo docker rm -f $(sudo docker ps -aq --filter name=${PROJECT_NAME})`.
   echo "[compose-gate] removing any previous stack (including volumes)..."
-  if ! docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" down -v --remove-orphans; then
+  if ! "${COMPOSE[@]}" down -v --remove-orphans; then
     echo "[compose-gate] ERROR: could not tear down project '${PROJECT_NAME}'." >&2
     echo "[compose-gate] HINT: stuck containers often need elevated Docker access:" >&2
     echo "  sudo docker rm -f \$(sudo docker ps -aq --filter name=${PROJECT_NAME})" >&2
@@ -72,19 +75,19 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
     exit 1
   fi
 
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d \
+  "${COMPOSE[@]}" up -d \
     postgres keycloak redis minio \
     iam-staff-portal-api master-data-api awe id-generator \
     pm-partner-api pm-staff-api consent-manager-api consent-manager-partner-api
 
   echo "[compose-gate] waiting for infrastructure to be healthy..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d --wait \
+  "${COMPOSE[@]}" up -d --wait \
     postgres keycloak redis minio \
     iam-staff-portal-api master-data-api awe id-generator \
     pm-partner-api pm-staff-api consent-manager-api consent-manager-partner-api
 
   echo "[compose-gate] seeding IAM login provider..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T postgres \
+  "${COMPOSE[@]}" exec -T postgres \
     psql -U iam_service_user -d iam_service -c "
       INSERT INTO login_providers (
         provider_name, client_id, client_secret,
@@ -106,7 +109,7 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
     "
 
   echo "[compose-gate] seeding IAM RBAC (application, roles, permissions)..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T postgres \
+  "${COMPOSE[@]}" exec -T postgres \
     psql -U iam_service_user -d iam_service <<'EOSQL'
     INSERT INTO staff_portal_applications
       (id, application_mnemonic, application_description, active, is_self_registered, created_at, updated_at)
@@ -196,21 +199,21 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
 EOSQL
 
   echo "[compose-gate] building registry-platform images from local Dockerfiles..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" build \
-    staff-api partner-api celery-worker celery-beat staff-ui db-seed
+  "${COMPOSE[@]}" build \
+    staff-api partner-api celery-worker staff-ui db-seed
 
   echo "[compose-gate] starting registry-platform services..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d \
+  "${COMPOSE[@]}" up -d \
     staff-api partner-api celery-worker celery-beat staff-ui
 
   echo "[compose-gate] waiting for staff-api and staff-ui to be healthy..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d --wait \
+  "${COMPOSE[@]}" up -d --wait \
     staff-api partner-api staff-ui
 
   echo "[compose-gate] running db-seed..."
   # Prefer `run --rm` over `up --exit-code-from` so sibling services are not
   # stopped when the one-shot seed container exits.
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" run --rm --no-deps db-seed
+  "${COMPOSE[@]}" run --rm --no-deps db-seed
   echo "[compose-gate] db-seed complete"
 
   # Always use fixture household id for Individual intake linkage.
@@ -296,7 +299,11 @@ if [ ! -f "${VENV_DIR}/bin/activate" ]; then
 fi
 # shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
-pip install -q -r "${ROOT}/functional-testing/requirements.txt"
+if [ "${FUNC_SKIP_PIP:-0}" = "1" ] && [ -x "${VENV_DIR}/bin/pytest" ]; then
+  echo "[compose-gate] skipping pip install (FUNC_SKIP_PIP=1)"
+else
+  pip install -q -r "${ROOT}/functional-testing/requirements.txt"
+fi
 
 # Upsert + verify deterministic functional seed (Tier-1 reads + FUNC_HOUSEHOLD_ID).
 # Idempotent; also covers FUNC_SKIP_STACK=1 reuse.
@@ -328,7 +335,12 @@ if [ "${FUNC_SKIP_PARTNER_CONSENT_SEED:-0}" != "1" ]; then
   fi
 fi
 
-sleep "${FUNC_AUTH_WARMUP_SECONDS:-5}"
+if [ "${FUNC_SKIP_STACK:-0}" = "1" ]; then
+  FUNC_AUTH_WARMUP_SECONDS="${FUNC_AUTH_WARMUP_SECONDS:-0}"
+else
+  FUNC_AUTH_WARMUP_SECONDS="${FUNC_AUTH_WARMUP_SECONDS:-5}"
+fi
+sleep "${FUNC_AUTH_WARMUP_SECONDS}"
 
 # ── Run tests ───────────────────────────────────────────────────────────────
 

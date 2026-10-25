@@ -37,6 +37,11 @@ jobs:
           FUNC_SKIP_STACK: "1"
           FUNC_SKIP_UI: "1"
           FUNC_SKIP_TEARDOWN: "1"
+          FUNC_SKIP_FUNC_SEED: "1"
+          FUNC_SKIP_SEED: "1"
+          FUNC_SKIP_PARTNER_CONSENT_SEED: "1"
+          FUNC_SKIP_PIP: "1"
+          FUNC_AUTH_WARMUP_SECONDS: "0"
           FUNC_RUN_STAFF_TIER1: "1"
           FUNC_RUN_STAFF_TIER2: "1"
           FUNC_RUN_PARTNER_TIER3: "1"
@@ -51,6 +56,11 @@ jobs:
           FUNC_SKIP_STACK: "1"
           FUNC_SKIP_API: "1"
           FUNC_SKIP_TEARDOWN: "1"
+          FUNC_SKIP_FUNC_SEED: "1"
+          FUNC_SKIP_SEED: "1"
+          FUNC_SKIP_PARTNER_CONSENT_SEED: "1"
+          FUNC_SKIP_PIP: "1"
+          FUNC_AUTH_WARMUP_SECONDS: "0"
         run: ./functional-testing/docker/run-compose-gate.sh
 
       - name: Tear down stack

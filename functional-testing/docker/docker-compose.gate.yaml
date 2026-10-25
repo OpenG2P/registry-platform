@@ -471,6 +471,7 @@ services:
       - "18083:8000"
 
   celery-worker:
+    image: func-gate-rp-celery:local
     build:
       context: ../..
       dockerfile: docker/celery/Dockerfile
@@ -521,9 +522,7 @@ services:
         condition: service_healthy
 
   celery-beat:
-    build:
-      context: ../..
-      dockerfile: docker/celery/Dockerfile
+    image: func-gate-rp-celery:local
     environment:
       REGISTRY_CELERY_BEAT_DB_HOSTNAME: postgres
       REGISTRY_CELERY_BEAT_DB_DBNAME: registry
