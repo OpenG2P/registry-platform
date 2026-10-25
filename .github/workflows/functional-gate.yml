@@ -10,10 +10,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  functional-test:
+  api:
+    name: API (T0–T3)
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      COMPOSE_BAKE: "true"
+    steps:
+      - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run API gate
+        env:
+          FUNC_SKIP_UI: "1"
+          FUNC_RUN_STAFF_TIER1: "1"
+          FUNC_RUN_STAFF_TIER2: "1"
+          FUNC_RUN_PARTNER_TIER3: "1"
+          FUNC_AWE_ENABLED: "1"
+          FUNC_AWE_WEBHOOK_SECRET: func-gate-hmac-secret-value
+          FUNC_REGISTRANT_AUTH: "1"
+          FUNC_STAFF_INGEST: "1"
+        run: ./functional-testing/docker/run-compose-gate.sh
+
+  ui:
+    name: UI (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      COMPOSE_BAKE: "true"
     steps:
       - uses: actions/checkout@v4
 
@@ -25,50 +52,10 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Set up services
+      - name: Run UI gate
         env:
           FUNC_SKIP_API: "1"
-          FUNC_SKIP_UI: "1"
-          FUNC_SKIP_TEARDOWN: "1"
         run: ./functional-testing/docker/run-compose-gate.sh
-
-      - name: Run API tests
-        env:
-          FUNC_SKIP_STACK: "1"
-          FUNC_SKIP_UI: "1"
-          FUNC_SKIP_TEARDOWN: "1"
-          FUNC_SKIP_FUNC_SEED: "1"
-          FUNC_SKIP_SEED: "1"
-          FUNC_SKIP_PARTNER_CONSENT_SEED: "1"
-          FUNC_SKIP_PIP: "1"
-          FUNC_AUTH_WARMUP_SECONDS: "0"
-          FUNC_RUN_STAFF_TIER1: "1"
-          FUNC_RUN_STAFF_TIER2: "1"
-          FUNC_RUN_PARTNER_TIER3: "1"
-          FUNC_AWE_ENABLED: "1"
-          FUNC_AWE_WEBHOOK_SECRET: func-gate-hmac-secret-value
-          FUNC_REGISTRANT_AUTH: "1"
-          FUNC_STAFF_INGEST: "1"
-        run: ./functional-testing/docker/run-compose-gate.sh
-
-      - name: Run UI tests
-        env:
-          FUNC_SKIP_STACK: "1"
-          FUNC_SKIP_API: "1"
-          FUNC_SKIP_TEARDOWN: "1"
-          FUNC_SKIP_FUNC_SEED: "1"
-          FUNC_SKIP_SEED: "1"
-          FUNC_SKIP_PARTNER_CONSENT_SEED: "1"
-          FUNC_SKIP_PIP: "1"
-          FUNC_AUTH_WARMUP_SECONDS: "0"
-        run: ./functional-testing/docker/run-compose-gate.sh
-
-      - name: Tear down stack
-        if: always()
-        run: >
-          docker compose -p func-gate-rp
-          -f functional-testing/docker/docker-compose.gate.yaml
-          down -v --remove-orphans
 
       - name: Upload test artifacts
         if: always()

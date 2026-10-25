@@ -18,7 +18,8 @@ extension** (Individual and Household registers).
 | **1–2** | Staff endpoint suites | `FUNC_RUN_STAFF_TIER1=1` / `TIER2=1` | Always |
 | **3** | Partner ingest + DCI | `FUNC_RUN_PARTNER_TIER3=1` | Always |
 
-GitHub Actions (`.github/workflows/functional-gate.yml`) runs **T0–T3 + UI**.
+GitHub Actions (`.github/workflows/functional-gate.yml`) runs **T0–T3** and **UI**
+as two parallel jobs, each with a fresh compose stack (no cross-run caches).
 Local `./functional-testing/docker/run-compose-gate.sh` stays **T0 + UI** unless
 those flags are set, so a laptop run stays short.
 
