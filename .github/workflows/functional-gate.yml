@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   api:
-    name: API (T0–T3)
+    name: API
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
