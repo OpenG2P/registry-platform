@@ -45,13 +45,14 @@ Extension under test: `reference-extension` (platform-owned gate).
 | **U0 — Critical journeys** | Home, register read, intake queue, CR queue (**Individual**) | **Compose gate** |
 | **U1 — Household parity** | Same browse/queue journeys for Household | **Compose gate** |
 | **U2 — Browser mutations** | Finalize API draft in UI; create CR via Edit Details (**I+H**) | **Compose gate** |
-| **Optional — AWE decisions** | Hybrid / reject leftovers | Parked in `tests/optional/` |
+| **AWE Tasks** | Tasks → Approve (I+H intake + CR) | **Compose gate** (`tests/tasks/`) |
+| **Optional — hybrid / reject** | Hybrid api-bridge leftover + reject | Parked in `tests/optional/` |
 | **U3 — Secondary smokes** | Config, scores, AWE list, export | Opt-in / nightly |
 
 Staff UI Approve/Reject are **AWE task decisions**. Compose gate seeds
 **stage 1 `alex.carter`** and **stage 2 `nina.patel`**; `tests/tasks/`
 exercises Tasks → Approve (no api-bridge).
-Legacy direct `approve_*` remains in API Tier-1 provision helpers.
+Legacy direct `approve_*` remains in API **fixture / provision** helpers only.
 
 ## 5. Assert contract
 
@@ -101,6 +102,7 @@ functional-testing/ui/
     register/
     intake/
     change-request/
+    tasks/          # AWE Tasks → Approve (slim gate)
     optional/       # parked hybrid approve/reject + AWE UI-only
   global-setup.ts
   playwright.config.ts
@@ -122,7 +124,7 @@ Catalogue + coverage: [`06-ui-journey-catalogue.md`](06-ui-journey-catalogue.md)
 | **U-A** | Docs: plan + catalogue + coverage matrix; expand `ui/README.md` | **Done** |
 | **U-B** | Harden U0 fixture ownership / ordering notes in code | **Done** |
 | **U-C** | Household browse/queue | **Done** (on slim gate) |
-| **U-D** | Reject + UI-only approve | **Parked** (`tests/optional/`; needs AWE) |
+| **U-D** | Reject + UI-only / hybrid approve | **Parked** (`tests/optional/`) |
 | **U-E** | Browser mutations (U2) | **Done** (I+H finalize + CR create; delete deferred) |
 | **Slim** | Drop hybrid approve/reject from default gate + provision | **Done** |
 | **U-F** | Farmer-registry adoption of UI pattern | Later |

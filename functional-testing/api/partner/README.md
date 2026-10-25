@@ -26,7 +26,7 @@ cd functional-testing
 PYTHONPATH=. pytest -c api/pytest.ini api/partner -m tier3 -v --tb=short
 ```
 
-Compose gate:
+Compose gate (local opt-in; GitHub PR already sets this):
 
 ```bash
 FUNC_RUN_PARTNER_TIER3=1 FUNC_SKIP_UI=1 ./functional-testing/docker/run-compose-gate.sh

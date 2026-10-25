@@ -84,7 +84,7 @@ writes `reject` / `ui_only` blocks. See `tests/optional/README.md`.
 
 ---
 
-## U3 — Secondary (out of scope for PR gate)
+## U3 — Secondary (out of scope for slim UI gate)
 
 | ID | Journey | Status | Notes |
 |---|---|---|---|

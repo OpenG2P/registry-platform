@@ -1,4 +1,4 @@
-"""Document upload helper for Tier-2 pipeline / enqueue scenarios."""
+"""Document catalog helpers (upload / get / delete + intake attach)."""
 
 from __future__ import annotations
 
@@ -72,6 +72,13 @@ def _first_document_id(response: dict[str, Any]) -> str:
     doc_id = docs[0].get("document_id")
     assert doc_id, f"missing document_id in {docs[0]!r}"
     return str(doc_id)
+
+
+def get_documents(staff: StaffClient, document_ids: list[str]) -> dict[str, Any]:
+    return staff.post_json(
+        "/documents/get_documents",
+        {"document_ids": document_ids},
+    )
 
 
 def delete_documents(staff: StaffClient, document_ids: list[str]) -> dict[str, Any]:

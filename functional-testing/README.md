@@ -12,11 +12,15 @@ extension** (Individual and Household registers).
 
 ### API coverage model
 
-| Tier | Role | Gate |
-|---|---|---|
-| **0** | Workflow smoke (intake → register → CR) | **PR compose gate (current)** |
-| **1–2** | Staff endpoint suites | Expand after docs (not all on PR yet) |
-| **3** | Partner ingest + DCI | After Staff complete |
+| Tier | Role | Local compose default | GitHub PR gate |
+|---|---|---|---|
+| **0** | Workflow smoke (intake → register → CR) | Always | Always |
+| **1–2** | Staff endpoint suites | `FUNC_RUN_STAFF_TIER1=1` / `TIER2=1` | Always |
+| **3** | Partner ingest + DCI | `FUNC_RUN_PARTNER_TIER3=1` | Always |
+
+GitHub Actions (`.github/workflows/functional-gate.yml`) runs **T0–T3 + UI**.
+Local `./functional-testing/docker/run-compose-gate.sh` stays **T0 + UI** unless
+those flags are set, so a laptop run stays short.
 
 Performance testing is separate — **no shared methods** with this tree.
 
@@ -54,7 +58,7 @@ pip install -r functional-testing/requirements.txt
 # API (Tier-0 workflows)
 cd functional-testing
 PYTHONPATH=. pytest -c api/pytest.ini api/workflows -v
-# Staff Tier-1 / Tier-2 (opt-in; needs seed)
+# Staff Tier-1 / Tier-2 / Partner (local opt-in; GitHub PR always; needs seed)
 PYTHONPATH=. pytest -c api/pytest.ini api/staff -m tier1 -v
 PYTHONPATH=. pytest -c api/pytest.ini api/staff -m tier2 -v
 PYTHONPATH=. pytest -c api/pytest.ini api/partner -m tier3 -v
@@ -71,9 +75,9 @@ functional-testing/
 ├── documentation/       # API 01–04 + UI 05–07 (plan, catalogue, matrix, seed)
 ├── fixtures/seed/       # deterministic SQL + seed_manifest.json
 ├── api/                 # pytest API suite — see api/README.md
-│   ├── workflows/       # Tier-0 PR gate × Individual + Household
-│   ├── staff/           # Tier-1/2 endpoint suites (opt-in markers)
-│   ├── partner/         # Tier-3 Partner ingest + DCI (opt-in)
+│   ├── workflows/       # Tier-0 (always) × Individual + Household
+│   ├── staff/           # Tier-1/2 (GitHub PR; local FUNC_RUN_*)
+│   ├── partner/         # Tier-3 (GitHub PR; local FUNC_RUN_PARTNER_TIER3)
 │   ├── assertions/      # response + DB + dual validators
 │   ├── profile_params.py
 │   ├── conftest.py
@@ -89,7 +93,7 @@ functional-testing/
 ├── ui/                  # Playwright UI E2E — see ui/README.md
 │   ├── helpers/         # fixture, auth, api-bridge
 │   ├── pages/           # register / intake / change-request
-│   ├── tests/           # home, register, intake, change-request
+│   ├── tests/           # home, register, intake, change-request, tasks
 │   └── scripts/         # provision / approve fixtures
 └── requirements.txt
 ```

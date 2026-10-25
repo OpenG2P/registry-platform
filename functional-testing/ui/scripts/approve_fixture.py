@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Approve or reject a pending intake / CR by id (Playwright hybrid UI specs).
 
+Uses fixture-only `/approve_*` (not AWE). Slim-gate Tasks specs do not call this.
+
 Usage:
   python scripts/approve_fixture.py intake <submission_id>
   python scripts/approve_fixture.py cr <change_request_id> [section_id]

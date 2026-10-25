@@ -15,33 +15,34 @@ Profiles: **I** = Individual, **H** = Household. Tier-0 workflows run both unles
 
 ---
 
-## Tier-0 workflow map (PR gate today)
+## Tier-0 workflow map (always on compose gate)
 
 | Scenario (`api/workflows/`) | Profiles | Proves |
 |---|---|---|
 | `test_intake_create` | I+H | finalize → FINAL / PENDING (API+DB) |
-| `test_intake_approve` | I+H | approve → register; subject + supporting dual-assert |
+| `test_intake_approve` | I+H | two-stage AWE → register; subject + supporting dual-assert |
 | `test_register_read` | I+H | summary, subject, tabs/records, pending CR list |
 | `test_cr_create` | I+H | CR PENDING; subject field unchanged |
-| `test_cr_approve` | I+H | CR APPROVED; field applied; history linkage |
-| `test_cr_supporting_history` | I+H | supporting TABLE CR applied; child history linkage |
+| `test_cr_approve` | I+H | two-stage AWE; CR APPROVED; field applied; history linkage |
+| `test_cr_supporting_history` | I+H | two-stage AWE; supporting TABLE CR applied; child history linkage |
 
 ---
 
-## Tier-1 Staff endpoint suites (`api/staff/`, opt-in)
+## Tier-1 Staff endpoint suites (`api/staff/`; GitHub PR, local opt-in)
 
 | Module | Profiles | Endpoints exercised |
 |---|---|---|
 | `register_data/test_seeded_reads.py` | I+H | search, get_subject, summary, get_section_records, supporting tabs, schema, versions/history |
 | `intake_form_data/test_reject_delete.py` | I+H | reject finalized; delete draft (+ DB) |
 | `change_requests/test_reject_and_reads.py` | I+H | reject CR; pending count; summary; verifications; search |
+| `documents/test_catalog_and_links.py` | catalog + I+H | upload/get/delete; intake + CR + live section links (+ DB) |
 | `metadata/test_reads.py` | I+H | get_all_registers/sections/tabs; get_section/tab; intake form get/render |
 
 Run: `pytest -c api/pytest.ini api/staff -m tier1` or `FUNC_RUN_STAFF_TIER1=1` on the compose gate.
 
 ---
 
-## Tier-2 Staff endpoint suites (`api/staff/`, opt-in)
+## Tier-2 Staff endpoint suites (`api/staff/`; GitHub PR, local opt-in)
 
 | Batch | Modules | Focus |
 |---|---|---|
@@ -88,8 +89,8 @@ Run: `pytest -c api/pytest.ini api/staff -m tier2` or `FUNC_RUN_STAFF_TIER2=1` o
 | `finalize_intake_form_submission` | covered | |
 | `get_intake_form_submission` | covered | create + approve + reject paths |
 | `search_in_intake_form_submissions` | covered | `test_intake_approve` |
-| `approve_intake_form_submission` | covered | + DB submission / register |
-| `add_verification` (via `/verifications`) | covered | |
+| `approve_intake_form_submission` | incidental | fixture `verify_and_approve_intake` only; workflow uses AWE |
+| `add_verification` (via `/verifications`) | incidental | same fixture path |
 | `reject_intake_form_submission` | covered | Tier-1 + DB |
 | `delete_intake_form_submission` | covered | Tier-1 draft delete + DB |
 | `get_tab_records` (intake) | missing | |
@@ -111,8 +112,8 @@ Run: `pytest -c api/pytest.ini api/staff -m tier2` or `FUNC_RUN_STAFF_TIER2=1` o
 | Endpoint | Status | Notes |
 |---|---|---|
 | `create_change_request` | covered | subject + supporting |
-| `approve_change_request` | covered | |
-| `add_verification_for_change_request` | covered | |
+| `approve_change_request` | incidental | fixture `verify_and_approve_cr` only; workflow uses AWE |
+| `add_verification_for_change_request` | incidental | same fixture path |
 | `get_change_request` | covered | |
 | `get_change_requests` | covered | pending list in register_read |
 | `reject_change_request` | covered | Tier-1 + subject unchanged |
@@ -134,14 +135,19 @@ Run: `pytest -c api/pytest.ini api/staff -m tier2` or `FUNC_RUN_STAFF_TIER2=1` o
 
 | Endpoint | Status | Notes |
 |---|---|---|
-| `add_verification` | covered | intake approve |
+| `add_verification` | incidental | fixture `verify_and_approve_intake` |
 | `get_verifications` | missing | |
 
 ### `/documents`
 
 | Endpoint | Status | Notes |
 |---|---|---|
-| all | missing | |
+| `upload_documents` | covered | Tier-1 catalog + attach paths |
+| `get_documents` | covered | catalog round-trip + DB |
+| `delete_documents` | covered | cascade + `DOCUMENT_NOT_FOUND` |
+| `get_intake_form_documents` | covered | attach on draft + DB junction |
+| `get_change_request_documents` | covered | CR supporting evidence + DB |
+| `get_section_documents` | covered | promoted on intake approve + DB |
 
 ### Metadata reads (register / tab / section)
 
@@ -178,7 +184,7 @@ Run: `pytest -c api/pytest.ini api/staff -m tier2` or `FUNC_RUN_STAFF_TIER2=1` o
 
 ---
 
-## Partner (Tier 3) — opt-in (`api/partner/`, `-m tier3`)
+## Partner (Tier 3) — GitHub PR; local opt-in (`api/partner/`, `-m tier3`)
 
 | Endpoint | Status | Notes |
 |---|---|---|
@@ -199,8 +205,9 @@ Not applicable.
 
 | Bucket | Covered / incidental | Missing / deferred |
 |---|---:|---:|
-| Staff Tier-1 core (high-value) | ~40 | ~20 |
+| Staff Tier-1 core (high-value) | ~46 | ~14 |
 | Staff Tier-2 | ~most secondary controllers (E1–E6) | `re_register_topic`; full OAuth callback; live ingest body |
 | Partner | 2 | 0 (Household DCI template not seeded) |
 
-PR gate remains **Tier-0 workflows** only. Opt-in: `FUNC_RUN_STAFF_TIER1=1` / `FUNC_RUN_STAFF_TIER2=1` / `FUNC_RUN_PARTNER_TIER3=1`.
+**GitHub PR gate:** T0 + Staff T1/T2 + Partner T3 + UI.
+**Local compose default:** T0 + UI. Opt-in: `FUNC_RUN_STAFF_TIER1=1` / `FUNC_RUN_STAFF_TIER2=1` / `FUNC_RUN_PARTNER_TIER3=1`.

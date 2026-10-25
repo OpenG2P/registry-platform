@@ -233,6 +233,64 @@ def fetch_supporting_history_by_change_request(
     )
     return rows[0] if rows else None
 
+def fetch_registry_document(dsn: str, document_id: str) -> Optional[dict[str, Any]]:
+    rows = query(
+        dsn,
+        """
+        SELECT document_id, document_store_id, bucket, source_filename, created_by
+        FROM g2p_registry_documents
+        WHERE document_id = %s
+        """,
+        (document_id,),
+    )
+    return rows[0] if rows else None
+
+
+def fetch_intake_section_documents(
+    dsn: str, submission_id: str
+) -> list[dict[str, Any]]:
+    return query(
+        dsn,
+        """
+        SELECT submission_id, document_id, section_id, label
+        FROM g2p_intake_section_documents
+        WHERE submission_id = %s
+        ORDER BY document_id
+        """,
+        (submission_id,),
+    )
+
+
+def fetch_change_request_documents(
+    dsn: str, change_request_id: str
+) -> list[dict[str, Any]]:
+    return query(
+        dsn,
+        """
+        SELECT change_request_id, document_id, section_id, label
+        FROM g2p_change_request_documents
+        WHERE change_request_id = %s
+        ORDER BY document_id
+        """,
+        (change_request_id,),
+    )
+
+
+def fetch_section_documents(
+    dsn: str, internal_record_id: str
+) -> list[dict[str, Any]]:
+    return query(
+        dsn,
+        """
+        SELECT internal_record_id, document_id, section_id, label
+        FROM g2p_register_section_documents
+        WHERE internal_record_id = %s
+        ORDER BY document_id
+        """,
+        (internal_record_id,),
+    )
+
+
 def fetch_change_request(dsn: str, change_request_id: str) -> Optional[dict[str, Any]]:
     rows = query(
         dsn,

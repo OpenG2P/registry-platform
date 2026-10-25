@@ -313,7 +313,10 @@ fi
 
 if [ "${FUNC_SKIP_SEED:-0}" != "1" ]; then
   echo "[compose-gate] seeding keycloak test user"
-  python3 "${ROOT}/functional-testing/scripts/keycloak_seed.py" || true
+  if ! python3 "${ROOT}/functional-testing/scripts/keycloak_seed.py"; then
+    echo "[compose-gate] keycloak seed failed" >&2
+    exit 1
+  fi
 fi
 
 if [ "${FUNC_SKIP_PARTNER_CONSENT_SEED:-0}" != "1" ]; then

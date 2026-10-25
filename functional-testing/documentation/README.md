@@ -10,9 +10,10 @@
 | [`06-ui-journey-catalogue.md`](06-ui-journey-catalogue.md) | Staff UI journey inventory |
 | [`07-ui-coverage-matrix.md`](07-ui-coverage-matrix.md) | Per-journey UI coverage status |
 
-Suite layout: Tier-0 lives in `api/workflows/`; Staff Tier-1/2 in `api/staff/`
-(`-m tier1` / `-m tier2`); Partner in `api/partner/`. UI E2E in `ui/` (U0 on
-compose gate). Performance testing is **out of scope** and must not share code
+Suite layout: Tier-0 lives in `api/workflows/` (local compose default);
+Staff Tier-1/2 in `api/staff/` (`-m tier1` / `-m tier2`); Partner in
+`api/partner/`. GitHub PR runs T0–T3 + UI. UI E2E in `ui/` (slim gate includes
+AWE Tasks). Performance testing is **out of scope** and must not share code
 with this tree.
 
 Runbooks: [`../api/README.md`](../api/README.md), [`../ui/README.md`](../ui/README.md).

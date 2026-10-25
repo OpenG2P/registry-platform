@@ -9,6 +9,7 @@ from __future__ import annotations
 from helpers.flows import (
     approve_artifact_stage,
     approve_two_stage_awe,
+    attach_intake_section_documents,
     create_and_finalize_intake,
     create_draft_intake,
     create_field_cr,
@@ -35,6 +36,7 @@ __all__ = [
     "approve_artifact_stage",
     "approve_two_stage_awe",
     "assert_ok",
+    "attach_intake_section_documents",
     "create_and_finalize_intake",
     "create_draft_intake",
     "create_field_cr",
