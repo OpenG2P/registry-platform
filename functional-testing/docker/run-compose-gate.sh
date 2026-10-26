@@ -27,6 +27,8 @@
 #   FUNC_RUN_STAFF_TIER2=1  also run api/staff -m tier2 after workflows
 #   FUNC_RUN_PARTNER_TIER3=1 also run api/partner -m tier3 after workflows
 #   FUNC_SKIP_PARTNER_CONSENT_SEED=1  skip PM/CM partner+consent seed
+#   FUNC_SKIP_PIP=1         skip pip install if .venv already has pytest
+#   FUNC_SKIP_STAFF_UI=1    do not build/start staff-ui (implied for API-only)
 #
 # Staff Tier-2 env-gated extras (off by default; set when running Tier-2):
 #   FUNC_AWE_ENABLED=1              AWE proxy list/stats
@@ -47,10 +49,67 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${ROOT}/functional-testing/docker/docker-compose.gate.yaml"
 PROJECT_NAME="${FUNC_COMPOSE_PROJECT:-func-gate-rp}"
 
+COMPOSE=(docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}")
+
+wait_pid() {
+  local pid="${1:-}"
+  local name="$2"
+  if [ -z "${pid}" ]; then
+    return 0
+  fi
+  if ! wait "${pid}"; then
+    echo "[compose-gate] ERROR: ${name} failed" >&2
+    exit 1
+  fi
+}
+
+# API-only runs do not need the Next.js image. Setup-only (skip API and UI)
+# still builds it so a later UI pass can reuse the stack.
+SKIP_STAFF_UI=0
+if [ "${FUNC_SKIP_STAFF_UI:-0}" = "1" ]; then
+  SKIP_STAFF_UI=1
+elif [ "${FUNC_SKIP_UI:-0}" = "1" ] && [ "${FUNC_SKIP_API:-0}" != "1" ]; then
+  SKIP_STAFF_UI=1
+fi
+
+# pip / Playwright downloads overlap Docker pull+build (same run, not a cache).
+VENV_DIR="${ROOT}/functional-testing/.venv"
+if [ ! -f "${VENV_DIR}/bin/activate" ]; then
+  echo "[compose-gate] creating python venv at ${VENV_DIR}"
+  python3 -m venv "${VENV_DIR}"
+fi
+# shellcheck disable=SC1091
+source "${VENV_DIR}/bin/activate"
+PIP_PID=""
+if [ "${FUNC_SKIP_PIP:-0}" = "1" ] && [ -x "${VENV_DIR}/bin/pytest" ]; then
+  echo "[compose-gate] skipping pip install (FUNC_SKIP_PIP=1)"
+else
+  echo "[compose-gate] installing python deps"
+  pip install -q -r "${ROOT}/functional-testing/requirements.txt" &
+  PIP_PID=$!
+fi
+
+UI_DEPS_PID=""
+install_ui_deps() {
+  echo "[compose-gate] installing Playwright deps"
+  cd "${ROOT}/functional-testing/ui"
+  if [ -f package-lock.json ]; then
+    npm ci || return 1
+  else
+    echo "[compose-gate] no package-lock.json — using npm install"
+    npm install || return 1
+  fi
+  npx playwright install chromium || return 1
+}
+if [ "${FUNC_SKIP_UI:-0}" != "1" ]; then
+  install_ui_deps &
+  UI_DEPS_PID=$!
+fi
+
 cleanup() {
   if [ "${FUNC_SKIP_TEARDOWN:-0}" != "1" ] && [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
     echo "[compose-gate] tearing down"
-    docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" down -v --remove-orphans 2>/dev/null || true
+    "${COMPOSE[@]}" down -v --remove-orphans 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -64,7 +123,7 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
   # stop leftover containers (permission denied), fail clearly so the operator
   # can `sudo docker rm -f $(sudo docker ps -aq --filter name=${PROJECT_NAME})`.
   echo "[compose-gate] removing any previous stack (including volumes)..."
-  if ! docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" down -v --remove-orphans; then
+  if ! "${COMPOSE[@]}" down -v --remove-orphans; then
     echo "[compose-gate] ERROR: could not tear down project '${PROJECT_NAME}'." >&2
     echo "[compose-gate] HINT: stuck containers often need elevated Docker access:" >&2
     echo "  sudo docker rm -f \$(sudo docker ps -aq --filter name=${PROJECT_NAME})" >&2
@@ -72,19 +131,30 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
     exit 1
   fi
 
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d \
+  "${COMPOSE[@]}" up -d \
     postgres keycloak redis minio \
     iam-staff-portal-api master-data-api awe id-generator \
     pm-partner-api pm-staff-api consent-manager-api consent-manager-partner-api
 
+  BUILD_IMAGES=(staff-api partner-api celery-worker db-seed)
+  PLATFORM_SERVICES=(staff-api partner-api celery-worker celery-beat)
+  WAIT_SERVICES=(staff-api partner-api)
+  if [ "${SKIP_STAFF_UI}" != "1" ]; then
+    BUILD_IMAGES+=(staff-ui)
+    PLATFORM_SERVICES+=(staff-ui)
+    WAIT_SERVICES+=(staff-ui)
+  else
+    echo "[compose-gate] skipping staff-ui image (API-only)"
+  fi
+
   echo "[compose-gate] waiting for infrastructure to be healthy..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d --wait \
+  "${COMPOSE[@]}" up -d --wait \
     postgres keycloak redis minio \
     iam-staff-portal-api master-data-api awe id-generator \
     pm-partner-api pm-staff-api consent-manager-api consent-manager-partner-api
 
   echo "[compose-gate] seeding IAM login provider..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T postgres \
+  "${COMPOSE[@]}" exec -T postgres \
     psql -U iam_service_user -d iam_service -c "
       INSERT INTO login_providers (
         provider_name, client_id, client_secret,
@@ -106,7 +176,7 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
     "
 
   echo "[compose-gate] seeding IAM RBAC (application, roles, permissions)..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" exec -T postgres \
+  "${COMPOSE[@]}" exec -T postgres \
     psql -U iam_service_user -d iam_service <<'EOSQL'
     INSERT INTO staff_portal_applications
       (id, application_mnemonic, application_description, active, is_self_registered, created_at, updated_at)
@@ -196,21 +266,18 @@ if [ "${FUNC_SKIP_STACK:-0}" != "1" ]; then
 EOSQL
 
   echo "[compose-gate] building registry-platform images from local Dockerfiles..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" build \
-    staff-api partner-api celery-worker celery-beat staff-ui db-seed
+  "${COMPOSE[@]}" build "${BUILD_IMAGES[@]}"
 
   echo "[compose-gate] starting registry-platform services..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d \
-    staff-api partner-api celery-worker celery-beat staff-ui
+  "${COMPOSE[@]}" up -d "${PLATFORM_SERVICES[@]}"
 
-  echo "[compose-gate] waiting for staff-api and staff-ui to be healthy..."
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" up -d --wait \
-    staff-api partner-api staff-ui
+  echo "[compose-gate] waiting for platform to be healthy..."
+  "${COMPOSE[@]}" up -d --wait "${WAIT_SERVICES[@]}"
 
   echo "[compose-gate] running db-seed..."
   # Prefer `run --rm` over `up --exit-code-from` so sibling services are not
   # stopped when the one-shot seed container exits.
-  docker compose -p "${PROJECT_NAME}" -f "${COMPOSE_FILE}" run --rm --no-deps db-seed
+  "${COMPOSE[@]}" run --rm --no-deps db-seed
   echo "[compose-gate] db-seed complete"
 
   # Always use fixture household id for Individual intake linkage.
@@ -287,16 +354,7 @@ FUNC_REGISTRANT_AUTH=${FUNC_REGISTRANT_AUTH}
 FUNC_STAFF_INGEST=${FUNC_STAFF_INGEST}
 EOF
 
-# ── Python virtual environment for provisioning scripts ─────────────────────
-
-VENV_DIR="${ROOT}/functional-testing/.venv"
-if [ ! -f "${VENV_DIR}/bin/activate" ]; then
-  echo "[compose-gate] creating python venv at ${VENV_DIR}"
-  python3 -m venv "${VENV_DIR}"
-fi
-# shellcheck disable=SC1091
-source "${VENV_DIR}/bin/activate"
-pip install -q -r "${ROOT}/functional-testing/requirements.txt"
+wait_pid "${PIP_PID:-}" "pip install"
 
 # Upsert + verify deterministic functional seed (Tier-1 reads + FUNC_HOUSEHOLD_ID).
 # Idempotent; also covers FUNC_SKIP_STACK=1 reuse.
@@ -313,7 +371,10 @@ fi
 
 if [ "${FUNC_SKIP_SEED:-0}" != "1" ]; then
   echo "[compose-gate] seeding keycloak test user"
-  python3 "${ROOT}/functional-testing/scripts/keycloak_seed.py" || true
+  if ! python3 "${ROOT}/functional-testing/scripts/keycloak_seed.py"; then
+    echo "[compose-gate] keycloak seed failed" >&2
+    exit 1
+  fi
 fi
 
 if [ "${FUNC_SKIP_PARTNER_CONSENT_SEED:-0}" != "1" ]; then
@@ -325,46 +386,47 @@ if [ "${FUNC_SKIP_PARTNER_CONSENT_SEED:-0}" != "1" ]; then
   fi
 fi
 
-sleep "${FUNC_AUTH_WARMUP_SECONDS:-5}"
+if [ "${FUNC_SKIP_STACK:-0}" = "1" ]; then
+  FUNC_AUTH_WARMUP_SECONDS="${FUNC_AUTH_WARMUP_SECONDS:-0}"
+else
+  FUNC_AUTH_WARMUP_SECONDS="${FUNC_AUTH_WARMUP_SECONDS:-5}"
+fi
+sleep "${FUNC_AUTH_WARMUP_SECONDS}"
 
 # ── Run tests ───────────────────────────────────────────────────────────────
 
 GATE_EXIT=0
 
 if [ "${FUNC_SKIP_API:-0}" != "1" ]; then
-  echo "[compose-gate] === API workflows (Tier-0) ==="
+  echo "[compose-gate] === API tests ==="
   cd "${ROOT}/functional-testing"
-  PYTHONPATH="${ROOT}/functional-testing" pytest -c api/pytest.ini api/workflows -v --tb=short "$@" || GATE_EXIT=$?
-
-  if [ "${FUNC_RUN_STAFF_TIER1:-0}" = "1" ] && [ "${GATE_EXIT}" -eq 0 ]; then
-    echo "[compose-gate] === API staff Tier-1 ==="
-    PYTHONPATH="${ROOT}/functional-testing" pytest -c api/pytest.ini api/staff -m tier1 -v --tb=short || GATE_EXIT=$?
+  PYTEST_PATHS=(api/workflows)
+  PYTEST_EXPR="(not tier1 and not tier2 and not tier3)"
+  if [ "${FUNC_RUN_STAFF_TIER1:-0}" = "1" ]; then
+    PYTEST_PATHS+=(api/staff)
+    PYTEST_EXPR="${PYTEST_EXPR} or tier1"
   fi
-
-  if [ "${FUNC_RUN_STAFF_TIER2:-0}" = "1" ] && [ "${GATE_EXIT}" -eq 0 ]; then
-    echo "[compose-gate] === API staff Tier-2 ==="
-    PYTHONPATH="${ROOT}/functional-testing" pytest -c api/pytest.ini api/staff -m tier2 -v --tb=short || GATE_EXIT=$?
+  if [ "${FUNC_RUN_STAFF_TIER2:-0}" = "1" ]; then
+    PYTEST_PATHS+=(api/staff)
+    PYTEST_EXPR="${PYTEST_EXPR} or tier2"
   fi
-
-  if [ "${FUNC_RUN_PARTNER_TIER3:-0}" = "1" ] && [ "${GATE_EXIT}" -eq 0 ]; then
-    echo "[compose-gate] === API partner Tier-3 ==="
-    PYTHONPATH="${ROOT}/functional-testing" pytest -c api/pytest.ini api/partner -m tier3 -v --tb=short || GATE_EXIT=$?
+  if [ "${FUNC_RUN_PARTNER_TIER3:-0}" = "1" ]; then
+    PYTEST_PATHS+=(api/partner)
+    PYTEST_EXPR="${PYTEST_EXPR} or tier3"
+  fi
+  if [ "${#PYTEST_PATHS[@]}" -eq 1 ]; then
+    PYTHONPATH="${ROOT}/functional-testing" pytest -c api/pytest.ini api/workflows -v --tb=short "$@" || GATE_EXIT=$?
+  else
+    PYTHONPATH="${ROOT}/functional-testing" pytest -c api/pytest.ini "${PYTEST_PATHS[@]}" \
+      -m "${PYTEST_EXPR}" -v --tb=short "$@" || GATE_EXIT=$?
   fi
 fi
 
 if [ "${FUNC_SKIP_UI:-0}" != "1" ]; then
   echo "[compose-gate] === UI Playwright ==="
   echo "[compose-gate] FUNC_UI_BASE=${FUNC_UI_BASE}"
+  wait_pid "${UI_DEPS_PID:-}" "Playwright install"
   cd "${ROOT}/functional-testing/ui"
-  if [ -f package-lock.json ]; then
-    npm ci || GATE_EXIT=$?
-  else
-    echo "[compose-gate] no package-lock.json — using npm install"
-    npm install || GATE_EXIT=$?
-  fi
-  if [ "${GATE_EXIT}" -eq 0 ]; then
-    npx playwright install chromium || GATE_EXIT=$?
-  fi
   if [ "${GATE_EXIT}" -eq 0 ]; then
     CI=1 npx playwright test "$@" || GATE_EXIT=$?
   fi

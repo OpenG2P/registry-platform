@@ -34,6 +34,7 @@ ui/
 │   ├── register/
 │   ├── intake/
 │   ├── change-request/
+│   ├── tasks/         # AWE Tasks → Approve (slim gate)
 │   └── optional/      # parked: hybrid approve/reject + AWE UI-only
 ├── global-setup.ts
 └── playwright.config.ts

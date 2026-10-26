@@ -17,9 +17,9 @@ from helpers.flows.change_request import PROFILE_SUPPORTING_CR
 from helpers.http import StaffClient
 from helpers.profiles import RegisterProfile
 from helpers.provision import (
+    approve_two_stage_awe,
     create_supporting_update_cr,
     provision_record,
-    verify_and_approve_cr,
 )
 
 
@@ -60,15 +60,36 @@ def test_cr_supporting_approve_writes_history(
         identity_value=subject.identity_value,
         step=step,
     )
-    verify_and_approve_cr(staff, created.change_request_id, step=step)
+    approve_two_stage_awe(
+        cfg,
+        artifact_type="registry.change_request",
+        artifact_id=created.change_request_id,
+        search_text=subject.identity_value,
+        step=step,
+    )
 
-    step("validate supporting CR APPROVED (API + DB)")
-    detail = assert_success(
-        staff.post_json(
-            "/change-requests/get_change_request",
-            {"change_request_id": created.change_request_id},
-        ),
-        "get_change_request after supporting approve",
+    step("poll supporting CR until APPROVED (AWE webhook is async)")
+
+    def _cr_approved():
+        payload = assert_success(
+            staff.post_json(
+                "/change-requests/get_change_request",
+                {"change_request_id": created.change_request_id},
+            ),
+            "get_change_request after supporting approve",
+        )
+        if (
+            isinstance(payload, dict)
+            and str(payload.get("approval_status") or "").upper() == "APPROVED"
+        ):
+            return payload
+        return None
+
+    detail = db_assert.wait_until(
+        _cr_approved,
+        timeout_s=90.0,
+        interval_s=3.0,
+        description=f"supporting CR {created.change_request_id} APPROVED after AWE",
     )
     assert isinstance(detail, dict)
     assert str(detail.get("approval_status") or "").upper() == "APPROVED"

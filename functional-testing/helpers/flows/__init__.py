@@ -13,6 +13,7 @@ from helpers.flows.change_request import (
     verify_and_approve_cr,
 )
 from helpers.flows.intake import (
+    attach_intake_section_documents,
     create_and_finalize_intake,
     create_draft_intake,
     provision_household,
@@ -30,6 +31,7 @@ from helpers.flows.register import (
 __all__ = [
     "approve_artifact_stage",
     "approve_two_stage_awe",
+    "attach_intake_section_documents",
     "create_and_finalize_intake",
     "create_draft_intake",
     "create_field_cr",

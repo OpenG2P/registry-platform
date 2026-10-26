@@ -31,9 +31,9 @@ from helpers.util import (
     StepFn,
 )
 
-# Gate stacks occasionally return SYS-ERR-001 on first save under load; the
-# same household intake path succeeds elsewhere in the suite when retried.
-_SAVE_TRANSIENT_MARKERS = ("SYS-ERR-001", "UNEXPECTED_ERROR")
+# Compose-gate stacks occasionally return SYS-ERR-001 on the first save under
+# load. Do not retry UNEXPECTED_ERROR — that is a product failure, not a blip.
+_SAVE_TRANSIENT_MARKERS = ("SYS-ERR-001",)
 _SAVE_MAX_ATTEMPTS = 3
 _SAVE_RETRY_SLEEP_S = 2.0
 
@@ -47,22 +47,27 @@ def save_intake_section(
     section_register_id: str,
     form_id: str,
     register_id: str,
+    documents: Optional[list[dict[str, str]]] = None,
     step: StepFn = noop,
 ) -> dict[str, Any]:
     """POST save_intake_form_submission with retries for transient SYS-ERR-001."""
     last_err: Optional[StaffApiError] = None
+    request_payload: dict[str, Any] = {
+        "submission_id": submission_id,
+        "section_id": section_id,
+        "section_payload": section_payload,
+        "section_register_id": section_register_id,
+        "form_id": form_id,
+        "register_id": register_id,
+    }
+    # None = no-op on the API; omit the key so existing callers stay a no-op.
+    if documents is not None:
+        request_payload["documents"] = documents
     for attempt in range(1, _SAVE_MAX_ATTEMPTS + 1):
         try:
             return staff.post_json(
                 "/intake-form-data/save_intake_form_submission",
-                {
-                    "submission_id": submission_id,
-                    "section_id": section_id,
-                    "section_payload": section_payload,
-                    "section_register_id": section_register_id,
-                    "form_id": form_id,
-                    "register_id": register_id,
-                },
+                request_payload,
             )
         except StaffApiError as exc:
             last_err = exc
@@ -258,9 +263,56 @@ def create_and_finalize_intake(
     return created
 
 
+def attach_intake_section_documents(
+    staff: StaffClient,
+    *,
+    submission_id: str,
+    profile: RegisterProfile,
+    documents: list[dict[str, str]],
+    step: StepFn = noop,
+) -> dict[str, Any]:
+    """Re-save the profile CR section with a desired document set (draft only)."""
+    step(f"get submission {submission_id} before attaching documents")
+    payload = assert_ok(
+        staff.post_json(
+            "/intake-form-data/get_intake_form_submission",
+            {"submission_id": submission_id},
+        ),
+        "get before attach documents",
+    )
+    assert isinstance(payload, dict)
+    section_id = profile.cr_section_id
+    section_register_id = profile.register_id
+    records: list[dict] = []
+    for section in payload.get("section_payloads") or []:
+        if section.get("section_id") != section_id:
+            continue
+        records = list(section.get("records") or [])
+        section_register_id = section.get("section_register_id") or section_register_id
+        break
+    assert records, f"no records on section {section_id} to attach documents"
+
+    step(f"save {section_id} with {len(documents)} document(s)")
+    return save_intake_section(
+        staff,
+        submission_id=submission_id,
+        section_id=section_id,
+        section_payload=records,
+        section_register_id=section_register_id,
+        form_id=profile.intake_form_id,
+        register_id=profile.register_id,
+        documents=documents,
+        step=step,
+    )
+
+
 def verify_and_approve_intake(
     staff: StaffClient, submission_id: str, step: StepFn = noop
 ) -> None:
+    """Direct `/approve_*` bypass. Fixture / provision only — not endpoint coverage.
+
+    Production-like approval is ``approve_two_stage_awe`` (alex then nina).
+    """
     step(f"get submission {submission_id}")
     assert_ok(
         staff.post_json(

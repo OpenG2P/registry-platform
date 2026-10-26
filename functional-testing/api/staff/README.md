@@ -1,7 +1,8 @@
 # Staff endpoint suites (Tier-1+)
 
-Dedicated per-endpoint / per-controller-group scenarios. **Not** on the PR gate
-by default (`pytest.ini` `testpaths = workflows`).
+Dedicated per-endpoint / per-controller-group scenarios. Local pytest default
+is still `api/workflows/` (`pytest.ini` `testpaths`). **GitHub PR gate** runs
+these via `FUNC_RUN_STAFF_TIER1=1` / `FUNC_RUN_STAFF_TIER2=1`.
 
 ## Layout
 
@@ -10,6 +11,7 @@ staff/
   register_data/       # Tier-1 seeded register reads
   intake_form_data/    # Tier-1 reject + delete
   change_requests/     # Tier-1 reject/reads + Tier-2 cross-register
+  documents/           # Tier-1 catalog + intake / CR / section links
   metadata/            # Tier-1 metadata reads
   shell/               # Tier-2 config / language / theme
   scores/              # Tier-2 completion + computation + register scores
@@ -35,7 +37,7 @@ PYTHONPATH=. pytest -c api/pytest.ini api/staff -m tier2 -v --tb=short
 PYTHONPATH=. pytest -c api/pytest.ini api/staff -v --tb=short
 ```
 
-Compose gate (optional):
+Compose gate (local opt-in; GitHub PR already sets these):
 
 ```bash
 FUNC_RUN_STAFF_TIER1=1 FUNC_SKIP_UI=1 ./functional-testing/docker/run-compose-gate.sh

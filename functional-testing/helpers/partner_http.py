@@ -1,4 +1,9 @@
-"""Unauthenticated httpx client for partner-api (signature auth; gate disables it)."""
+"""Unauthenticated httpx client for partner-api.
+
+Auth is the DCI envelope (signature + consent), not HTTP Bearer. The compose
+gate enables both ``REGISTRY_PARTNER_API_SIGNATURE_VALIDATION_ENABLED`` and
+``REGISTRY_PARTNER_API_CONSENT_ENFORCEMENT_ENABLED``.
+"""
 
 from __future__ import annotations
 

@@ -45,6 +45,7 @@ def create_field_cr(
     subject_internal_record_id: str,
     identity_value: str,
     new_value: Optional[str] = None,
+    documents: Optional[list[dict[str, str]]] = None,
     step: StepFn = noop,
 ) -> ChangeRequestResult:
     section_id = profile.cr_section_id
@@ -136,6 +137,8 @@ def create_field_cr(
         "internal_record_id": subject_internal_record_id,
         "change_payload": change_payload,
     }
+    if documents:
+        request_payload["documents"] = documents
 
     if is_core:
         step("create_change_request_for_core_data")
@@ -344,6 +347,10 @@ def create_middle_name_cr(
 def verify_and_approve_cr(
     staff: StaffClient, change_request_id: str, step: StepFn = noop
 ) -> None:
+    """Direct `/approve_*` bypass. Fixture / provision only — not endpoint coverage.
+
+    Production-like approval is ``approve_two_stage_awe`` (alex then nina).
+    """
     step("add_verification_for_change_request")
     assert_ok(
         staff.post_json(
