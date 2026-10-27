@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from httpx import HTTPStatusError
 from datetime import datetime
@@ -73,7 +74,7 @@ def _register_websub_topic(
 ):
     websub_helper = WebsubHelper().get_component()
     try:
-        websub_helper.register_topic(outgoing_topic.websub_topic)
+        asyncio.run(websub_helper.register_topic(outgoing_topic.websub_topic))
     except HTTPStatusError as http_e:
         _logger.error(f"Error during registration of topic {outgoing_topic.websub_topic} to websub: {str(http_e)}")
         raise http_e
