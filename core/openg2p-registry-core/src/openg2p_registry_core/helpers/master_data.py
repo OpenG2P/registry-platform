@@ -172,6 +172,18 @@ class MasterDataClient(BaseService):
         self._access_token_expires_at = time.monotonic() + max(lifetime - 30.0, 1.0)
         return token
 
+    async def get_staff_access_token(self) -> Optional[str]:
+        """Client-credentials token from Settings (master_data_* / partner_mgmt_*).
+
+        Returns None when auth is not configured or the token endpoint fails.
+        Cached in-process until near expiry.
+        """
+        cfg = self._settings()
+        if not self._auth_configured(cfg):
+            return None
+        async with httpx.AsyncClient() as client:
+            return await self._staff_token(client, cfg)
+
     def _response_payload(self, path: str, resp: httpx.Response) -> Any:
         if resp.status_code >= 400:
             self._request_failed(path, f"HTTP {resp.status_code}")

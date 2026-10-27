@@ -44,6 +44,21 @@ class G2PAweIntegrationService(BaseService):
             )
         return token
 
+    async def _resolve_service_bearer_token(self) -> str | None:
+        """Client-credentials token from MasterDataClient Settings (cached)."""
+        try:
+            from ..helpers.master_data import MasterDataClient
+
+            client = MasterDataClient.get_component()
+            if client is None:
+                client = MasterDataClient()
+            return (await client.get_staff_access_token() or "").strip() or None
+        except Exception:
+            _logger.exception(
+                "Failed to fetch staff access token for AWE change-request start."
+            )
+            return None
+
     @staticmethod
     def _build_context(
         base: dict[str, Any],
@@ -103,6 +118,7 @@ class G2PAweIntegrationService(BaseService):
         *,
         bearer_token: str | None,
         requester: str | None,
+        skip_awe_when_token_missing: bool = False,
     ) -> None:
         if not self._awe_enabled():
             return
@@ -117,7 +133,20 @@ class G2PAweIntegrationService(BaseService):
         if policy is None:
             return
 
-        token = self._require_bearer(bearer_token)
+        token = (bearer_token or "").strip()
+        if not token and skip_awe_when_token_missing:
+            # eSignet / registrant-auth path: no staff JWT; try service token once.
+            token = (await self._resolve_service_bearer_token() or "").strip()
+            if not token:
+                _logger.warning(
+                    "Skipping AWE for change_request_id=%s: no bearer token "
+                    "(AWE enabled and a policy applies).",
+                    change_request.change_request_id,
+                )
+                return
+        else:
+            token = self._require_bearer(bearer_token)
+
         base = {
             "record_name": change_request.record_name,
             "section_mnemonic": await self._resolve_section_mnemonic(

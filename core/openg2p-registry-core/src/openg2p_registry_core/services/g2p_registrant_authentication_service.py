@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 from cryptography.fernet import Fernet
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, or_, select
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import dbengine, get_async_session_maker
 from openg2p_fastapi_common.crypto import CryptoFactory
@@ -21,14 +21,31 @@ from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import (
     AuthenticationStatusEnum,
+    ChangeActionEnum,
+    ChangeRequestSourceEnum,
     G2PRegistrantAuthentication,
     G2PRegistrantAuthenticationProvider,
     G2PRegister,
     G2PRegisterDefinition,
+    G2PRegisterSection,
+    G2PRegisterUITab,
+)
+from ..schemas import ChangePayload, ChangeRequestRequestPayload
+from .g2p_register_change_request_service import G2PRegisterChangeRequestService
+from .registrant_auth_userinfo_mapper import (
+    UserinfoSectionMapping,
+    map_userinfo_to_register_fields,
+    parse_userinfo_change_request_mapping,
+    split_fields_by_section,
 )
 
 _logger = logging.getLogger("g2p-registrant-auth-service")
 _config = Settings.get_config()
+
+# Matches G2PRegisterChangeRequestService.validate_change_request_creation.
+_PENDING_CR_EXISTS_MESSAGE = (
+    "A pending change request already exists for this record and section"
+)
 
 
 class _ClaimsCrypto:
@@ -364,7 +381,24 @@ class G2PRegistrantAuthenticationService(BaseService):
                     _logger.warning(f"Could not update register record: {e}")
                 except Exception as e:
                     _logger.error(f"Error updating register record: {e}")
-                
+
+                try:
+                    await self._create_pending_crs_from_userinfo(
+                        session=session,
+                        register_id=auth.register_id,
+                        internal_record_id=auth.internal_record_id,
+                        created_by=auth.initiated_by_staff_id,
+                        user_claims=claims,
+                        provider_config=provider.provider_config,
+                    )
+                except Exception as cr_exc:
+                    _logger.error(
+                        "Auth succeeded but pending CR from userinfo failed for session %s: %s",
+                        auth.authentication_id,
+                        cr_exc,
+                        exc_info=True,
+                    )
+
                 await session.refresh(auth)
                 return auth
             except Exception as e:
@@ -375,6 +409,179 @@ class G2PRegistrantAuthenticationService(BaseService):
                 session.add(auth)
                 await session.commit()
                 return auth
+
+    async def _create_pending_crs_from_userinfo(
+        self,
+        *,
+        session,
+        register_id: str,
+        internal_record_id: str,
+        created_by: str | None,
+        user_claims: dict[str, Any],
+        provider_config: dict[str, Any] | None,
+    ) -> list[str]:
+        change_request_mapping = parse_userinfo_change_request_mapping(provider_config)
+        if not change_request_mapping:
+            return []
+
+        mapped_fields = map_userinfo_to_register_fields(
+            user_claims or {}, change_request_mapping
+        )
+        if not mapped_fields:
+            _logger.info(
+                "No mappable userinfo claims for record %s; skipping CR creation.",
+                internal_record_id,
+            )
+            return []
+
+        tab_id = await self._find_tab_id(
+            session, register_id, change_request_mapping.tab_keys
+        )
+        if not tab_id:
+            _logger.warning(
+                "Could not resolve tab keys %s for register %s; skipping userinfo CRs.",
+                change_request_mapping.tab_keys,
+                register_id,
+            )
+            return []
+
+        change_request_service = G2PRegisterChangeRequestService.get_component()
+        created_change_request_ids: list[str] = []
+
+        for section_mapping, section_fields in split_fields_by_section(
+            mapped_fields, change_request_mapping
+        ):
+            # Isolate each section: one create commits before return, so a later
+            # section failure must not abort siblings or discard earlier CRs.
+            try:
+                created_id = await self._create_pending_cr_for_section(
+                    session=session,
+                    change_request_service=change_request_service,
+                    register_id=register_id,
+                    internal_record_id=internal_record_id,
+                    created_by=created_by,
+                    tab_id=tab_id,
+                    section_mapping=section_mapping,
+                    section_fields=section_fields,
+                )
+            except Exception as section_exc:
+                if self._is_pending_cr_already_exists(section_exc):
+                    _logger.info(
+                        "Skipping userinfo CR for section keys %s on record %s: "
+                        "pending change request already exists.",
+                        section_mapping.section_keys,
+                        internal_record_id,
+                    )
+                    continue
+                _logger.error(
+                    "Userinfo CR failed for section keys %s on record %s: %s",
+                    section_mapping.section_keys,
+                    internal_record_id,
+                    section_exc,
+                    exc_info=True,
+                )
+                continue
+
+            if created_id:
+                created_change_request_ids.append(created_id)
+
+        return created_change_request_ids
+
+    async def _create_pending_cr_for_section(
+        self,
+        *,
+        session,
+        change_request_service,
+        register_id: str,
+        internal_record_id: str,
+        created_by: str | None,
+        tab_id: str,
+        section_mapping: UserinfoSectionMapping,
+        section_fields: dict[str, Any],
+    ) -> str | None:
+        register_section = await self._find_register_section(
+            session, register_id, section_mapping
+        )
+        if not register_section:
+            _logger.warning(
+                "No register section matching keys %s for register %s; skipping that CR.",
+                section_mapping.section_keys,
+                register_id,
+            )
+            return None
+
+        change_payload = ChangePayload(
+            internal_record_id=internal_record_id,
+            edit_action=ChangeActionEnum.UPDATE.value,
+            **section_fields,
+        )
+        request_payload = ChangeRequestRequestPayload(
+            register_id=register_id,
+            tab_id=tab_id,
+            section_id=register_section.section_id,
+            section_register_id=register_section.section_register_id,
+            internal_record_id=internal_record_id,
+            change_payload=[change_payload],
+            created_by=created_by,
+        )
+        # No staff JWT on this path; allow AWE to soft-skip if service token is missing.
+        change_request = await change_request_service.create_change_request(
+            change_request_request_payload=request_payload,
+            created_by=created_by,
+            change_request_source=ChangeRequestSourceEnum.STAFF_PORTAL.value,
+            bearer_token=None,
+            requester_sub=created_by,
+            skip_awe_when_token_missing=True,
+        )
+        _logger.info(
+            "Created pending UPDATE CR %s from userinfo for section %s on record %s",
+            change_request.change_request_id,
+            register_section.section_id,
+            internal_record_id,
+        )
+        return change_request.change_request_id
+
+    @staticmethod
+    def _is_pending_cr_already_exists(exc: BaseException) -> bool:
+        message = getattr(exc, "message", None) or str(exc)
+        return _PENDING_CR_EXISTS_MESSAGE in message
+
+    @staticmethod
+    async def _find_register_section(
+        session,
+        register_id: str,
+        section_mapping: UserinfoSectionMapping,
+    ):
+        result = await session.execute(
+            select(G2PRegisterSection).where(
+                G2PRegisterSection.register_id == register_id,
+                or_(
+                    G2PRegisterSection.section_mnemonic.in_(section_mapping.section_keys),
+                    G2PRegisterSection.section_id.in_(section_mapping.section_keys),
+                ),
+            )
+        )
+        return result.scalars().first()
+
+    @staticmethod
+    async def _find_tab_id(
+        session,
+        register_id: str,
+        tab_keys: tuple[str, ...],
+    ) -> str | None:
+        if not tab_keys:
+            return None
+        result = await session.execute(
+            select(G2PRegisterUITab).where(
+                G2PRegisterUITab.register_id == register_id,
+                or_(
+                    G2PRegisterUITab.tab_id.in_(tab_keys),
+                    G2PRegisterUITab.tab_label.in_(tab_keys),
+                ),
+            )
+        )
+        tab = result.scalars().first()
+        return tab.tab_id if tab else None
 
     async def get_authentication_status(
         self,
