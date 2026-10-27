@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { tSchema, toTitleCase } from '../utils/tSchema';
 import { useBaseWidget } from '../hooks/useBaseWidget';
@@ -8,6 +8,26 @@ import { owtFieldInputClass } from '../theme';
 import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
 import { WidgetRenderer } from '../components/WidgetRenderer';
 import { searchIcon, closeIcon } from '../assets';
+
+type TabState = {
+  searchText: string;
+  searchResults: Record<string, any>[];
+  currentPage: number;
+  totalPages: number;
+  totalCount: number | null;
+  pendingRow: Record<string, any> | null;
+  hasLoaded: boolean;
+};
+
+const DEFAULT_TAB_STATE: TabState = {
+  searchText: '',
+  searchResults: [],
+  currentPage: 1,
+  totalPages: 1,
+  totalCount: null,
+  pendingRow: null,
+  hasLoaded: false,
+};
 
 const normalizeDisplayFields = (row: Record<string, any>) => {
   if (!Array.isArray(row.display_fields)) return [];
@@ -159,9 +179,7 @@ const RecordDisplayPanel = ({
           }
         }
       `}</style>
-      <div
-        className={`register-lookup-record-panel w-full min-w-0 ${className}`}
-      >
+      <div className={`register-lookup-record-panel w-full min-w-0 ${className}`}>
         {column(true, true, (
           <>
             {fieldSlot(
@@ -191,7 +209,6 @@ const PaginationFooter = ({
   onPageChange,
   onPrev,
   onNext,
-  embedded,
 }: {
   currentPage: number;
   totalPages: number;
@@ -200,7 +217,6 @@ const PaginationFooter = ({
   onPageChange: (page: number) => void;
   onPrev: () => void;
   onNext: () => void;
-  embedded?: boolean;
 }) => {
   const { t } = useWidgetContext();
   const [pageInput, setPageInput] = useState(String(currentPage));
@@ -223,30 +239,22 @@ const PaginationFooter = ({
     if (page !== currentPage) onPageChange(page);
   };
 
+  const navButtonClass =
+    'inline-flex h-7 shrink-0 items-center justify-center rounded-[8px] px-2 text-xs font-medium owt-bg-alt owt-text disabled:cursor-not-allowed disabled:opacity-40';
+
   return (
-    <div
-      className={
-        embedded
-          ? 'flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between'
-          : 'flex flex-wrap items-center justify-between gap-3 px-5 py-3 flex-shrink-0 border-t owt-border'
-      }
-    >
-      <span className="text-sm owt-text-muted">
-        {totalCount === 1
-          ? t?.('common.record', { count: totalCount, defaultValue: `${totalCount} record` })
-          : t?.('common.records', { count: totalCount, defaultValue: `${totalCount} records` })}
-        {totalCount > 0 && ` · ${pageStart}-${pageEnd}`}
-      </span>
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto whitespace-nowrap text-xs owt-text-muted">
+      <div className="flex shrink-0 items-center gap-1.5">
         <button
           type="button"
           onClick={onPrev}
           disabled={currentPage <= 1}
-          className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
+          className={navButtonClass}
+          aria-label={t?.('common.previous', { defaultValue: 'Previous' })}
         >
           {t?.('common.previous', { defaultValue: 'Prev' })}
         </button>
-        <div className="flex items-center gap-1.5 text-sm owt-text-muted">
+        <div className="flex items-center gap-1">
           <span>{t?.('common.page', { defaultValue: 'Page' })}</span>
           <input
             type="text"
@@ -261,7 +269,7 @@ const PaginationFooter = ({
             }}
             onBlur={commitPage}
             className={owtFieldInputClass({
-              className: 'w-10 h-8 text-center text-sm outline-none rounded-[10px]',
+              className: 'h-7 w-8 rounded-[8px] px-0 text-center text-xs outline-none',
             })}
             aria-label={t?.('common.pageNumber', { defaultValue: 'Page number' })}
           />
@@ -273,11 +281,18 @@ const PaginationFooter = ({
           type="button"
           onClick={onNext}
           disabled={currentPage >= totalPages}
-          className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
+          className={navButtonClass}
+          aria-label={t?.('common.next', { defaultValue: 'Next' })}
         >
           {t?.('common.next', { defaultValue: 'Next' })}
         </button>
       </div>
+      <span className="shrink-0 pl-1">
+        {totalCount === 1
+          ? t?.('common.record', { count: totalCount, defaultValue: `${totalCount} record` })
+          : t?.('common.records', { count: totalCount, defaultValue: `${totalCount} records` })}
+        {totalCount > 0 && ` · ${pageStart}-${pageEnd}`}
+      </span>
     </div>
   );
 };
@@ -368,94 +383,140 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
     config: widgetConfig,
   } = useBaseWidget({ config });
 
-  const { t } = useWidgetContext();
-  const { dataSourceRequestHandler } = useWidgetContext();
+  const { t, dataSourceRequestHandler } = useWidgetContext();
   const themeRoot = useOwtThemeRootProps();
 
-  const dataSource = widgetConfig['widget-data-source'] as Record<string, any> | undefined;
+  const rawDataSource = widgetConfig['widget-data-source'] as Record<string, any> | Record<string, any>[] | undefined;
+  const dataSources = useMemo<Record<string, any>[]>(
+    () =>
+      !rawDataSource
+        ? []
+        : Array.isArray(rawDataSource)
+          ? rawDataSource
+          : [rawDataSource],
+    [rawDataSource],
+  );
+
   const lookupConfig = widgetConfig['widget-lookup-config'] as Record<string, any> | undefined;
   const pageSize: number = lookupConfig?.page_size ?? 10;
   const widgetIdPrefix = `${widgetConfig['widget-id'] || 'register-lookup'}-record`;
 
+  const [tabStates, setTabStates] = useState<Record<number, TabState>>({});
+  const [searchDraft, setSearchDraft] = useState('');
+  const [activeTabIdx, setActiveTabIdx] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
-  const [searchText, setSearchText] = useState('');
-  const [searchResults, setSearchResults] = useState<Record<string, any>[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
-  const [pendingRow, setPendingRow] = useState<Record<string, any> | null>(null);
   const [appliedRecord, setAppliedRecord] = useState<Record<string, any> | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hydratedValueRef = useRef<unknown>(null);
 
-  const fetchRecords = useCallback(
-    async (text: string, page: number, size: number) => {
-      if (!dataSource?.service || !dataSource?.endpoint || !dataSourceRequestHandler) {
-        return { rows: [] as Record<string, any>[], pagination: {} as Record<string, any> };
+  const getTabState = useCallback(
+    (idx: number): TabState => tabStates[idx] ?? DEFAULT_TAB_STATE,
+    [tabStates],
+  );
+
+  const updateTabState = useCallback(
+    (idx: number, updater: (prev: TabState) => Partial<TabState>) => {
+      setTabStates(prev => {
+        const current = prev[idx] ?? DEFAULT_TAB_STATE;
+        return { ...prev, [idx]: { ...current, ...updater(current) } };
+      });
+    },
+    [],
+  );
+
+  const getTabLabel = useCallback(
+    (idx: number): string => {
+      if (idx === 0) return tSchema(t, 'already_registered');
+      if (idx === 1) return tSchema(t, 'submissions_pending_approval');
+      return tSchema(t, widgetConfig['widget-label']);
+    },
+    [t, widgetConfig],
+  );
+
+  const fetchRecordsForSource = useCallback(
+    async (
+      ds: Record<string, any>,
+      text: string,
+      page: number,
+      size: number,
+      internalRecordId: string | null = null,
+    ): Promise<{ rows: Record<string, any>[]; pagination: Record<string, any> }> => {
+      if (!ds?.service || !ds?.endpoint || !dataSourceRequestHandler) {
+        return { rows: [], pagination: {} };
       }
       const result = await dataSourceRequestHandler(
-        dataSource.service,
-        dataSource.endpoint,
-        dataSource.method,
+        ds.service,
+        ds.endpoint,
+        ds.method,
         {
-          ...(dataSource.params || {}),
+          ...(ds.params || {}),
           search_text: text,
           current_page: page,
           page_size: size,
+          internal_record_id: internalRecordId,
         },
-        { headers: dataSource.headers },
+        { headers: ds.headers },
       );
       return {
         rows: (result?.records ?? []) as Record<string, any>[],
         pagination: (result?.pagination ?? {}) as Record<string, any>,
       };
     },
-    [dataSource, dataSourceRequestHandler],
+    [dataSourceRequestHandler],
+  );
+
+  const runSearchForTab = useCallback(
+    async (tabIdx: number, text: string, page = 1) => {
+      const ds = dataSources[tabIdx];
+      if (!ds) return;
+      try {
+        const { rows, pagination } = await fetchRecordsForSource(ds, text, page, pageSize);
+        const parsed = parsePagination(pagination, rows.length, pageSize, page);
+        updateTabState(tabIdx, () => ({
+          searchText: text,
+          searchResults: rows,
+          totalCount: parsed.totalItems,
+          totalPages: parsed.totalPages,
+          currentPage: parsed.currentPage,
+          hasLoaded: true,
+        }));
+      } catch {
+        updateTabState(tabIdx, () => ({
+          searchText: text,
+          searchResults: [],
+          totalCount: null,
+          totalPages: 1,
+          currentPage: 1,
+          hasLoaded: true,
+        }));
+      }
+    },
+    [dataSources, fetchRecordsForSource, pageSize, updateTabState],
+  );
+
+  const runSearchAll = useCallback(
+    async (text: string) => {
+      await Promise.all(dataSources.map((_, idx) => runSearchForTab(idx, text, 1)));
+    },
+    [dataSources, runSearchForTab],
   );
 
   const findRecordByValue = useCallback(
     async (recordValue: unknown): Promise<Record<string, any> | null> => {
       const target = String(recordValue).trim();
       if (!target) return null;
-
-      const hydratePageSize: number = lookupConfig?.hydrate_page_size ?? 50;
-      let page = 1;
-      let totalPages = 1;
-
-      while (page <= totalPages) {
-        const { rows, pagination } = await fetchRecords('', page, hydratePageSize);
-        const match = rows.find(
-          (row) => String(row.internal_record_id ?? '').trim() === target,
-        );
-        if (match) return match;
-
-        totalPages = parsePagination(pagination, rows.length, hydratePageSize).totalPages;
-        if (page >= totalPages) break;
-        page += 1;
+      for (const ds of dataSources) {
+        try {
+          const { rows } = await fetchRecordsForSource(ds, '', 1, 1, target);
+          if (rows[0]) return rows[0];
+        } catch {
+          // continue
+        }
       }
       return null;
     },
-    [fetchRecords, lookupConfig?.hydrate_page_size],
-  );
-
-  const runSearch = useCallback(
-    async (text: string, page = 1) => {
-      try {
-        const { rows, pagination } = await fetchRecords(text, page, pageSize);
-        const parsed = parsePagination(pagination, rows.length, pageSize, page);
-        setSearchResults(rows);
-        setTotalCount(parsed.totalItems);
-        setTotalPages(parsed.totalPages);
-        setCurrentPage(parsed.currentPage);
-      } catch {
-        setSearchResults([]);
-        setTotalCount(null);
-        setTotalPages(1);
-        setCurrentPage(1);
-      }
-    },
-    [fetchRecords, pageSize],
+    [dataSources, fetchRecordsForSource],
   );
 
   const hasValue = value !== null && value !== undefined && value !== '';
@@ -467,16 +528,25 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
     setIsOpen(false);
   };
 
+  const handleTabChange = useCallback(
+    (idx: number) => {
+      setActiveTabIdx(idx);
+      const ts = tabStates[idx] ?? DEFAULT_TAB_STATE;
+      if (!ts.hasLoaded) {
+        runSearchForTab(idx, '', 1);
+      }
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    },
+    [tabStates, runSearchForTab],
+  );
+
   const openLookup = () => {
     setIsOpen(true);
-    setSearchText('');
-    setSearchResults([]);
-    setTotalCount(null);
-    setCurrentPage(1);
-    setTotalPages(1);
-    setPendingRow(appliedRecord);
+    setActiveTabIdx(0);
+    setSearchDraft('');
+    setTabStates({ 0: { ...DEFAULT_TAB_STATE, pendingRow: appliedRecord } });
     setTimeout(() => searchInputRef.current?.focus(), 50);
-    runSearch('', 1);
+    runSearchForTab(0, '', 1);
   };
 
   useEffect(() => {
@@ -486,7 +556,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
       setIsHydrating(false);
       return;
     }
-    if (!dataSource?.service || !dataSource?.endpoint || !dataSourceRequestHandler) return;
+    if (dataSources.length === 0 || !dataSourceRequestHandler) return;
     if (hydratedValueRef.current === value) return;
 
     let cancelled = false;
@@ -513,28 +583,25 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
       cancelled = true;
       setIsHydrating(false);
     };
-  }, [hasValue, value, dataSource, dataSourceRequestHandler, findRecordByValue]);
+  }, [hasValue, value, dataSources, dataSourceRequestHandler, findRecordByValue]);
 
   const isReadonly = !!widgetConfig['widget-readonly'];
   const label = tSchema(t, widgetConfig['widget-label']);
-  const hasError =
-    (touched && error.length > 0) ||
-    (widgetConfig['widget-required'] && !hasValue);
-    
+  const hasError = (touched && error.length > 0) || (widgetConfig['widget-required'] && !hasValue);
   const actionLabel = tSchema(t, String(lookupConfig?.action_label ?? `Select ${label}`));
-  const searchPlaceholder = tSchema(t, String(lookupConfig?.search_placeholder ?? 'Search...'));
-  const selectRecordLabel = tSchema(t, String(lookupConfig?.select_record_label ?? `Select ${label}`));
 
-  const hydratedPanel =
-    isHydrating ? (
-      <p className="text-sm owt-text-muted">{t?.('common.loading', { defaultValue: 'Loading...' })}</p>
-    ) : appliedRecord ? (
-      <RecordDisplayPanel
-        row={appliedRecord}
-        widgetIdPrefix={`${widgetIdPrefix}-${isReadonly ? 'readonly' : 'applied'}`}
-        isEditMode={!isReadonly}
-      />
-    ) : null;
+  const hydratedPanel = isHydrating ? (
+    <p className="text-sm owt-text-muted">{t?.('common.loading', { defaultValue: 'Loading...' })}</p>
+  ) : appliedRecord ? (
+    <RecordDisplayPanel
+      row={appliedRecord}
+      widgetIdPrefix={`${widgetIdPrefix}-${isReadonly ? 'readonly' : 'applied'}`}
+      isEditMode={!isReadonly}
+    />
+  ) : null;
+
+  const showTabs = dataSources.length > 1;
+  const activeTabState = getTabState(activeTabIdx);
 
   return (
     <div className="mb-[10px] w-full">
@@ -558,7 +625,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                   hydratedValueRef.current = null;
                   onChange(null);
                   setAppliedRecord(null);
-                  setPendingRow(null);
+                  setTabStates({});
                 }}
                 className="text-sm underline p-0 border-0 bg-transparent cursor-pointer focus:outline-none rounded owt-field-error"
               >
@@ -566,7 +633,9 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               </button>
             </div>
           )}
-          {!isReadonly && touched && error.length > 0 && <p className="owt-field-error text-sm mt-1">{error[0]}</p>}
+          {!isReadonly && touched && error.length > 0 && (
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
+          )}
         </div>
       ) : !isReadonly ? (
         <div className="w-full min-w-0">
@@ -578,14 +647,16 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
             className={owtFieldInputClass({
               error: hasError,
               disabled: !isEnabled,
-              className: 'flex items-center gap-2 w-full sm:w-[180px] max-w-full px-3 h-[30px] text-sm cursor-pointer',
+              className: 'inline-flex w-max max-w-none items-center gap-2 whitespace-nowrap px-3 h-[30px] text-sm cursor-pointer',
             })}
           >
             <img src={searchIcon} alt="" className="w-4 h-4 opacity-50 flex-shrink-0" />
-            <span className="min-w-0 truncate">{actionLabel}</span>
+            <span className="whitespace-nowrap">{actionLabel}</span>
             {isRequired && <span className="shrink-0 owt-field-required">*</span>}
           </button>
-          {touched && error.length > 0 && <p className="owt-field-error text-sm mt-1">{error[0]}</p>}
+          {touched && error.length > 0 && (
+            <p className="owt-field-error text-sm mt-1">{error[0]}</p>
+          )}
         </div>
       ) : null}
 
@@ -610,9 +681,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              className="flex shrink-0 select-none items-center justify-between gap-3 border-b owt-border px-3 py-3 sm:px-5 sm:py-4"
-            >
+            <div className="flex shrink-0 select-none items-center justify-between gap-3 border-b owt-border px-3 py-3 sm:px-5 sm:py-4">
               <h3
                 className="min-w-0 truncate text-base font-semibold owt-text sm:text-lg"
                 title={t?.('common.selectTitle', { label, defaultValue: `Select ${label}` })}
@@ -631,24 +700,24 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
             </div>
 
             <div className="shrink-0 border-b owt-border px-3 py-3 sm:px-5">
-              <div className={owtFieldInputClass({ className: 'flex items-center gap-2 px-3 h-[30px] rounded-[10px]' })}>
+              <div className={owtFieldInputClass({ className: 'flex h-[30px] w-full items-center gap-2 rounded-[10px] px-3' })}>
                 <input
                   ref={searchInputRef}
                   type="text"
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
+                  value={searchDraft}
+                  onChange={(e) => setSearchDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
-                      runSearch(searchText, 1);
+                      runSearchAll(searchDraft);
                     }
                   }}
-                  placeholder={searchPlaceholder}
+                  placeholder={tSchema(t, String(lookupConfig?.search_placeholder ?? 'Search...'))}
                   className="min-w-0 flex-1 bg-transparent text-sm owt-text outline-none"
                 />
                 <button
                   type="button"
-                  onClick={() => runSearch(searchText, 1)}
+                  onClick={() => runSearchAll(searchDraft)}
                   aria-label={t?.('common.search', { defaultValue: 'Search' })}
                   className="flex-shrink-0 p-0 border-0 bg-transparent cursor-pointer"
                 >
@@ -657,47 +726,77 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               </div>
             </div>
 
+            {showTabs && (
+              <div
+                className="flex shrink-0 gap-0 overflow-x-auto border-b owt-border px-3 sm:px-5"
+                role="tablist"
+              >
+                {dataSources.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTabIdx === idx}
+                    onClick={() => handleTabChange(idx)}
+                    className={`shrink-0 whitespace-nowrap pl-0 pr-6 py-2.5 text-sm font-medium -mb-px border-b-[3px] outline-none transition-colors ${
+                      activeTabIdx === idx
+                        ? 'owt-text border-[var(--owt-color-info)]'
+                        : 'owt-text-muted border-transparent hover:owt-text'
+                    }`}
+                  >
+                    {getTabLabel(idx)}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="min-w-0 flex-1 overflow-auto">
-              {searchResults.length === 0 ? (
+              {activeTabState.searchResults.length === 0 ? (
                 <p className="text-center text-sm owt-text-muted py-10">
-                  {searchText
+                  {activeTabState.searchText
                     ? t?.('common.noResults', { defaultValue: 'No results found' })
                     : t?.('common.searchHint', { defaultValue: 'Type and press Enter or click search' })}
                 </p>
               ) : (
                 <ResultsTable
-                  rows={searchResults}
-                  selectedRowKey={pendingRow?.internal_record_id ?? null}
-                  onRowClick={setPendingRow}
+                  rows={activeTabState.searchResults}
+                  selectedRowKey={activeTabState.pendingRow?.internal_record_id ?? null}
+                  onRowClick={(row) => updateTabState(activeTabIdx, () => ({ pendingRow: row }))}
                   onRowDoubleClick={applySelection}
                 />
               )}
             </div>
 
-            <div className="flex shrink-0 flex-col gap-3 border-t owt-border px-3 py-3 sm:px-5">
-              {totalCount !== null && (
+            <div className="flex shrink-0 flex-col gap-3 border-t owt-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              {activeTabState.totalCount !== null && (
                 <PaginationFooter
-                  embedded
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  totalCount={totalCount}
+                  key={`pagination-tab-${activeTabIdx}`}
+                  currentPage={activeTabState.currentPage}
+                  totalPages={activeTabState.totalPages}
+                  totalCount={activeTabState.totalCount}
                   pageSize={pageSize}
-                  onPageChange={(page) => runSearch(searchText, page)}
-                  onPrev={() => currentPage > 1 && runSearch(searchText, currentPage - 1)}
-                  onNext={() => currentPage < totalPages && runSearch(searchText, currentPage + 1)}
+                  onPageChange={(page) =>
+                    runSearchForTab(activeTabIdx, activeTabState.searchText, page)
+                  }
+                  onPrev={() =>
+                    activeTabState.currentPage > 1 &&
+                    runSearchForTab(activeTabIdx, activeTabState.searchText, activeTabState.currentPage - 1)
+                  }
+                  onNext={() =>
+                    activeTabState.currentPage < activeTabState.totalPages &&
+                    runSearchForTab(activeTabIdx, activeTabState.searchText, activeTabState.currentPage + 1)
+                  }
                 />
               )}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => pendingRow && applySelection(pendingRow)}
-                  disabled={!pendingRow}
-                  className="h-9 shrink-0 rounded-[10px] px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ backgroundColor: 'var(--owt-color-info)', color: 'var(--owt-color-bg)' }}
-                >
-                  {selectRecordLabel}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => activeTabState.pendingRow && applySelection(activeTabState.pendingRow)}
+                disabled={!activeTabState.pendingRow}
+                className="h-9 shrink-0 self-end rounded-[10px] px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 sm:ml-auto sm:self-auto"
+                style={{ backgroundColor: 'var(--owt-color-info)', color: 'var(--owt-color-bg)' }}
+              >
+                {tSchema(t, String(lookupConfig?.select_record_label ?? `Select ${label}`))}
+              </button>
             </div>
           </div>
         </div>,

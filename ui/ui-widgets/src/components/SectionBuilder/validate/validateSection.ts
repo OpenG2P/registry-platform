@@ -36,9 +36,10 @@ export function validateSection(section: SectionConfig): SectionValidationResult
     }
 
     if (widget['widget-type'] === 'input') {
-      const dp: any = (widget as any)['widget-data-path'];
-      if (!(isNonEmptyString(dp) || (dp && typeof dp === 'object'))) {
-        errors.push(`${path}: widget-data-path is required for input widgets`);
+      const dp: unknown = widget['widget-data-path'];
+      // Omitted path keeps the value on widget-id only, so it is not written into the section save payload.
+      if (dp != null && !(isNonEmptyString(dp) || (typeof dp === 'object' && !Array.isArray(dp)))) {
+        errors.push(`${path}: widget-data-path must be a non-empty string or object when set`);
       }
     }
   };
