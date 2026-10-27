@@ -65,6 +65,11 @@ dependencies:
     version: 1.2.0
     repository: https://openg2p.github.io/openg2p-helm
     condition: keycloak-init.enabled
+  - name: registry-connector
+    version: 0.0.0-develop.9
+    repository: https://openg2p.github.io/openg2p-helm
+    condition: registryConnector.enabled
+    alias: registryConnector
   # AWE is no longer bundled here — it is installed once per environment by
   # commons-services. This registry consumes that shared instance (see the AWE
   # globals in values.yaml).

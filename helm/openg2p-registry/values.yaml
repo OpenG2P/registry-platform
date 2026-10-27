@@ -250,6 +250,17 @@ global:
   # Used by db-seed to wait for the AWE API before seeding the callback secret.
   aweReleaseName: commons-services
 
+  # Registry Connector (optional subchart; see registryConnector.enabled).
+  # Passed via Helm global merge — do not nest a second global under registryConnector.
+  # Override connectorHostname / partnerApiService per install (partner service is
+  # typically <release>-partner-api).
+  connectorHostname: connector.qa.openg2p.org
+  postgresqlPort: 5432
+  redisHost: commons-redis-master
+  redisPort: 6379
+  redisDb: 1
+  partnerApiService: registry-partner-api
+
 # Logging is handled cluster-wide by OpenTelemetry + Grafana Loki (deployed by
 # the platform's infra automation). The OTel agent DaemonSet tails every pod's
 # logs automatically, so no per-chart logging config is needed here anymore.
@@ -1773,3 +1784,23 @@ sanity:
     limits:
       cpu: 500m
       memory: 256Mi
+
+# OpenG2P Registry Connector (API / worker / beat). Off by default.
+# Hostname, DB/Redis hosts and partner API service live under global: above.
+registryConnector:
+  enabled: false
+  postgres-init:
+    enabled: true
+    postgresql:
+      host: commons-postgresql
+      port: 5432
+      existingSecret: commons-postgresql
+      existingSecretPostgresPasswordKey: postgres-password
+  istio:
+    enabled: true
+    gateway:
+      create: false
+      name: internal
+    virtualservice:
+      enabled: true
+      gateway: internal
