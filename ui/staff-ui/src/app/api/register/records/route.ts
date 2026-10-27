@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
             },
             request_payload: {
                 register_id: body.register_id ?? "",
+                internal_record_id: body.internal_record_id ?? null,
             },
         }),
         transformResponse: (responseBody) => ({

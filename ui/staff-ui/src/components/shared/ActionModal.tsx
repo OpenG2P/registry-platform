@@ -74,7 +74,7 @@ export default function ActionModal({
                 </div>
 
                 <h2 className="text-[22px] font-bold text-neutral-first mb-2 text-center">{title}</h2>
-                <p className="text-secondary-third text-[14px] text-center mb-8 px-4">
+                <p className="text-secondary-third text-[14px] text-center mb-8 px-4 whitespace-pre-line max-h-[40vh] overflow-y-auto">
                     {subtitle}
                 </p>
 

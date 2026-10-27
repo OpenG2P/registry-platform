@@ -36,6 +36,7 @@
   "add_subscription_log": "Add Subscription Log",
   "add_vc_import": "Add VC Import",
   "all_fields_are_required": "All fields are required",
+  "already_registered": "Already registered",
   "apply": "Apply",
   "application_reference": "Application Reference",
   "approval_status": "Approval Status",
@@ -426,6 +427,11 @@
   "intake_possible_duplicates": "Intake Possible Duplicates",
   "intake_submission": "Intake Submission",
   "intake_submissions": "Intake Submissions",
+  "parent_submission_pending": "The linked parent belongs to another submission that is not yet approved. If you approve, this record will be created without that link.",
+  "parent_submission_rejected": "The linked parent belongs to another submission that was rejected or cancelled. If you approve, this record will be created without that link.",
+  "parent_not_in_live_register": "The linked parent could not be found. If you approve, this record will be created without that link.",
+  "parent_link_required": "A required parent link is missing.",
+  "domain_validation_error": "A validation rule for this record did not pass.",
   "invalid_descriptor_schema_json": "Descriptor schema must be valid JSON object",
   "invalid_json_computation_value": "Computation value must be a JSON object",
   "invalid_json_format": "Invalid JSON format",
@@ -791,6 +797,7 @@
   "step_reissue_token": "Reissue the token after role adjustment",
   "submission": "Submission",
   "submission_id": "Submission ID",
+  "submissions_pending_approval": "Submissions pending approval",
   "submit": "Submit",
   "submit_confirmation_subtitle": "If you submit your application, you will not be able to modify it further.",
   "submitted_successfully": "Submitted successfully",
@@ -989,5 +996,6 @@
   "websub_register_status": "Websub Register Status",
   "websub_topic": "Websub Topic",
   "width": "Width",
-  "you": "You"
+  "you": "You",
+  "lookup_search_label":"Search name or email"
 }

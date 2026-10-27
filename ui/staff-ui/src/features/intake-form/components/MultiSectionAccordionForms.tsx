@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import {
   createWidgetStore,
+  shouldShowWidget,
 } from '@openg2p/registry-widgets';
 import type { SectionChanges } from '@openg2p/registry-widgets';
 import type { SectionsFormHandle } from '@openg2p/registry-widgets';
@@ -50,28 +51,48 @@ export default function MultiSectionAccordionForms({
 
   const [formHandle, setFormHandle] = useState<SectionsFormHandle | null>(null);
   const [savedSections, setSavedSections] = useState<string[]>([]);
+  const [widgetValues, setWidgetValues] = useState<Record<string, unknown>>({});
   const [activeTab, setActiveTab] = useState<"intake_forms" | "intake_possible_duplicates" | "register_possible_duplicates">("intake_forms");
   const [showFormDetails, setShowFormDetails] = useState(false);
+
+  useEffect(() => {
+    const syncValues = () => {
+      const next = widgetStore.getState().widget.values;
+      setWidgetValues((prev) => (prev === next ? prev : next));
+    };
+    syncValues();
+    return widgetStore.subscribe(syncValues);
+  }, [widgetStore]);
 
   const { results: intakeResults, loading: intakeLoading } = useIntakeDeduplication(submissionId || "", "intake-form");
   const { results: regResults, loading: regLoading } = useIntakeDeduplication(submissionId || "", "register");
 
+  const visibleSections = useMemo(
+    () => {
+      if (!showActions) return sections;
+      return sections.filter((section) =>
+        shouldShowWidget(section.section_ui_schema?.['section-data-options'], widgetValues)
+      );
+    },
+    [sections, widgetValues, showActions],
+  );
+
   useEffect(() => {
     if (schemaData) {
-      const alreadySaved = sections
+      const alreadySaved = visibleSections
         .filter((s) => schemaData[s.section_register_id] || submissionId)
         .map((s) => s.section_id);
       setSavedSections((prev) => Array.from(new Set([...prev, ...alreadySaved])));
     }
-  }, [schemaData, sections, submissionId]);
+  }, [schemaData, visibleSections, submissionId]);
 
   const allSectionsSaved = useMemo(() => {
-    return sections.every(
+    return visibleSections.every(
       (section) =>
         savedSections.includes(section.section_id) ||
         !!schemaData[section.section_register_id]
     );
-  }, [sections, savedSections, schemaData]);
+  }, [visibleSections, savedSections, schemaData]);
 
   const sectionsConfig = useMemo(
     () =>
