@@ -95,6 +95,15 @@ class G2PRegisterDomainService(BaseService):
         No-op by default."""
         pass
 
+    async def validate_intake_submission(
+        self,
+        submission: Any,
+        session: AsyncSession,
+    ) -> None:
+        """Optional extension hook to validate a submission before approval.
+        Override to raise G2PRegistryException when invalid. No-op by default."""
+        pass
+
     def register_mnemonic(self) -> Optional[str]:
         """Mnemonic encoded in the class name: G2PRegisterDomainServiceIndividual → Individual."""
         name = self.__class__.__name__

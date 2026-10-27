@@ -53,7 +53,9 @@ from ..schemas import (
     SectionPayloadInput,
     SectionPayloadResponseItem,
     SubmissionResponsePayload,
-    IntakeFormSubmissionsSummaryData
+    IntakeFormSubmissionsSummaryData,
+    IntakeSubmissionValidationIssue,
+    ValidateIntakeFormSubmissionData,
 )
 from .g2p_verification_service import G2PRegisterVerificationService
 from .g2p_intake_form_link_service import G2PIntakeFormLinkService
@@ -95,7 +97,7 @@ class G2PIntakeFormDataService(BaseService):
                 allowed_parents=candidates.allowed_parents,
             )
 
-    async def get_inflight_register_parents(
+    async def search_in_inflight_intake(
         self,
         register_id: str,
         search_text: str | None = None,
@@ -910,6 +912,91 @@ class G2PIntakeFormDataService(BaseService):
             await session.commit()
             return response
 
+    async def validate_submission_for_approval(
+        self,
+        submission_id: str,
+    ) -> ValidateIntakeFormSubmissionData:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
+            return await self.validate_submission_for_approval_with_session(
+                submission_id, session
+            )
+
+    async def validate_submission_for_approval_with_session(
+        self,
+        submission_id: str,
+        session: AsyncSession,
+    ) -> ValidateIntakeFormSubmissionData:
+        submission = await self._get_submission_or_error(submission_id, session)
+        sections = await self._get_form_sections(submission.form_id, session)
+        link_service = G2PIntakeFormLinkService.get_component()
+        issues: list[IntakeSubmissionValidationIssue] = (
+            await link_service.check_submission_parent_links_readiness(
+                submission, sections, session
+            )
+        )
+        registers_with_link_issues = {
+            issue.section_register_id
+            for issue in issues
+            if issue.section_register_id
+        }
+
+        domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
+        seen_registers: set[str] = set()
+        for section in sections:
+            section_register_id = section.section_register_id
+            if not section_register_id or section_register_id in seen_registers:
+                continue
+            seen_registers.add(section_register_id)
+
+            register_definition = await self._get_register_definition(
+                section_register_id, session
+            )
+            intake_class = await self._resolve_intake_form_class(
+                section_register_id, session
+            )
+            domain_service = domain_factory.get_domain_service(
+                register_definition.register_mnemonic
+            )
+            if not domain_service:
+                continue
+
+            rows = await self._get_intake_rows_list(
+                intake_class, submission.submission_id, session
+            )
+            if rows:
+                row_dicts = [self._serialize_model(row) for row in rows]
+                try:
+                    await domain_service.validate_domain_attributes(row_dicts)
+                except G2PRegistryException as exc:
+                    issues.append(
+                        IntakeSubmissionValidationIssue(
+                            code="DOMAIN_VALIDATION_ERROR",
+                            section_id=section.section_id,
+                            section_register_id=section_register_id,
+                            message=exc.message or str(exc),
+                        )
+                    )
+
+            try:
+                await domain_service.validate_intake_submission(submission, session)
+            except G2PRegistryException as exc:
+                if section_register_id not in registers_with_link_issues:
+                    issues.append(
+                        IntakeSubmissionValidationIssue(
+                            code="DOMAIN_VALIDATION_ERROR",
+                            section_id=section.section_id,
+                            section_register_id=section_register_id,
+                            message=exc.message or str(exc),
+                        )
+                    )
+
+        return ValidateIntakeFormSubmissionData(
+            submission_id=submission.submission_id,
+            is_valid=len(issues) == 0,
+            issues=issues,
+        )
+
     async def search_submissions(
         self,
         register_id: str,
@@ -1387,6 +1474,14 @@ class G2PIntakeFormDataService(BaseService):
         payload = self._serialize_model(intake_row, {"submission_id", "section_id"})
         schema_instance = schema_class(**payload)
         record_data = self._build_record_data(schema_instance.model_dump(), payload, register_class)
+        if "link_internal_record_id" in inspect(register_class).columns and record_data.get("link_internal_record_id"):
+            link_service = G2PIntakeFormLinkService.get_component() or G2PIntakeFormLinkService()
+            record_data["link_internal_record_id"] = await link_service.sanitize_link_for_live_ingest(
+                submission.submission_id,
+                register_definition,
+                record_data.get("link_internal_record_id"),
+                session,
+            )
         record_data["created_by"] = submission.created_by
         record_data["created_at"] = submission.first_created_at
         record_data["last_approved_at"] = submission.approved_at or submission.last_updated_at
