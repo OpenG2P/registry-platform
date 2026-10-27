@@ -26,8 +26,8 @@ from openg2p_registry_core.schemas import (
     GetIntakeAllowedParentsRequest,
     GetIntakeAllowedParentsResponse,
     GetIntakeAllowedParentsResponseBody,
-    GetInflightRegisterParentsRequest,
     IntakeAllowedParentsData,
+    SearchInInflightIntakeRequest,
     SearchInRegisterAndInflightIntakeResponse,
     SearchInRegisterAndInflightIntakeResponseBody,
     SearchResultsResponse,
@@ -39,7 +39,11 @@ from openg2p_registry_core.schemas import (
     SubmissionSearchResultsResponseBody,
     IntakeFormSubmissionsSummaryResponse,
     GetIntakeFormSubmissionsSummaryRequest,
-    IntakeFormSubmissionsSummaryData
+    IntakeFormSubmissionsSummaryData,
+    ValidateIntakeFormSubmissionData,
+    ValidateIntakeFormSubmissionRequest,
+    ValidateIntakeFormSubmissionResponse,
+    ValidateIntakeFormSubmissionResponseBody,
 )
 
 from ..config import Settings
@@ -131,8 +135,8 @@ class G2PIntakeFormDataController(BaseController):
             methods=["POST"],
         )
         self.router.add_api_route(
-            "/get_inflight_register_parents",
-            self.get_inflight_register_parents,
+            "/search_in_inflight_intake",
+            self.search_in_inflight_intake,
             responses={200: {"model": SearchResultsResponse}},
             methods=["POST"],
         )
@@ -140,6 +144,12 @@ class G2PIntakeFormDataController(BaseController):
             "/search_in_register_and_inflight_intake",
             self.search_in_register_and_inflight_intake,
             responses={200: {"model": SearchInRegisterAndInflightIntakeResponse}},
+            methods=["POST"],
+        )
+        self.router.add_api_route(
+            "/validate_intake_form_submission",
+            self.validate_intake_form_submission,
+            responses={200: {"model": ValidateIntakeFormSubmissionResponse}},
             methods=["POST"],
         )
     
@@ -185,13 +195,13 @@ class G2PIntakeFormDataController(BaseController):
             return self.helper.construct_error_response(error_exception, g2p_request)
 
     @require_permissions({"intakeSubmission:view"})
-    async def get_inflight_register_parents(
+    async def search_in_inflight_intake(
         self,
-        g2p_request: GetInflightRegisterParentsRequest,
+        g2p_request: SearchInInflightIntakeRequest,
     ) -> SearchResultsResponse:
         try:
             search_results_list, total_items, number_of_pages = (
-                await self.service.get_inflight_register_parents(g2p_request)
+                await self.service.search_in_inflight_intake(g2p_request)
             )
             return self.helper.construct_search_results_success_response(
                 search_results_list=search_results_list,
@@ -200,7 +210,7 @@ class G2PIntakeFormDataController(BaseController):
                 number_of_pages=number_of_pages,
             )
         except Exception as error_exception:
-            _logger.error("Error in get_inflight_register_parents: %s", error_exception)
+            _logger.error("Error in search_in_inflight_intake: %s", error_exception)
             return self.helper.construct_error_response(error_exception, g2p_request)
 
     @require_permissions({"intakeSubmission:view"})
@@ -208,7 +218,7 @@ class G2PIntakeFormDataController(BaseController):
     async def search_in_register_and_inflight_intake(
         self,
         http_request: Request,
-        g2p_request: GetInflightRegisterParentsRequest,
+        g2p_request: SearchInInflightIntakeRequest,
     ) -> SearchInRegisterAndInflightIntakeResponse:
         try:
             records, total_items, number_of_pages = (
@@ -433,3 +443,21 @@ class G2PIntakeFormDataController(BaseController):
         except Exception as error_exception:
             _logger.error("Error in get_deduplication_intake_form_intake_form_results: %s", error_exception)
             return self.helper.construct_error_response(error_exception, g2p_request)
+
+    @require_permissions({"intakeSubmission:view"})
+    async def validate_intake_form_submission(
+        self,
+        g2p_request: ValidateIntakeFormSubmissionRequest,
+    ) -> ValidateIntakeFormSubmissionResponse:
+        try:
+            validation_data: ValidateIntakeFormSubmissionData = (
+                await self.service.validate_intake_form_submission(g2p_request)
+            )
+            return self.helper.construct_success_response(
+                ValidateIntakeFormSubmissionResponseBody(response_payload=validation_data),
+                g2p_request,
+            )
+        except Exception as error_exception:
+            _logger.error("Error in validate_intake_form_submission: %s", error_exception)
+            return self.helper.construct_error_response(error_exception, g2p_request)
+

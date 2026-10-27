@@ -14,16 +14,18 @@ from ..schemas import (
     DeduplicationIntakeFormRegisterResultData,
     DeduplicationIntakeFormIntakeFormResultData,
     GetIntakeAllowedParentsRequest,
-    GetInflightRegisterParentsRequest,
     IntakeAllowedParentsData,
     RegisterAndInflightSearchResult,
+    SearchInInflightIntakeRequest,
     SearchResultData,
     SaveIntakeFormSubmissionRequest,
     SearchInSubmissionRequest,
     SectionPayloadResponseItem,
     SubmissionResponsePayload,
     GetIntakeFormSubmissionsSummaryRequest,
-    IntakeFormSubmissionsSummaryData
+    IntakeFormSubmissionsSummaryData,
+    ValidateIntakeFormSubmissionData,
+    ValidateIntakeFormSubmissionRequest,
 )
 from ..services import G2PIntakeFormDataService, G2PRegisterService
 
@@ -159,13 +161,13 @@ class G2PIntakeFormDataControllerService(BaseService):
             form_register_id=payload.form_register_id,
         )
 
-    async def get_inflight_register_parents(
+    async def search_in_inflight_intake(
         self,
-        request: GetInflightRegisterParentsRequest,
+        request: SearchInInflightIntakeRequest,
     ) -> tuple[list[SearchResultData], int, int]:
         payload = request.request_body.request_payload
         pagination = request.request_body.pagination_request
-        return await G2PIntakeFormDataService.get_component().get_inflight_register_parents(
+        return await G2PIntakeFormDataService.get_component().search_in_inflight_intake(
             register_id=payload.register_id,
             search_text=pagination.search_text if pagination else None,
             current_page=pagination.current_page if pagination else 1,
@@ -175,7 +177,7 @@ class G2PIntakeFormDataControllerService(BaseService):
 
     async def search_in_register_and_inflight_intake(
         self,
-        request: GetInflightRegisterParentsRequest,
+        request: SearchInInflightIntakeRequest,
         data_policies: list[dict] | None = None,
     ) -> tuple[list[RegisterAndInflightSearchResult], int, int]:
         payload = request.request_body.request_payload
@@ -197,7 +199,7 @@ class G2PIntakeFormDataControllerService(BaseService):
             )
             if live_total and live_rows:
                 return [self._with_record_source(live_rows[0], "REGISTER")], 1, 1
-            intake_rows, intake_total, _pages = await intake_service.get_inflight_register_parents(
+            intake_rows, intake_total, _pages = await intake_service.search_in_inflight_intake(
                 register_id,
                 internal_record_id=record_id,
                 page_size=1,
@@ -220,14 +222,14 @@ class G2PIntakeFormDataControllerService(BaseService):
         )
         intake_rows: list[SearchResultData] = []
         if current_page == 1:
-            intake_rows, intake_total, _pages = await intake_service.get_inflight_register_parents(
+            intake_rows, intake_total, _pages = await intake_service.search_in_inflight_intake(
                 register_id,
                 search_text=search_text,
                 current_page=1,
                 page_size=page_size,
             )
         else:
-            _ignored, intake_total, _pages = await intake_service.get_inflight_register_parents(
+            _ignored, intake_total, _pages = await intake_service.search_in_inflight_intake(
                 register_id,
                 search_text=search_text,
                 current_page=1,
@@ -264,3 +266,13 @@ class G2PIntakeFormDataControllerService(BaseService):
         return await g2p_intake_form_data_service.get_intake_form_submissions_summary(
             data_policies=data_policies,
         )
+
+    async def validate_intake_form_submission(
+        self,
+        request: ValidateIntakeFormSubmissionRequest,
+    ) -> ValidateIntakeFormSubmissionData:
+        payload = request.request_body.request_payload
+        return await G2PIntakeFormDataService.get_component().validate_submission_for_approval(
+            payload.submission_id
+        )
+

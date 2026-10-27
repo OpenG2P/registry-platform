@@ -109,6 +109,13 @@ def _load_link_service_module():
     schemas.AllowedParentRecordData = AllowedParentRecordData
     schemas.IntakeAllowedParentsData = IntakeAllowedParentsData
 
+    class IntakeSubmissionValidationIssue:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    schemas.IntakeSubmissionValidationIssue = IntakeSubmissionValidationIssue
+
     services_pkg = _ensure_pkg("openg2p_registry_core.services")
     services_pkg.__path__ = [str(_CORE_SRC / "services")]  # type: ignore[attr-defined]
 
@@ -160,6 +167,7 @@ class FakeSubmission(FakeBase):
     __tablename__ = "fake_submission_status_for_link_tests"
 
     submission_id = Column(String, primary_key=True)
+    application_reference = Column(String)
     draft_status = Column(String)
     approval_status = Column(String)
 
@@ -603,3 +611,158 @@ async def test_backfill_skips_table_section(link_service, session):
     await link_service.backfill_null_child_links_for_same_submission_parent("sub", "land", session)
 
     session.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_check_readiness_passes_when_parent_in_live_register(link_service, session):
+    submission = SimpleNamespace(submission_id="sub-b", register_id="farmer")
+    sections = [SimpleNamespace(section_id="sec-1", section_register_id="farmer")]
+    farmer_reg = _register("farmer", "Farmer", "hh")
+    hh_reg = _register("hh", "Household", None)
+    farmer_row = SimpleNamespace(internal_record_id="f-1", link_internal_record_id="hh-live")
+
+    async def fake_get(model_or_reg, key):
+        if key == "farmer":
+            return farmer_reg
+        if key == "hh":
+            return hh_reg
+        if key == "hh-live":
+            return SimpleNamespace(internal_record_id="hh-live")
+        return None
+
+    session.get = AsyncMock(side_effect=fake_get)
+    session.execute = AsyncMock(
+        side_effect=[
+            _execute_result([farmer_row]),
+            _execute_result([]),
+        ]
+    )
+
+    with patch.object(link_service, "get_intake_model_class", return_value=FakeIntakeModel):
+        with patch.object(link_service, "get_register_model_class", return_value=object):
+            issues = await link_service.check_submission_parent_links_readiness(
+                submission, sections, session
+            )
+
+    assert issues == []
+
+
+@pytest.mark.asyncio
+async def test_check_readiness_reports_rejected_upstream_parent_submission(link_service, session):
+    submission = SimpleNamespace(submission_id="sub-b", register_id="farmer")
+    sections = [SimpleNamespace(section_id="sec-1", section_register_id="farmer")]
+    farmer_reg = _register("farmer", "Farmer", "hh")
+    hh_reg = _register("hh", "Household", None)
+    farmer_row = SimpleNamespace(internal_record_id="f-1", link_internal_record_id="hh-rejected")
+
+    async def fake_get(model_or_reg, key):
+        if key == "farmer":
+            return farmer_reg
+        if key == "hh":
+            return hh_reg
+        return None
+
+    upstream_result = MagicMock()
+    upstream_result.first.return_value = ("sub-a", "APP-HH-001", "REJECTED")
+
+    session.get = AsyncMock(side_effect=fake_get)
+    session.execute = AsyncMock(
+        side_effect=[
+            _execute_result([farmer_row]),
+            _execute_result([]),
+            upstream_result,
+        ]
+    )
+    _mod.G2PIntakeFormSubmission = FakeSubmission
+
+    with patch.object(link_service, "get_intake_model_class", return_value=FakeIntakeModel):
+        with patch.object(link_service, "get_register_model_class", return_value=object):
+            issues = await link_service.check_submission_parent_links_readiness(
+                submission, sections, session
+            )
+
+    assert len(issues) == 1
+    assert issues[0].code == "PARENT_SUBMISSION_REJECTED"
+    assert issues[0].upstream_submission_id == "sub-a"
+    assert issues[0].upstream_application_reference == "APP-HH-001"
+    assert issues[0].upstream_approval_status == "REJECTED"
+
+
+@pytest.mark.asyncio
+async def test_check_readiness_reports_pending_upstream_parent_submission(link_service, session):
+    submission = SimpleNamespace(submission_id="sub-b", register_id="farmer")
+    sections = [SimpleNamespace(section_id="sec-1", section_register_id="farmer")]
+    farmer_reg = _register("farmer", "Farmer", "hh")
+    hh_reg = _register("hh", "Household", None)
+    farmer_row = SimpleNamespace(internal_record_id="f-1", link_internal_record_id="hh-pending")
+
+    async def fake_get(model_or_reg, key):
+        if key == "farmer":
+            return farmer_reg
+        if key == "hh":
+            return hh_reg
+        return None
+
+    upstream_result = MagicMock()
+    upstream_result.first.return_value = ("sub-a", "APP-HH-002", "PENDING")
+
+    session.get = AsyncMock(side_effect=fake_get)
+    session.execute = AsyncMock(
+        side_effect=[
+            _execute_result([farmer_row]),
+            _execute_result([]),
+            upstream_result,
+        ]
+    )
+    _mod.G2PIntakeFormSubmission = FakeSubmission
+
+    with patch.object(link_service, "get_intake_model_class", return_value=FakeIntakeModel):
+        with patch.object(link_service, "get_register_model_class", return_value=object):
+            issues = await link_service.check_submission_parent_links_readiness(
+                submission, sections, session
+            )
+
+    assert len(issues) == 1
+    assert issues[0].code == "PARENT_SUBMISSION_PENDING"
+    assert issues[0].upstream_submission_id == "sub-a"
+
+
+@pytest.mark.asyncio
+async def test_sanitize_link_for_live_ingest_keeps_live_or_same_submission_and_nulls_others(
+    link_service, session
+):
+    farmer_reg = _register("farmer", "Farmer", "hh")
+    hh_reg = _register("hh", "Household", None)
+
+    same_sub_hit = MagicMock()
+    same_sub_hit.scalar_one_or_none.return_value = "hh-same"
+    same_sub_miss = MagicMock()
+    same_sub_miss.scalar_one_or_none.return_value = None
+
+    async def fake_get(model_or_reg, key):
+        if key == "hh":
+            return hh_reg
+        if key == "hh-live":
+            return SimpleNamespace(internal_record_id="hh-live")
+        return None
+
+    session.get = AsyncMock(side_effect=fake_get)
+    session.execute = AsyncMock(side_effect=[same_sub_hit, same_sub_miss, same_sub_miss])
+
+    with patch.object(link_service, "get_intake_model_class", return_value=FakeIntakeModel):
+        with patch.object(link_service, "get_register_model_class", return_value=object):
+            kept_same = await link_service.sanitize_link_for_live_ingest(
+                "sub-b", farmer_reg, "hh-same", session
+            )
+            kept_live = await link_service.sanitize_link_for_live_ingest(
+                "sub-b", farmer_reg, "hh-live", session
+            )
+            nulled_inflight_or_rejected = await link_service.sanitize_link_for_live_ingest(
+                "sub-b", farmer_reg, "hh-pending-or-rejected", session
+            )
+
+    assert kept_same == "hh-same"
+    assert kept_live == "hh-live"
+    assert nulled_inflight_or_rejected is None
+
+

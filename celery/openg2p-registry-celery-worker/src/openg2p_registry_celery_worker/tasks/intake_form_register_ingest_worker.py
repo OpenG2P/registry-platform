@@ -24,6 +24,9 @@ from openg2p_registry_core.models import (
     ProcessStatusEnum,
     RegisterPurposeEnum,
 )
+from openg2p_registry_core.services.g2p_intake_form_link_service import (
+    G2PIntakeFormLinkService,
+)
 from openg2p_registry_core.services.g2p_intake_register_section_map_service import (
     G2PIntakeRegisterSectionMapService,
 )
@@ -327,6 +330,14 @@ async def _insert_register_row(
     session,
 ):
     record_data = _build_register_row_data(submission, intake_row, register_class)
+    if "link_internal_record_id" in inspect(register_class).columns and record_data.get("link_internal_record_id"):
+        link_service = G2PIntakeFormLinkService.get_component() or G2PIntakeFormLinkService()
+        record_data["link_internal_record_id"] = await link_service.sanitize_link_for_live_ingest(
+            submission.submission_id,
+            register_definition,
+            record_data.get("link_internal_record_id"),
+            session,
+        )
     existing = await session.get(register_class, record_data["internal_record_id"])
     if existing:
         raise ValueError(
