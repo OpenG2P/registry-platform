@@ -243,7 +243,7 @@ export const extractDatePartsFromPattern = (
       source += '(\\d{2})';
     } else if (token.kind === 'MM' || token.kind === 'DD') {
       source += '(\\d{1,2})';
-    } else {
+    } else if (token.kind === 'lit') {
       // Allow flexible whitespace around/within literal separators.
       const lit = escapeRegExp(token.value).replace(/\\\s+/g, '\\s+');
       source += lit.replace(/ +/g, '\\s+');
