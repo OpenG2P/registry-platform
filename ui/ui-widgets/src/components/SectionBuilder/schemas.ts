@@ -37,6 +37,29 @@ export const BOOLEAN_REPRESENTATIONS = ['true-false', 'yes-no', 'on-off', 'custo
 
 export const BOOLEAN_CONTROL_TYPES = ['checkbox', 'radio', 'toggle'] as const;
 
+/** Temporal calendar ids for date widgets. */
+export const CALENDAR_TYPES = [
+  'gregory',
+  'ethiopic',
+  'islamic',
+  'islamic-umalqura',
+  'islamic-civil',
+  'islamic-tbla',
+  'islamic-rgsa',
+  'persian',
+  'nepali',
+  'hebrew',
+  'coptic',
+  'ethioaa',
+  'buddhist',
+  'indian',
+  'chinese',
+  'japanese',
+  'roc',
+  'dangi',
+  'iso8601',
+] as const;
+
 const baseWidgetSchema = {
   type: 'object' as const,
   properties: {
@@ -104,6 +127,10 @@ const baseWidgetSchema = {
       type: 'object' as const,
       properties: {
         dateFormat: { type: 'string' as const },
+        calendar: {
+          type: 'string' as const,
+          enum: CALENDAR_TYPES,
+        },
         currency: { type: 'string' as const },
         locale: { type: 'string' as const },
         decimals: { type: 'number' as const, minimum: 0, maximum: 10 },

@@ -16,6 +16,8 @@ import {
   mergeMinDateBounds,
   mergeMaxDateBounds,
 } from '../utils/dateInput';
+import { isGregorianCalendar, resolveCalendar } from '../utils/calendarDates';
+import { MultiCalendarDatePicker } from '../components/MultiCalendarDatePicker';
 import { setValue, setError, setTouched, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 import { validateWidget } from '../utils/validation';
@@ -438,6 +440,9 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
   );
 
   const displayValue = value && typeof value === 'string' ? value.split('T')[0] : '';
+  const calendar = resolveCalendar(formatConfig?.calendar);
+  const useMultiCalendar = !isGregorianCalendar(calendar);
+  const locale = formatConfig?.locale || 'en';
 
   useEffect(() => {
     if (!displayValue) {
@@ -454,8 +459,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
     setConstraintError(error);
   }, [displayValue, effectiveMinDate, effectiveMaxDate, dateConstraint, constraintMessages]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nextValue = e.target.value;
+  const applyValue = (nextValue: string) => {
     onValueChange(nextValue === '' ? null : nextValue);
     if (!nextValue) {
       setConstraintError(null);
@@ -471,10 +475,29 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
     setConstraintError(error);
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    applyValue(e.target.value);
+  };
+
   const errorMessage = constraintError || requiredError;
 
   return (
     <div className="table-cell-field w-full">
+      {useMultiCalendar ? (
+        <MultiCalendarDatePicker
+          value={displayValue}
+          calendar={calendar}
+          locale={locale}
+          minDate={effectiveMinDate}
+          maxDate={effectiveMaxDate}
+          disabled={isReadonly}
+          placeholder={placeholder}
+          hasError={Boolean(errorMessage)}
+          title={errorMessage || tSchema(t, config['widget-data-tooltip'])}
+          className="w-full sm:w-full"
+          onChange={applyValue}
+        />
+      ) : (
       <input
         type="date"
         value={displayValue}
@@ -495,6 +518,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
           backgroundColor: isReadonly ? 'var(--owt-color-bg-alt)' : 'var(--owt-color-bg)',
         }}
       />
+      )}
       <TableCellErrorText message={errorMessage} />
     </div>
   );
@@ -909,8 +933,12 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       return null;
     }
 
-    if (column['widget-data-format']) {
-      return formatValue(cellValue, column['widget-data-format'], column.widget);
+    if (widgetType === 'date' || column['widget-data-format']) {
+      return formatValue(
+        cellValue,
+        column['widget-data-format'] || {},
+        column.widget
+      );
     }
 
     return cellValue?.toString() || '-';
