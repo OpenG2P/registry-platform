@@ -1,5 +1,6 @@
 import importlib
 import logging
+import math
 import uuid
 from datetime import datetime
 
@@ -48,10 +49,13 @@ from ..schemas import (
     DeduplicationIntakeFormIntakeFormResultData,
     DisplayField,
     IntakeAllowedParentsData,
+    SearchResultData,
     SectionPayloadInput,
     SectionPayloadResponseItem,
     SubmissionResponsePayload,
-    IntakeFormSubmissionsSummaryData
+    IntakeFormSubmissionsSummaryData,
+    IntakeSubmissionValidationIssue,
+    ValidateIntakeFormSubmissionData,
 )
 from .g2p_verification_service import G2PRegisterVerificationService
 from .g2p_intake_form_link_service import G2PIntakeFormLinkService
@@ -92,6 +96,98 @@ class G2PIntakeFormDataService(BaseService):
                 requires_selection=candidates.requires_selection,
                 allowed_parents=candidates.allowed_parents,
             )
+
+    async def search_in_inflight_intake(
+        self,
+        register_id: str,
+        search_text: str | None = None,
+        current_page: int = 1,
+        page_size: int = 10,
+        internal_record_id: str | None = None,
+    ) -> tuple[list[SearchResultData], int, int]:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
+            rows, total_items = await G2PIntakeFormLinkService.get_component().search_inflight_register_records(
+                register_id,
+                session,
+                search_text=search_text,
+                current_page=current_page,
+                page_size=page_size,
+                internal_record_id=internal_record_id,
+            )
+            register_schema = await session.get(G2PRegisterSchema, register_id)
+            search_result_schema = (
+                register_schema.search_result_schema
+                if register_schema and register_schema.search_result_schema
+                else []
+            )
+            display_fields_sorted = (
+                sorted(search_result_schema, key=lambda field: field.get("order", 999))
+                if search_result_schema
+                else []
+            )
+            image_ids = [
+                image_id
+                for image_id in (getattr(row, "record_image_document_id", None) for row in rows)
+                if image_id
+            ]
+            record_image_urls = {}
+            if image_ids:
+                from .g2p_document_service import G2PDocumentService
+
+                record_image_urls = await G2PDocumentService.get_component().get_document_urls(
+                    session,
+                    image_ids,
+                )
+            results = [
+                self._intake_row_to_search_result(row, display_fields_sorted, record_image_urls)
+                for row in rows
+            ]
+            number_of_pages = math.ceil(total_items / page_size) if page_size else 0
+            return results, total_items, number_of_pages
+
+    @staticmethod
+    def _intake_row_to_search_result(
+        row,
+        display_fields_sorted: list,
+        record_image_urls: dict,
+    ) -> SearchResultData:
+        display_fields_list: list[DisplayField] = []
+        for field_config in display_fields_sorted:
+            field_name = field_config.get("field_name")
+            value = getattr(row, field_name, None) if field_name else None
+            if value is not None and hasattr(value, "isoformat"):
+                value = value.isoformat()
+            if value is not None and not isinstance(value, str):
+                value = str(value)
+            display_fields_list.append(
+                DisplayField(
+                    field_name=field_name,
+                    value=value,
+                    order=field_config.get("order", 999),
+                )
+            )
+        image_id = getattr(row, "record_image_document_id", None)
+        created_at = getattr(row, "created_at", None)
+        last_approved_at = getattr(row, "last_approved_at", None)
+        return SearchResultData(
+            internal_record_id=row.internal_record_id,
+            functional_record_id=getattr(row, "functional_record_id", None),
+            link_internal_record_id=getattr(row, "link_internal_record_id", None),
+            foundational_id=getattr(row, "foundational_id", None),
+            link_foundational_id=getattr(row, "link_foundational_id", None),
+            record_name=getattr(row, "record_name", None),
+            record_image_url=record_image_urls.get(image_id) if image_id else None,
+            created_by=getattr(row, "created_by", None),
+            created_at=created_at.isoformat() if created_at is not None and hasattr(created_at, "isoformat") else None,
+            last_approved_at=(
+                last_approved_at.isoformat()
+                if last_approved_at is not None and hasattr(last_approved_at, "isoformat")
+                else None
+            ),
+            last_approved_by=getattr(row, "last_approved_by", None),
+            display_fields=display_fields_list or None,
+        )
 
     async def save_intake_form_submission(
         self,
@@ -179,6 +275,11 @@ class G2PIntakeFormDataService(BaseService):
         await G2PIntakeFormLinkService.get_component().null_child_links_for_deleted_parents(
             submission.submission_id,
             deleted_ids,
+            session,
+        )
+        await G2PIntakeFormLinkService.get_component().backfill_null_child_links_for_same_submission_parent(
+            submission.submission_id,
+            section_register_id,
             session,
         )
 
@@ -811,6 +912,91 @@ class G2PIntakeFormDataService(BaseService):
             await session.commit()
             return response
 
+    async def validate_submission_for_approval(
+        self,
+        submission_id: str,
+    ) -> ValidateIntakeFormSubmissionData:
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
+            return await self.validate_submission_for_approval_with_session(
+                submission_id, session
+            )
+
+    async def validate_submission_for_approval_with_session(
+        self,
+        submission_id: str,
+        session: AsyncSession,
+    ) -> ValidateIntakeFormSubmissionData:
+        submission = await self._get_submission_or_error(submission_id, session)
+        sections = await self._get_form_sections(submission.form_id, session)
+        link_service = G2PIntakeFormLinkService.get_component()
+        issues: list[IntakeSubmissionValidationIssue] = (
+            await link_service.check_submission_parent_links_readiness(
+                submission, sections, session
+            )
+        )
+        registers_with_link_issues = {
+            issue.section_register_id
+            for issue in issues
+            if issue.section_register_id
+        }
+
+        domain_factory = G2PRegisterDomainFactory.get_component() or G2PRegisterDomainFactory()
+        seen_registers: set[str] = set()
+        for section in sections:
+            section_register_id = section.section_register_id
+            if not section_register_id or section_register_id in seen_registers:
+                continue
+            seen_registers.add(section_register_id)
+
+            register_definition = await self._get_register_definition(
+                section_register_id, session
+            )
+            intake_class = await self._resolve_intake_form_class(
+                section_register_id, session
+            )
+            domain_service = domain_factory.get_domain_service(
+                register_definition.register_mnemonic
+            )
+            if not domain_service:
+                continue
+
+            rows = await self._get_intake_rows_list(
+                intake_class, submission.submission_id, session
+            )
+            if rows:
+                row_dicts = [self._serialize_model(row) for row in rows]
+                try:
+                    await domain_service.validate_domain_attributes(row_dicts)
+                except G2PRegistryException as exc:
+                    issues.append(
+                        IntakeSubmissionValidationIssue(
+                            code="DOMAIN_VALIDATION_ERROR",
+                            section_id=section.section_id,
+                            section_register_id=section_register_id,
+                            message=exc.message or str(exc),
+                        )
+                    )
+
+            try:
+                await domain_service.validate_intake_submission(submission, session)
+            except G2PRegistryException as exc:
+                if section_register_id not in registers_with_link_issues:
+                    issues.append(
+                        IntakeSubmissionValidationIssue(
+                            code="DOMAIN_VALIDATION_ERROR",
+                            section_id=section.section_id,
+                            section_register_id=section_register_id,
+                            message=exc.message or str(exc),
+                        )
+                    )
+
+        return ValidateIntakeFormSubmissionData(
+            submission_id=submission.submission_id,
+            is_valid=len(issues) == 0,
+            issues=issues,
+        )
+
     async def search_submissions(
         self,
         register_id: str,
@@ -1288,6 +1474,14 @@ class G2PIntakeFormDataService(BaseService):
         payload = self._serialize_model(intake_row, {"submission_id", "section_id"})
         schema_instance = schema_class(**payload)
         record_data = self._build_record_data(schema_instance.model_dump(), payload, register_class)
+        if "link_internal_record_id" in inspect(register_class).columns and record_data.get("link_internal_record_id"):
+            link_service = G2PIntakeFormLinkService.get_component() or G2PIntakeFormLinkService()
+            record_data["link_internal_record_id"] = await link_service.sanitize_link_for_live_ingest(
+                submission.submission_id,
+                register_definition,
+                record_data.get("link_internal_record_id"),
+                session,
+            )
         record_data["created_by"] = submission.created_by
         record_data["created_at"] = submission.first_created_at
         record_data["last_approved_at"] = submission.approved_at or submission.last_updated_at

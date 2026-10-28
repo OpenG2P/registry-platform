@@ -4,9 +4,8 @@ from typing import Dict, List, Optional
 from openg2p_fastapi_common.schemas import G2PRequest, G2PRequestBody, G2PResponse, G2PResponseBody
 from pydantic import BaseModel, ConfigDict
 
-from .register_payload import DisplayField
 from .file_payload import DocumentAttachment, DocumentData
-from .register_payload import AllowedParentRecordData, DisplayField
+from .register_payload import AllowedParentRecordData, DisplayField, RegisterAndInflightSearchResult
 
 
 class G2PIntakeFormSchemaBase:
@@ -308,3 +307,64 @@ class GetIntakeAllowedParentsResponseBody(G2PResponseBody):
 
 class GetIntakeAllowedParentsResponse(G2PResponse):
     response_body: Optional[GetIntakeAllowedParentsResponseBody] = None
+
+
+class SearchInInflightIntakeRequestPayload(BaseModel):
+    register_id: str
+    internal_record_id: Optional[str] = None
+
+
+class SearchInInflightIntakeRequestBody(G2PRequestBody):
+    request_payload: SearchInInflightIntakeRequestPayload
+
+
+class SearchInInflightIntakeRequest(G2PRequest):
+    request_body: SearchInInflightIntakeRequestBody
+
+
+class SearchInRegisterAndInflightIntakeResponseBody(G2PResponseBody):
+    response_payload: Optional[List[RegisterAndInflightSearchResult]] = None
+
+
+class SearchInRegisterAndInflightIntakeResponse(G2PResponse):
+    response_body: Optional[SearchInRegisterAndInflightIntakeResponseBody] = None
+
+
+class ValidateIntakeFormSubmissionRequestPayload(BaseModel):
+    submission_id: str
+
+
+class ValidateIntakeFormSubmissionRequestBody(G2PRequestBody):
+    request_payload: ValidateIntakeFormSubmissionRequestPayload
+
+
+class ValidateIntakeFormSubmissionRequest(G2PRequest):
+    request_body: ValidateIntakeFormSubmissionRequestBody
+
+
+class IntakeSubmissionValidationIssue(BaseModel):
+    code: str
+    severity: str = "ERROR"
+    section_id: Optional[str] = None
+    section_register_id: Optional[str] = None
+    internal_record_id: Optional[str] = None
+    link_internal_record_id: Optional[str] = None
+    upstream_submission_id: Optional[str] = None
+    upstream_application_reference: Optional[str] = None
+    upstream_approval_status: Optional[str] = None
+    message: str
+
+
+class ValidateIntakeFormSubmissionData(BaseModel):
+    submission_id: str
+    is_valid: bool
+    issues: List[IntakeSubmissionValidationIssue] = []
+
+
+class ValidateIntakeFormSubmissionResponseBody(G2PResponseBody):
+    response_payload: Optional[ValidateIntakeFormSubmissionData] = None
+
+
+class ValidateIntakeFormSubmissionResponse(G2PResponse):
+    response_body: Optional[ValidateIntakeFormSubmissionResponseBody] = None
+

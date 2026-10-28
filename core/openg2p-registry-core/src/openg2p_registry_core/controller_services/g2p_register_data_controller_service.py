@@ -192,9 +192,19 @@ class G2PRegisterDataControllerService(BaseService):
         payload = search_register_request.request_body.request_payload
         pagination = search_register_request.request_body.pagination_request
         register_id = payload.register_id
+        internal_record_id = (payload.internal_record_id or "").strip() or None
+
+        g2p_register_service = G2PRegisterService.get_component()
+        if internal_record_id:
+            search_results_list, total_items = await g2p_register_service.search_in_a_register(
+                register_id,
+                pagination.search_text if pagination else None,
+                internal_record_id=internal_record_id,
+                data_policies=data_policies,
+            )
+            return search_results_list, total_items, 1 if total_items else 0
 
         _logger.info(f"Searching in register_id: {register_id} with search_text: {pagination.search_text}, page: {pagination.current_page}, page_size: {pagination.page_size} through controller service")
-        g2p_register_service = G2PRegisterService.get_component()
         search_results_list, total_items = await g2p_register_service.search_in_a_register(
             register_id, pagination.search_text, pagination.current_page, pagination.page_size, pagination.sort_by, pagination.filter_by,
             data_policies=data_policies,
