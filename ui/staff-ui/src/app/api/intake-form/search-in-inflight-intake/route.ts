@@ -1,0 +1,26 @@
+import { NextRequest } from "next/server";
+import { proxyToBackend } from "@/app/api/_lib/backend-proxy";
+
+export async function POST(request: NextRequest) {
+    return proxyToBackend({
+        req: request,
+        targetEndpoint: "/intake-form-data/search_in_inflight_intake",
+        buildPayload: (body) => ({
+            pagination_request: {
+                current_page: body.current_page ?? 1,
+                page_size: body.page_size ?? 20,
+                sort_by: body.sort_by || null,
+                filter_by: body.filter_by ?? "",
+                search_text: body.search_text ?? "",
+            },
+            request_payload: {
+                register_id: body.register_id ?? "",
+                internal_record_id: body.internal_record_id ?? null,
+            },
+        }),
+        transformResponse: (responseBody) => ({
+            records: responseBody?.response_payload ?? [],
+            pagination: responseBody?.pagination_response,
+        }),
+    });
+}

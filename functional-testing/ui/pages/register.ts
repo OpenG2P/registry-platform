@@ -21,7 +21,15 @@ export async function searchAndOpenRecord(
   await openRegister(page, mnemonic);
   await searchInTopBar(page, searchText);
 
-  const link = page.locator(`a[href*="/register/${mnemonic}/${internalRecordId}"]`).first();
+  const detailData = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/register/tab-sections-data") &&
+      response.request().method() === "POST" &&
+      response.ok(),
+    { timeout: 60_000 }
+  );
+
+  const link = page.locator(`a[href*="${internalRecordId}"]`).first();
   if (await link.isVisible({ timeout: 20_000 }).catch(() => false)) {
     await link.click();
   } else {
@@ -32,7 +40,24 @@ export async function searchAndOpenRecord(
   }
 
   await expect(page).toHaveURL(new RegExp(internalRecordId));
-  await expect(page.getByText(searchText, { exact: false }).first()).toBeVisible({
-    timeout: 30_000,
-  });
+  await detailData.catch(() => undefined);
+  // Header record_name is text. Editable fields such as household_head_name
+  // keep the same value on an input, which getByText does not see.
+  await expect
+    .poll(
+      async () => {
+        if (
+          (await page.getByText(searchText, { exact: false }).count()) > 0 &&
+          (await page.getByText(searchText, { exact: false }).first().isVisible())
+        ) {
+          return true;
+        }
+        const values = await page.locator("input, textarea").evaluateAll((els) =>
+          els.map((el) => (el as HTMLInputElement).value || "")
+        );
+        return values.some((value) => value.includes(searchText));
+      },
+      { timeout: 60_000 }
+    )
+    .toBe(true);
 }

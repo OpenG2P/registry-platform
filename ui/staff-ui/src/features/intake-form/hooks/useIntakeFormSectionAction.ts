@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFetch } from '@/shared/hooks/useFetch';
 import { toast } from 'react-toastify';
@@ -10,6 +10,7 @@ import { UploadedDocument } from '@/features/shared/types';
 import { useTranslations } from 'next-intl';
 import { useFileUpload } from '@/features/shared/hooks';
 import { SectionPayload } from '../types/intake-form';
+import { useIntakeFormValidation } from './useIntakeFormValidation';
 
 interface UseIntakeFormSectionActionProps {
     registerId?: string;
@@ -35,6 +36,7 @@ export const useIntakeFormSectionAction = ({
     const t = useTranslations();
     const router = useRouter();
     const { execute: executeSave } = useFetch();
+    const { validateSubmission } = useIntakeFormValidation();
     const { uploadFile } = useFileUpload();
 
     const [activeSubmissionId, setActiveSubmissionId] = useState<string | null>(submissionId);
@@ -71,6 +73,8 @@ export const useIntakeFormSectionAction = ({
         setSectionInternalIds(prev => ({ ...prev, ...newSectionIds }));
         setListSectionRecordIds(prev => ({ ...prev, ...newListIds }));
     }, [initialSectionPayloads]);
+
+    const submitInFlightRef = useRef(false);
 
     const [modalConfig, setModalConfig] = useState<{
         isOpen: boolean;
@@ -236,24 +240,46 @@ export const useIntakeFormSectionAction = ({
         const activeSection = actionSection || section;
 
         if (action === 'submit') {
-            setModalConfig({
-                isOpen: true,
-                type: 'warning',
-                title: t('are_you_sure'),
-                subtitle: t('submit_confirmation_subtitle'),
-                confirmText: t('submit'),
-                cancelText: t('cancel'),
-                onClose: closeModal,
-                onConfirm: () => {
-                    closeModal();
-                    if (sectionChanges && activeSection) {
-                        performSave(sectionChanges, 'submit', activeSection);
-                    } else {
-                        performFinalize();
+            if (submitInFlightRef.current) return false;
+            submitInFlightRef.current = true;
+
+            try {
+                const targetSubmissionId = activeSubmissionId || submissionId;
+                let issueSubtitle: string | undefined;
+
+                if (targetSubmissionId) {
+                    const validation = await validateSubmission(targetSubmissionId);
+
+                    if (!validation) {
+                        return false;
+                    }
+
+                    if (validation.issueText) {
+                        issueSubtitle = validation.issueText;
                     }
                 }
-            });
-            return true;
+
+                setModalConfig({
+                    isOpen: true,
+                    type: 'warning',
+                    title: t('are_you_sure'),
+                    subtitle: issueSubtitle || t('submit_confirmation_subtitle'),
+                    confirmText: t('submit'),
+                    cancelText: t('cancel'),
+                    onClose: closeModal,
+                    onConfirm: () => {
+                        closeModal();
+                        if (sectionChanges && activeSection) {
+                            performSave(sectionChanges, 'submit', activeSection);
+                        } else {
+                            performFinalize();
+                        }
+                    }
+                });
+                return true;
+            } finally {
+                submitInFlightRef.current = false;
+            }
         } else if (sectionChanges && activeSection) {
             return await performSave(sectionChanges, 'save', activeSection);
         }
