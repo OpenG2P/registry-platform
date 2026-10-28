@@ -354,7 +354,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     }
 
     if (
-      dataSource.type === 'api' &&
+      (dataSource.type === 'api' || Array.isArray(dataSource)) &&
       (config.widget === 'parent-lookup' || config.widget === 'register-lookup')
     ) {
       return;

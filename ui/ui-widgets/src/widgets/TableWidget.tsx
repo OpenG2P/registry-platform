@@ -178,7 +178,7 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
           onValueChange(selectedOption ? selectedOption.value : rawValue);
         }}
         disabled={isReadonly || loading}
-        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+        className={`box-border h-[30px] w-full min-w-0 max-w-full px-2 text-sm border focus:outline-none ${
           isReadonly || loading ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
@@ -248,12 +248,13 @@ const TableCellText = ({ config, value, onValueChange }: TableCellTextProps) => 
     <div className="table-cell-field w-full">
       <input
         type="text"
+        size={1}
         value={displayValue}
         onChange={(e) => onValueChange(e.target.value === '' ? null : e.target.value)}
         disabled={isReadonly}
         placeholder={placeholder}
         maxLength={maxLength}
-        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+        className={`box-border h-[30px] w-full min-w-0 max-w-full px-2 text-sm border focus:outline-none ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
@@ -352,6 +353,7 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
     <div className="table-cell-field w-full">
       <input
         type="text"
+        size={1}
         inputMode="decimal"
         value={displayValue}
         onChange={handleChange}
@@ -359,7 +361,7 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
         onKeyDown={handleKeyDown}
         disabled={isReadonly}
         placeholder={placeholder}
-        className={`w-full h-[28px] px-2 text-sm border focus:outline-none text-right ${
+        className={`box-border h-[30px] w-full min-w-0 max-w-full px-2 text-sm border focus:outline-none text-right ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
@@ -482,7 +484,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
         min={effectiveMinDate}
         max={effectiveMaxDate}
         title={errorMessage || tSchema(t, config['widget-data-tooltip'])}
-        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+        className={`box-border h-[30px] w-full min-w-0 max-w-full px-2 text-sm border focus:outline-none ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
@@ -1249,7 +1251,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       )}
 
         <div className="max-w-full min-w-0 overflow-x-auto border" style={{ borderRadius: 'var(--owt-widget-table-border-radius)', borderColor: 'var(--owt-widget-table-border-color)' }}>
-          <table className="min-w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+          <table className="w-max min-w-full [&_th]:min-w-[8rem] [&_td]:min-w-[8rem]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead style={{ backgroundColor: 'var(--owt-widget-table-header-bg)' }}>
               <tr style={{ borderBottom: '1px solid var(--owt-widget-table-row-divider)' }}>
                 {columns.map((col) => {

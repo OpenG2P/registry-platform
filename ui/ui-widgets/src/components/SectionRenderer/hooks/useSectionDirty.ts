@@ -84,6 +84,15 @@ export const useSectionDirty = ({
     }
   }, [effectiveEditModeForDirty, isDirty, sectionId, onSectionDirtyChange]);
 
+  const onSectionDirtyChangeRef = useRef(onSectionDirtyChange);
+  onSectionDirtyChangeRef.current = onSectionDirtyChange;
+
+  useEffect(() => {
+    return () => {
+      onSectionDirtyChangeRef.current?.(sectionId, false);
+    };
+  }, [sectionId]);
+
   const intakeFormSectionStatus = useMemo<'saved' | 'modified' | null>(() => {
     if (mode !== 'IntakeForm' || isDraft === false) return null;
     if (isDirty) return 'modified';

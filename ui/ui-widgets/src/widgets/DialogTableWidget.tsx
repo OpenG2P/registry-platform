@@ -515,29 +515,59 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
           }
         }
 
-        .dialog-table-modal .dialog-table-field .flex {
-          flex-direction: column !important;
-          align-items: stretch !important;
+        .dialog-table-modal .dialog-table-field > * > .flex {
+          flex-direction: row !important;
+          align-items: flex-start !important;
         }
 
         .dialog-table-modal .dialog-table-field .owt-field-label,
         .dialog-table-modal .dialog-table-field label.owt-text,
         .dialog-table-modal .dialog-table-field label.owt-field-label {
-          width: 100% !important;
+          flex-direction: row !important;
+          align-items: baseline !important;
+          width: 50% !important;
           min-width: 0 !important;
-          max-width: 100% !important;
+          max-width: 50% !important;
+          flex: 0 0 50% !important;
           white-space: normal !important;
           overflow: visible !important;
           text-overflow: unset !important;
         }
 
-        .dialog-table-modal .dialog-table-field input,
+        .dialog-table-modal .dialog-table-field label.owt-field-label > span {
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: unset !important;
+        }
+
+        .dialog-table-modal .dialog-table-field input:not([type="checkbox"]):not([type="radio"]),
         .dialog-table-modal .dialog-table-field select,
         .dialog-table-modal .dialog-table-field textarea {
-          width: 100% !important;
+          width: 180px !important;
           max-width: 100% !important;
           min-width: 0 !important;
           box-sizing: border-box;
+        }
+
+        @media (max-width: 767px) {
+          .dialog-table-modal .dialog-table-field > * > .flex {
+            flex-direction: column !important;
+            align-items: stretch !important;
+          }
+
+          .dialog-table-modal .dialog-table-field .owt-field-label,
+          .dialog-table-modal .dialog-table-field label.owt-text,
+          .dialog-table-modal .dialog-table-field label.owt-field-label {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: none !important;
+          }
+
+          .dialog-table-modal .dialog-table-field input:not([type="checkbox"]):not([type="radio"]),
+          .dialog-table-modal .dialog-table-field select,
+          .dialog-table-modal .dialog-table-field textarea {
+            width: 100% !important;
+          }
         }
       `}</style>
 

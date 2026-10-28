@@ -304,6 +304,12 @@ export interface SectionConfig {
   'section-editable'?: boolean;
   /** When true in RegistryView, hides the "Edit Details" link for this section only. */
   'section-hide-edit-button'?: boolean;
+  /**
+   * Same show/hide rules as widget-data-options.
+   * `condition.field` is a widget-id in the shared form store.
+   * Sections with no rules stay visible.
+   */
+  'section-data-options'?: WidgetOptions;
   'section-column-span'?: number;
   'section-supporting-documents'?: SupportingDocumentConfig[];
   panels: PanelConfig[];

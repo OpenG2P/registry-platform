@@ -412,6 +412,29 @@ export const sectionSchema = {
       description:
         'RegistryView only: when true, hides the Edit Details link for this section (per-section override).',
     },
+    'section-data-options': {
+      type: 'object' as const,
+      properties: {
+        action: {
+          type: 'string' as const,
+          enum: ['show', 'hide', 'enable', 'disable', 'require'],
+        },
+        condition: {
+          type: 'object' as const,
+          properties: {
+            field: { type: 'string' as const },
+            operator: {
+              type: 'string' as const,
+              enum: CONDITION_OPERATORS,
+            },
+            value: {},
+          },
+          required: ['field', 'operator'],
+        },
+      },
+      description:
+        'Show or hide this section from another widget value. condition.field is that widget-id. Omit to always show the section.',
+    },
     'section-column-span': {
       type: 'number' as const,
       minimum: 1,
