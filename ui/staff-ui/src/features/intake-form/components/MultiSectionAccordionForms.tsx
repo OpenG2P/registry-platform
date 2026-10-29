@@ -68,13 +68,11 @@ export default function MultiSectionAccordionForms({
   const { results: regResults, loading: regLoading } = useIntakeDeduplication(submissionId || "", "register");
 
   const visibleSections = useMemo(
-    () => {
-      if (!showActions) return sections;
-      return sections.filter((section) =>
+    () =>
+      sections.filter((section) =>
         shouldShowWidget(section.section_ui_schema?.['section-data-options'], widgetValues)
-      );
-    },
-    [sections, widgetValues, showActions],
+      ),
+    [sections, widgetValues],
   );
 
   useEffect(() => {
@@ -96,10 +94,10 @@ export default function MultiSectionAccordionForms({
 
   const sectionsConfig = useMemo(
     () =>
-      sections.map((section) => ({
+      visibleSections.map((section) => ({
         ...section.section_ui_schema,
       })),
-    [sections]
+    [visibleSections]
   );
 
   const intakeFormDescription = useMemo(
@@ -243,7 +241,7 @@ export default function MultiSectionAccordionForms({
                     className="w-[72px] h-[72px] bg-secondary-second  rounded-l-[10px] rounded-r-none flex items-center justify-center focus:outline-none isolate"
                     aria-label={t('form_details')}
                   >
-                    <span className="w-[34px] h-[34px] rounded-full bg-primary-second/100 flex items-center justify-center"> 
+                    <span className="w-[34px] h-[34px] rounded-full bg-primary-second/100 flex items-center justify-center">
                       <Image
                       src="/images/config/double_right_arrow.png"
                       alt=""
