@@ -29,10 +29,42 @@ class Settings(ExtSettings):
     celery_backend_url: str = "redis://localhost:6379/0"
     worker_queue: str = "celery_jobs_worker_queue"
 
-    batch_size: int = 2000
     worker_max_attempts: int = 5
 
+    # Enabled false makes that worker return without doing the work.
+    # Ingest. change_request shares the ingest_data beat producer.
+    ingest_data_worker_enabled: bool = True
+    change_request_ingest_worker_enabled: bool = True
+    ingest_data_classification_worker_enabled: bool = True
+    ingest_data_transformation_worker_enabled: bool = True
+
+    # Outgest
+    outgest_data_transformation_worker_enabled: bool = True
+    outgest_data_publish_worker_enabled: bool = True
+    outgest_topic_register_worker_enabled: bool = True
+
+    # Deduplication
+    deduplication_register_worker_enabled: bool = True
+    deduplication_change_request_worker_enabled: bool = True
+    deduplication_intake_forms_vs_register_worker_enabled: bool = True
+    deduplication_intake_forms_vs_intake_forms_worker_enabled: bool = True
+
+    # Intake register ingest
+    intake_form_register_ingest_worker_enabled: bool = True
+
+    # Functional id
+    functional_id_allocation_worker_enabled: bool = True
+    functional_id_updation_worker_enabled: bool = True
+
+    # Score
+    score_compute_worker_enabled: bool = True
+    completion_score_worker_enabled: bool = True
+
+    # Import file
+    import_file_process_worker_enabled: bool = True
+
     # Register export
+    register_export_worker_enabled: bool = True
     export_batch_size: int = 2000
     export_worker_max_attempts: int = 3
     export_presigned_url_expiry_hours: int = 48

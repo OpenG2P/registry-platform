@@ -82,7 +82,9 @@ class PartnerManagementClient(BaseService):
         super().__init__(**kwargs)
         self._access_token: Optional[str] = None
         self._access_token_expires_at: float = 0.0
-        # key -> (expires_at monotonic, partner or None for cached miss)
+        # Staff-API partner record only (id, name, active/missing).
+        # Public keys from GET /keys are not stored here. Signature verification
+        # caches those in the partner-mgmt key store.
         self._partner_cache: dict[str, tuple[float, Optional[RegisteredPartner]]] = {}
 
     def _settings(self) -> Any:
@@ -209,9 +211,19 @@ class PartnerManagementClient(BaseService):
     async def _get_via_keys_api(
         self, client: httpx.AsyncClient, partner_id: str, cfg: Any
     ) -> Optional[RegisteredPartner]:
-        url = f"{cfg.partner_mgmt_api_url.rstrip('/')}/keys/{partner_id}"
-        resp = await client.get(url, timeout=self._timeout(cfg))
-        if resp.status_code == 200:
+        """Active if Partner Management is serving a public key.
+
+        ``client`` is unused; the staff path owns that HTTP client.
+        """
+        del client
+        from openg2p_fastapi_common.crypto.partner_mgmt_key_store import (
+            PartnerMgmtKeyStore,
+        )
+
+        keys = await PartnerMgmtKeyStore(api_url=cfg.partner_mgmt_api_url).get_keys(
+            partner_id
+        )
+        if keys:
             return RegisteredPartner(partner_id=partner_id, status="active")
         return None
 

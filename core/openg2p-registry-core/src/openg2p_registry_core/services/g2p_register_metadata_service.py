@@ -1,10 +1,14 @@
 import logging
 
+from fastapi_cache.coder import PickleCoder
+from fastapi_cache.decorator import cache
 from sqlalchemy import func, select
 from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
 
+from ..config import Settings
 from ..errors import G2PRegistryException
+from ..helpers.orm_cache import optional_id_key_builder, pair_id_key_builder, single_id_key_builder
 from ..models import (
     G2PIntakeFormUITabSection,
     G2PRegisterDefinition,
@@ -25,6 +29,7 @@ from ..schemas import (
 )
 
 _logger = logging.getLogger("g2p-register-metadata-service")
+_config = Settings.get_config(strict=False)
 
 
 class G2PRegisterMetadataService(BaseService):
@@ -40,7 +45,7 @@ class G2PRegisterMetadataService(BaseService):
     ) -> RegisterTabIdData:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            await self._validate_register(register_id, session)
+            await self._validate_register_from_db(register_id, session)
             tab = G2PRegisterUITab(
                 register_id=register_id,
                 tab_label=tab_label,
@@ -55,7 +60,7 @@ class G2PRegisterMetadataService(BaseService):
     async def delete_tab(self, tab_id: str) -> None:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            await self._validate_tab(tab_id, session)
+            await self._validate_tab_from_db(tab_id, session)
 
             tab_sections = (
                 await session.execute(select(G2PRegisterUITabSection).where(G2PRegisterUITabSection.tab_id == tab_id))
@@ -74,6 +79,30 @@ class G2PRegisterMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[G2PRegisterUITabData], int, int]:
+        # Locust/UI always send pagination defaults (page 1, size 20), which
+        # used to skip cache. Always cache the full list, then slice.
+        tabs, total_items, number_of_pages = await self._get_cached_all_tabs(register_id)
+        return self._slice_cached_page(
+            tabs, total_items, number_of_pages, current_page, page_size
+        )
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=optional_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_all_tabs(
+        self, register_id: str | None = None
+    ) -> tuple[list[G2PRegisterUITabData], int, int]:
+        """Full tab list for a register (static metadata). Shared across users."""
+        return await self._assemble_all_tabs(register_id, None, None)
+
+    async def _assemble_all_tabs(
+        self,
+        register_id: str | None,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list[G2PRegisterUITabData], int, int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             query = select(G2PRegisterUITab)
@@ -85,7 +114,11 @@ class G2PRegisterMetadataService(BaseService):
 
             tabs = (await session.execute(query)).scalars().all()
             tab_list = [self._build_tab_data(tab) for tab in tabs]
-            total_items = await self._count_tabs(register_id)
+            # Unpaginated callers already have the full set; skip a separate COUNT.
+            if current_page is None or page_size is None:
+                total_items = len(tab_list)
+            else:
+                total_items = await self._count_tabs(register_id, session)
             number_of_pages = 1
             if page_size and page_size > 0:
                 number_of_pages = (total_items + page_size - 1) // page_size
@@ -106,7 +139,7 @@ class G2PRegisterMetadataService(BaseService):
     ) -> RegisterTabIdData:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            tab = await self._validate_tab(tab_id, session)
+            tab = await self._validate_tab_from_db(tab_id, session)
 
             if tab_label is not None:
                 tab.tab_label = tab_label
@@ -127,8 +160,8 @@ class G2PRegisterMetadataService(BaseService):
     ) -> RegisterTabSectionIdData:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            tab = await self._validate_tab(tab_id, session, register_id)
-            await self._validate_section(section_id, session, tab.register_id)
+            tab = await self._validate_tab_from_db(tab_id, session, register_id)
+            await self._validate_section_from_db(section_id, session, tab.register_id)
 
             existing = (
                 await session.execute(
@@ -160,29 +193,95 @@ class G2PRegisterMetadataService(BaseService):
     ) -> list[G2PRegisterUITabSectionData]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            tab = await self._validate_tab(tab_id, session)
+            # Locust / UI call unpaginated — cache the full assembled payload per tab.
+            if current_page is None or page_size is None:
+                return await self._get_cached_tab_sections(tab_id, session)
+            return await self._assemble_tab_sections(tab_id, session, current_page, page_size)
 
-            query = (
-                select(G2PRegisterUITabSection)
-                .where(G2PRegisterUITabSection.tab_id == tab_id)
-                .order_by(G2PRegisterUITabSection.section_order.asc(), G2PRegisterUITabSection.tab_section_id.asc())
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_tab_sections(self, tab_id: str, session) -> list[G2PRegisterUITabSectionData]:
+        """Full tab→sections response (static metadata). Shared across users."""
+        return await self._assemble_tab_sections(tab_id, session, None, None)
+
+    async def _assemble_tab_sections(
+        self,
+        tab_id: str,
+        session,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> list[G2PRegisterUITabSectionData]:
+        tab = await self._validate_tab(tab_id, session)
+
+        # One join instead of N per-section lookups.
+        query = (
+            select(G2PRegisterUITabSection, G2PRegisterSection)
+            .join(
+                G2PRegisterSection,
+                G2PRegisterSection.section_id == G2PRegisterUITabSection.section_id,
             )
-            query = self._apply_pagination(query, current_page, page_size)
-            tab_sections = (await session.execute(query)).scalars().all()
+            .where(G2PRegisterUITabSection.tab_id == tab_id)
+            .order_by(
+                G2PRegisterUITabSection.section_order.asc(),
+                G2PRegisterUITabSection.tab_section_id.asc(),
+            )
+        )
+        query = self._apply_pagination(query, current_page, page_size)
+        rows = (await session.execute(query)).all()
 
-            response: list[G2PRegisterUITabSectionData] = []
-            for tab_section in tab_sections:
-                section = await self._validate_section(tab_section.section_id, session, tab.register_id)
-                section_data = await self.build_section_data(
-                    section=section,
-                    session=session,
-                    include_ui_schema=True,
-                    include_register_purpose=True,
-                    include_register_relation=True,
-                    register_id_for_relation=tab.register_id,
+        register_definition = await self._validate_register(tab.register_id, session)
+        section_register_defs: dict[str, G2PRegisterDefinition] = {
+            tab.register_id: register_definition,
+        }
+        relation_by_section_register: dict[str, RegisterRelationEnum] = {}
+
+        response: list[G2PRegisterUITabSectionData] = []
+        for tab_section, section in rows:
+            if section.register_id != tab.register_id:
+                raise ValueError(
+                    f"Section '{section.section_id}' does not belong to register '{tab.register_id}'."
                 )
-                response.append(self._build_tab_section_data(tab_section, section_data=section_data))
-            return response
+
+            section_register_id = section.section_register_id
+            if section_register_id not in section_register_defs:
+                section_register_defs[section_register_id] = await self._validate_register(
+                    section_register_id, session
+                )
+            section_register_definition = section_register_defs[section_register_id]
+
+            if section_register_id not in relation_by_section_register:
+                relation_by_section_register[section_register_id] = await self._get_register_relation(
+                    register_id=tab.register_id,
+                    section_register_id=section_register_id,
+                    register_definition=register_definition,
+                    section_register_definition=section_register_definition,
+                    session=session,
+                )
+
+            section_data = G2PRegisterSectionData(
+                section_register_id=section.section_register_id,
+                register_id=section.register_id,
+                section_id=section.section_id,
+                section_mnemonic=section.section_mnemonic,
+                section_description=section.section_description,
+                documents_required=section.documents_required,
+                no_of_verifications_required=section.no_of_verifications_required,
+                cr_auto_approve_for_bene_portal=section.cr_auto_approve_for_bene_portal,
+                cr_auto_approve_for_agent_portal=section.cr_auto_approve_for_agent_portal,
+                cr_auto_approve_for_staff_portal=section.cr_auto_approve_for_staff_portal,
+                cr_auto_approve_for_partner=section.cr_auto_approve_for_partner,
+                is_list=section.is_list,
+                is_core_section=section.is_core_section,
+                section_weightage=section.section_weightage,
+                section_ui_schema=section.section_ui_schema,
+                register_purpose=self._as_text_value(section_register_definition.register_purpose),
+                register_relation=relation_by_section_register[section_register_id],
+            )
+            response.append(self._build_tab_section_data(tab_section, section_data=section_data))
+        return response
 
     async def update_tab_section(
         self,
@@ -192,9 +291,9 @@ class G2PRegisterMetadataService(BaseService):
     ) -> G2PRegisterUITabSectionData:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            tab_section = await self._validate_tab_section(tab_section_id, session)
+            tab_section = await self._validate_tab_section_from_db(tab_section_id, session)
             if section_id is not None:
-                await self._validate_section(section_id, session, tab_section.register_id)
+                await self._validate_section_from_db(section_id, session, tab_section.register_id)
                 tab_section.section_id = section_id
             if section_order is not None:
                 tab_section.section_order = section_order
@@ -202,8 +301,10 @@ class G2PRegisterMetadataService(BaseService):
             await session.commit()
             await session.refresh(tab_section)
 
-            section = await self._validate_section(tab_section.section_id, session, tab_section.register_id)
-            section_data = await self.build_section_data(
+            section = await self._validate_section_from_db(
+                tab_section.section_id, session, tab_section.register_id
+            )
+            section_data = await self._build_section_data_from_db(
                 section=section,
                 session=session,
                 include_ui_schema=True,
@@ -216,7 +317,7 @@ class G2PRegisterMetadataService(BaseService):
     async def remove_tab_section(self, tab_section_id: str) -> None:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            tab_section = await self._validate_tab_section(tab_section_id, session)
+            tab_section = await self._validate_tab_section_from_db(tab_section_id, session)
             await session.delete(tab_section)
             await session.commit()
 
@@ -242,8 +343,8 @@ class G2PRegisterMetadataService(BaseService):
     ) -> RegisterSectionIdData:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            await self._validate_register(register_id, session)
-            await self._validate_register(section_register_id, session)
+            await self._validate_register_from_db(register_id, session)
+            await self._validate_register_from_db(section_register_id, session)
 
             section = G2PRegisterSection(
                 section_register_id=section_register_id,
@@ -269,7 +370,7 @@ class G2PRegisterMetadataService(BaseService):
     async def delete_section(self, section_id: str) -> None:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            section = await self._validate_section(section_id, session)
+            section = await self._validate_section_from_db(section_id, session)
 
             in_use_in_register_tab = (
                 await session.execute(
@@ -314,6 +415,32 @@ class G2PRegisterMetadataService(BaseService):
         current_page: int | None = None,
         page_size: int | None = None,
     ) -> tuple[list[G2PRegisterSectionData], int, int]:
+        # Locust/UI always send pagination defaults (page 1, size 20), which
+        # used to skip cache. Always cache the full list, then slice.
+        sections, total_items, number_of_pages = await self._get_cached_all_sections(
+            register_id
+        )
+        return self._slice_cached_page(
+            sections, total_items, number_of_pages, current_page, page_size
+        )
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_cached_all_sections(
+        self, register_id: str
+    ) -> tuple[list[G2PRegisterSectionData], int, int]:
+        """Full section list for a register (static metadata). Shared across users."""
+        return await self._assemble_all_sections(register_id, None, None)
+
+    async def _assemble_all_sections(
+        self,
+        register_id: str,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list[G2PRegisterSectionData], int, int]:
         sections = await self._get_sections(
             register_id=register_id,
             include_ui_schema=True,
@@ -322,7 +449,10 @@ class G2PRegisterMetadataService(BaseService):
             current_page=current_page,
             page_size=page_size,
         )
-        total_items = await self._count_sections(register_id)
+        if current_page is None or page_size is None:
+            total_items = len(sections)
+        else:
+            total_items = await self._count_sections(register_id)
         number_of_pages = 1
         if page_size and page_size > 0:
             number_of_pages = (total_items + page_size - 1) // page_size
@@ -364,10 +494,10 @@ class G2PRegisterMetadataService(BaseService):
     ) -> RegisterSectionIdData:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            section = await self._validate_section(section_id, session)
+            section = await self._validate_section_from_db(section_id, session)
 
             if section_register_id is not None:
-                await self._validate_register(section_register_id, session)
+                await self._validate_register_from_db(section_register_id, session)
                 section.section_register_id = section_register_id
             if section_mnemonic is not None:
                 section.section_mnemonic = section_mnemonic
@@ -403,7 +533,7 @@ class G2PRegisterMetadataService(BaseService):
     ) -> RegisterSectionIdData:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            section = await self._validate_section(section_id, session, register_id)
+            section = await self._validate_section_from_db(section_id, session, register_id)
             section.section_ui_schema = section_ui_schema
             await session.commit()
             return RegisterSectionIdData(section_id=section.section_id)
@@ -424,6 +554,20 @@ class G2PRegisterMetadataService(BaseService):
     # ---------------------------------------------------------------------
     # Shared helpers
     # ---------------------------------------------------------------------
+    @staticmethod
+    def _slice_cached_page(
+        items: list,
+        total_items: int,
+        number_of_pages: int,
+        current_page: int | None,
+        page_size: int | None,
+    ) -> tuple[list, int, int]:
+        if current_page is None or page_size is None:
+            return items, total_items, number_of_pages
+        offset = (current_page - 1) * page_size
+        pages = (total_items + page_size - 1) // page_size if page_size else 1
+        return items[offset : offset + page_size], total_items, max(pages, 1)
+
     def _apply_pagination(self, query, current_page: int | None, page_size: int | None):
         if current_page is None or page_size is None:
             return query
@@ -473,28 +617,93 @@ class G2PRegisterMetadataService(BaseService):
             result = await session.execute(count_query)
             return result.scalar() or 0
 
-    async def _count_tabs(self, register_id: str | None) -> int:
-        session_maker = get_async_session_maker()
-        async with session_maker() as session:
-            count_query = select(func.count()).select_from(G2PRegisterUITab)
-            if register_id is not None:
-                count_query = count_query.where(G2PRegisterUITab.register_id == register_id)
-            result = await session.execute(count_query)
-            return result.scalar() or 0
+    async def _count_tabs(self, register_id: str | None, session) -> int:
+        count_query = select(func.count()).select_from(G2PRegisterUITab)
+        if register_id is not None:
+            count_query = count_query.where(G2PRegisterUITab.register_id == register_id)
+        result = await session.execute(count_query)
+        return result.scalar() or 0
 
-    async def _validate_register(self, register_id: str, session) -> G2PRegisterDefinition:
+    async def _fetch_register_from_db(self, register_id: str, session) -> G2PRegisterDefinition:
         register = await session.get(G2PRegisterDefinition, register_id)
         if not register:
             raise ValueError(f"Register with register_id '{register_id}' not found.")
         return register
 
-    async def _validate_tab(self, tab_id: str, session, register_id: str | None = None) -> G2PRegisterUITab:
+    async def _validate_register_from_db(self, register_id: str, session) -> G2PRegisterDefinition:
+        return await self._fetch_register_from_db(register_id, session)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _fetch_register(self, register_id: str, session) -> G2PRegisterDefinition:
+        return await self._fetch_register_from_db(register_id, session)
+
+    async def _validate_register(self, register_id: str, session) -> G2PRegisterDefinition:
+        return await session.merge(await self._fetch_register(register_id, session))
+
+    async def _get_tab_from_db(self, tab_id: str, session) -> G2PRegisterUITab:
         tab = await session.get(G2PRegisterUITab, tab_id)
         if not tab:
             raise ValueError(f"Tab with tab_id '{tab_id}' not found.")
+        return tab
+
+    async def _validate_tab_from_db(
+        self,
+        tab_id: str,
+        session,
+        register_id: str | None = None,
+    ) -> G2PRegisterUITab:
+        tab = await self._get_tab_from_db(tab_id, session)
         if register_id is not None and tab.register_id != register_id:
             raise ValueError(f"Tab '{tab_id}' does not belong to register '{register_id}'.")
         return tab
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_tab(self, tab_id: str, session) -> G2PRegisterUITab:
+        return await self._get_tab_from_db(tab_id, session)
+
+    async def _validate_tab(
+        self,
+        tab_id: str,
+        session,
+        register_id: str | None = None,
+    ) -> G2PRegisterUITab:
+        tab = await session.merge(await self._get_tab(tab_id, session))
+        if register_id is not None and tab.register_id != register_id:
+            raise ValueError(f"Tab '{tab_id}' does not belong to register '{register_id}'.")
+        return tab
+
+    async def _get_section_from_db(self, section_id: str, session) -> G2PRegisterSection:
+        section = await session.get(G2PRegisterSection, section_id)
+        if not section:
+            raise ValueError(f"Section with section_id '{section_id}' not found.")
+        return section
+
+    async def _validate_section_from_db(
+        self,
+        section_id: str,
+        session,
+        register_id: str | None = None,
+    ) -> G2PRegisterSection:
+        section = await self._get_section_from_db(section_id, session)
+        if register_id is not None and section.register_id != register_id:
+            raise ValueError(f"Section '{section_id}' does not belong to register '{register_id}'.")
+        return section
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_section(self, section_id: str, session) -> G2PRegisterSection:
+        return await self._get_section_from_db(section_id, session)
 
     async def _validate_section(
         self,
@@ -502,48 +711,40 @@ class G2PRegisterMetadataService(BaseService):
         session,
         register_id: str | None = None,
     ) -> G2PRegisterSection:
-        section = await session.get(G2PRegisterSection, section_id)
-        if not section:
-            raise ValueError(f"Section with section_id '{section_id}' not found.")
+        section = await session.merge(await self._get_section(section_id, session))
         if register_id is not None and section.register_id != register_id:
             raise ValueError(f"Section '{section_id}' does not belong to register '{register_id}'.")
         return section
 
-    async def _validate_tab_section(self, tab_section_id: str, session) -> G2PRegisterUITabSection:
+    async def _fetch_tab_section_from_db(self, tab_section_id: str, session) -> G2PRegisterUITabSection:
         tab_section = await session.get(G2PRegisterUITabSection, tab_section_id)
         if not tab_section:
             raise ValueError(f"Tab section with tab_section_id '{tab_section_id}' not found.")
         return tab_section
 
-    async def build_section_data(
+    async def _validate_tab_section_from_db(
+        self, tab_section_id: str, session
+    ) -> G2PRegisterUITabSection:
+        return await self._fetch_tab_section_from_db(tab_section_id, session)
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _fetch_tab_section(self, tab_section_id: str, session) -> G2PRegisterUITabSection:
+        return await self._fetch_tab_section_from_db(tab_section_id, session)
+
+    async def _validate_tab_section(self, tab_section_id: str, session) -> G2PRegisterUITabSection:
+        return await session.merge(await self._fetch_tab_section(tab_section_id, session))
+
+    def _to_section_data(
         self,
         section: G2PRegisterSection,
-        session,
         include_ui_schema: bool,
-        include_register_purpose: bool,
-        include_register_relation: bool,
-        register_id_for_relation: str,
+        register_purpose: str | None,
+        register_relation: RegisterRelationEnum | None,
     ) -> G2PRegisterSectionData:
-        register_definition = await self._validate_register(register_id_for_relation, session)
-
-        section_register_definition = register_definition
-        if section.section_register_id != register_id_for_relation:
-            section_register_definition = await self._validate_register(section.section_register_id, session)
-
-        register_purpose: str | None = None
-        if include_register_purpose:
-            register_purpose = self._as_text_value(section_register_definition.register_purpose)
-
-        register_relation: RegisterRelationEnum | None = None
-        if include_register_relation:
-            register_relation = await self._get_register_relation(
-                register_id=register_id_for_relation,
-                section_register_id=section.section_register_id,
-                register_definition=register_definition,
-                section_register_definition=section_register_definition,
-                session=session,
-            )
-
         return G2PRegisterSectionData(
             section_register_id=section.section_register_id,
             register_id=section.register_id,
@@ -564,6 +765,105 @@ class G2PRegisterMetadataService(BaseService):
             register_relation=register_relation,
         )
 
+    async def build_section_data(
+        self,
+        section: G2PRegisterSection,
+        session,
+        include_ui_schema: bool,
+        include_register_purpose: bool,
+        include_register_relation: bool,
+        register_id_for_relation: str,
+    ) -> G2PRegisterSectionData:
+        register_definition = await self._validate_register(register_id_for_relation, session)
+        section_register_definition = register_definition
+        if section.section_register_id != register_id_for_relation:
+            section_register_definition = await self._validate_register(
+                section.section_register_id, session
+            )
+
+        register_purpose: str | None = None
+        if include_register_purpose:
+            register_purpose = self._as_text_value(section_register_definition.register_purpose)
+
+        register_relation: RegisterRelationEnum | None = None
+        if include_register_relation:
+            register_relation = await self._get_register_relation(
+                register_id=register_id_for_relation,
+                section_register_id=section.section_register_id,
+                register_definition=register_definition,
+                section_register_definition=section_register_definition,
+                session=session,
+            )
+
+        return self._to_section_data(
+            section, include_ui_schema, register_purpose, register_relation
+        )
+
+    async def _build_section_data_from_db(
+        self,
+        section: G2PRegisterSection,
+        session,
+        include_ui_schema: bool,
+        include_register_purpose: bool,
+        include_register_relation: bool,
+        register_id_for_relation: str,
+    ) -> G2PRegisterSectionData:
+        register_definition = await self._validate_register_from_db(register_id_for_relation, session)
+        section_register_definition = register_definition
+        if section.section_register_id != register_id_for_relation:
+            section_register_definition = await self._validate_register_from_db(
+                section.section_register_id, session
+            )
+
+        register_purpose: str | None = None
+        if include_register_purpose:
+            register_purpose = self._as_text_value(section_register_definition.register_purpose)
+
+        register_relation: RegisterRelationEnum | None = None
+        if include_register_relation:
+            register_relation = await self._get_register_relation_from_db(
+                register_id=register_id_for_relation,
+                section_register_id=section.section_register_id,
+                register_definition=register_definition,
+                section_register_definition=section_register_definition,
+                session=session,
+            )
+
+        return self._to_section_data(
+            section, include_ui_schema, register_purpose, register_relation
+        )
+
+    def _classify_register_relation(
+        self,
+        register_id: str,
+        section_register_id: str,
+        register_definition: G2PRegisterDefinition,
+        section_register_definition: G2PRegisterDefinition,
+        path_exists: bool,
+        has_register_in_between: bool,
+    ) -> RegisterRelationEnum:
+        if section_register_id == register_id:
+            return RegisterRelationEnum.SELF
+        if section_register_definition.master_register_id == register_id:
+            return RegisterRelationEnum.DESCENDANT
+        if path_exists and has_register_in_between:
+            return RegisterRelationEnum.DESCENDANT_OF_A_REGISTER
+        if path_exists:
+            return RegisterRelationEnum.DESCENDANT
+        if register_definition.master_register_id == section_register_id:
+            return RegisterRelationEnum.ANCESTOR
+        if (
+            register_definition.master_register_id
+            and register_definition.master_register_id == section_register_definition.master_register_id
+        ):
+            return RegisterRelationEnum.PEER
+        return RegisterRelationEnum.SELF
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _get_register_relation(
         self,
         register_id: str,
@@ -572,33 +872,43 @@ class G2PRegisterMetadataService(BaseService):
         section_register_definition: G2PRegisterDefinition,
         session,
     ) -> RegisterRelationEnum:
-        if section_register_id == register_id:
-            return RegisterRelationEnum.SELF
-
-        if section_register_definition.master_register_id == register_id:
-            return RegisterRelationEnum.DESCENDANT
-
         path_exists, has_register_in_between = await self._has_register_in_path(
-            section_register_id,
-            register_id,
-            session,
+            section_register_id, register_id, session
         )
-        if path_exists and has_register_in_between:
-            return RegisterRelationEnum.DESCENDANT_OF_A_REGISTER
-        if path_exists:
-            return RegisterRelationEnum.DESCENDANT
+        return self._classify_register_relation(
+            register_id,
+            section_register_id,
+            register_definition,
+            section_register_definition,
+            path_exists,
+            has_register_in_between,
+        )
 
-        if register_definition.master_register_id == section_register_id:
-            return RegisterRelationEnum.ANCESTOR
+    async def _get_register_relation_from_db(
+        self,
+        register_id: str,
+        section_register_id: str,
+        register_definition: G2PRegisterDefinition,
+        section_register_definition: G2PRegisterDefinition,
+        session,
+    ) -> RegisterRelationEnum:
+        path_exists, has_register_in_between = await self._has_register_in_path_from_db(
+            section_register_id, register_id, session
+        )
+        return self._classify_register_relation(
+            register_id,
+            section_register_id,
+            register_definition,
+            section_register_definition,
+            path_exists,
+            has_register_in_between,
+        )
 
-        if (
-            register_definition.master_register_id
-            and register_definition.master_register_id == section_register_definition.master_register_id
-        ):
-            return RegisterRelationEnum.PEER
-
-        return RegisterRelationEnum.SELF
-
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _has_register_in_path(
         self,
         start_register_id: str,
@@ -612,15 +922,48 @@ class G2PRegisterMetadataService(BaseService):
         is_first: bool = True
 
         while current_id and depth < max_depth:
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == current_id,
-                    )
-                )
-            ).scalar()
+            try:
+                register_definition = await self._validate_register(current_id, session)
+            except ValueError:
+                return False, False
 
-            if not register_definition:
+            current_id = register_definition.master_register_id
+
+            if is_first:
+                is_first = False
+                depth += 1
+                continue
+
+            if register_definition.register_id == target_register_id:
+                return True, found_register_in_between
+
+            register_purpose = self._as_text_value(register_definition.register_purpose)
+            if register_purpose == RegisterPurposeEnum.REGISTER.value:
+                found_register_in_between = True
+
+            if current_id == target_register_id:
+                return True, found_register_in_between
+
+            depth += 1
+
+        return False, False
+
+    async def _has_register_in_path_from_db(
+        self,
+        start_register_id: str,
+        target_register_id: str,
+        session,
+        max_depth: int = 20,
+    ) -> tuple[bool, bool]:
+        current_id: str | None = start_register_id
+        depth: int = 0
+        found_register_in_between: bool = False
+        is_first: bool = True
+
+        while current_id and depth < max_depth:
+            try:
+                register_definition = await self._validate_register_from_db(current_id, session)
+            except ValueError:
                 return False, False
 
             current_id = register_definition.master_register_id

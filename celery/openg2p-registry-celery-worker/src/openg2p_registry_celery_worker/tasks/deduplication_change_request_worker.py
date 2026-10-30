@@ -15,6 +15,7 @@ from openg2p_registry_core.models import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -27,6 +28,9 @@ def deduplication_change_request_worker(self, change_request_id: str):
     Worker that performs deduplication check against pending change_request records.
     Retries up to 3 times on failure.
     """
+    if not task_enabled():
+        _logger.info("%s is disabled", "deduplication_change_request_worker")
+        return
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
     
     with session_maker() as session:
