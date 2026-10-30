@@ -33,6 +33,7 @@ def get_awe_settings() -> "CoreSettingsType":
             "awe_enabled": bool(staff.awe_enabled or core.awe_enabled),
             "awe_base_url": base_url,
             "awe_http_timeout_seconds": staff.awe_http_timeout_seconds,
+            "auth_verify_ssl": staff.auth_verify_ssl,
             "awe_default_callback_url": staff.awe_default_callback_url
             or core.awe_default_callback_url,
             "awe_callback_secret_id": staff.awe_callback_secret_id

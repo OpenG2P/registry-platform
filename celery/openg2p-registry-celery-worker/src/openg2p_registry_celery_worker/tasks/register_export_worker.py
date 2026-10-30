@@ -37,6 +37,7 @@ from openg2p_registry_core.models import (
 
 from ..app import celery_app
 from ..config import Settings
+from ..control import task_enabled
 from ..engine import Engine
 
 _config = Settings.get_config()
@@ -476,6 +477,9 @@ def _notify_export(export_id: str, workflow) -> None:
 
 @celery_app.task(name="register_export_worker")
 def register_export_worker(export_id: str):
+    if not task_enabled():
+        _logger.info("%s is disabled", "register_export_worker")
+        return
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
     with session_maker() as session:
         queue_item = session.get(G2PRegisterExportDataQueue, export_id)

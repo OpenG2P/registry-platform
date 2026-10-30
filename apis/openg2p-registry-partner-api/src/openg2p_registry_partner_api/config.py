@@ -77,6 +77,9 @@ class Settings(ExtSettings):
     # defaults to "RS256" only; partners commonly use EdDSA/ES256, so widen it.
     crypto_allowed_algorithms: str = "EdDSA,ES256,RS256"
     partner_mgmt_api_url: str = ""  # e.g. http://commons-services-pm-partner-api
+    # In-process TTL for partner lookups, including the async-search WebSub topic.
+    # 0 falls through to the FastAPI cache default.
+    partner_mgmt_cache_seconds: int = 1800
 
     # Consent Manager (PDP) — the /validate endpoint the registry (PEP) calls.
     consent_manager_url: str = ""  # e.g. http://consent-manager-partner-api

@@ -1,4 +1,5 @@
 import importlib
+import json
 import logging
 import math
 import uuid
@@ -11,7 +12,9 @@ from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import Date as SQLDate, and_, case, exists, func, inspect, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..config import Settings
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from ..helpers.orm_cache import data_policies_key_builder, single_id_key_builder
 from ..repositories.register_repository import RegisterRecordRepository
 from iam_core.helpers.data_policy_helper import DataPolicyHelper
 from ..helpers.notification import NotificationHelper, NotificationWorkflow
@@ -65,6 +68,7 @@ _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 _DOMAIN_SCHEMAS_MODULE = "openg2p_registry_extensions.register_domain.schemas"
 _INTAKE_CLASS_PREFIX = "G2PIntakeForm"
 _logger = logging.getLogger("g2p-intake-form-data-service")
+_config = Settings.get_config(strict=False)
 
 
 class G2PIntakeFormDataService(BaseService):
@@ -419,7 +423,7 @@ class G2PIntakeFormDataService(BaseService):
             await session.execute(select(intake_class).where(intake_class.submission_id == submission_id))
         ).scalars().all()
 
-    async def _build_intake_match_subquery(
+    async def _intake_match_conditions(
         self,
         register_id: str,
         search_text: str | None,
@@ -427,10 +431,11 @@ class G2PIntakeFormDataService(BaseService):
         intake_class,
         session,
         data_policies: list[dict] | None = None,
-    ):
+    ) -> list:
         conditions: list = []
-        if search_text:
-            conditions.append(intake_class.search_text.ilike(f"%{search_text}%"))
+        search_needle = (search_text or "").strip()
+        if search_needle:
+            conditions.append(intake_class.search_text.ilike(f"%{search_needle}%"))
         if filter_by:
             filter_schema = await self._get_filter_schema(register_id, session)
             try:
@@ -444,15 +449,81 @@ class G2PIntakeFormDataService(BaseService):
         )
         if policy_condition is not None:
             conditions.append(policy_condition)
+        return conditions
 
+    async def _build_intake_match_subquery(
+        self,
+        register_id: str,
+        search_text: str | None,
+        filter_by: dict | None,
+        intake_class,
+        session,
+        data_policies: list[dict] | None = None,
+    ):
+        conditions = await self._intake_match_conditions(
+            register_id, search_text, filter_by, intake_class, session, data_policies
+        )
         if not conditions:
             return None
-
         return select(intake_class.submission_id).where(*conditions).distinct()
 
     async def _get_filter_schema(self, register_id: str, session) -> list[dict]:
         register_schema = await session.get(G2PRegisterSchema, register_id)
         return register_schema.filter_schema if register_schema and register_schema.filter_schema else []
+
+    _INTAKE_SUBMISSION_FILTER_FIELDS = frozenset(
+        {"approval_status", "draft_status", "form_id", "submission_source"}
+    )
+
+    @staticmethod
+    def _intake_submission_filter_schema() -> list[dict]:
+        return [
+            {
+                "field_name": field_name,
+                "display_label": field_name,
+                "filter_type": "text",
+                "allowed_operators": ["eq", "in"],
+            }
+            for field_name in (
+                "approval_status",
+                "draft_status",
+                "form_id",
+                "submission_source",
+            )
+        ]
+
+    @classmethod
+    def _parse_filter_by(cls, filter_by: dict | str | None) -> dict:
+        if not filter_by:
+            return {}
+        if isinstance(filter_by, str):
+            try:
+                parsed = json.loads(filter_by)
+            except json.JSONDecodeError:
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        return filter_by if isinstance(filter_by, dict) else {}
+
+    @classmethod
+    def _split_intake_search_filter_by(
+        cls, filter_by: dict | str | None
+    ) -> tuple[dict, dict]:
+        parsed = cls._parse_filter_by(filter_by)
+        submission_filter_by = {
+            key: value
+            for key, value in parsed.items()
+            if key in cls._INTAKE_SUBMISSION_FILTER_FIELDS
+        }
+        row_filter_by = {
+            key: value
+            for key, value in parsed.items()
+            if key not in cls._INTAKE_SUBMISSION_FILTER_FIELDS
+        }
+        return submission_filter_by, row_filter_by
+
+    @classmethod
+    def _has_explicit_filter_key(cls, filter_by: dict | str | None, key: str) -> bool:
+        return key in cls._parse_filter_by(filter_by)
 
     async def _count_submissions(self, base_filters: list, session) -> int:
         query = select(func.count()).select_from(G2PIntakeFormSubmission).where(*base_filters)
@@ -465,11 +536,24 @@ class G2PIntakeFormDataService(BaseService):
         current_page: int,
         page_size: int,
         session,
+        *,
+        intake_class=None,
+        search_needle: str | None = None,
+        intake_conditions: list | None = None,
     ) -> list[G2PIntakeFormSubmission]:
         query = select(G2PIntakeFormSubmission).where(*base_filters)
-        query = self._apply_submission_sort(query, sort_by)
+        if search_needle and intake_class is not None:
+            query = query.join(
+                intake_class,
+                intake_class.submission_id == G2PIntakeFormSubmission.submission_id,
+            )
+            if intake_conditions:
+                query = query.where(*intake_conditions)
+        query = self._apply_submission_sort(
+            query, sort_by, intake_class=intake_class, search_needle=search_needle
+        )
         query = self._apply_pagination(query, current_page, page_size)
-        return (await session.execute(query)).scalars().all()
+        return (await session.execute(query)).scalars().unique().all()
 
     async def _build_submission_search_payloads(
         self,
@@ -676,13 +760,16 @@ class G2PIntakeFormDataService(BaseService):
                 bearer_token=bearer_token,
                 requester_sub=requester_sub,
             )
+            # Header-only: staff finalize does not use section_payloads, and
+            # get_submission_payload would rebuild every section + presign URLs.
+            payload = self._build_submission_response_payload(submission, None, None)
             await session.commit()
             await NotificationHelper.dispatch_intake_form_notification(
                 submission.submission_id,
                 NotificationWorkflow.INTAKE_FORM_SUBMISSION_CREATED,
                 session,
             )
-            return await self.get_submission_payload(submission.submission_id)
+            return payload
 
     async def finalize_submission_with_session(
         self,
@@ -1010,25 +1097,61 @@ class G2PIntakeFormDataService(BaseService):
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             intake_class = await self._resolve_intake_form_class(register_id, session)
-            match_subquery = await self._build_intake_match_subquery(
+            submission_filter_by, row_filter_by = self._split_intake_search_filter_by(filter_by)
+            search_needle = (search_text or "").strip() or None
+            intake_conditions = await self._intake_match_conditions(
                 register_id,
                 search_text,
-                filter_by,
+                row_filter_by,
                 intake_class,
                 session,
                 data_policies,
             )
-            base_filters = [G2PIntakeFormSubmission.register_id == register_id]
-            if match_subquery is not None:
-                base_filters.append(G2PIntakeFormSubmission.submission_id.in_(match_subquery))
+            match_subquery = (
+                select(intake_class.submission_id).where(*intake_conditions).distinct()
+                if intake_conditions
+                else None
+            )
+            submission_filters = [G2PIntakeFormSubmission.register_id == register_id]
+            if not self._has_explicit_filter_key(filter_by, "draft_status"):
+                submission_filters.append(
+                    G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value
+                )
+            if not self._has_explicit_filter_key(filter_by, "approval_status"):
+                submission_filters.append(
+                    G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value
+                )
+            if submission_filter_by:
+                try:
+                    submission_filters.extend(
+                        FilterBuilder(self._intake_submission_filter_schema()).build_conditions(
+                            submission_filter_by, G2PIntakeFormSubmission
+                        )
+                    )
+                except ValueError as validation_error:
+                    self._invalid_request(str(validation_error))
 
-            total_items = await self._count_submissions(base_filters, session)
+            count_filters = list(submission_filters)
+            if match_subquery is not None:
+                count_filters.append(
+                    G2PIntakeFormSubmission.submission_id.in_(match_subquery)
+                )
+            page_filters = list(submission_filters)
+            if match_subquery is not None and not search_needle:
+                page_filters.append(
+                    G2PIntakeFormSubmission.submission_id.in_(match_subquery)
+                )
+
+            total_items = await self._count_submissions(count_filters, session)
             submissions = await self._get_submissions_page(
-                base_filters,
+                page_filters,
                 sort_by,
                 current_page,
                 page_size,
                 session,
+                intake_class=intake_class,
+                search_needle=search_needle,
+                intake_conditions=intake_conditions if search_needle else None,
             )
             register_schema = await session.get(G2PRegisterSchema, register_id)
             search_result_schema: list = (
@@ -1693,6 +1816,11 @@ class G2PIntakeFormDataService(BaseService):
         )
         return result.scalar_one_or_none() or 0
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _get_register_definition(self, register_id: str, session) -> G2PRegisterDefinition:
         register_definition = await session.get(G2PRegisterDefinition, register_id)
         if not register_definition:
@@ -1922,16 +2050,24 @@ class G2PIntakeFormDataService(BaseService):
             query = query.where(G2PIntakeFormSubmission.partner_id == partner_id)
         return query
 
-    def _apply_submission_sort(self, query, sort_by: str | None):
-        if not sort_by:
-            return query.order_by(G2PIntakeFormSubmission.last_updated_at.desc())
+    def _apply_submission_sort(
+        self,
+        query,
+        sort_by: str | None,
+        *,
+        intake_class=None,
+        search_needle: str | None = None,
+    ):
+        if sort_by:
+            sort_field = sort_by.lstrip("-")
+            if hasattr(G2PIntakeFormSubmission, sort_field):
+                sort_column = getattr(G2PIntakeFormSubmission, sort_field)
+                return query.order_by(
+                    sort_column.desc() if sort_by.startswith("-") else sort_column.asc()
+                )
+            _logger.warning(f"Sort column {sort_by} not found, using default order")
 
-        sort_field = sort_by.lstrip("-")
-        if not hasattr(G2PIntakeFormSubmission, sort_field):
-            return query.order_by(G2PIntakeFormSubmission.last_updated_at.desc())
-
-        sort_column = getattr(G2PIntakeFormSubmission, sort_field)
-        return query.order_by(sort_column.desc() if sort_by.startswith("-") else sort_column.asc())
+        return query.order_by(G2PIntakeFormSubmission.last_updated_at.desc())
 
     def _apply_pagination(self, query, current_page: int, page_size: int):
         return query.offset((current_page - 1) * page_size).limit(page_size)
@@ -2087,11 +2223,16 @@ class G2PIntakeFormDataService(BaseService):
                 for r, rd in rows
             ]
 
+    @cache(
+        expire=_config.cache_summary_expires_in_seconds,
+        key_builder=data_policies_key_builder,
+        coder=PickleCoder,
+    )
     async def get_intake_form_submissions_summary(
         self,
         data_policies: list[dict] | None = None,
     ) -> IntakeFormSubmissionsSummaryData:
-        """Fetch aggregate summary counts for intake form submissions."""
+        """Dashboard summary; TTL shared across users with the same data policies."""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
             summary_query = select(

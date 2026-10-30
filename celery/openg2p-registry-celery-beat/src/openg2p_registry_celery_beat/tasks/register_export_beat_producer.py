@@ -12,6 +12,7 @@ from openg2p_registry_core.models import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled, task_limit
 from ..utils import Workers
 
 _config = Settings.get_config()
@@ -21,6 +22,9 @@ _engine = Engine.get_engine()
 
 @celery_app.task(name="register_export_beat_producer")
 def register_export_beat_producer():
+    if not task_enabled():
+        _logger.info("%s is disabled", "register_export_beat_producer")
+        return
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
     with session_maker() as session:
         pending_exports = (
@@ -31,7 +35,7 @@ def register_export_beat_producer():
                     == ProcessStatusEnum.PENDING.value
                 )
                 .order_by(G2PRegisterExportDataQueue.queued_at.asc())
-                .limit(_config.export_no_of_tasks_to_process)
+                .limit(task_limit())
             )
             .scalars()
             .all()
@@ -41,11 +45,16 @@ def register_export_beat_producer():
             queue_item.export_status = ProcessStatusEnum.PROCESSING.value
             queue_item.export_latest_timestamp = datetime.now()
             session.add(queue_item)
+        session.commit()
+
+        for queue_item in pending_exports:
             celery_app.send_task(
                 Workers.REGISTER_EXPORT_WORKER,
                 args=(queue_item.export_id,),
                 queue=_config.worker_queue,
             )
-
-        session.commit()
-        _logger.info("Queued %s register export job(s)", len(pending_exports))
+            _logger.info(
+                "Sent task to %s for export: %s",
+                Workers.REGISTER_EXPORT_WORKER,
+                queue_item.export_id,
+            )
