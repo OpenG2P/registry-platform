@@ -1362,8 +1362,11 @@ class G2PRegisterService(BaseService):
                     tab_id=tab_id,
                     session=session,
                     legacy_ids_cache=legacy_ids_cache,
+                    # submission_id is required: intake history has a null
+                    # change_request_id, and _history_version_key falls back to it.
                     columns=(
                         history_class.change_request_id,
+                        history_class.submission_id,
                         history_class.approved_at,
                         history_class.approved_by,
                     ),
