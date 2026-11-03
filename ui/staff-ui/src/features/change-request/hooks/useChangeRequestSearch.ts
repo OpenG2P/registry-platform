@@ -7,6 +7,7 @@ interface UseChangeRequestSearchOptions {
     initialPage?: number;
     searchText?: string;
     sortBy?: string | null;
+    filterBy?: unknown;
     enabled?: boolean;
 }
 
@@ -15,13 +16,14 @@ export function useChangeRequestSearch({
     initialPage = 1,
     searchText = '',
     sortBy = null,
+    filterBy = '',
     enabled = true,
 }: UseChangeRequestSearchOptions) {
     const [currentPage, setCurrentPage] = useState(initialPage);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchText, sortBy, pageSize]);
+    }, [searchText, sortBy, filterBy, pageSize]);
 
     const { data, loading } = useFetch<any>({
         url: '/api/change-request/search',
@@ -32,6 +34,7 @@ export function useChangeRequestSearch({
                 current_page: currentPage,
                 page_size: pageSize,
                 search_text: searchText,
+                filter_by: filterBy,
                 ...(sortBy ? { sort_by: sortBy } : {}),
             }),
         },
