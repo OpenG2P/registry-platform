@@ -32,6 +32,7 @@ COPY reference-extension /app/reference-extension
 
 # Both celery components (workers + beat producers) are installed so the single
 # image can run as worker or beat, selected at runtime via CELERY_APP.
+# celery[redis] (from the packages' pyproject) pulls redis + packaging for kombu.
 RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
       "git+https://github.com/openg2p/iam@${IAM_CORE_REF}#subdirectory=iam-core" \
