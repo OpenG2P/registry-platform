@@ -9,7 +9,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from sqlalchemy import Column, DateTime, String
+from sqlalchemy import Column, DateTime, Float, Numeric, String
 from sqlalchemy.orm import declarative_base
 
 _CORE_SRC = Path(__file__).resolve().parents[1] / "src" / "openg2p_registry_core"
@@ -63,6 +63,8 @@ def _load_history_service_module():
     class ChangeActionEnum:
         NO_CHANGE = SimpleNamespace(value="NO_CHANGE")
         DELETE = SimpleNamespace(value="DELETE")
+        UPDATE = SimpleNamespace(value="UPDATE")
+        ADD = SimpleNamespace(value="ADD")
 
     change_request.ChangeActionEnum = ChangeActionEnum
     change_request.ChangePayload = dict
@@ -118,11 +120,20 @@ class HistoryRow(Base):
     created_by = Column(String)
     approved_at = Column(DateTime)
     approved_by = Column(String)
+    record_status = Column(String, nullable=False, default="ACTIVE")
+    land_size = Column(Numeric)
+    soil_fertility = Column(String)
+    latitude = Column(Float)
+    address_line_1 = Column(String)
 
 
-class HistorySchema:
+class RegisterSchema:
+    """Stand-in for the domain register schema: coerces land_size like pydantic would."""
+
     def __init__(self, **kwargs):
         self._data = {k: v for k, v in kwargs.items() if k != "edit_action"}
+        if self._data.get("land_size") is not None:
+            self._data["land_size"] = float(self._data["land_size"])
 
     def dict(self):
         return dict(self._data)
@@ -133,12 +144,121 @@ def history_service_cls():
     return _load_history_service_module().G2PRegisterHistoryService
 
 
+def _service(history_service_cls):
+    service = object.__new__(history_service_cls)
+    service._convert_date_strings_to_objects = lambda data, _cls: data
+    return service
+
+
+def _change_request(**overrides):
+    values = dict(
+        register_id="reg-farmer",
+        section_register_id="reg-land",
+        internal_record_id="farmer-1",
+        tab_id="farmer_land_tab",
+        section_id="farmer_farm_details_section",
+        change_request_source="STAFF_PORTAL",
+        is_primary_section=False,
+        change_request_id="cr-1",
+        created_at="2026-01-01T00:00:00",
+        created_by="staff",
+        approved_at="2026-01-02T00:00:00",
+        approved_by="approver",
+    )
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+_LIVE_LAND = {
+    "internal_record_id": "land-1",
+    "link_internal_record_id": "farmer-1",
+    "record_status": "ACTIVE",
+    "land_size": 3.5,
+    "soil_fertility": "MEDIUM",
+    "latitude": -13.79,
+    "address_line_1": "Plot 1",
+    "last_approved_at": "2025-12-01T00:00:00",
+}
+
+
+def test_history_row_keeps_fields_outside_the_changed_section(history_service_cls):
+    service = _service(history_service_cls)
+    session = MagicMock()
+
+    service._create_history_record(
+        change_payload={"edit_action": "UPDATE", "internal_record_id": "land-1", "land_size": "4.0"},
+        change_request=_change_request(),
+        register_schema_class=RegisterSchema,
+        history_class=HistoryRow,
+        live_snapshot=dict(_LIVE_LAND),
+        session=session,
+    )
+
+    row = session.add.call_args[0][0]
+    assert row.land_size == 4.0
+    assert row.soil_fertility == "MEDIUM"
+    assert row.latitude == -13.79
+    assert row.address_line_1 == "Plot 1"
+    assert row.change_request_id == "cr-1"
+
+
+def test_update_payload_null_clears_snapshot_value(history_service_cls):
+    service = _service(history_service_cls)
+    state = service.build_record_state(
+        {"edit_action": "UPDATE", "internal_record_id": "land-1", "soil_fertility": None},
+        RegisterSchema,
+        HistoryRow,
+        dict(_LIVE_LAND),
+    )
+    assert state["soil_fertility"] is None
+    assert state["land_size"] == 3.5
+
+
+def test_delete_history_row_is_the_pre_delete_record(history_service_cls):
+    service = _service(history_service_cls)
+    session = MagicMock()
+
+    service._create_history_record(
+        change_payload={"edit_action": "DELETE", "internal_record_id": "land-1", "land_size": "99"},
+        change_request=_change_request(),
+        register_schema_class=RegisterSchema,
+        history_class=HistoryRow,
+        live_snapshot=dict(_LIVE_LAND),
+        session=session,
+    )
+
+    row = session.add.call_args[0][0]
+    assert row.land_size == 3.5
+    assert row.latitude == -13.79
+
+
+def test_add_without_snapshot_drops_null_for_not_null_columns(history_service_cls):
+    service = _service(history_service_cls)
+    state = service.build_record_state(
+        {"edit_action": "ADD", "internal_record_id": "land-2", "record_status": None, "land_size": 12},
+        RegisterSchema,
+        HistoryRow,
+        None,
+    )
+    assert "record_status" not in state
+    assert state["land_size"] == 12.0
+
+
+def test_master_section_payload_targets_subject_record(history_service_cls):
+    service = _service(history_service_cls)
+    master_cr = _change_request(section_register_id="reg-farmer")
+    assert service._payload_record_id(master_cr, {"internal_record_id": "other"}) == "farmer-1"
+    assert service._payload_record_id(_change_request(), {"internal_record_id": "land-1"}) == "land-1"
+
+
 def test_create_history_record_stamps_subject_from_change_request(history_service_cls):
     service = object.__new__(history_service_cls)
     service._convert_date_strings_to_objects = lambda data, _cls: data
 
     session = MagicMock()
     change_request = SimpleNamespace(
+        register_id="reg-household",
+        section_register_id="reg-shock",
         internal_record_id="household-subject-1",
         tab_id="tab-1",
         section_id="section-shocks",
@@ -159,8 +279,9 @@ def test_create_history_record_stamps_subject_from_change_request(history_servic
     service._create_history_record(
         change_payload=change_payload,
         change_request=change_request,
-        history_schema_class=HistorySchema,
+        register_schema_class=RegisterSchema,
         history_class=HistoryRow,
+        live_snapshot=None,
         session=session,
     )
 

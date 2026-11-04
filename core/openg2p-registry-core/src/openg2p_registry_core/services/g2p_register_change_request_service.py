@@ -404,12 +404,15 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
+        history_live_snapshots = await G2PRegisterHistoryService.get_component().capture_live_snapshots(
+            change_request, session
+        )
         if register_section.section_register_id == register_section.register_id:
             await self.approve_register(change_request, register_section, session)
         else:
             await self.approve_table(change_request, register_section, session)
 
-        await self.insert_into_register_history(change_request, session)
+        await self.insert_into_register_history(change_request, session, history_live_snapshots)
         # Promote attached docs
         await self._handle_documents_on_approval(change_request, register_section, session)
 
@@ -917,9 +920,14 @@ class G2PRegisterChangeRequestService(BaseService):
                 message="There are earlier pending change requests for this record",
             )
 
-    async def insert_into_register_history(self, change_request: G2PRegisterChangeRequest, session) -> None:
+    async def insert_into_register_history(
+        self,
+        change_request: G2PRegisterChangeRequest,
+        session,
+        live_snapshots: dict[str, dict] | None = None,
+    ) -> None:
         history_service = G2PRegisterHistoryService.get_component()
-        await history_service.insert_into_register_history(change_request, session)
+        await history_service.insert_into_register_history(change_request, session, live_snapshots)
 
     def _set_change_request_approval_state(
         self,

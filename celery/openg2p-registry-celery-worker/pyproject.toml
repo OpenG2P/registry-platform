@@ -16,8 +16,7 @@ classifiers = [
 ]
 dependencies = [
   "openg2p-fastapi-common",
-  "celery",
-  "redis",
+  "celery[redis]",
   "requests",
   "python-jose",
   "fastnanoid",
