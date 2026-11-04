@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from openg2p_fastapi_common.models import BaseORMModel
@@ -10,6 +10,16 @@ class G2PAweReqEvent(BaseORMModel):
     """Inbound AWE webhook audit log and idempotency store (awe_req_events)."""
 
     __tablename__ = "awe_req_events"
+    __table_args__ = (
+        Index(
+            "ix_awe_req_events_artifact_lookup",
+            "artifact_type",
+            "artifact_id",
+            "applied",
+            "occurred_at",
+            "received_at",
+        ),
+    )
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
     event_type: Mapped[str] = mapped_column(String, nullable=False, index=True)

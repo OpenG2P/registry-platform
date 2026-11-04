@@ -3,7 +3,9 @@
 import { useTranslations } from 'next-intl';
 import { useRegister } from '@/context/RegisterContext';
 import { useParams, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useFilters } from '@/features/filter/hooks/useFilters';
+import { FilterConfig } from '@/features/filter/types';
 import { useRouter } from '@/i18n/navigation';
 
 import { EntityListPage, StackedCardSkeleton } from '@/components/shared';
@@ -13,6 +15,7 @@ import { IntakeFormSubmission } from '@/features/intake-form/types/intake-form';
 import { usePagination, usePageSize } from '@/shared/hooks';
 import { STATIC_INPUT_MECHANISMS } from '@/features/intake-form/constants/inputMechanisms';
 import { useIntakeSubmissions } from '@/features/intake-form/hooks/useIntakeSubmissions';
+import { useIntakeForms } from '@/features/intake-form/hooks/useIntakeForms';
 import { INTAKE_FORM_ACTIONS } from '@/features/shared/permissions';
 import Can from '@/components/shared/Can';
 import AddNewDropdown from '@/components/ui/AddNewDropdown';
@@ -36,12 +39,58 @@ export default function IntakeFormPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = usePageSize();
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [pageSize]);
-
     const { currentRegister } = useRegister();
     const registerId = currentRegister?.register_id;
+    const { forms } = useIntakeForms(registerId);
+
+    const intakeFilterConfig = useMemo<FilterConfig[]>(() => {
+        const dropdown = (
+            field_name: string,
+            display_label: string,
+            order: number,
+            values: string[],
+        ): FilterConfig => ({
+            field_name,
+            display_label,
+            filter_type: 'dropdown',
+            order,
+            allowed_operators: ['eq', 'in'],
+            options_source: values.map((value) => ({
+                value,
+                label: t.has(value) ? t(value) : value,
+            })),
+        });
+
+        return [
+            dropdown('approval_status', 'approval_status', 1, ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED']),
+            dropdown('draft_status', 'form_status', 2, ['DRAFT', 'FINAL']),
+            {
+                field_name: 'form_id',
+                display_label: 'form_id',
+                filter_type: 'dropdown',
+                order: 3,
+                allowed_operators: ['eq', 'in'],
+                options_source: forms.map((form) => ({
+                    value: form.form_id,
+                    label: t.has(form.form_mnemonic) ? t(form.form_mnemonic) : form.form_mnemonic,
+                })),
+            },
+        ];
+    }, [forms, t]);
+
+    const {
+        appliedFilters,
+        filterBy,
+        filterConfig,
+        filterLoading,
+        applyFilters,
+        removeFilter,
+        clearAllFilters,
+    } = useFilters('', intakeFilterConfig);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [pageSize, filterBy]);
 
     const mechanisms = STATIC_INPUT_MECHANISMS.map(({ labelKey, ...mechanism }) => ({
         ...mechanism,
@@ -50,7 +99,7 @@ export default function IntakeFormPage() {
 
     const { submissions, paginationInfo, loading: submissionsLoading } = useIntakeSubmissions(
         registerId,
-        { searchText: searchQuery, currentPage, pageSize, sortBy },
+        { searchText: searchQuery, currentPage, pageSize, sortBy, filterBy },
     );
 
     const pagination = usePagination({
@@ -151,7 +200,13 @@ export default function IntakeFormPage() {
             searchValue={searchQuery}
             searchPlaceholder={t('search')}
             onSearch={handleSearch}
-            showFilters={false}
+            showFilters
+            appliedFilters={appliedFilters}
+            filterConfig={filterConfig}
+            filterLoading={filterLoading}
+            onApplyFilters={applyFilters}
+            removeFilter={removeFilter}
+            clearAllFilters={clearAllFilters}
             items={submissions ?? []}
             loading={submissionsLoading}
             skeleton={skeleton}

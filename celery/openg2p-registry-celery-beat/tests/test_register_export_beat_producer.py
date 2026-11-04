@@ -48,8 +48,13 @@ class RegisterExportBeatProducerTests(unittest.TestCase):
             "openg2p_registry_celery_beat.tasks.register_export_beat_producer.celery_app"
         ) as celery_app, patch(
             "openg2p_registry_celery_beat.tasks.register_export_beat_producer._config"
-        ) as config:
-            config.export_no_of_tasks_to_process = 5
+        ) as config, patch(
+            "openg2p_registry_celery_beat.tasks.register_export_beat_producer.task_enabled",
+            return_value=True,
+        ), patch(
+            "openg2p_registry_celery_beat.tasks.register_export_beat_producer.task_limit",
+            return_value=5,
+        ):
             config.worker_queue = "registry_worker_queue"
             from openg2p_registry_celery_beat.tasks.register_export_beat_producer import (
                 register_export_beat_producer,

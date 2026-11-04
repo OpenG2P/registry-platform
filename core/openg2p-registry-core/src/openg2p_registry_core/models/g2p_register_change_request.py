@@ -8,6 +8,16 @@ from .enum import ApprovalStatusEnum, ChangeRequestSourceEnum, DeduplicationStat
 
 class G2PRegisterChangeRequest(BaseORMModel):
     __tablename__ = "g2p_register_change_requests"
+    __table_args__ = (
+        Index(
+            "ix_change_requests_lookup",
+            "register_id",
+            "internal_record_id",
+            "tab_id",
+            "approval_status",
+            "created_at",
+        ),
+    )
 
     change_request_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     record_name: Mapped[str] = mapped_column(String, nullable=True)

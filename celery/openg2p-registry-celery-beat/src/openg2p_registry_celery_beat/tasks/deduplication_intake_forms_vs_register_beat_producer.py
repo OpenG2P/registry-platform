@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled, task_limit
 from ..utils import Workers
 
 _config = Settings.get_config()
@@ -21,6 +22,9 @@ def deduplication_intake_forms_vs_register_beat_producer():
     Beat producer that finds intake form submissions pending deduplication against register records
     and queues them to the deduplication worker.
     """
+    if not task_enabled():
+        _logger.info("%s is disabled", "deduplication_intake_forms_vs_register_beat_producer")
+        return
     _logger.info("Checking for pending deduplication_intake_forms_vs_register submissions")
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
 
@@ -34,7 +38,8 @@ def deduplication_intake_forms_vs_register_beat_producer():
                     G2PIntakeFormSubmission.draft_status
                     == IntakeFormStatusEnum.FINAL.value,
                 )
-                .limit(_config.no_of_tasks_to_process)
+                .limit(task_limit())
+                # .with_for_update(skip_locked=True)
             )
             .scalars()
             .all()
@@ -43,14 +48,14 @@ def deduplication_intake_forms_vs_register_beat_producer():
 
         for submission in pending_submissions:
             _logger.info(f"Queueing submission {submission.submission_id} for intake_forms_vs_register deduplication")
-
             submission.deduplication_status_vs_register = DeduplicationStatusEnum.INPROGRESS.value
             session.add(submission)
+        session.commit()
 
+        for submission in pending_submissions:
             _logger.info(
                 f"Updating status for {Workers.DEDUPLICATION_INTAKE_FORMS_VS_REGISTER_WORKER} to INPROGRESS for submission: {submission.submission_id}"
             )
-
             celery_app.send_task(
                 Workers.DEDUPLICATION_INTAKE_FORMS_VS_REGISTER_WORKER,
                 args=(submission.submission_id,),
@@ -59,6 +64,5 @@ def deduplication_intake_forms_vs_register_beat_producer():
             _logger.info(
                 f"Sent task to {Workers.DEDUPLICATION_INTAKE_FORMS_VS_REGISTER_WORKER} for submission: {submission.submission_id}"
             )
-        session.commit()
 
     _logger.info("Completed processing pending deduplication_intake_forms_vs_register submissions")

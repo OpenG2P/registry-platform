@@ -9,7 +9,9 @@ _logger = logging.getLogger(_config.logging_default_logger_name)
 
 from celery import Celery
 from openg2p_notification.app import Initializer as NotificationInitializer
+from openg2p_registry_core.cache import init_cache
 from openg2p_registry_core.helpers import (
+    ApplicationReferenceGenerator,
     AweHelper,
     MasterDataClient,
     PartnerManagementClient,
@@ -18,13 +20,14 @@ from openg2p_registry_core.helpers import (
     get_document_handler,
 )
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
-from openg2p_fastapi_common.exception import BaseExceptionHandler        
+from openg2p_fastapi_common.exception import BaseExceptionHandler
 from openg2p_registry_core.services import (
     G2PAttributeValueValidator,
     G2PAweIntegrationService,
     G2PAwePolicyConfigurationService,
     G2PDocumentService,
     G2PIngestService,
+    G2PTemplateService,
     G2PIntakeFormDataService,
     G2PIntakeFormLinkService,
     G2PRegisterService,
@@ -44,10 +47,14 @@ from openg2p_registry_core.interfaces import G2PIdGeneratorFactory, G2PRegisterD
 class Initializer(BaseInitializer):
     def initialize(self, **kwargs):
         super().initialize()
+        # Register lookups used by ingest are cached. The cache decorator
+        # requires FastAPICache.init, which the API process does and this worker did not.
+        init_cache()
         BaseExceptionHandler()
 
         # Helpers
         get_document_handler()
+        ApplicationReferenceGenerator(_config.application_reference_format)
         TemplateHelper()
         WebsubHelper()
         PartnerManagementClient()
@@ -60,6 +67,7 @@ class Initializer(BaseInitializer):
         G2PRegisterService()
         G2PIngestService()
         G2PIntakeFormDataService()
+        G2PTemplateService()
         G2PAwePolicyConfigurationService()
         G2PAweIntegrationService()
         G2PIntakeFormLinkService()

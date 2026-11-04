@@ -8,6 +8,7 @@ export const useIntakeSubmissions = (
         currentPage?: number;
         pageSize?: number;
         sortBy?: string | null;
+        filterBy?: unknown;
     }
 ) => {
     const fetchOptions = useMemo(
@@ -18,10 +19,11 @@ export const useIntakeSubmissions = (
                 search_text: params?.searchText,
                 current_page: params?.currentPage,
                 page_size: params?.pageSize,
+                filter_by: params?.filterBy ?? "",
                 ...(params?.sortBy ? { sort_by: params.sortBy } : {}),
             }),
         }),
-        [registerId, params?.searchText, params?.currentPage, params?.pageSize, params?.sortBy],
+        [registerId, params?.searchText, params?.currentPage, params?.pageSize, params?.sortBy, params?.filterBy],
     );
 
     const { data, loading, execute } = useFetch<any>({

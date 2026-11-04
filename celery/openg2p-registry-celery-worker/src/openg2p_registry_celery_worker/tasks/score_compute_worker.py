@@ -21,6 +21,7 @@ from openg2p_registry_core.models.g2p_score_compute_queue import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -33,6 +34,9 @@ asyncio.set_event_loop(_loop)
 
 @celery_app.task(name="score_compute_worker", bind=True, max_retries=3)
 def score_compute_worker(self, score_compute_queue_id: str):
+    if not task_enabled():
+        _logger.info("%s is disabled", "score_compute_worker")
+        return
     _logger.info(f"Starting score_compute_worker for score_compute_queue_id: {score_compute_queue_id}")
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
 

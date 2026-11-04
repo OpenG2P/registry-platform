@@ -72,8 +72,21 @@ class Settings(IamSettings):
     master_data_client_id: str = ""
     master_data_client_secret: str = ""
 
+    # Partner Management — ingest validates PARTNER here (no local partner table).
+    # Staff-portal-api GET /partners/{id} is preferred (client_credentials).
+    partner_mgmt_admin_api_url: str = ""  # e.g. http://commons-services-pm-staff-portal-api
+    partner_mgmt_admin_token_url: str = ""  # Keycloak token endpoint
+    partner_mgmt_admin_client_id: str = ""
+    partner_mgmt_admin_client_secret: str = ""
+    # Fallback: unauthenticated key-fetch (same partner_id space as staff API).
+    partner_mgmt_api_url: str = ""  # e.g. http://commons-services-pm-partner-api
+    partner_mgmt_timeout_seconds: float = 5.0
+    # In-process TTL for partner lookups (0 disables). Avoids one PM call per ingest row.
+    partner_mgmt_cache_seconds: int = 300
+
     # Cache Configuration
-    cache_expires_in_seconds: int = 60 * 5
+    cache_expires_in_seconds: int = 60 * 60
+    cache_summary_expires_in_seconds: int = 60 * 10
 
     # WebSub Hub
     websub_base_url: str = "http://commons-services-websub"
@@ -113,4 +126,6 @@ class Settings(IamSettings):
     keycloak_realm: str = "staff"
 
     # Intake submission application reference generation
-    application_reference_format: str = "{DATE:%Y%b%d|upper}-{SECONDS:5}{RAND:1}"
+    # One random digit is only 10 values per second. Concurrent ingest exceeds that
+    # and hits ix_g2p_intake_form_submissions_application_reference.
+    application_reference_format: str = "{DATE:%Y%b%d|upper}-{SECONDS:5}{RAND:6}"

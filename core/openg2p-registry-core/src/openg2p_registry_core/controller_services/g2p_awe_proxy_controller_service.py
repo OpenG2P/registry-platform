@@ -109,11 +109,12 @@ class G2PAweProxyControllerService(BaseService):
         bearer_token: str,
     ) -> dict[str, Any]:
         await self._validate_artifact_in_flight(payload.artifact_type, payload.artifact_id, payload.current_stage)
-        await self._validate_change_request_sequence_for_decision(
-            payload.artifact_type,
-            payload.artifact_id,
-            payload.action,
-        )
+        # Disabled: do not block approve decisions when earlier pending CRs exist.
+        # await self._validate_change_request_sequence_for_decision(
+        #     payload.artifact_type,
+        #     payload.artifact_id,
+        #     payload.action,
+        # )
 
         try:
             return await AweHelper.get_component().submit_decision(

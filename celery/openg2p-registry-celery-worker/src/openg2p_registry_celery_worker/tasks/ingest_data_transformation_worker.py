@@ -26,6 +26,7 @@ from openg2p_registry_core.models import G2PRegistryDocument
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -34,6 +35,9 @@ _engine = Engine.get_engine()
 
 @celery_app.task(name="ingest_data_transformation_worker")
 def ingest_data_transformation_worker(ingest_id: str):
+    if not task_enabled():
+        _logger.info("%s is disabled", "ingest_data_transformation_worker")
+        return
     _logger.info(f"Starting ingest_data_transformation_worker for ingest_id: {ingest_id}")
     session_maker = sessionmaker(
         bind=_engine, expire_on_commit=False

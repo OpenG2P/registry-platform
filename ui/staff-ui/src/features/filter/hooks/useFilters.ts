@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from "react";
 import { useFilterConfig, normalizeNumericFilter } from "@/features/filter/utils";
-import { AppliedFilters, FilterRule } from "@/features/filter/types";
+import { AppliedFilters, FilterConfig, FilterRule } from "@/features/filter/types";
 
-export function useFilters(url: string) {
+export function useFilters(url: string, staticConfig?: FilterConfig[]) {
     const [appliedFilters, setAppliedFilters] = useState<AppliedFilters>([]);
-    const { filterConfig, loading, error } = useFilterConfig(url);
+    const remote = useFilterConfig(url, !staticConfig);
+    const filterConfig = staticConfig ?? remote.filterConfig;
+    const loading = staticConfig ? false : remote.loading;
 
     const applyFilters = (filters: AppliedFilters) => {
         setAppliedFilters(prev => {
