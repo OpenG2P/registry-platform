@@ -432,6 +432,18 @@ if [ "${FUNC_SKIP_UI:-0}" != "1" ]; then
   fi
 fi
 
+  # On failure: dump the celery containers' runtime logs and the persisted
+  # per-submission ingest error — the intake ingest worker records its exact
+  # exception in g2p_intake_form_submissions.register_ingest_process_last_error_code.
+  if [ "${GATE_EXIT}" -ne 0 ]; then
+    echo "[compose-gate] === failure diagnostics: celery runtime logs ==="
+    "${COMPOSE[@]}" logs --tail=200 celery-worker celery-beat 2>&1 || true
+    echo "[compose-gate] === intake submission ingest status (last 10) ==="
+    "${COMPOSE[@]}" exec -T postgres psql -U registry_user -d registry -c \
+      "select submission_id, approval_status, register_ingest_process_status, left(coalesce(register_ingest_process_last_error_code,''),500) as last_error from g2p_intake_form_submissions order by created_at desc limit 10;" \
+      || true
+  fi
+
 if [ "${GATE_EXIT}" -ne 0 ]; then
   echo "[compose-gate] FAILED (exit ${GATE_EXIT})"
   exit "${GATE_EXIT}"
