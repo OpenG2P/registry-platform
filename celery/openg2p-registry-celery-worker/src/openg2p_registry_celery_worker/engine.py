@@ -57,7 +57,7 @@ class Engine:
         return Engine._async_session_maker
 
     def construct_db_datasource():
-        return f"postgresql://{_config.db_username}:{_config.db_password}@{_config.db_hostname}:{_config.db_port}/{_config.db_dbname}"
+        return f"postgresql+psycopg2://{_config.db_username}:{_config.db_password}@{_config.db_hostname}:{_config.db_port}/{_config.db_dbname}"
 
     def construct_async_db_datasource():
         return f"postgresql+asyncpg://{_config.db_username}:{_config.db_password}@{_config.db_hostname}:{_config.db_port}/{_config.db_dbname}"

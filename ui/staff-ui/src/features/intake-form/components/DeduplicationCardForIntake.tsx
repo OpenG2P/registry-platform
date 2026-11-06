@@ -11,6 +11,35 @@ interface Props {
     t: (key: string) => string;
 }
 
+function fieldSpacing(index: number) {
+    const smStart = index % 2 === 0;
+    const smEnd = (index + 1) % 2 === 0;
+    const lgStart = index % 3 === 0;
+    const lgEnd = (index + 1) % 3 === 0;
+    const xlStart = index % 4 === 0;
+    const xlEnd = (index + 1) % 4 === 0;
+
+    const inset = [
+        smStart ? "sm:pl-0" : "sm:pl-6",
+        lgStart ? "lg:pl-0" : "lg:pl-6",
+        xlStart ? "xl:pl-0" : "xl:pl-6",
+    ].join(" ");
+
+    const trail = [
+        smEnd ? "sm:pr-0" : "sm:pr-6",
+        lgEnd ? "lg:pr-0" : "lg:pr-6",
+        xlEnd ? "xl:pr-0" : "xl:pr-6",
+    ].join(" ");
+
+    const rule = [
+        smStart ? "sm:border-l-0" : "sm:border-l sm:border-primary-first",
+        lgStart ? "lg:border-l-0" : "lg:border-l lg:border-primary-first",
+        xlStart ? "xl:border-l-0" : "xl:border-l xl:border-primary-first",
+    ].join(" ");
+
+    return { inset, trail, rule };
+}
+
 export default function DeduplicationCardForIntake({ results, loading, type, t }: Props) {
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
@@ -99,28 +128,32 @@ export default function DeduplicationCardForIntake({ results, loading, type, t }
 
                         {expanded && fields.length > 0 && (
                             <div className="pb-2 sm:pb-4">
-                                <div className="grid grid-cols-1 md:grid-cols-3">
-                                    {fields.map(([fieldKey, match]: [string, any], i) => (
+                                <div className="grid grid-cols-1 gap-y-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                                    {fields.map(([fieldKey, match]: [string, any], i) => {
+                                        const { inset, trail, rule } = fieldSpacing(i);
+                                        return (
                                         <div
                                             key={fieldKey}
-                                            className={`space-y-0 py-2 ${i === 2 ? "" : "md:pr-10"} ${i > 0 ? "md:pl-10" : ""}`}
+                                            className={`min-w-0 space-y-0 overflow-hidden py-2 ${trail}`}
                                         >
-                                            <div className={i > 0 ? "md:pl-6" : ""}>
+                                            <div className={inset}>
                                                 <h4 className="mb-1 truncate text-[18px] font-medium leading-none text-neutral-first sm:text-[20px]" title={t(fieldKey)}>
                                                     {t(fieldKey)}
                                                 </h4>
                                             </div>
-                                            <div className={`space-y-0 ${i > 0 ? "md:border-l md:border-primary-first md:pl-6" : ""}`}>
-                                                <KeyValue variant="deduplication" label={t("incoming")} value={match.incoming} />
-                                                <KeyValue variant="deduplication" label={t("candidate")} value={match.candidate} />
+                                            <div className={`min-w-0 space-y-0 ${inset} ${rule}`}>
+                                                <KeyValue variant="deduplication" className="min-w-0" label={t("incoming")} value={match.incoming} />
+                                                <KeyValue variant="deduplication" className="min-w-0" label={t("candidate")} value={match.candidate} />
                                                 <KeyValue
                                                     variant="deduplication"
+                                                    className="min-w-0"
                                                     label={t("similarity")}
                                                     value={`${(match.similarity * 100).toFixed(0)}% (${t(match.match_type)})`}
                                                 />
                                             </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                                 <hr className="border-t border-primary-first mt-6 mb-4" />
                                 <button

@@ -2,7 +2,8 @@
 #
 # This image is a RUNNABLE reference registry (individual + household): it bundles
 # the platform code (openg2p-registry-core + the staff-portal-api service), the
-# fastapi-common / iam-core runtime, AND the reference extension, and defaults
+# fastapi-common / iam-core / notification-connector runtime, AND the reference
+# extension, and defaults
 # ENV REGISTRY_EXTENSION_MODULE to it — so `helm install` runs it as-is.
 #
 # A variant registry (social, farmer, a customer's) builds FROM this image, adds its
@@ -32,6 +33,8 @@ ARG FASTAPI_COMMON_REF=develop
 # disabled)"), so a build pointed there silently pins iam-core to that day
 # and every later IAM change is missing from this image -- with no error.
 ARG IAM_CORE_REF=develop
+ARG NOTIFICATION_REPO=openg2p/notifications
+ARG NOTIFICATION_REF=develop
 
 RUN apk add --no-cache --virtual .build-deps gcc libc-dev linux-headers make \
  && apk add --no-cache bash git gettext libpq-dev libmagic
@@ -47,6 +50,7 @@ RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-auth" \
       "git+https://github.com/openg2p/iam.git@${IAM_CORE_REF}#subdirectory=iam-core" \
+      "git+https://github.com/${NOTIFICATION_REPO}@${NOTIFICATION_REF}#subdirectory=connector" \
       /app/core/openg2p-registry-core \
       /app/apis/openg2p-registry-staff-api \
       /app/reference-extension \

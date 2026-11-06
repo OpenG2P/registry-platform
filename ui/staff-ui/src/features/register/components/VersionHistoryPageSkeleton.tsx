@@ -8,47 +8,47 @@ export default function VersionHistoryPageSkeleton({ tabs = [] }: Props) {
     return (
         <div className="animate-pulse">
             {tabs.length === 0 && (
-                <div className="flex gap-2 px-10">
+                <div className="flex gap-2">
                     {[1, 2, 3].map(i => (
                         <div
                             key={i}
-                            className="h-10 w-32 rounded-t-[10px] bg-primary-first/50"
+                            className="h-10 w-24 rounded-t-[10px] bg-primary-first/50 sm:w-32"
                         />
                     ))}
                 </div>
             )}
 
-            <div className="flex gap-6">
-                <div className="w-[75%] flex flex-col gap-6">
-                    <div className="bg-neutral-second rounded-[10px] px-6 py-5 flex items-center gap-6">
-                        <div className="flex items-center gap-3">
-                            <div className="h-5 w-25 bg-secondary-third rounded" />
-                            <div className="h-8.5 w-35 bg-secondary-second rounded-[10px]" />
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                <div className="flex w-full min-w-0 flex-col gap-6 lg:flex-1">
+                    <div className="flex flex-col gap-4 rounded-[10px] bg-neutral-second px-4 py-5 sm:flex-row sm:flex-wrap sm:px-6">
+                        <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                            <div className="h-5 w-full rounded bg-secondary-third sm:w-25" />
+                            <div className="h-8.5 w-full rounded-[10px] bg-secondary-second sm:w-35" />
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            <div className="h-5 w-25 bg-secondary-third rounded" />
-                            <div className="h-8.5 w-35 bg-secondary-second rounded-[10px]" />
+                        <div className="flex w-full flex-col gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+                            <div className="h-5 w-full rounded bg-secondary-third sm:w-25" />
+                            <div className="h-8.5 w-full rounded-[10px] bg-secondary-second sm:w-35" />
                         </div>
                     </div>
 
-                    <div className="bg-neutral-second rounded-[30px] p-9.5 space-y-5">
-                        <div className="h-6 w-48 bg-secondary-third rounded" />
+                    <div className="space-y-5 rounded-[30px] bg-neutral-second p-4 sm:p-6 lg:p-9.5">
+                        <div className="h-6 w-48 max-w-full rounded bg-secondary-third" />
 
                         <div className="space-y-3">
-                            <div className="h-5 w-full bg-secondary-second rounded" />
-                            <div className="h-5 w-5/6 bg-secondary-second rounded" />
-                            <div className="h-5 w-4/6 bg-secondary-second rounded" />
+                            <div className="h-5 w-full rounded bg-secondary-second" />
+                            <div className="h-5 w-5/6 rounded bg-secondary-second" />
+                            <div className="h-5 w-4/6 rounded bg-secondary-second" />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4 pt-4">
-                            <div className="h-10 bg-secondary-second rounded-full" />
-                            <div className="h-10 bg-secondary-second rounded-full" />
+                        <div className="grid grid-cols-1 gap-4 pt-4 sm:grid-cols-2">
+                            <div className="h-10 rounded-full bg-secondary-second" />
+                            <div className="h-10 rounded-full bg-secondary-second" />
                         </div>
                     </div>
                 </div>
 
-                <div className="w-[25%] space-y-4">
+                <div className="w-full space-y-4 lg:w-[320px] lg:shrink-0">
                     {Array.from({ length: 2 }).map((_, i) => (
                         <VerificationCardSkeleton key={i} />
                     ))}

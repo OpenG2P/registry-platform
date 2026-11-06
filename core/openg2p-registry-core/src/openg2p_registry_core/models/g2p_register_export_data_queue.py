@@ -16,6 +16,7 @@ class G2PRegisterExportDataQueue(BaseORMModel):
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
     register_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # Keycloak preferred_username. Novu staff subscriber id, and the export-list filter.
     requested_by: Mapped[str] = mapped_column(String, nullable=False, index=True)
     queued_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime.now, index=True

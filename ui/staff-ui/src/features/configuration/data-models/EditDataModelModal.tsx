@@ -148,7 +148,7 @@ export default function EditDataModelModal({
                 rows={1}
             />
 
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                 <FileUploadField
                     label={t('template')}
                     fileInputRef={fileInputRef}

@@ -227,6 +227,9 @@ global:
   # Consent Manager partner-api base URL — the /validate PDP endpoint. CM is now
   # part of commons-services (service name commons-services-cm-*), matching PM.
   consentManagerUrl: 'http://commons-services-cm-partner-api'
+  # MOSIP WebSub hub installed by commons-services. Do not append /hub;
+  # WebsubHelper adds that. Same namespace as this registry.
+  websubBaseUrl: 'http://commons-services-websub'
   consentManagerTimeoutSeconds: 5
   # This registry's data-controller ID, sent with every CM /validate so CM uses
   # this registry's grant in a consent covering several registries, and the
@@ -260,6 +263,32 @@ global:
 
   # IAM service internal URL
   iamServiceUrl: 'http://commons-services-iam-staff-portal-api'
+
+  # Notification connector (registry-core send from staff-api and celery).
+  # Novu is the commons subchart from openg2p-helm (openg2p-deployment charts/novu).
+  # Under release commons: API service commons-novu-api; secret commons-novu.
+  # The bootstrap Job writes key api-key. The chart secret also holds
+  # novu-secret-key (NOVU_SECRET_KEY) for in-app HMAC.
+  notificationEnabled: true
+  notificationProvider: novu
+  notificationProviderUrl: 'http://commons-novu-api:3000'
+  notificationApiKeySecret: 'commons-novu'
+  notificationApiKeySecretKey: 'api-key'
+  # HMAC key on the same secret. Commons-base Novu secret key novu-secret-key.
+  notificationHmacSecretKey: novu-secret-key
+  # Public hosts. Same names as commons-base global.novuApiHostname / novuWsHostname.
+  # Staff UI uses the https URLs below; staff-api and celery keep the in-cluster URL.
+  notificationApiHostname: 'novu-api.{{ tpl .Values.global.baseDomain $ }}'
+  notificationWsHostname: 'novu-ws.{{ tpl .Values.global.baseDomain $ }}'
+  notificationBackendUrl: 'https://{{ tpl .Values.global.notificationApiHostname $ }}'
+  notificationWebsocketUrl: 'https://{{ tpl .Values.global.notificationWsHostname $ }}'
+  # Novu environment application identifier for the in-app inbox. The Novu chart
+  # does not store this on the secret; set it per environment.
+  notificationApplicationIdentifier: ''
+  # Event key -> Novu trigger id. Novu trigger ids cannot contain dots.
+  notificationWorkflows: '{"change_request.created":"change-request-created","change_request.approved":"change-request-approved","change_request.rejected":"change-request-rejected","intake_form.submission_created":"intake-form-submission-created","intake_form.submission_approved":"intake-form-submission-approved","intake_form.submission_rejected":"intake-form-submission-rejected","register_export.completed":"register-export-completed","register_export.failed":"register-export-failed"}'
+  # Staff-ui origin for export notification links. Locale is hardcoded as /en in the Novu workflow.
+  staffPortalBaseUrl: ''
 
   # Redis-backed auth (refresh tokens + OAuth transaction state) for staff-portal-api.
   # Uses the same shared Redis as iam-staff-portal-api (commons-redis-master).
@@ -375,6 +404,17 @@ global:
   # Helm release that hosts the shared AWE — its Service is <aweReleaseName>-awe.
   # Used by db-seed to wait for the AWE API before seeding the callback secret.
   aweReleaseName: commons-services
+
+  # Registry Connector (optional subchart; see registryConnector.enabled).
+  # Passed via Helm global merge — do not nest a second global under registryConnector.
+  # Override connectorHostname / partnerApiService per install (partner service is
+  # typically <release>-partner-api).
+  connectorHostname: connector.qa.openg2p.org
+  postgresqlPort: 5432
+  redisHost: commons-redis-master
+  redisPort: 6379
+  redisDb: 1
+  partnerApiService: registry-partner-api
 
 # Logging is handled cluster-wide by OpenTelemetry + Grafana Loki (deployed by
 # the platform's infra automation). The OTel agent DaemonSet tails every pod's
@@ -607,6 +647,7 @@ partnerApi:
     REGISTRY_PARTNER_API_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
     REGISTRY_PARTNER_API_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
     REGISTRY_PARTNER_API_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
+    REGISTRY_PARTNER_API_WEBSUB_BASE_URL: '{{ tpl .Values.global.websubBaseUrl $ }}'
 
     REGISTRY_PARTNER_API_KEYMANAGER_API_BASE_URL: "{{ .Values.global.keymanagerInstallationName }}/v1/keymanager"
     REGISTRY_PARTNER_API_KEYMANAGER_API_TIMEOUT: 10
@@ -1458,6 +1499,12 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_TOKEN_URL: "{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/token"
     REGISTRY_STAFF_PORTAL_API_PARTNER_MGMT_ADMIN_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
 
+    NOTIFICATION_ENABLED: '{{ .Values.global.notificationEnabled }}'
+    NOTIFICATION_PROVIDER: '{{ .Values.global.notificationProvider }}'
+    NOTIFICATION_PROVIDER_URL: '{{ tpl .Values.global.notificationProviderUrl $ }}'
+    NOTIFICATION_WORKFLOWS: '{{ .Values.global.notificationWorkflows }}'
+    NOTIFICATION_STAFF_PORTAL_BASE_URL: '{{ tpl (.Values.global.staffPortalBaseUrl | default "") $ }}'
+
   envVarsFrom:
     REGISTRY_STAFF_PORTAL_API_DB_PASSWORD:
       secretKeyRef:
@@ -1495,6 +1542,11 @@ staffApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.pmSeedClientId $ }}'
         key: client_secret
+        optional: true
+    NOTIFICATION_PROVIDER_API_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.notificationApiKeySecret $ }}'
+        key: '{{ .Values.global.notificationApiKeySecretKey }}'
         optional: true
 
   startupProbe:
@@ -1658,6 +1710,7 @@ staffUi:
     KEYCLOAK_LOGOUT_URL: '{{ tpl .Values.global.keycloakIssuerUrl $ }}/protocol/openid-connect/logout'
     LOGIN_PROVIDER_ID: '1'
     MASTERDATA_BACKEND_API_URL: '{{ .Values.global.masterDataApiUrl }}'
+    PARTNER_ADMIN_BACKEND_API_URL: '{{ tpl .Values.global.partnerManagementAdminApiUrl $ }}'
     NODE_ENV: production
     PARTNER_INGEST_URL: '{{ tpl .Values.partnerIngestUrl $ }}'
     REDIRECT_URL: 'https://{{ tpl .Values.global.registryHostname $ }}'
@@ -1665,8 +1718,21 @@ staffUi:
     VP_CLIENT_ID: 'did:web:{{ tpl .Values.global.registryHostname $ }}:v1:verify'
     VP_PRESENTATION_ID: '{{ .Values.vpPresentationId }}'
     VP_PURPOSE: '{{ .Values.vpPurpose }}'
+    # In-app Novu. Provider matches staff-api. URLs are the public hosts
+    # (browser), not the in-cluster notificationProviderUrl.
+    NOTIFICATION_PROVIDER: '{{ .Values.global.notificationProvider }}'
+    NOTIFICATION_APPLICATION_IDENTIFIER: '{{ .Values.global.notificationApplicationIdentifier }}'
+    NOTIFICATION_BACKEND_URL: '{{ tpl .Values.global.notificationBackendUrl $ }}'
+    NOTIFICATION_WEBSOCKET_URL: '{{ tpl .Values.global.notificationWebsocketUrl $ }}'
 
-  envVarsFrom: {}
+  envVarsFrom:
+    # Server-only. Required when In-App HMAC is enabled. Same commons Novu
+    # secret as staff-api's NOTIFICATION_PROVIDER_API_KEY, different key.
+    NOTIFICATION_SECRET_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.notificationApiKeySecret $ }}'
+        key: '{{ .Values.global.notificationHmacSecretKey }}'
+        optional: true
 
   startupProbe:
     enabled: true
@@ -2006,6 +2072,7 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_MASTER_DATA_TOKEN_URL: '{{ tpl .Values.global.masterDataTokenUrl $ }}'
     REGISTRY_CELERY_WORKERS_MASTER_DATA_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
     REGISTRY_CELERY_WORKERS_CATALOGUE_RELEASE: '{{ .Values.global.catalogueRelease }}'
+    REGISTRY_CELERY_WORKERS_WEBSUB_BASE_URL: '{{ tpl .Values.global.websubBaseUrl $ }}'
 
     REGISTRY_CELERY_WORKERS_CELERY_BROKER_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
     REGISTRY_CELERY_WORKERS_CELERY_BACKEND_URL: "redis://{{ tpl .Values.global.redisInstallationName $ }}:6379/0"
@@ -2031,6 +2098,12 @@ celeryWorker:
     REGISTRY_CELERY_WORKERS_PARTNER_MGMT_ADMIN_CLIENT_ID: '{{ tpl .Values.global.pmSeedClientId $ }}'
     CELERY_APP: "openg2p_registry_celery_worker.main.celery_app"
     CELERY_OPTS: "worker -Q registry_worker_queue --loglevel=info"
+
+    NOTIFICATION_ENABLED: '{{ .Values.global.notificationEnabled }}'
+    NOTIFICATION_PROVIDER: '{{ .Values.global.notificationProvider }}'
+    NOTIFICATION_PROVIDER_URL: '{{ tpl .Values.global.notificationProviderUrl $ }}'
+    NOTIFICATION_WORKFLOWS: '{{ .Values.global.notificationWorkflows }}'
+    NOTIFICATION_STAFF_PORTAL_BASE_URL: '{{ tpl (.Values.global.staffPortalBaseUrl | default "") $ }}'
 
   envVarsFrom:
     REGISTRY_CELERY_WORKERS_MINIO_ACCESS_KEY:
@@ -2065,6 +2138,11 @@ celeryWorker:
       secretKeyRef:
         name: '{{ tpl .Values.global.pmSeedClientId $ }}'
         key: client_secret
+        optional: true
+    NOTIFICATION_PROVIDER_API_KEY:
+      secretKeyRef:
+        name: '{{ tpl .Values.global.notificationApiKeySecret $ }}'
+        key: '{{ .Values.global.notificationApiKeySecretKey }}'
         optional: true
 
   # Wait until Redis answers before starting. A worker that starts first gets
@@ -2562,3 +2640,23 @@ sanity:
     limits:
       cpu: 500m
       memory: 256Mi
+
+# OpenG2P Registry Connector (API / worker / beat). Off by default.
+# Hostname, DB/Redis hosts and partner API service live under global: above.
+registryConnector:
+  enabled: false
+  postgres-init:
+    enabled: true
+    postgresql:
+      host: commons-postgresql
+      port: 5432
+      existingSecret: commons-postgresql
+      existingSecretPostgresPasswordKey: postgres-password
+  istio:
+    enabled: true
+    gateway:
+      create: false
+      name: internal
+    virtualservice:
+      enabled: true
+      gateway: internal

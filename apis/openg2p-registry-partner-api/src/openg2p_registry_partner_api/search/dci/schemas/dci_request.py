@@ -7,8 +7,18 @@ from pydantic import BaseModel, Field
 # ----------------------------
 
 class DciQuery(BaseModel):
+    """ExpTemplate or IdentifierTypeValue.
+
+    ``value`` is an object for expression and graphql, a scalar for
+    idtype-value (``{"type": "UIN", "value": "123"}``), or a list when a
+    predicate array is wrapped in ``{type, value}``.
+    """
+
     type: str
-    value: Dict[str, Any]
+    value: Any
+
+    class Config:
+        extra = "allow"
 
 
 # ----------------------------
@@ -79,21 +89,27 @@ class DciSearchCriteria(BaseModel):
     """
     When performing deep search against this platform, ``reg_type`` is the deployer's
     register mnemonic (same value as ``g2p_register_definitions.register_mnemonic``),
-    e.g. Individual, Household, … — not an ``ns:org:RegistryType:`` URI unless the
+    e.g. Farmer, Household, Individual — not an ``ns:org:RegistryType:`` URI unless the
     DB is configured that way intentionally.
     """
 
     version: str = "1.0.0"
     reg_type: str = Field(
         ...,
-        description="Root register mnemonic to search (`g2p_register_definitions.register_mnemonic`). Example values: Individual, Household, ….",
+        description="Root register mnemonic to search (`g2p_register_definitions.register_mnemonic`). Example values: Farmer, Household, Individual.",
     )
     reg_record_type: str = Field(
         ...,
         description="DCI record type for the outbound payload shape (often an ``spdci-extensions-dci:`` type key). Does not substitute for ``reg_type``.",
     )
     query_type: str
-    query: DciQuery
+    query: Union[DciQuery, List[Any]] = Field(
+        ...,
+        description=(
+            "IdentifierTypeValue object, expression/graphql ExpTemplate object, "
+            "or a predicate array. Selected by query_type."
+        ),
+    )
     sort: Optional[List[DciSortItem]] = None
     pagination: Optional[DciPagination] = None
     consent: Optional[DciConsent] = None

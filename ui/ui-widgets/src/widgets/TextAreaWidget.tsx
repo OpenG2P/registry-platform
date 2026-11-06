@@ -55,7 +55,7 @@ export const TextAreaWidget = ({ config }: TextAreaWidgetProps) => {
       newValue = newValue.slice(0, maxLength);
     }
 
-    onChange(newValue);
+    onChange(newValue === '' ? null : newValue);
   }, [formatConfig, validationConfig, onChange]);
 
   const showCharCounter = formatConfig?.showCharCounter || false;

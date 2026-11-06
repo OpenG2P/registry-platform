@@ -68,6 +68,7 @@ function SortableRow({
 
   const style: React.CSSProperties = {
     marginLeft: `${depth * 16}px`,
+    width: `calc(100% - ${depth * 16}px)`,
     marginTop: '4px',
     padding: '8px 12px',
     borderRadius: '4px',
@@ -81,11 +82,14 @@ function SortableRow({
     background: 'var(--owt-color-bg)',
     opacity: isDragging ? 0.6 : 1,
     transform: CSS.Transform.toString(transform),
+    minWidth: 0,
+    maxWidth: '100%',
+    boxSizing: 'border-box',
   };
 
   return (
     <div ref={setNodeRef} style={style} onClick={onClick}>
-      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 auto' }}>
         <span
           {...attributes}
           {...listeners}
@@ -94,13 +98,25 @@ function SortableRow({
             userSelect: 'none',
             color: 'var(--owt-color-text-muted)',
             fontSize: '14px',
+            flexShrink: 0,
           }}
           title={dragTitle}
           onClick={(e) => e.stopPropagation()}
         >
           ⠿
         </span>
-        <span style={{ fontSize: '13px', fontWeight: selected ? 700 : 500, color: 'var(--owt-color-text)' }}>
+        <span
+          title={label}
+          style={{
+            fontSize: '13px',
+            fontWeight: selected ? 700 : 500,
+            color: 'var(--owt-color-text)',
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
           {label}
         </span>
       </span>
@@ -235,10 +251,23 @@ export const SectionTree: React.FC<SectionTreeProps> = ({
             border: '1px solid var(--owt-color-info)',
             marginBottom: '10px',
             cursor: 'pointer',
+            minWidth: 0,
           }}
           onClick={() => onSelectNode(sectionNode)}
         >
-          <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--owt-color-text)' }}>
+          <span
+            title={`📁 ${sectionNode.label}`}
+            style={{
+              display: 'block',
+              fontSize: '13px',
+              fontWeight: 700,
+              color: 'var(--owt-color-text)',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             📁 {sectionNode.label}
           </span>
         </div>

@@ -98,7 +98,7 @@ const ScoreDefinitionAttributesPage = () => {
 
     if (!scoreDetails) {
         return (
-            <div className="min-h-screen bg-secondary-first px-7.5 pt-10">
+            <div className="min-h-screen bg-secondary-first px-3 pt-4 sm:px-6 sm:pt-6 lg:px-7.5 lg:pt-10">
                 <p className="text-neutral-first">{t('score_definition_not_found')}</p>
             </div>
         );
@@ -106,7 +106,7 @@ const ScoreDefinitionAttributesPage = () => {
 
     return (
         <>
-            <div className="pt-10 px-7.5 mb-6">
+            <div className="mb-6 px-3 pt-4 sm:px-6 sm:pt-6 lg:px-7.5 lg:pt-10">
                 <BreadcrumbBar breadcrumb={breadcrumb} />
             </div>
 

@@ -122,8 +122,8 @@ export default function ExportQueuePanel({
                     className="pointer-events-auto w-full max-w-5xl max-h-[92vh] bg-neutral-second rounded-[10px] shadow-[0_24px_64px_rgba(0,0,0,0.28)] flex flex-col"
                     onClick={(event) => event.stopPropagation()}
                 >
-                    <div className="flex items-center justify-between px-5 py-4 border-b border-secondary-second shrink-0">
-                        <h2 className="text-[20px] font-semibold text-primary-second">
+                    <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-secondary-second px-4 py-4 sm:px-5">
+                        <h2 className="min-w-0 text-[18px] font-semibold text-primary-second sm:text-[20px]">
                             {t.has('export_history')
                                 ? t('export_history')
                                 : 'Export History'}

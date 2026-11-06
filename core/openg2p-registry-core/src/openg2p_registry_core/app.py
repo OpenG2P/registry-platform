@@ -4,6 +4,7 @@ import logging
 
 from openg2p_fastapi_common.app import Initializer as BaseInitializer
 from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
+from openg2p_notification.app import Initializer as NotificationInitializer
 
 from .cache import init_cache
 from .config import Settings
@@ -200,6 +201,7 @@ class Initializer(BaseInitializer):
         ApplicationReferenceGenerator(_config.application_reference_format)
         KeymanagerCryptoHelper()
         AweHelper()
+        NotificationInitializer()
 
         # Factories
         G2PRegisterDomainFactory()

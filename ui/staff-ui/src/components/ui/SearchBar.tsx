@@ -10,6 +10,7 @@ interface SearchBarProps {
     category: string;
     onSearch: (value: string, category: string) => void;
     iconSize?: number;
+    iconClassName?: string;
     pxClass?: string;
     textClass?: string;
 }
@@ -20,6 +21,7 @@ const SearchBar = ({
     category,
     onSearch,
     iconSize = 24,
+    iconClassName,
     pxClass = "px-2",
     textClass = "text-[20px]"
 }: SearchBarProps) => {
@@ -27,25 +29,26 @@ const SearchBar = ({
     const [value, setValue] = useState(searchValue || "");
 
     return (
-        <div className={`flex flex-1 items-center ${pxClass} py-1`}>
+        <div className={`flex min-w-0 flex-1 items-center ${pxClass} py-1`}>
             <input
                 type="text"
                 placeholder={placeholder}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && onSearch(value, category)}
-                className={`border-none outline-none flex-1 bg-transparent px-2 pl-3 py-0 font-normal text-neutral-first placeholder-neutral-first/50 ${textClass}`}
+                className={`min-w-0 border-none outline-none flex-1 bg-transparent px-2 pl-3 py-0 font-normal text-neutral-first placeholder-neutral-first/50 ${textClass}`}
             />
 
             <button
                 onClick={() => onSearch(value, category)}
-                className="pl-1 pr-3 text-neutral-first"
+                className="shrink-0 pl-1 pr-3 text-neutral-first"
             >
                 <Image
                     src="/images/common/search_icon.png"
-                    width={iconSize}
-                    height={iconSize}
+                    width={iconClassName ? 24 : iconSize}
+                    height={iconClassName ? 24 : iconSize}
                     alt={t('search')}
+                    className={iconClassName}
                 />
             </button>
         </div>

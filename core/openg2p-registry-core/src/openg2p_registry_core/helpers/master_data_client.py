@@ -234,6 +234,20 @@ class MasterDataClient:
         self._last_error_log = 0.0
         self.stats = {"requests": 0, "token_requests": 0, "stale_served": 0}
 
+    async def get_staff_access_token(self) -> Optional[str]:
+        """The client-credentials token this client uses, for other staff calls
+        (e.g. starting an AWE change request). None when no token URL is set or
+        the token endpoint fails."""
+        http, owned = self._client_for_loop()
+        try:
+            return await self._access_token(http)
+        except MasterDataError as error:
+            _logger.warning("Staff access token unavailable: %s", error)
+            return None
+        finally:
+            if owned:
+                await http.aclose()
+
     # ================================================================ plumbing
 
     def _client_for_loop(self) -> tuple[httpx.AsyncClient, bool]:

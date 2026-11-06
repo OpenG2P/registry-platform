@@ -31,14 +31,14 @@ export default function ProfileDropdown() {
         <div ref={dropdownRef} className="relative">
             <button
                 onClick={toggleDropdown}
-                className="flex items-center gap-3 px-1 py-1 bg-neutral-second text-sm font-medium text-neutral-first rounded-md transition cursor-pointer"
+                aria-label={displayName}
+                className="flex items-center gap-2 md:gap-3 px-1 py-1 bg-neutral-second text-sm font-medium text-neutral-first rounded-md transition cursor-pointer"
             >
-                <span className="text-[16px] text-neutral-first font-normal">
-                    {/* in place of use set the actual use name  */}
+                <span className="hidden md:inline text-[16px] text-neutral-first font-normal">
                     <span className="font-medium">{displayName}</span>
                 </span>
 
-                <div className="w-9.5 h-9.5 rounded-full overflow-hidden drop-shadow-[0_4px_20px_rgba(0,0,0,0.25)]">
+                <div className="h-9.5 w-9.5 shrink-0 overflow-hidden rounded-full drop-shadow-[0_4px_20px_rgba(0,0,0,0.25)]">
                     <Image
                         src={avatarSrc}
                         alt="User Avatar"

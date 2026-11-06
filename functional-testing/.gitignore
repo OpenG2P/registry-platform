@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+htmlcov/
+.coverage
+test-results/
+playwright-report/
+ui/node_modules/
+ui/.auth/user.json
+ui/fixtures/provisioned.json
+ui/playwright-report/
+ui/test-results/

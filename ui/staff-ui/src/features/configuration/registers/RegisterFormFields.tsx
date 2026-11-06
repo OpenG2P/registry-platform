@@ -90,7 +90,7 @@ export default function RegisterFormFields({
     return (
         <div className="space-y-4">
             <FormSection>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <InputField
                         label={t('register_mnemonic')}
                         placeholder={t('enter_register_name')}
@@ -110,7 +110,7 @@ export default function RegisterFormFields({
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <CustomDropdown
                         label={t('master_register')}
                         placeholder={t('select_master_register')}
@@ -137,7 +137,7 @@ export default function RegisterFormFields({
             </FormSection>
 
             <FormSection>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <CustomDropdown
                         label={t('deduplication_enabled')}
                         value={formData.dedup_is_enabled ? 'true' : 'false'}
@@ -161,7 +161,7 @@ export default function RegisterFormFields({
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <CustomDropdown
                         label={t('functional_id_generation_required')}
                         value={formData.functional_id_generation_required ? 'true' : 'false'}
@@ -188,7 +188,7 @@ export default function RegisterFormFields({
             </FormSection>
 
             <FormSection>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <CustomDropdown
                         label={t('requires_registrant_authentication')}
                         value={formData.requires_registrant_authentication ? 'true' : 'false'}
@@ -213,7 +213,7 @@ export default function RegisterFormFields({
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <InputField
                         label={t('registrant_authentication_validity_days')}
                         type="number"
@@ -244,15 +244,15 @@ export default function RegisterFormFields({
             </FormSection>
 
             <FormSection>
-                <div className="grid grid-cols-4 gap-4 items-start">
-                    <div className="col-span-2">
+                <div className="grid grid-cols-1 gap-4 items-start sm:grid-cols-2">
+                    <div>
                         <label
                             className="block text-[16px] font-medium text-neutral-first truncate"
                             title={t('register_rank')}
                         >
                             {t('register_rank')}
                         </label>
-                        <div className="mt-2 grid grid-cols-2 gap-2 items-center">
+                        <div className="mt-2 grid grid-cols-1 gap-2 items-center sm:grid-cols-2">
                             <InputField
                                 type="number"
                                 placeholder="e.g. 0"
@@ -276,7 +276,7 @@ export default function RegisterFormFields({
                             />
                         </div>
                     </div>
-                    <div className="col-span-2">
+                    <div>
                         <label className="block text-[16px] font-medium text-neutral-first">
                             {t('register_icon')}
                         </label>

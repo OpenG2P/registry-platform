@@ -338,11 +338,11 @@ export default function VersionHistoryPage() {
             {showSkeleton ? (
                 <VersionHistoryPageSkeleton tabs={tabs} />
             ) : (
-                <div className={`flex items-start gap-6 transition-opacity duration-200 ${isContentLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
-                    <div className="w-[75%] flex flex-col gap-6">
+                <div className={`flex flex-col items-stretch gap-6 transition-opacity duration-200 lg:flex-row lg:items-start ${isContentLoading ? 'opacity-60 pointer-events-none' : 'opacity-100'}`}>
+                    <div className="flex w-full min-w-0 flex-col gap-6 lg:flex-1">
                         {hasVersionHistory && (
-                            <div className="bg-neutral-second rounded-[10px] px-6 py-5 flex items-center justify-between">
-                                <div className="flex items-center gap-6">
+                            <div className="flex flex-col gap-4 rounded-[10px] bg-neutral-second px-4 py-5 sm:px-6 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
+                                <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-6">
                                     <CapsuleDropdown
                                         label={t("select_date")}
                                         items={dateOptions}
@@ -368,12 +368,12 @@ export default function VersionHistoryPage() {
                                         value={versionOptions.find(v => v.value === selectedVersionId)?.label}
                                         onChange={onVersionSelect}
                                         key={`${selectedDate}-${selectedSectionId}`}
-                                        maxWidth='w-20'
+                                        maxWidth="sm:w-20"
                                     />
                                 </div>
 
-                                <div className="text-[16px] text-neutral-first font-medium">
-                                    {t("total_versions")} <span className="text-[20px] font-bold text-primary-second">{versionHistory.number_of_versions}</span>
+                                <div className="shrink-0 whitespace-nowrap text-[16px] font-medium text-neutral-first">
+                                    {t("total_versions")} <span className="text-[18px] font-bold text-primary-second sm:text-[20px]">{versionHistory.number_of_versions}</span>
                                 </div>
 
                             </div>
@@ -407,7 +407,7 @@ export default function VersionHistoryPage() {
                     </div>
 
                     {hasVersionHistory && (
-                        <div className="w-[25%]">
+                        <div className="w-full min-w-0 lg:w-[320px] lg:shrink-0">
                             {!!aweRequestId && loadingTasks ? (
                                 <ApprovalListSkeleton />
                             ) : (

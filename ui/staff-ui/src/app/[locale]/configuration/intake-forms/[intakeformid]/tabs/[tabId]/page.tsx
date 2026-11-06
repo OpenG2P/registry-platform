@@ -133,7 +133,7 @@ const IntakeFormTabIdPage = () => {
 
     return (
         <>
-            <div className="pt-10 px-7.5 mb-6">
+            <div className="mb-6 px-3 pt-10 sm:px-6 lg:px-7.5">
                 <BreadcrumbBar breadcrumb={breadcrumb} />
             </div>
 
@@ -148,14 +148,12 @@ const IntakeFormTabIdPage = () => {
                 onView={() => setModalType('view')}
             />
 
-            <div className=" ml-4 mt-4 px-7.5">
-                <div className="flex justify-between items-center h-14">
-
-
-                    {/* TopBar */}
-                    <div className="font-medium text-[20px]">{t('intake_form_tab_sections')}</div>
-                    <div className="flex items-center h-full">
+            <div className="mt-4 px-3 sm:px-6 lg:px-7.5">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 break-words font-medium text-[20px]">{t('intake_form_tab_sections')}</div>
+                    <div className="min-w-0 w-full sm:w-auto">
                         <TopBar
+                            embedded
                             breadcrumb={[]}
                             showFilters={false}
                             showPagination={true}

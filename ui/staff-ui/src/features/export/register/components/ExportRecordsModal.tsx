@@ -123,7 +123,7 @@ export default function ExportRecordsModal({
                             <p className="text-[15px] font-medium text-neutral-first mb-2">
                                 {t.has('export_scope') ? t('export_scope') : 'Export scope'}
                             </p>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <RadioOption
                                     name="export-scope"
                                     value="all"
@@ -158,7 +158,7 @@ export default function ExportRecordsModal({
                             <p className="text-[15px] font-medium text-neutral-first mb-2">
                                 {t.has('export_format') ? t('export_format') : 'Export format'}
                             </p>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <RadioOption
                                     name="export-format"
                                     value="XLSX"
@@ -177,7 +177,7 @@ export default function ExportRecordsModal({
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 px-5 py-3 border-t border-secondary-second shrink-0">
+                    <div className="flex shrink-0 flex-wrap justify-end gap-3 border-t border-secondary-second px-5 py-3">
                         <button
                             type="button"
                             onClick={onClose}

@@ -13,7 +13,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
     const origin = await getOrigin();
     await clientSafeConfig.fetchRegistryConfig(origin);
-    const config = clientSafeConfig.getAll();
+    const config = await clientSafeConfig.getAll();
 
     let messages = getLanguageMessages(config.language_config);
 

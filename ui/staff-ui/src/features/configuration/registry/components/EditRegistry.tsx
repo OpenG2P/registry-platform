@@ -120,10 +120,10 @@ export default function EditRegistry({
     const isHorizontalLogo = logoDisplaySize.isHorizontal;
 
     const logoOverlayButtonClass =
-        'flex items-center justify-center gap-2 w-23.75 py-1.5 bg-neutral-second rounded-[10px] text-primary-second shadow-md hover:bg-secondary-first transition-all active:scale-95';
+        'flex items-center justify-center gap-2 py-1.5 bg-neutral-second rounded-[10px] text-primary-second shadow-md hover:bg-secondary-first transition-all active:scale-95';
 
     const formBody = (
-        <div className="p-8 pb-12 flex flex-col gap-8">
+        <div className="p-4 pb-8 sm:p-8 sm:pb-12 flex flex-col gap-8">
             <div className="flex flex-col lg:flex-row gap-8 items-start w-full">
                 <div className="flex flex-col gap-3 min-w-0 w-full lg:w-auto lg:max-w-[min(100%,28rem)]">
                     <div className="flex flex-col gap-0.5">
@@ -160,7 +160,7 @@ export default function EditRegistry({
                             <button
                                 type="button"
                                 onClick={() => triggerUpload('logo')}
-                                className={logoOverlayButtonClass}
+                                className={`${logoOverlayButtonClass} w-23.75`}
                             >
                                 <Upload size={15} strokeWidth={2.5} />
                                 <span className="text-[13px] leading-none">{t('upload')}</span>
@@ -168,7 +168,7 @@ export default function EditRegistry({
                             <button
                                 type="button"
                                 onClick={() => setImage(BLANK_LOGO)}
-                                className={logoOverlayButtonClass}
+                                className={`${logoOverlayButtonClass} w-23.75`}
                             >
                                 <Trash2 size={15} strokeWidth={2.5} />
                                 <span className="text-[13px] leading-none">{t('remove')}</span>
@@ -179,7 +179,7 @@ export default function EditRegistry({
                         <button
                             type="button"
                             onClick={() => triggerUpload('logo')}
-                            className={`${logoOverlayButtonClass} flex-1`}
+                            className={`${logoOverlayButtonClass} min-w-0 flex-1`}
                         >
                             <Upload size={15} strokeWidth={2.5} />
                             <span className="text-[13px] leading-none">{t('upload')}</span>
@@ -187,7 +187,7 @@ export default function EditRegistry({
                         <button
                             type="button"
                             onClick={() => setImage(BLANK_LOGO)}
-                            className={logoOverlayButtonClass}
+                            className={`${logoOverlayButtonClass} shrink-0 px-3`}
                             aria-label={t('remove')}
                         >
                             <Trash2 size={15} strokeWidth={2.5} />
@@ -227,7 +227,7 @@ export default function EditRegistry({
                                 <button
                                     type="button"
                                     onClick={() => triggerUpload('favicon')}
-                                    className={logoOverlayButtonClass}
+                                    className={`${logoOverlayButtonClass} w-23.75`}
                                 >
                                     <Upload size={15} strokeWidth={2.5} />
                                     <span className="text-[13px] leading-none">{t('upload')}</span>
@@ -235,18 +235,18 @@ export default function EditRegistry({
                                 <button
                                     type="button"
                                     onClick={() => setFavicon(BLANK_LOGO)}
-                                    className={logoOverlayButtonClass}
+                                    className={`${logoOverlayButtonClass} w-23.75`}
                                 >
                                     <Trash2 size={15} strokeWidth={2.5} />
                                     <span className="text-[13px] leading-none">{t('remove')}</span>
                                 </button>
                             </div>
                         </div>
-                        <div className="flex gap-2 md:hidden w-30">
+                        <div className="flex gap-2 md:hidden w-full">
                             <button
                                 type="button"
                                 onClick={() => triggerUpload('favicon')}
-                                className={`${logoOverlayButtonClass} flex-1`}
+                                className={`${logoOverlayButtonClass} min-w-0 flex-1`}
                             >
                                 <Upload size={15} strokeWidth={2.5} />
                                 <span className="text-[13px] leading-none">{t('upload')}</span>
@@ -254,7 +254,7 @@ export default function EditRegistry({
                             <button
                                 type="button"
                                 onClick={() => setFavicon(BLANK_LOGO)}
-                                className={logoOverlayButtonClass}
+                                className={`${logoOverlayButtonClass} shrink-0 px-3`}
                                 aria-label={t('remove')}
                             >
                                 <Trash2 size={15} strokeWidth={2.5} />
@@ -297,22 +297,22 @@ export default function EditRegistry({
         return (
             <>
                 <div className="bg-neutral-second rounded-[10px] overflow-visible shadow-sm border border-secondary-second/40">
-                    <div className="px-8 py-5 border-b border-secondary-second flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <h2 className="text-[18px] font-bold text-neutral-first m-0 truncate">
+                    <div className="px-4 py-5 sm:px-8 border-b border-secondary-second flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <h2 className="text-[18px] font-bold text-neutral-first m-0 min-w-0 truncate" title={t('edit_registry_details')}>
                             {t('edit_registry_details')}
                         </h2>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
                             <button
                                 type="button"
                                 onClick={onCancel}
-                                className="h-10 w-32 rounded-[10px] bg-secondary-second text-neutral-first/70 text-sm font-semibold hover:bg-secondary-third transition-colors"
+                                className="h-10 flex-1 sm:flex-none sm:w-32 rounded-[10px] bg-secondary-second text-neutral-first/70 text-sm font-semibold hover:bg-secondary-third transition-colors"
                             >
                                 {t('cancel')}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => onSave(name, image, favicon, selectedThemeId, selectedLanguageId)}
-                                className="h-10 w-32 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold hover:bg-neutral-first/90 transition-colors shadow-lg"
+                                className="h-10 flex-1 sm:flex-none sm:w-32 rounded-[10px] bg-neutral-first text-neutral-second text-sm font-semibold hover:bg-neutral-first/90 transition-colors shadow-lg"
                             >
                                 {t('save_changes')}
                             </button>
@@ -335,10 +335,10 @@ export default function EditRegistry({
 
     return (
         <>
-            <div className="bg-primary-first/20 rounded-[10px] p-8 border-2 border-dashed border-primary-second w-full flex flex-col font-roboto">
+            <div className="bg-primary-first/20 rounded-[10px] p-4 sm:p-8 border-2 border-dashed border-primary-second w-full flex flex-col font-roboto">
                 {formBody}
                 <div className="w-full h-px bg-primary-first my-6" />
-                <div className="flex gap-3 px-8 pb-2">
+                <div className="flex gap-3 px-4 sm:px-8 pb-2">
                     <button
                         type="button"
                         onClick={onCancel}

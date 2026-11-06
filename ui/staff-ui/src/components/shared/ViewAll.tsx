@@ -27,7 +27,7 @@ export default function ViewAll({
         <div className="flex justify-start mt-5">
             <Link
                 href={href}
-                className="text-[14px] flex items-center font-medium px-3 py-1 rounded-[10px] transition-colors duration-200"
+                className="inline-flex shrink-0 items-center whitespace-nowrap px-3 py-1 text-[14px] font-medium rounded-[10px] transition-colors duration-200"
                 style={{
                     backgroundColor: isHovered && hoverBgColor ? hoverBgColor : bgColor,
                     color: isHovered && hoverTextColor ? hoverTextColor : textColor
@@ -41,7 +41,7 @@ export default function ViewAll({
                     alt="arrow"
                     width={12}
                     height={12}
-                    className="ml-1.5"
+                    className="ml-1.5 h-2.5 w-2.5 sm:h-3 sm:w-3"
                 />
             </Link>
         </div>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { tSchema, toTitleCase } from '../utils/tSchema';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
@@ -75,13 +76,12 @@ const RecordDisplayPanel = ({
 
   const column = (showDivider: boolean, isFirst: boolean, children: React.ReactNode) => (
     <div
-      className="relative min-w-0 overflow-hidden"
-      style={{ paddingRight: showDivider ? '40px' : undefined, paddingLeft: isFirst ? undefined : '40px' }}
+      className={`register-lookup-column relative min-w-0 overflow-hidden${showDivider ? ' register-lookup-column-pad-right' : ''}${isFirst ? '' : ' register-lookup-column-pad-left'}`}
     >
       {children}
       {showDivider && (
         <div
-          className="absolute right-0 top-0 bottom-[5px] w-px"
+          className="register-lookup-column-divider absolute right-0 top-0 bottom-[5px] w-px"
           style={{
             backgroundColor: isEditMode
               ? 'var(--owt-color-primary)'
@@ -119,10 +119,48 @@ const RecordDisplayPanel = ({
           text-overflow: ellipsis;
           white-space: nowrap;
         }
+        .register-lookup-record-panel {
+          display: grid;
+          width: 100%;
+          min-width: 0;
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .register-lookup-column-divider {
+          display: none;
+        }
+        @media (min-width: 640px) {
+          .register-lookup-record-panel {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+          .register-lookup-column-pad-right {
+            padding-right: 40px;
+          }
+          .register-lookup-column-pad-left {
+            padding-left: 40px;
+          }
+          .register-lookup-column-divider {
+            display: block;
+          }
+        }
+        @media (max-width: 639px) {
+          .register-lookup-record-panel .DisplayFieldWidget > .text-base.owt-field-label,
+          .register-lookup-record-panel .DisplayFieldWidget > .text-base.owt-text-muted {
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: unset !important;
+          }
+          .register-lookup-record-panel .DisplayFieldWidget > .flex-1 > .owt-text {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+          }
+        }
       `}</style>
       <div
-        className={`register-lookup-record-panel grid w-full min-w-0 ${className}`}
-        style={{ gridTemplateColumns: 'repeat(3, minmax(200px, 1fr))' }}
+        className={`register-lookup-record-panel w-full min-w-0 ${className}`}
       >
         {column(true, true, (
           <>
@@ -189,7 +227,7 @@ const PaginationFooter = ({
     <div
       className={
         embedded
-          ? 'flex flex-wrap items-center gap-3 flex-1 min-w-0'
+          ? 'flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between'
           : 'flex flex-wrap items-center justify-between gap-3 px-5 py-3 flex-shrink-0 border-t owt-border'
       }
     >
@@ -199,7 +237,7 @@ const PaginationFooter = ({
           : t?.('common.records', { count: totalCount, defaultValue: `${totalCount} records` })}
         {totalCount > 0 && ` · ${pageStart}-${pageEnd}`}
       </span>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onPrev}
@@ -304,7 +342,7 @@ const ResultsTable = ({
                         : '-'
                       : normalizeDisplayFields(row).find((f) => f.label === col.key)?.value ?? '-';
                   return (
-                    <td key={col.key} className="px-4 py-2 text-sm owt-text whitespace-nowrap">
+                    <td key={col.key} className="whitespace-nowrap px-4 py-2 text-sm owt-text" title={cellValue}>
                       {cellValue}
                     </td>
                   );
@@ -348,11 +386,6 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
   const [pendingRow, setPendingRow] = useState<Record<string, any> | null>(null);
   const [appliedRecord, setAppliedRecord] = useState<Record<string, any> | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
-  const [modalPos, setModalPos] = useState({ x: 80, y: 80 });
-  const [modalSize, setModalSize] = useState({ w: 860, h: 520 });
-
-  const isDragging = useRef(false);
-  const dragOrigin = useRef({ mouseX: 0, mouseY: 0, posX: 0, posY: 0 });
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hydratedValueRef = useRef<unknown>(null);
 
@@ -425,23 +458,6 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
     [fetchRecords, pageSize],
   );
 
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      setModalPos({
-        x: dragOrigin.current.posX + (e.clientX - dragOrigin.current.mouseX),
-        y: dragOrigin.current.posY + (e.clientY - dragOrigin.current.mouseY),
-      });
-    };
-    const onUp = () => { isDragging.current = false; };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-    return () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-  }, []);
-
   const hasValue = value !== null && value !== undefined && value !== '';
 
   const applySelection = (row: Record<string, any>) => {
@@ -452,10 +468,6 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
   };
 
   const openLookup = () => {
-    const w = Math.min(Math.round(window.innerWidth * 0.82), 940);
-    const h = Math.min(Math.round(window.innerHeight * 0.72), 560);
-    setModalPos({ x: Math.round((window.innerWidth - w) / 2), y: Math.round((window.innerHeight - h) / 2) });
-    setModalSize({ w, h });
     setIsOpen(true);
     setSearchText('');
     setSearchResults([]);
@@ -577,57 +589,48 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
         </div>
       ) : null}
 
-      {!isReadonly && isOpen && (
-        <>
+      {!isReadonly && isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ backgroundColor: 'var(--owt-color-overlay)', padding: 12 }}
+          onClick={() => { setIsOpen(false); onBlur(); }}
+        >
           <div
-            className="fixed inset-0 z-50"
-            style={{ backgroundColor: 'var(--owt-color-overlay)' }}
-            onClick={() => { setIsOpen(false); onBlur(); }}
-          />
-          <div
-            className={`${themeRoot.className} flex flex-col overflow-hidden`}
+            className={`${themeRoot.className} flex min-h-0 min-w-0 flex-col overflow-hidden`}
             style={{
               ...themeRoot.style,
-              position: 'fixed',
-              top: modalPos.y,
-              left: modalPos.x,
-              width: modalSize.w,
-              height: modalSize.h,
-              zIndex: 51,
-              resize: 'both',
-              minWidth: 340,
-              minHeight: 260,
-              maxWidth: '96vw',
-              maxHeight: '92vh',
+              width: 'min(940px, calc(100vw - 24px))',
+              height: 'min(560px, calc(100svh - 24px))',
+              maxWidth: 'calc(100vw - 24px)',
+              maxHeight: 'calc(100svh - 24px)',
+              flexShrink: 0,
               backgroundColor: 'var(--owt-color-bg)',
-              borderRadius: 'var(--owt-widget-card-border-radius)',
+              borderRadius: '10px',
               boxShadow: '0 24px 64px var(--owt-color-shadow)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              onMouseDown={(e) => {
-                e.preventDefault();
-                isDragging.current = true;
-                dragOrigin.current = { mouseX: e.clientX, mouseY: e.clientY, posX: modalPos.x, posY: modalPos.y };
-              }}
-              className="flex items-center justify-between px-5 py-4 flex-shrink-0 select-none border-b owt-border cursor-grab"
+              className="flex shrink-0 select-none items-center justify-between gap-3 border-b owt-border px-3 py-3 sm:px-5 sm:py-4"
             >
-              <h3 className="text-lg font-semibold owt-text">
+              <h3
+                className="min-w-0 truncate text-base font-semibold owt-text sm:text-lg"
+                title={t?.('common.selectTitle', { label, defaultValue: `Select ${label}` })}
+              >
                 {t?.('common.selectTitle', { label, defaultValue: `Select ${label}` })}
               </h3>
               <button
                 type="button"
                 onClick={() => { setIsOpen(false); onBlur(); }}
                 onMouseDown={(e) => e.stopPropagation()}
-                className="p-0 border-0 bg-transparent cursor-pointer"
+                className="shrink-0 border-0 bg-transparent p-0 cursor-pointer"
                 aria-label={t?.('common.close', { defaultValue: 'Close' })}
               >
-                <img src={closeIcon} alt="" className="w-5 h-5 opacity-60" />
+                <img src={closeIcon} alt="" className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
 
-            <div className="px-5 py-3 flex-shrink-0 border-b owt-border">
+            <div className="shrink-0 border-b owt-border px-3 py-3 sm:px-5">
               <div className={owtFieldInputClass({ className: 'flex items-center gap-2 px-3 h-[30px] rounded-[10px]' })}>
                 <input
                   ref={searchInputRef}
@@ -641,7 +644,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                     }
                   }}
                   placeholder={searchPlaceholder}
-                  className="flex-1 outline-none text-sm owt-text bg-transparent"
+                  className="min-w-0 flex-1 bg-transparent text-sm owt-text outline-none"
                 />
                 <button
                   type="button"
@@ -654,7 +657,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               </div>
             </div>
 
-            <div className="overflow-auto flex-1">
+            <div className="min-w-0 flex-1 overflow-auto">
               {searchResults.length === 0 ? (
                 <p className="text-center text-sm owt-text-muted py-10">
                   {searchText
@@ -671,11 +674,7 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
               )}
             </div>
 
-            <div
-              className={`flex-shrink-0 flex flex-wrap items-center gap-3 px-5 py-3 border-t owt-border ${
-                totalCount !== null ? 'justify-between' : 'justify-end'
-              }`}
-            >
+            <div className="flex shrink-0 flex-col gap-3 border-t owt-border px-3 py-3 sm:px-5">
               {totalCount !== null && (
                 <PaginationFooter
                   embedded
@@ -688,18 +687,21 @@ export const RegisterLookupWidget = ({ config }: { config: BaseWidgetConfig }) =
                   onNext={() => currentPage < totalPages && runSearch(searchText, currentPage + 1)}
                 />
               )}
-              <button
-                type="button"
-                onClick={() => pendingRow && applySelection(pendingRow)}
-                disabled={!pendingRow}
-                className="px-4 h-9 text-sm font-medium rounded-[10px] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
-                style={{ backgroundColor: 'var(--owt-color-info)', color: 'var(--owt-color-bg)' }}
-              >
-                {selectRecordLabel}
-              </button>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => pendingRow && applySelection(pendingRow)}
+                  disabled={!pendingRow}
+                  className="h-9 shrink-0 rounded-[10px] px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{ backgroundColor: 'var(--owt-color-info)', color: 'var(--owt-color-bg)' }}
+                >
+                  {selectRecordLabel}
+                </button>
+              </div>
             </div>
           </div>
-        </>
+        </div>,
+        document.body,
       )}
     </div>
   );

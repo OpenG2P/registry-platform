@@ -67,7 +67,7 @@ export default function NewIntakeFormSubmissionPage() {
                 showCapsule={false}
             />
 
-            <div className="mx-7.5">
+            <div className="mx-3 sm:mx-6 lg:mx-7.5">
                 {loading ? (
                     <div className="flex items-center justify-center py-20">
                         <span className="text-neutral-first/50">{t('loading')}</span>

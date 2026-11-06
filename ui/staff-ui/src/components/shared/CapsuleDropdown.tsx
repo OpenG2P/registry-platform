@@ -1,7 +1,7 @@
 'use client';
 
 import { useClickOutside } from "@/shared/hooks";
-import Image from "next/image";
+import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -49,27 +49,25 @@ export default function CapsuleDropdown(props: CapsuleDropdownProps) {
     }
 
     return (
-        <div className="flex items-center gap-3">
-            <span className="text-[16px] w-25 text-neutral-first font-medium whitespace-nowrap truncate" title={label}>
+        <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+            <span className="w-full min-w-0 truncate text-[16px] font-medium text-neutral-first sm:w-25" title={label}>
                 {label}
             </span>
 
-            <div ref={dropdownRef} className={`relative z-10 ${maxWidth || 'w-35'}`}>
+            <div ref={dropdownRef} className={`relative z-10 w-full min-w-0 ${maxWidth || 'sm:w-35'}`}>
                 <div
                     onClick={handleToggle}
-                    className={`w-full flex items-center justify-between gap-2.5 px-4 py-1 bg-neutral-second border border-primary-second rounded-[10px] truncate ${open ? 'border-b-transparent rounded-b-none ' : ''}`}
+                    className={`flex w-full min-w-0 items-center justify-between gap-2.5 rounded-[10px] border border-primary-second bg-neutral-second px-4 py-1 ${open ? 'rounded-b-none border-b-transparent' : ''}`}
                     title={selected}
                 >
-                    <span className={`text-[16px] font-medium ${open ? 'text-neutral-first/50' : 'text-neutral-first'} truncate`}>
+                    <span className={`min-w-0 truncate text-[16px] font-medium ${open ? 'text-neutral-first/50' : 'text-neutral-first'}`} title={selected ?? t('select')}>
                         {selected ?? t('select')}
                     </span>
 
-                    <Image
-                        src="/images/common/down_arrow.png"
-                        alt="open"
-                        width={14}
-                        height={8}
-                        className={`h-auto transition-transform ${open ? 'rotate-180' : ''}`}
+                    <ChevronDown
+                        aria-hidden="true"
+                        strokeWidth={2}
+                        className={`h-3 w-3 shrink-0 text-neutral-first transition-transform sm:h-4 sm:w-4 ${open ? 'rotate-180' : ''}`}
                     />
                 </div>
 

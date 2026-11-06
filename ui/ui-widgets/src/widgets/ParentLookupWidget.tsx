@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { tSchema, toTitleCase } from '../utils/tSchema';
 import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
@@ -147,11 +148,6 @@ export const ParentLookupWidget = ({
   const [pendingRow, setPendingRow] = useState<Record<string, any> | null>(null);
   const [appliedRecord, setAppliedRecord] = useState<Record<string, any> | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
-  const [modalPos, setModalPos] = useState({ x: 80, y: 80 });
-  const [modalSize, setModalSize] = useState({ w: 860, h: 520 });
-
-  const isDragging = useRef(false);
-  const dragOrigin = useRef({ mouseX: 0, mouseY: 0, posX: 0, posY: 0 });
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hydratedValueRef = useRef<unknown>(null);
 
@@ -226,25 +222,6 @@ export const ParentLookupWidget = ({
     [fetchRecords, pageSize],
   );
 
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      setModalPos({
-        x: dragOrigin.current.posX + (e.clientX - dragOrigin.current.mouseX),
-        y: dragOrigin.current.posY + (e.clientY - dragOrigin.current.mouseY),
-      });
-    };
-    const onUp = () => {
-      isDragging.current = false;
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-    return () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-    };
-  }, []);
-
   const hasValue = value !== null && value !== undefined && value !== '';
 
   const applySelection = (row: Record<string, any>) => {
@@ -263,13 +240,6 @@ export const ParentLookupWidget = ({
   };
 
   const openLookup = () => {
-    const w = Math.min(Math.round(window.innerWidth * 0.82), 940);
-    const h = Math.min(Math.round(window.innerHeight * 0.72), 560);
-    setModalPos({
-      x: Math.round((window.innerWidth - w) / 2),
-      y: Math.round((window.innerHeight - h) / 2),
-    });
-    setModalSize({ w, h });
     setIsOpen(true);
     setSearchText('');
     setSearchResults([]);
@@ -463,51 +433,37 @@ export const ParentLookupWidget = ({
         </div>
       )}
 
-      {isOpen && (
-        <>
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          style={{ backgroundColor: 'var(--owt-color-overlay)', padding: 12 }}
+          onClick={() => {
+            setIsOpen(false);
+            onBlur();
+          }}
+        >
           <div
-            className="fixed inset-0 z-[100]"
-            style={{ backgroundColor: 'var(--owt-color-overlay)' }}
-            onClick={() => {
-              setIsOpen(false);
-              onBlur();
-            }}
-          />
-          <div
-            className={`${themeRoot.className} flex flex-col overflow-hidden`}
+            className={`${themeRoot.className} flex min-h-0 min-w-0 flex-col overflow-hidden`}
             style={{
               ...themeRoot.style,
-              position: 'fixed',
-              top: modalPos.y,
-              left: modalPos.x,
-              width: modalSize.w,
-              height: modalSize.h,
-              zIndex: 101,
-              resize: 'both',
-              minWidth: 340,
-              minHeight: 260,
-              maxWidth: '96vw',
-              maxHeight: '92vh',
+              width: 'min(940px, calc(100vw - 24px))',
+              height: 'min(560px, calc(100svh - 24px))',
+              maxWidth: 'calc(100vw - 24px)',
+              maxHeight: 'calc(100svh - 24px)',
+              flexShrink: 0,
               backgroundColor: 'var(--owt-color-bg)',
-              borderRadius: 'var(--owt-widget-card-border-radius)',
+              borderRadius: '10px',
               boxShadow: '0 24px 64px var(--owt-color-shadow)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div
-              onMouseDown={(e) => {
-                e.preventDefault();
-                isDragging.current = true;
-                dragOrigin.current = {
-                  mouseX: e.clientX,
-                  mouseY: e.clientY,
-                  posX: modalPos.x,
-                  posY: modalPos.y,
-                };
-              }}
-              className="flex items-center justify-between px-5 py-4 flex-shrink-0 select-none border-b owt-border cursor-grab"
+              className="flex shrink-0 select-none items-center justify-between gap-3 border-b owt-border px-3 py-3 sm:px-5 sm:py-4"
             >
-              <h3 className="text-lg font-semibold owt-text">
+              <h3
+                className="min-w-0 truncate text-base font-semibold owt-text sm:text-lg"
+                title={t?.('common.selectTitle', { label, defaultValue: `Select ${label}` })}
+              >
                 {t?.('common.selectTitle', { label, defaultValue: `Select ${label}` })}
               </h3>
               <button
@@ -517,14 +473,14 @@ export const ParentLookupWidget = ({
                   onBlur();
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
-                className="p-0 border-0 bg-transparent cursor-pointer"
+                className="shrink-0 border-0 bg-transparent p-0 cursor-pointer"
                 aria-label={t?.('common.close', { defaultValue: 'Close' })}
               >
-                <img src={closeIcon} alt="" className="w-5 h-5 opacity-60" />
+                <img src={closeIcon} alt="" className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
             </div>
 
-            <div className="px-5 py-3 flex-shrink-0 border-b owt-border">
+            <div className="shrink-0 border-b owt-border px-3 py-3 sm:px-5">
               <div className={owtFieldInputClass({ className: 'flex items-center gap-2 px-3 h-[30px] rounded-[10px]' })}>
                 <input
                   ref={searchInputRef}
@@ -538,7 +494,7 @@ export const ParentLookupWidget = ({
                     }
                   }}
                   placeholder={searchPlaceholder}
-                  className="flex-1 outline-none text-sm owt-text bg-transparent"
+                  className="min-w-0 flex-1 bg-transparent text-sm owt-text outline-none"
                 />
                 <button
                   type="button"
@@ -551,7 +507,7 @@ export const ParentLookupWidget = ({
               </div>
             </div>
 
-            <div className="overflow-auto flex-1">
+            <div className="min-w-0 flex-1 overflow-auto">
               {searchResults.length === 0 ? (
                 <p className="text-center text-sm owt-text-muted py-10">
                   {searchText
@@ -598,10 +554,13 @@ export const ParentLookupWidget = ({
                               isSelected ? 'owt-highlight' : 'owt-highlight-hover'
                             }`}
                           >
-                            <td className="px-4 py-2 text-sm owt-text whitespace-nowrap">
+                            <td className="whitespace-nowrap px-4 py-2 text-sm owt-text" title={parentLabel(row) || '-'}>
                               {parentLabel(row) || '-'}
                             </td>
-                            <td className="px-4 py-2 text-sm owt-text whitespace-nowrap">
+                            <td
+                              className="whitespace-nowrap px-4 py-2 text-sm owt-text"
+                              title={row.internal_record_id != null ? String(row.internal_record_id) : '-'}
+                            >
                               {row.internal_record_id != null
                                 ? String(row.internal_record_id)
                                 : '-'}
@@ -615,13 +574,9 @@ export const ParentLookupWidget = ({
               )}
             </div>
 
-            <div
-              className={`flex-shrink-0 flex flex-wrap items-center gap-3 px-5 py-3 border-t owt-border ${
-                totalCount !== null ? 'justify-between' : 'justify-end'
-              }`}
-            >
+            <div className="flex shrink-0 flex-col gap-3 border-t owt-border px-3 py-3 sm:px-5">
               {totalCount !== null && (
-                <span className="text-sm owt-text-muted">
+                <span className="min-w-0 text-sm owt-text-muted">
                   {totalCount === 1
                     ? t?.('common.record', {
                         count: totalCount,
@@ -638,29 +593,29 @@ export const ParentLookupWidget = ({
                     )}`}
                 </span>
               )}
-              <div className="flex items-center gap-2">
-                {totalCount !== null && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => currentPage > 1 && runSearch(searchText, currentPage - 1)}
-                      disabled={currentPage <= 1}
-                      className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {t?.('common.previous', { defaultValue: 'Prev' })}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        currentPage < totalPages && runSearch(searchText, currentPage + 1)
-                      }
-                      disabled={currentPage >= totalPages}
-                      className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {t?.('common.next', { defaultValue: 'Next' })}
-                    </button>
-                  </>
-                )}
+              {totalCount !== null && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => currentPage > 1 && runSearch(searchText, currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {t?.('common.previous', { defaultValue: 'Prev' })}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      currentPage < totalPages && runSearch(searchText, currentPage + 1)
+                    }
+                    disabled={currentPage >= totalPages}
+                    className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {t?.('common.next', { defaultValue: 'Next' })}
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-wrap justify-end gap-2">
                 {hasValue && (
                   <button
                     type="button"
@@ -686,7 +641,8 @@ export const ParentLookupWidget = ({
               </div>
             </div>
           </div>
-        </>
+        </div>,
+        document.body,
       )}
     </div>
   );

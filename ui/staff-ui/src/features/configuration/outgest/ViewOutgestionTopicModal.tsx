@@ -3,18 +3,17 @@
 import { useTranslations } from 'next-intl';
 import { BaseModal, Field } from '../shared/components';
 import { formatDateTime } from '@/shared/utils/dateUtils';
-
+import { OutgestTopic, resolveTopicType } from '../shared/hooks/useAllOutgestTopics';
 
 interface Props {
     onClose: () => void;
-    data?: any;
+    data?: OutgestTopic | null;
 }
 
-export default function ViewOutgestionTopicModal({
-    onClose,
-    data,
-}: Props) {
+export default function ViewOutgestionTopicModal({ onClose, data }: Props) {
     const t = useTranslations();
+    const topicType = resolveTopicType(data?.topic_type);
+    const isPartner = topicType === 'PARTNER';
 
     return (
         <BaseModal
@@ -23,9 +22,18 @@ export default function ViewOutgestionTopicModal({
             maxWidth="max-w-200"
         >
             <div className="bg-secondary-second/50 px-8 pt-2 pb-4">
-                <Field label={t('register_mnemonic')} value={data?.register_mnemonic} />
+                <Field label={t('topic_type')} value={isPartner ? t('partner') : t('register')} />
 
-                <Field label={t('data_model_mnemonic')} value={data?.data_model_mnemonic} />
+                {isPartner ? (
+                    <>
+                        <Field label={t('partner')} value={data?.partner_name ? t(data.partner_name) : data?.partner_id} />
+                    </>
+                ) : (
+                    <>
+                        <Field label={t('register')} value={data?.register_mnemonic ? t(data.register_mnemonic) : data?.register_mnemonic} />
+                        <Field label={t('data_model')} value={data?.data_model_mnemonic ? t(data.data_model_mnemonic) : data?.data_model_mnemonic} />
+                    </>
+                )}
 
                 <Field label={t('websub_topic')} value={data?.websub_topic} />
 

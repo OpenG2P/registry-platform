@@ -424,12 +424,18 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
         ...themeToCSSVariables(theme),
         flex: '1 1 0%',
         minHeight: 0,
+        minWidth: 0,
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
       }}
     >
-      <style>{OWT_FIELD_STYLES}</style>
+      <style>{`${OWT_FIELD_STYLES}
+        .owt-section-builder {
+          container-type: inline-size;
+          container-name: owt-section-builder;
+        }
+      `}</style>
       {isMaximized && (
         <div
           style={{
@@ -445,19 +451,23 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
         />
       )}
       <div
+        className="owt-section-builder"
         style={{
           display: 'flex',
           flexDirection: 'column',
           flex: isMaximized ? undefined : '1 1 0%',
-          height: isMaximized ? '100vh' : undefined,
-          width: isMaximized ? '100vw' : '100%',
+          height: isMaximized ? '100dvh' : undefined,
+          width: isMaximized ? 'auto' : '100%',
           minHeight: 0,
+          minWidth: 0,
           background: 'var(--owt-color-bg)',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           overflow: 'hidden',
           border: 'none',
           position: isMaximized ? 'fixed' : 'relative',
           top: isMaximized ? 0 : 'auto',
+          right: isMaximized ? 0 : 'auto',
+          bottom: isMaximized ? 0 : 'auto',
           left: isMaximized ? 0 : 'auto',
           zIndex: isMaximized ? 9999 : 'auto',
         }}
@@ -469,15 +479,28 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
             background: 'var(--owt-color-bg)',
             flexShrink: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--owt-color-text)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', flexWrap: 'wrap', minWidth: 0 }}>
+            <div
+              title={t?.('sectionBuilder.title') || 'Section Builder'}
+              style={{
+                fontWeight: 700,
+                fontSize: '14px',
+                color: 'var(--owt-color-text)',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {t?.('sectionBuilder.title') || 'Section Builder'}
             </div>
-            <div style={{ display: 'flex', gap: '6px', background: 'var(--owt-color-bg-alt)', padding: '4px', borderRadius: '9999px' }}>
+            <div style={{ display: 'flex', gap: '6px', flexShrink: 0, background: 'var(--owt-color-bg-alt)', padding: '4px', borderRadius: '9999px' }}>
               <button
                 type="button"
                 onClick={switchToGraphical}
@@ -512,7 +535,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
               </button>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px', flexShrink: 0 }}>
             <button
               type="button"
               onClick={() => setShowPreview(true)}
@@ -632,7 +655,7 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '20px',
+            padding: '12px',
           }}
           onClick={() => setShowPreview(false)}
         >
@@ -641,12 +664,13 @@ export const SectionBuilder: React.FC<SectionBuilderProps> = ({
               background: 'var(--owt-color-bg)',
               borderRadius: '8px',
               width: '100%',
-              minWidth: '700px',
-              maxWidth: '90vw',
-              height: '90vh',
-              maxHeight: '90vh',
+              maxWidth: '900px',
+              minWidth: 0,
+              height: 'min(90dvh, 100%)',
+              maxHeight: '100%',
               display: 'flex',
               flexDirection: 'column',
+              overflow: 'hidden',
               boxShadow: '0 4px 20px var(--owt-color-shadow)',
             }}
             onClick={(e) => e.stopPropagation()}

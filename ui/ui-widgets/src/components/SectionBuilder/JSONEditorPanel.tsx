@@ -202,6 +202,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
         flex: '1 1 0%',
         width: '100%',
         minHeight: 0,
+        minWidth: 0,
         padding: '0 16px 16px',
         boxSizing: 'border-box',
       }}
@@ -213,12 +214,24 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
           flexShrink: 0,
           gap: '12px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--owt-color-text)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 12rem', flexWrap: 'wrap', minWidth: 0 }}>
+          <div
+            title={t?.('sectionBuilder.jsonEditor') || 'JSON Editor'}
+            style={{
+              fontWeight: 600,
+              fontSize: '16px',
+              color: 'var(--owt-color-text)',
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             {t?.('sectionBuilder.jsonEditor') || 'JSON Editor'}
           </div>
           <div
@@ -226,6 +239,7 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
+              minWidth: 0,
               color: statusIsOk ? 'var(--owt-color-success)' : 'var(--owt-color-error)',
             }}
           >
@@ -234,13 +248,25 @@ export const JSONEditorPanel: React.FC<JSONEditorPanelProps> = ({
                 width: '12px',
                 height: '12px',
                 borderRadius: '50%',
+                flexShrink: 0,
                 background: statusIsOk ? 'var(--owt-color-success)' : 'var(--owt-color-error)',
               }}
             />
-            <span style={{ fontSize: '12px' }}>{statusLabel}</span>
+            <span
+              title={statusLabel}
+              style={{
+                fontSize: '12px',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {statusLabel}
+            </span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
           <button
             type="button"
             onClick={handleValidate}

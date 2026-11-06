@@ -139,8 +139,37 @@ export default function MultiSectionAccordionForms({
 
       {activeTab === "intake_forms" && (
         <div>
-          <div className={`flex items-start ${formDetailsCard ? '-mr-7.5' : 'gap-4'}`}>
-            <div className={`flex-1 min-w-0 ${formDetailsCard ? 'pr-4' : ''}`}>
+          <div className={`flex flex-col items-stretch gap-4 lg:flex-row lg:items-start ${formDetailsCard ? 'lg:-mr-7.5 lg:gap-0' : ''}`}>
+            {formDetailsCard && (
+              <div className="order-first w-full lg:hidden">
+                {showFormDetails ? (
+                  <FormDetailsCard
+                    description={intakeFormDescription}
+                    onClose={() => setShowFormDetails(false)}
+                    flushRight={false}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowFormDetails(true)}
+                    className="flex h-[72px] w-full items-center justify-center rounded-[10px] bg-secondary-second focus:outline-none"
+                    aria-label={t('form_details')}
+                  >
+                    <span className="flex h-[34px] w-[34px] items-center justify-center rounded-full bg-primary-second/100">
+                      <Image
+                        src="/images/config/double_right_arrow.png"
+                        alt=""
+                        width={16}
+                        height={16}
+                        className="h-4 w-4 rotate-180"
+                      />
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className={`min-w-0 flex-1 ${formDetailsCard ? 'lg:pr-4' : ''}`}>
               <IntakeFormSections
                 sectionsConfig={sectionsConfig}
                 schemaData={schemaData}
@@ -158,7 +187,7 @@ export default function MultiSectionAccordionForms({
 
             {formDetailsCard && (
               <motion.div
-                className="shrink-0 self-start relative overflow-hidden"
+                className="relative hidden shrink-0 self-start overflow-hidden lg:block"
                 initial={false}
                 animate={{
                   width: showFormDetails ? 350 : 72,

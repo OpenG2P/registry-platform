@@ -30,31 +30,34 @@ const TabsDropdown = ({
     const dropdownRef = useRef<HTMLDivElement>(null);
     const isActiveInDropdown = options.includes(activeTab);
     const t = useTranslations();
+    const visibleLabel = isActiveInDropdown
+        ? labelMap[activeTab]
+        : (isMore ? (t('more') || 'More') : labelMap[activeTab]);
 
     useClickOutside(dropdownRef, () => setIsOpen(false), isOpen);
 
     return (
-        <div className="relative inline-block text-center " ref={dropdownRef}>
+        <div className="relative min-w-0 flex-1 text-center sm:flex-none" ref={dropdownRef}>
             <div>
                 <button
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
-                    title={isActiveInDropdown ? labelMap[activeTab] : undefined}
-                    className={`inline-flex justify-center items-center min-w-30 max-w-45 px-4 py-2 rounded-t-[10px] font-medium text-[18px]
+                    title={visibleLabel}
+                    className={`inline-flex w-full min-w-0 max-w-45 items-center justify-center rounded-t-[10px] px-2 py-2 text-[18px] font-medium sm:w-auto sm:min-w-30 sm:px-4
              ${isActiveInDropdown ? 'bg-primary-first text-neutral-first' : 'bg-secondary-second text-neutral-first '
                         }`}
                 >
-                    <span className="truncate">
-                        {isActiveInDropdown ? labelMap[activeTab] : (isMore ? (t('more') || 'More') : labelMap[activeTab])}
+                    <span className="truncate" title={visibleLabel}>
+                        {visibleLabel}
                     </span>
                     <ChevronDown className={`ml-2 h-6 w-6 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                 </button>
             </div>
 
             {isOpen && (
-                <div className="origin-top-left outline-none absolute left-0 mt-0 min-w-30 max-w-45
-                rounded-b-[10px] rounded-r-[10px] bg-neutral-second border border-primary-first drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]
-                z-50
+                <div className="absolute right-0 left-auto z-50 mt-0 min-w-30 max-w-45 origin-top-right
+                rounded-b-[10px] rounded-l-[10px] border border-primary-first bg-neutral-second outline-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.25)]
+                sm:left-0 sm:right-auto sm:origin-top-left sm:rounded-l-none sm:rounded-r-[10px]
                 ">
                     <div className="py-1">
                         {options.map((option) => (
@@ -90,19 +93,19 @@ export default function ConfigurationTabs({
     const moreTabs = tabKeys.slice(MAX_VISIBLE_TABS);
 
     return (
-        <div className="flex gap-2 items-end h-full">
+        <div className="flex h-full min-w-0 items-end gap-2">
             {inlineTabs.map((key) => (
                 <button
                     key={key}
                     title={tabLabels[key]}
                     onClick={() => setActiveTab(key as any)}
-                    className={`min-w-30 max-w-45 px-4 py-2 rounded-t-[10px] font-medium text-[18px]
+                    className={`min-w-0 max-w-45 flex-1 rounded-t-[10px] px-2 py-2 text-[18px] font-medium sm:min-w-30 sm:flex-none sm:px-4
       ${activeTab === key
                             ? 'bg-primary-first text-neutral-first'
                             : 'bg-secondary-second text-neutral-first'
                         }`}
                 >
-                    <span className="block w-full truncate text-center">
+                    <span className="block w-full truncate text-center" title={tabLabels[key]}>
                         {tabLabels[key]}
                     </span>
                 </button>

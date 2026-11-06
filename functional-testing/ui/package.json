@@ -1,0 +1,16 @@
+{
+  "name": "registry-platform-functional-ui",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "provision": "python3 scripts/provision_fixture.py",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "dotenv": "^16.4.7"
+  }
+}

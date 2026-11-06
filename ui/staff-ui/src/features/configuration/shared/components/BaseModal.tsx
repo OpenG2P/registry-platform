@@ -29,15 +29,18 @@ export default function BaseModal({
     const t = useTranslations();
     return (
         <div className="fixed inset-0 bg-neutral-first/80 z-50 flex items-center justify-center">
-            <div className={`relative w-full ${maxWidth} bg-neutral-second rounded-[10px] border-5 border-primary-first px-8 py-6`}>
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-[24px] text-primary-second font-medium">
+            <div className={`relative w-[calc(100%-1.5rem)] ${maxWidth} bg-neutral-second rounded-[10px] border-5 border-primary-first px-4 py-6 sm:px-8`}>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <h2
+                        className="min-w-0 break-words text-[18px] font-medium text-primary-second sm:text-[20px] lg:text-[24px]"
+                        title={title}
+                    >
                         {title}
                     </h2>
 
                     <button
                         onClick={onClose}
-                        className="opacity-50 hover:opacity-100 transition"
+                        className="shrink-0 opacity-50 hover:opacity-100 transition"
                     >
                         <X size={30} />
                     </button>

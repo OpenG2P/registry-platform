@@ -25,8 +25,9 @@ class Settings(ExtSettings):
     db_port: int = 5432
     db_dbname: str = "registrydb"
 
-    # DCI Expression Search
-    dci_expression_allowed_fields: list[str] = [
+    # Columns a partner may name in any DCI query type and in sort.
+    # The register model's column type is the type; this list is names only.
+    dci_allowed_search_fields: list[str] = [
         "functional_record_id",
         "first_name",
         "middle_name",
@@ -45,6 +46,13 @@ class Settings(ExtSettings):
         "disability_status",
         "displacement_status"
     ]
+
+    # DCI id type -> register column. The column must also be allowlisted.
+    # Lookup is case-insensitive (the spec uses "UIN"; GraphQL samples use "uin").
+    dci_id_type_columns: dict[str, str] = {
+        "UIN": "foundational_id",
+        "FID": "functional_record_id",
+    }
 
     # ------------------------------------------------------------------
     # Partner signature verification (transport) + Consent enforcement

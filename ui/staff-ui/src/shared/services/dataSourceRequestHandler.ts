@@ -19,7 +19,9 @@ export const dataSourceRequestHandler: DataSourceRequestHandler = async (
     options,
 ) => {
     try {
-        const url = `/api/${service}/${endpoint}`;
+        // UI schemas often use backend-style underscores; Next.js API routes are kebab-case.
+        const routeEndpoint = String(endpoint || '').replaceAll('_', '-');
+        const url = `/api/${service}/${routeEndpoint}`;
         const requestMethod = method || 'POST';
 
         const response = await fetch(url, {

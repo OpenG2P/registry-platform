@@ -54,8 +54,8 @@ const SectionConfigurationPage = () => {
     }
 
     return (
-        <div className="flex flex-col flex-1 min-h-0">
-            <div className="pt-4 px-7.5 mb-2 shrink-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="mb-2 shrink-0 px-3 pt-4 sm:px-6 sm:pt-6 lg:px-7.5 lg:pt-10">
                 <BreadcrumbBar breadcrumb={breadcrumb} />
             </div>
 

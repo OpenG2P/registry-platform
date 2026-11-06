@@ -45,7 +45,7 @@ export default function LanguageSelector({
                 onClick={() => !languagesLoading && setIsOpen(!isOpen)}
                 className={`flex items-center justify-between gap-2.5 px-4 py-2 bg-neutral-second border border-primary-second rounded-[10px] cursor-pointer truncate ${isOpen ? 'border-b-transparent rounded-b-none' : ''}`}
             >
-                <div className="flex items-center gap-2 truncate">
+                <div className="flex items-center gap-2 min-w-0">
                     {selectedLanguage?.language_flag_base64 && (
                         <div className="w-6 h-4 relative rounded-sm overflow-hidden shrink-0 border">
                             <Image
@@ -62,7 +62,8 @@ export default function LanguageSelector({
                         </div>
                     )}
                     <span
-                        className={`text-[16px] font-medium truncate ${selectedLanguage ? 'text-neutral-first' : 'text-neutral-first/50'}`}
+                        className={`min-w-0 text-[16px] font-medium truncate ${selectedLanguage ? 'text-neutral-first' : 'text-neutral-first/50'}`}
+                        title={displayValue}
                     >
                         {displayValue}
                     </span>
@@ -78,7 +79,7 @@ export default function LanguageSelector({
             </div>
 
             {isOpen && (
-                <div className="absolute z-[100] top-full left-0 bg-neutral-second rounded-b-[10px] shadow-xl border border-primary-second border-t-0 min-w-full max-h-60 overflow-y-auto">
+                <div className="absolute z-[100] top-full left-0 bg-neutral-second rounded-b-[10px] shadow-xl border border-primary-second border-t-0 w-max min-w-full max-w-[calc(100vw-2rem)] max-h-60 overflow-y-auto">
                     {languages.length === 0 && !languagesLoading ? (
                         <div className="px-4 py-2 text-[16px] text-secondary-third">
                             {t('no_items_found')}
@@ -105,7 +106,7 @@ export default function LanguageSelector({
                                         <span className="text-[7px] text-neutral-first/40 leading-none">--</span>
                                     </div>
                                 )}
-                                <span className="truncate">{lang.language_label}</span>
+                                <span className="truncate" title={lang.language_label}>{lang.language_label}</span>
                             </div>
                         ))
                     )}

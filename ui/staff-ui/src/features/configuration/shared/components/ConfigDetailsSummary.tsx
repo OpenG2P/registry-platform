@@ -22,33 +22,33 @@ export default function ConfigDetailsSummary({
     const t = useTranslations();
 
     return (
-        <div className="mx-8 mb-0">
+        <div className="mx-3 mb-0 sm:mx-6 lg:mx-8">
             <div
-                className="bg-primary-first/20 border-primary-second border-dashed border rounded-[10px] px-12 h-15 flex items-center justify-between shadow-sm"
+                className="flex min-h-15 items-center justify-between rounded-[10px] border border-dashed border-primary-second bg-primary-first/20 px-4 py-2 shadow-sm sm:px-8 lg:h-15 lg:px-12 lg:py-0"
                 style={{ borderStyle: 'dashed', borderWidth: '1px' }}
             >
-                <div className="flex flex-1 items-center gap-10">
-                    <div className="min-w-30">
-                        <span className="text-neutral-first/70 font-medium text-base">{title}</span>
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3 sm:gap-6 lg:flex-nowrap lg:gap-10">
+                    <div className="min-w-0 max-w-full sm:min-w-30 sm:max-w-xs lg:max-w-none">
+                        <span className="block truncate text-base font-medium text-neutral-first/70" title={title}>{title}</span>
                     </div>
 
-                    <div className="flex-1 max-w-75 truncate">
-                        <span className="text-neutral-first/70 text-sm">{description}</span>
+                    <div className="min-w-0 max-w-75 flex-1">
+                        <span className="block truncate text-sm text-neutral-first/70" title={description}>{description}</span>
                     </div>
 
                     {extraInfo1 && (
-                        <div className="flex-1 truncate">
-                            <span className="text-neutral-first/70 text-sm">{extraInfo1}</span>
+                        <div className="min-w-0 flex-1">
+                            <span className="block truncate text-sm text-neutral-first/70" title={extraInfo1}>{extraInfo1}</span>
                         </div>
                     )}
                     {extraInfo2 && (
-                        <div className="flex-1 truncate">
-                            <span className="text-neutral-first/70 text-sm">{extraInfo2}</span>
+                        <div className="min-w-0 flex-1">
+                            <span className="block truncate text-sm text-neutral-first/70" title={extraInfo2}>{extraInfo2}</span>
                         </div>
                     )}
                 </div>
 
-                <div className="flex items-center gap-3 ml-8">
+                <div className="ml-3 flex shrink-0 items-center gap-3 lg:ml-8">
                     {onView && (
                         <button
                             onClick={onView}

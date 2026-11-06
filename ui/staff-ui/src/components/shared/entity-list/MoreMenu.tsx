@@ -1,8 +1,8 @@
 'use client';
 
-import { ReactNode, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { LayoutGrid, List, EllipsisVertical, ChevronDown } from 'lucide-react';
+import { LayoutGrid, List, EllipsisVertical, ChevronDown, X } from 'lucide-react';
 import { useClickOutside } from '@/shared/hooks/useClickOutside';
 import { MoreMenuItem, ViewMode } from './types';
 
@@ -35,6 +35,10 @@ export default function MoreMenu({
     const [kebabOpen, setKebabOpen] = useState(false);
     const [openSubmenuId, setOpenSubmenuId] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
+    const [narrowMenu, setNarrowMenu] = useState(false);
+    const [menuTop, setMenuTop] = useState(0);
 
     const hasViewToggle = showViewToggle && !!onViewChange;
     const hasExtraItems = extraItems.length > 0;
@@ -43,6 +47,21 @@ export default function MoreMenu({
         setKebabOpen(false);
         setOpenSubmenuId(null);
     }, kebabOpen);
+
+    useEffect(() => {
+        if (!kebabOpen) return;
+
+        const closeOnScroll = (event: Event) => {
+            if (menuRef.current && event.target instanceof Node && menuRef.current.contains(event.target)) {
+                return;
+            }
+            setKebabOpen(false);
+            setOpenSubmenuId(null);
+        };
+
+        window.addEventListener('scroll', closeOnScroll, true);
+        return () => window.removeEventListener('scroll', closeOnScroll, true);
+    }, [kebabOpen]);
 
     if (!hasViewToggle && !hasExtraItems) {
         return null;
@@ -74,17 +93,46 @@ export default function MoreMenu({
                 aria-label={t.has('more') ? t('more') : 'More options'}
                 aria-haspopup="true"
                 aria-expanded={kebabOpen}
+                ref={buttonRef}
                 onClick={() => {
+                    if (!kebabOpen && buttonRef.current) {
+                        const narrow = window.matchMedia('(max-width: 639px)').matches;
+                        setNarrowMenu(narrow);
+                        if (narrow) {
+                            setMenuTop(buttonRef.current.getBoundingClientRect().bottom + 8);
+                        }
+                    }
                     setKebabOpen((prev) => !prev);
                     setOpenSubmenuId(null);
                 }}
-                className="w-10 h-8.5 flex items-center justify-center rounded-[10px] bg-primary-first"
+                className="flex h-7 w-8 items-center justify-center rounded-[8px] bg-primary-first sm:h-8.5 sm:w-10 sm:rounded-[10px]"
             >
-                <EllipsisVertical size={18} />
+                <EllipsisVertical className="size-3.5 sm:size-[18px]" />
             </button>
 
             {kebabOpen && (
-                <div className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[240px] bg-neutral-second rounded-[10px] shadow-[0_8px_24px_rgba(42,42,42,0.16)] py-1.5">
+                <div
+                    ref={menuRef}
+                    className={
+                        narrowMenu
+                            ? 'fixed inset-x-3 z-[60] max-h-[70vh] overflow-y-auto rounded-[10px] bg-neutral-second py-1.5 shadow-[0_8px_24px_rgba(42,42,42,0.16)]'
+                            : 'absolute right-0 top-[calc(100%+8px)] z-50 min-w-[240px] rounded-[10px] bg-neutral-second py-1.5 shadow-[0_8px_24px_rgba(42,42,42,0.16)]'
+                    }
+                    style={narrowMenu ? { top: menuTop } : undefined}
+                >
+                    <div className="flex justify-end px-2 pt-1">
+                        <button
+                            type="button"
+                            aria-label={t.has('close') ? t('close') : 'Close'}
+                            onClick={() => {
+                                setKebabOpen(false);
+                                setOpenSubmenuId(null);
+                            }}
+                            className="flex h-7 w-7 items-center justify-center rounded-[8px] text-neutral-first/70 hover:bg-secondary-first hover:text-neutral-first"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
                     {hasExtraItems && (
                         <>
                             {extraItems.map((item) => (

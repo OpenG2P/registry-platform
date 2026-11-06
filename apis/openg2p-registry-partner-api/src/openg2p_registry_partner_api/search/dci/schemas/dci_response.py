@@ -201,6 +201,27 @@ class DciEncryptedMessage(BaseModel):
 # Envelope
 # ============================================================
 
+class DciAckError(BaseModel):
+    code: str
+    message: str
+
+
+class DciAckMessage(BaseModel):
+    """Immediate body for POST /dci/async/search. Not the search records."""
+
+    ack_status: str
+    timestamp: str
+    correlation_id: str = Field(max_length=99)
+    error: Optional[DciAckError] = None
+
+
+class DciAckEnvelope(BaseModel):
+    message: DciAckMessage
+
+    class Config:
+        extra = "allow"
+
+
 class DciSearchResponseEnvelope(BaseModel):
     """
     Envelope for POST /registry/on-search

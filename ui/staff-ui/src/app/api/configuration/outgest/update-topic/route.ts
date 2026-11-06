@@ -5,21 +5,19 @@ export async function POST(req: NextRequest) {
     return proxyToBackend({
         req,
         targetEndpoint: "/outgestion-config/update_topic",
-        buildPayload: (body) => ({
-            pagination_request: {
-                current_page: body.current_page ?? 1,
-                page_size: body.page_size ?? 20,
-                sort_by: body.sort_by ?? "",
-                filter_by: body.filter_by ?? "",
-                search_text: body.search_text ?? ""
-            },
-            request_payload: {
-                topic_id: body.topic_id,
-                register_id: body.register_id,
-                data_model_id: body.data_model_id,
-                websub_topic: body.websub_topic ?? "",
-                description: body.description ?? "",
-            },
-        }),
+        buildPayload: (body) => {
+            const isPartner = body.topic_type === 'PARTNER';
+            return {
+                request_payload: {
+                    topic_id: body.topic_id,
+                    topic_type: body.topic_type,
+                    register_id: isPartner ? null : body.register_id,
+                    data_model_id: isPartner ? null : body.data_model_id,
+                    partner_id: isPartner ? body.partner_id : null,
+                    websub_topic: body.websub_topic ?? "",
+                    description: body.description ?? "",
+                },
+            };
+        },
     });
 }

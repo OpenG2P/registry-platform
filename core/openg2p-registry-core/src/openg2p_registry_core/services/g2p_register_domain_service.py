@@ -3,7 +3,7 @@ import uuid
 import enum
 import importlib
 import re
-from typing import List, Dict, Optional
+from typing import Any, List, Dict, Optional
 from datetime import datetime, timedelta, date
 from difflib import SequenceMatcher
 
@@ -27,11 +27,16 @@ from ..models import (
 )
 from ..schemas import ChangeRequestRequest
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
+from ..helpers.registrant_contact import RegistrantContact, contact_from_record
 
 _logger = logging.getLogger('g2p-register-domain-service')
 _engine = dbengine.get()
 
 class G2PRegisterDomainService(BaseService):
+
+    _DOMAIN_SERVICE_CLASS_PREFIX = "G2PRegisterDomainService"
+    _REGISTER_CLASS_PREFIX = "G2PRegister"
+    _DOMAIN_MODELS_MODULE = "openg2p_registry_extensions.register_domain.models"
 
     class DeduplicationMatchType(str, enum.Enum):
         EXACT = "EXACT"
@@ -89,6 +94,44 @@ class G2PRegisterDomainService(BaseService):
         resolved intake-form parent link. Override to raise on invalid links.
         No-op by default."""
         pass
+
+    def register_mnemonic(self) -> Optional[str]:
+        """Mnemonic encoded in the class name: G2PRegisterDomainServiceIndividual → Individual."""
+        name = self.__class__.__name__
+        prefix = self._DOMAIN_SERVICE_CLASS_PREFIX
+        if name.startswith(prefix) and name != prefix:
+            return name[len(prefix):]
+        return None
+
+    def get_register_model_class(self):
+        mnemonic = self.register_mnemonic()
+        if not mnemonic:
+            return None
+        try:
+            module = importlib.import_module(self._DOMAIN_MODELS_MODULE)
+            return getattr(module, f"{self._REGISTER_CLASS_PREFIX}{mnemonic}", None)
+        except ModuleNotFoundError:
+            return None
+
+    async def load_register_row(self, session: AsyncSession, internal_record_id: str):
+        model_class = self.get_register_model_class()
+        if model_class is None or not internal_record_id:
+            return None
+        return await session.get(model_class, internal_record_id)
+
+    async def resolve_contact(
+        self,
+        session: AsyncSession,
+        internal_record_id: str,
+    ) -> Optional[RegistrantContact]:
+        """Return a contact for this row.
+
+        Default: read ``email`` / ``emails`` and ``phone`` / ``phone_numbers``
+        on the ORM row. Override to load a different row and return
+        ``RegistrantContact`` yourself.
+        """
+        record = await self.load_register_row(session, internal_record_id)
+        return contact_from_record(record)
 
     def compute_deduplication_score_for_register(
         self,

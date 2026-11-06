@@ -251,14 +251,14 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
 
     if (currentStatus === initialStatus) {
       if (String(statusReason || '') !== String(initialReason || '')) {
-        updateFieldValue('statusReason', initialReason);
+        updateFieldValue('statusReason', initialReason === '' ? null : initialReason);
       }
       setShowReasonRequired(false);
       return;
     }
 
     if (String(statusReason || '').trim().length > 0) {
-      updateFieldValue('statusReason', '');
+      updateFieldValue('statusReason', null);
     }
     setShowReasonRequired(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -336,6 +336,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           flex-direction: row;
           gap: 1.5rem;
           width: 100%;
+          min-width: 0;
+          max-width: 100%;
           font-family: Roboto, sans-serif;
           padding: 35px 0 16px 0;
         }
@@ -508,6 +510,8 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-field-row {
           display: flex;
           align-items: flex-start;
+          min-width: 0;
+          max-width: 100%;
           font-size: 1rem;
           line-height: 1.6;
         }
@@ -526,11 +530,33 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         .${cls} .hdr-field-value {
           width: 50%;
           flex: 0 0 50%;
+          min-width: 0;
           color: var(--owt-color-text);
           font-weight: 500;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+        }
+
+        .${cls} .hdr-functional-id {
+          flex: 1 1 0;
+          width: auto;
+          min-width: 0;
+          max-width: 100%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .${cls} .hdr-control-slot {
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          width: 180px;
+          max-width: 100%;
+          min-width: 0;
+          flex: 0 1 180px;
         }
 
         .${cls} .hdr-status-badge {
@@ -588,14 +614,16 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         }
 
         .${cls} .hdr-select {
+          box-sizing: border-box;
+          width: 100%;
           height: 32px;
+          min-width: 0;
           padding: 0 8px;
           border: 1px solid var(--owt-widget-input-border);
           border-radius: 6px;
           font-size: 0.875rem;
           font-family: Roboto, sans-serif;
           background: var(--owt-widget-input-bg);
-          min-width: 140px;
           color: var(--owt-btn-primary-color);
         }
         .${cls} .hdr-select:focus {
@@ -605,14 +633,16 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
         }
 
         .${cls} .hdr-input {
+          box-sizing: border-box;
+          width: 100%;
           height: 32px;
+          min-width: 0;
           padding: 0 8px;
           border: 1px solid var(--owt-widget-input-border);
           border-radius: 6px;
           font-size: 0.875rem;
           font-family: Roboto, sans-serif;
           background: var(--owt-widget-input-bg);
-          min-width: 140px;
           color: var(--owt-btn-primary-color);
         }
         .${cls} .hdr-input:focus {
@@ -634,12 +664,46 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
           font-weight: 500;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 639px) {
           .${cls} {
             flex-direction: column;
           }
           .${cls} .hdr-right {
             min-width: 0;
+            flex-basis: auto;
+          }
+          .${cls} .hdr-field-row,
+          .${cls} .hdr-meta-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .${cls} .hdr-field-label,
+          .${cls} .hdr-field-value,
+          .${cls} .hdr-meta-label,
+          .${cls} .hdr-meta-value {
+            width: 100%;
+            flex: 0 0 auto;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+          }
+          .${cls} .hdr-functional-id {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            flex: 0 1 auto;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .${cls} .hdr-control-slot {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            flex: 0 0 auto;
+          }
+          .${cls} {
+            padding: 16px 0 12px 0;
           }
         }
       `}</style>
@@ -710,7 +774,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
               <span className="hdr-field-label" title={`${getLabel('functionalId')} :`}>
                 {getLabel('functionalId')} :
               </span>
-              <span className="hdr-field-value" title={functionalId || '-'}>{functionalId || '-'}</span>
+              <span className="hdr-field-value hdr-functional-id" title={functionalId || '-'}>{functionalId || '-'}</span>
             </div>
             <div className="hdr-field-row">
               <span className="hdr-field-label" title={getLabel('status')}>
@@ -729,10 +793,11 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
                   <span className="hdr-field-value" title="-">-</span>
                 )
               ) : (
+                <div className="hdr-control-slot">
                 <select
                   className="hdr-select"
                   value={statusValue}
-                  onChange={(e) => updateFieldValue('status', e.target.value)}
+                  onChange={(e) => updateFieldValue('status', e.target.value === '' ? null : e.target.value)}
                 >
                   <option value="">
                     {getLabel('select')}
@@ -743,6 +808,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
                     </option>
                   ))}
                 </select>
+                </div>
               )}
             </div>
             <div className="hdr-field-row">
@@ -752,7 +818,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
               {isReadonly ? (
                 <span className="hdr-field-value" title={statusReason || '-'}>{statusReason || '-'}</span>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div className="hdr-control-slot">
                   <input
                     type="text"
                     className={`hdr-input ${(!isReadonly && (showReasonRequired || isReasonMissing) && isReasonMissing) ? 'hdr-input--error' : ''}`}
@@ -765,7 +831,7 @@ export const HeaderSectionWidget = ({ config }: HeaderSectionWidgetProps) => {
                       if (isReasonMissing) setShowReasonRequired(true);
                     }}
                     onChange={(e) => {
-                      updateFieldValue('statusReason', e.target.value);
+                      updateFieldValue('statusReason', e.target.value === '' ? null : e.target.value);
                       if (showReasonRequired && String(e.target.value || '').trim().length > 0) {
                         setShowReasonRequired(false);
                       }

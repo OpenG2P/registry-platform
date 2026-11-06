@@ -16,10 +16,10 @@ export default function IntakeFormDeduplicationTabs({
   t,
 }: Props) {
   return (
-    <div className="ml-7.5">
+    <div className="flex flex-wrap items-end gap-2 lg:ml-7.5">
       <button
         onClick={() => setActiveTab("intake_forms")}
-        className={`px-8 py-2 text-neutral-first text-[18px] font-medium rounded-t-[10px] transition-all ${activeTab === "intake_forms"
+        className={`rounded-t-[10px] px-3 py-2 text-[14px] font-medium text-neutral-first transition-all sm:px-6 sm:text-[16px] lg:px-8 lg:text-[18px] ${activeTab === "intake_forms"
           ? 'bg-primary-first'
           : 'bg-secondary-second'
           }`}
@@ -29,7 +29,7 @@ export default function IntakeFormDeduplicationTabs({
 
       <button
         onClick={() => setActiveTab("intake_possible_duplicates")}
-        className={`relative ml-2 px-8 py-2 text-neutral-first text-[18px] font-medium rounded-t-[10px]
+        className={`relative rounded-t-[10px] px-3 py-2 text-[14px] font-medium text-neutral-first sm:px-6 sm:text-[16px] lg:px-8 lg:text-[18px]
                     ${activeTab === "intake_possible_duplicates"
             ? "bg-primary-first"
             : "bg-secondary-second"
@@ -45,7 +45,7 @@ export default function IntakeFormDeduplicationTabs({
 
       <button
         onClick={() => setActiveTab("register_possible_duplicates")}
-        className={`relative ml-2 px-8 py-2 text-neutral-first text-[18px] font-medium rounded-t-[10px]
+        className={`relative rounded-t-[10px] px-3 py-2 text-[14px] font-medium text-neutral-first sm:px-6 sm:text-[16px] lg:px-8 lg:text-[18px]
                     ${activeTab === "register_possible_duplicates"
             ? "bg-primary-first"
             : "bg-secondary-second"

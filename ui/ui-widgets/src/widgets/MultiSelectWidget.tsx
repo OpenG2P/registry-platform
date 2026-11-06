@@ -231,25 +231,32 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
     return filteredOptions.every((opt) => selectedValues.includes(opt.value));
   }, [filteredOptions, selectedValues]);
 
+  const emitSelection = useCallback(
+    (next: any[]) => {
+      onChange(next.length === 0 ? null : next);
+    },
+    [onChange]
+  );
+
   const handleToggle = useCallback(
     (optionValue: any, checked: boolean) => {
       if (checked) {
-        onChange([...selectedValues, optionValue]);
+        emitSelection([...selectedValues, optionValue]);
       } else {
-        onChange(selectedValues.filter((v: any) => v !== optionValue));
+        emitSelection(selectedValues.filter((v: any) => v !== optionValue));
       }
     },
-    [selectedValues, onChange]
+    [selectedValues, emitSelection]
   );
 
   const handleSelectAll = useCallback(() => {
     const filteredVals = filteredOptions.map((o) => o.value);
     const merged = Array.from(new Set([...selectedValues, ...filteredVals]));
-    onChange(merged);
-  }, [filteredOptions, selectedValues, onChange]);
+    emitSelection(merged);
+  }, [filteredOptions, selectedValues, emitSelection]);
 
   const handleClearAll = useCallback(() => {
-    onChange([]);
+    onChange(null);
   }, [onChange]);
 
   const selectedLabels = useMemo(() => {
@@ -426,7 +433,7 @@ export const MultiSelectWidget = ({ config }: MultiSelectWidgetProps) => {
             type="button"
             onClick={allFilteredSelected ? () => {
               const filteredVals = new Set(filteredOptions.map((o) => o.value));
-              onChange(selectedValues.filter((v: any) => !filteredVals.has(v)));
+              emitSelection(selectedValues.filter((v: any) => !filteredVals.has(v)));
             } : handleSelectAll}
             className="text-xs font-medium owt-link focus:outline-none"
           >

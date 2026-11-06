@@ -4,16 +4,18 @@ import { useTranslations } from 'next-intl';
 export interface FormDetailsCardProps {
     description?: string;
     onClose: () => void;
+    flushRight?: boolean;
 }
 
 export default function FormDetailsCard({
     description,
     onClose,
+    flushRight = true,
 }: FormDetailsCardProps) {
     const t = useTranslations();
 
     return (
-        <div className="bg-secondary-second p-6 rounded-l-[10px] rounded-r-none w-[350px] min-h-[260px] max-h-[70vh] flex flex-col">
+        <div className={`flex max-h-[70vh] min-h-[260px] w-full max-w-full flex-col bg-secondary-second p-4 sm:p-6 ${flushRight ? 'rounded-l-[10px] rounded-r-none' : 'rounded-[10px]'}`}>
             <div className="flex items-start justify-between gap-3 mb-4">
                 <h3 className="text-[20px] font-bold text-neutral-first">
                     {t('form_details')}

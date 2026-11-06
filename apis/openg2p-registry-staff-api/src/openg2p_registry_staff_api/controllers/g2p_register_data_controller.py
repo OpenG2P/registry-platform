@@ -9,6 +9,7 @@ from openg2p_registry_core.errors import (
     G2PRegistryErrorCodes,
     G2PRegistryException,
 )
+from openg2p_registry_core.helpers.auth_token import preferred_username_from_request
 from openg2p_registry_core.helpers.data_policy_request_helper import (
     get_data_policies,
     get_data_policy_mnemonics,
@@ -405,12 +406,11 @@ class G2PRegisterDataController(BaseController):
         export_request: ExportRegisterRecordsRequest,
     ) -> ExportRegisterRecordsResponse:
         try:
-            principal = getattr(http_request.state, "auth", None)
-            requested_by = getattr(principal, "sub", None)
+            requested_by = preferred_username_from_request(http_request)
             if not requested_by:
                 raise G2PRegistryException(
                     code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
-                    message="Authenticated user identifier is required",
+                    message="Staff preferred_username is required",
                 )
 
             pagination_request = export_request.request_body.pagination_request
@@ -443,12 +443,11 @@ class G2PRegisterDataController(BaseController):
         export_queue_request: GetExportQueueRecordsRequest,
     ) -> GetExportQueueRecordsResponse:
         try:
-            principal = getattr(http_request.state, "auth", None)
-            requested_by = getattr(principal, "sub", None)
+            requested_by = preferred_username_from_request(http_request)
             if not requested_by:
                 raise G2PRegistryException(
                     code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
-                    message="Authenticated user identifier is required",
+                    message="Staff preferred_username is required",
                 )
 
             pagination_request = (

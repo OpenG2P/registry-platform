@@ -92,7 +92,7 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
     if (formatConfig?.currency) {
       const numericValue = inputValue.replace(/[^0-9.]/g, '');
       if (numericValue === '') {
-        onChange('');
+        onChange(null);
         if (hasMask) setRawValue('');
       } else {
         const numValue = parseFloat(numericValue);
@@ -112,11 +112,8 @@ export const TextInputWidget = ({ config }: TextInputWidgetProps) => {
 
     const { processed, raw } = processInputValue(valueToProcess);
 
-    if (hasMask) {
-      onChange(raw);
-    } else {
-      onChange(processed);
-    }
+    const committed = hasMask ? raw : processed;
+    onChange(committed === '' ? null : committed);
   }, [formatConfig, onChange, processInputValue, hasMask]);
 
   const displayValue = useMemo(() => {

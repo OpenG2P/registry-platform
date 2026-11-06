@@ -36,7 +36,7 @@ export default function ViewSubscriptionActivityLogModal({
             maxWidth="max-w-4xl"
             secondaryActionLabel={t('close')}
         >
-            <div className="bg-secondary-first rounded-[10px] p-8 -mx-2">
+            <div className="rounded-[10px] bg-secondary-first p-4 sm:p-8">
                 <Field label={t('partner_id')} value={data?.partner_id} />
                 <Field label={t('unsubscribe')} value={data?.is_unsubscribe ? t('true') : t('false')} />
                 <Field label={t('date_time')} value={data?.date_time ? new Date(data.date_time).toLocaleString() : '-'} />

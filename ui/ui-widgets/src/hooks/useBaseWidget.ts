@@ -59,8 +59,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     dataSourceOptionsRef.current = dataSourceOptions;
   }, [values, loading, dataSourceOptions]);
 
-  const lastDispatchedValueRef = useRef<any>(null);
-
   const extractValueFromObject = useCallback((obj: any): any => {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
       return obj;
@@ -184,7 +182,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   const handleChange = useCallback(
     (newValue: any, validate: boolean = true) => {
       const currentValues = valuesRef.current;
-      const currentValue = currentValues[widgetId] || getWidgetValue(currentValues, config['widget-data-path'], widgetId);
+      // Use nullish check — `||` treats '' as missing and breaks clear/Backspace for dialog fields
+      const currentValue =
+        currentValues[widgetId] !== undefined
+          ? currentValues[widgetId]
+          : getWidgetValue(currentValues, config['widget-data-path'], widgetId);
 
       // CRITICAL: Prevent setting the same value (avoids unnecessary dispatches and potential loops)
       if (currentValue === newValue) {
@@ -216,11 +218,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
 
       // CRITICAL FIX: If there's no dataPath, just set the value directly
       if (!config['widget-data-path']) {
-        // CRITICAL: Check if we just dispatched this value to prevent duplicate dispatches
-        if (lastDispatchedValueRef.current === newValue) {
-          return;
-        }
-        lastDispatchedValueRef.current = newValue;
         dispatch(setValue({ widgetId, value: newValue }));
       } else {
         const currentValuesWithUpdate = {
@@ -323,7 +320,6 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     if (config['widget-readonly']) {
       userHasSetValueRef.current = false;
       lastMirroredValueRef.current = null;
-      lastDispatchedValueRef.current = null;
     }
   }, [config['widget-readonly']]);
   const dataSource = config['widget-data-source'];

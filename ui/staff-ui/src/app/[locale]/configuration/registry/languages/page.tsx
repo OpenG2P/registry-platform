@@ -36,13 +36,13 @@ const LanguagesConfigurationPage = () => {
                 showAddNewButton={false}
             />
 
-            <div className="mx-7.5 flex flex-col gap-5 pb-10">
-                <div className="bg-neutral-second rounded-[10px] p-8 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center shadow-sm">
-                    <div className="flex flex-col gap-1.5">
+            <div className="mx-3 sm:mx-6 lg:mx-7.5 flex flex-col gap-5 pb-10">
+                <div className="bg-neutral-second rounded-[10px] p-4 sm:p-8 grid grid-cols-1 xl:grid-cols-2 gap-6 xl:gap-8 items-center shadow-sm">
+                    <div className="flex flex-col gap-1.5 min-w-0">
                         <h1 className="text-[22px] font-bold text-neutral-first m-0 tracking-tight">Language configuration</h1>
                     </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 justify-end">
-                        <div className="w-full sm:w-80">
+                    <div className="flex min-w-0 flex-col items-stretch gap-3 md:flex-row md:items-center xl:justify-end">
+                        <div className="w-full min-w-0 md:w-auto md:flex-1 md:max-w-80">
                             <LanguageSelector
                                 languages={languages}
                                 languagesLoading={languagesLoading}
@@ -56,7 +56,7 @@ const LanguagesConfigurationPage = () => {
                             <button
                                 id="create-language-btn"
                                 onClick={() => setIsModalOpen(true)}
-                                className="w-fit self-start sm:self-auto whitespace-nowrap h-10 px-5 bg-neutral-first text-neutral-second rounded-[10px] flex items-center justify-center gap-2 hover:bg-neutral-first/90 transition-all active:scale-95 shadow-lg shadow-neutral-first/10"
+                                className="flex h-10 w-full min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-[10px] bg-neutral-first px-5 text-neutral-second shadow-lg shadow-neutral-first/10 transition-all hover:bg-neutral-first/90 active:scale-95 md:w-auto md:flex-1 xl:w-fit xl:flex-none"
                             >
                                 <Plus size={16} strokeWidth={3} />
                                 <span className="text-sm font-bold">{t('add_new_language')}</span>

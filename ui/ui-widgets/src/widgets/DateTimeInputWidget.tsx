@@ -99,10 +99,10 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
         if (date) {
           onChange(formatDateTimeToISO(date));
         } else {
-          onChange('');
+          onChange(null);
         }
       } else {
-        onChange('');
+        onChange(null);
       }
     } else {
       setManualInputValue(inputValue);
@@ -124,7 +124,7 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
           }
         }
       } else {
-        onChange('');
+        onChange(null);
       }
     }
   }, [inputMethod, dateTimeFormat, onChange, minDateTime, maxDateTime, dateTimeConstraint]);
@@ -140,7 +140,7 @@ export const DateTimeInputWidget = ({ config }: DateTimeInputWidgetProps) => {
         onChange(formatDateTimeToISO(date));
       } else {
         setManualInputValue('');
-        onChange('');
+        onChange(null);
       }
     }
     

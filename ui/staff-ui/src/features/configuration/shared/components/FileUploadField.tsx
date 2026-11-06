@@ -38,7 +38,7 @@ export default function FileUploadField({
                 )}
             </div>
 
-            <div className="mt-2 flex items-center gap-4">
+            <div className="mt-2 flex min-w-0 items-center gap-4">
                 <div
                     onClick={() => !disabled && fileInputRef.current?.click()}
                     className={`w-10 h-10 border-2 border-dashed border-primary-second rounded-[10px] flex items-center justify-center shrink-0 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-secondary-first'}`}
@@ -55,7 +55,7 @@ export default function FileUploadField({
                     disabled={disabled}
                 />
 
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                     <button
                         type="button"
                         disabled={disabled}
@@ -70,15 +70,18 @@ export default function FileUploadField({
                     </button>
 
                     {fileName && (
-                        <div className="flex items-center gap-2 mt-1">
-                            <p className="text-neutral-first text-[14px] font-medium truncate max-w-25">
+                        <div className="mt-1 flex min-w-0 items-center gap-2">
+                            <p
+                                className="min-w-0 flex-1 truncate text-[14px] font-medium text-neutral-first"
+                                title={fileName}
+                            >
                                 {fileName}
                             </p>
 
                             <button
                                 type="button"
                                 onClick={onRemove}
-                                className="text-toast-failed hover:text-toast-failed"
+                                className="shrink-0 text-toast-failed hover:text-toast-failed"
                             >
                                 <X size={16} />
                             </button>

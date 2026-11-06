@@ -1,12 +1,14 @@
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
-from fastapi import Request
+from fastapi import BackgroundTasks, Request
 from openg2p_fastapi_common.controller import BaseController
 from openg2p_registry_core.errors import G2PRegistryException, G2PRegistryErrorCodes
 
 from ..schemas import (
+    DciAckEnvelope,
     DciSearchRequestEnvelope,
     DciSearchResponseEnvelope,
     DciRequestHeader,
@@ -20,6 +22,7 @@ from ..helpers import (
     DciQueryHelper,
 )
 from ..services import ConsentScopeGrant, G2PDciService
+from ..services.publish_async_search import ack_envelope, find_partner_topic, publish_dci_search
 from ....audit_context import add_audit_consent, set_audit_actor, set_audit_outcome
 from ....config import Settings
 
@@ -33,7 +36,7 @@ class G2PDciController(BaseController):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self.router.tags += ["/dci/registry"]
+        self.router.tags += ["/dci"]
         self.g2p_dci_service = G2PDciService()
         self.request_response_helper = DciRequestResponseHelper()
         self.keymanager_helper = DciKeymanagerHelper()
@@ -42,12 +45,18 @@ class G2PDciController(BaseController):
 
         self.router.add_api_route(
             "/sync/search",
-            self.search,
+            self.sync_search,
             responses={200: {"model": DciSearchResponseEnvelope}},
             methods=["POST"],
         )
+        self.router.add_api_route(
+            "/async/search",
+            self.async_search,
+            responses={200: {"model": DciAckEnvelope}},
+            methods=["POST"],
+        )
 
-    async def search(
+    async def sync_search(
         self, dci_search_request_env: DciSearchRequestEnvelope, request: Request
     ) -> DciSearchResponseEnvelope:
         try:
@@ -130,6 +139,78 @@ class G2PDciController(BaseController):
             self._stamp_enforcement_meta(error_response)
             error_response.signature = await self._sign_response(error_response)
             return error_response
+
+    async def async_search(
+        self,
+        dci_search_request_env: DciSearchRequestEnvelope,
+        request: Request,
+        background_tasks: BackgroundTasks,
+    ) -> DciAckEnvelope:
+        correlation_id = str(uuid4())
+        try:
+            signature: str = dci_search_request_env.signature
+            header: DciRequestHeader = dci_search_request_env.header
+            message: DciSearchRequest = dci_search_request_env.message
+            if header.sender_uri:
+                _logger.info("Ignoring sender_uri for async delivery: %s", header.sender_uri)
+            if header.is_msg_encrypted:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                    message="Encrypted search messages are not supported.",
+                )
+
+            raw_body: Dict[str, Any] = await request.json()
+            if _config.signature_validation_enabled:
+                await self.keymanager_helper.validate_signature(
+                    signature,
+                    (raw_body or {}).get("header") or {},
+                    (raw_body or {}).get("message") or {},
+                )
+            else:
+                _logger.warning(
+                    "signature_validation_enabled=false — SKIPPING DCI envelope "
+                    "signature verification (testing bypass; do not use in production)"
+                )
+
+            set_audit_actor(
+                request, header.sender_id, verified=_config.signature_validation_enabled,
+                name=header.sender_uri,
+            )
+            bulk_refs = self._authorise_bulk(header, message)
+
+            scopes_by_ref: Optional[Dict[str, ConsentScopeGrant]] = None
+            subjects_by_ref: Optional[Dict[str, str]] = None
+            if _config.consent_enforcement_enabled:
+                scopes_by_ref, subjects_by_ref = await self._enforce_consent(
+                    raw_body, header, message, bulk_refs, request=request
+                )
+            else:
+                _logger.warning(
+                    "consent_enforcement_enabled=false — SKIPPING Consent Manager "
+                    "validation, returning ALL fields (testing bypass; do not use in production)"
+                )
+
+            websub_topic = await find_partner_topic(header.sender_id)
+            if websub_topic is None:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REQUEST_VALIDATION_ERROR.value[1],
+                    message="No active registered partner topic for this caller.",
+                )
+
+            # A process restart after this ACK drops the callback. No queue in this slice.
+            background_tasks.add_task(
+                publish_dci_search,
+                dci_search_request_env,
+                scopes_by_ref,
+                correlation_id,
+                websub_topic,
+                subjects_by_ref,
+            )
+            return ack_envelope(correlation_id, "ACK")
+        except Exception as error_exception:
+            _logger.error("Error accepting async search: %s", error_exception)
+            return ack_envelope(correlation_id, "ERR", error_exception)
+
 
     @staticmethod
     def _authorise_bulk(header: DciRequestHeader, message: DciSearchRequest) -> Dict[str, List[str]]:
@@ -256,8 +337,11 @@ class G2PDciController(BaseController):
         expression names no identifier type)."""
         if search_criteria.query_type != "idtype-value":
             return None
-        value = search_criteria.query.value or {}
-        id_type, id_value = value.get("id_type"), value.get("id_value")
+        value = search_criteria.query.value
+        if isinstance(value, dict):  # legacy {"type": "idtype-value", "value": {"id_type", "id_value"}}
+            id_type, id_value = value.get("id_type"), value.get("id_value")
+        else:  # canonical {"type": "UIN", "value": "123"}
+            id_type, id_value = getattr(search_criteria.query, "type", None), value
         if not (isinstance(id_type, str) and id_type.strip() and isinstance(id_value, str) and id_value.strip()):
             return None
         id_type = id_type.strip()

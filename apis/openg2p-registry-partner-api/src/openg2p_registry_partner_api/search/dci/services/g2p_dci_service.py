@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Tuple
 
-from openg2p_registry_core.errors import G2PRegistryException
+from openg2p_registry_core.errors import G2PRegistryErrorCodes, G2PRegistryException
+from openg2p_registry_core.search import PartnerRegisterSearch
 from openg2p_registry_core.schemas import DeepSearchResultData
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import get_async_session_maker
@@ -13,7 +14,7 @@ from openg2p_fastapi_common.context import get_async_session_maker
 from sqlalchemy import JSON, cast, literal, select, func, or_, true
 from sqlalchemy.dialects.postgresql import JSONB
 
-from openg2p_registry_core.services import G2PRegisterHierarchicalService, G2PRegisterService
+from openg2p_registry_core.services import G2PRegisterService
 from openg2p_registry_core.helpers import TemplateHelper
 from openg2p_registry_core.models import G2PRegisterDefinition, DataModel, OutgoingTemplate, G2PRegistryDocument
 from openg2p_registry_core.models import ActivityStatusEnum, ActivityVerificationStatusEnum, RegisterPurposeEnum
@@ -33,6 +34,7 @@ from ..schemas import (
 )
 from ..helpers import DciQueryHelper
 from ..helpers.query_helper import DciQueryResult
+from ..queries import AllowedSearchFields, decode_dci_search
 from ....config import Settings
 
 _logger = logging.getLogger("g2p-dci-service")
@@ -137,8 +139,8 @@ class G2PDciService(BaseService):
                         search_criteria.reg_type, register_id, state_type, subject_id, filters,
                         current_page, page_size, allowed=allowed,
                     )
-            else:
-                if is_activity and _names_subject(search_criteria):
+            elif is_activity:
+                if _names_subject(search_criteria):
                     # One subject's activities, filtered on any of the activity's
                     # plain fields (type, date, verification, promoted payload fields).
                     subject_id, filters = DciQueryHelper.parse_subject_query(search_criteria)
@@ -153,22 +155,16 @@ class G2PDciService(BaseService):
                     query_result, current_page, page_size, sort_by = self._get_registry_search_parameters(
                         search_criteria, model_class
                     )
-                if is_activity:
-                    search_result_data, total_count = await self._activity_search(
-                        model_class, query_result, current_page, page_size, sort_by
-                    )
-                elif query_result.filter_conditions:
-                    search_result_data, total_count = await self._expression_search(
-                        register_id, model_class, query_result.filter_conditions, current_page, page_size, sort_by
-                    )
-                else:
-                    search_result_data, total_count = await self.register_service.deep_search_in_a_register(
-                        register_id=register_id,
-                        search_text=query_result.search_text,
-                        current_page=current_page,
-                        page_size=page_size,
-                        sort_by=sort_by,
-                    )
+                search_result_data, total_count = await self._activity_search(
+                    model_class, query_result, current_page, page_size, sort_by
+                )
+            else:
+                # An entity register: any of the four DCI query types, on
+                # allow-listed columns only; each record comes with its linked
+                # registers' records, loaded in bulk.
+                page = await self._register_search(search_criteria)
+                search_result_data = page.records
+                total_count, current_page, page_size = page.total_count, page.page, page.page_size
 
             # The consent names one person: what is returned must be theirs. This
             # check runs whatever the search returned (even nothing): the searched
@@ -234,45 +230,18 @@ class G2PDciService(BaseService):
         _logger.info(f"Search completed for transaction_id: {message.transaction_id}, found {len(dci_search_response_items)} items")
         return dci_search_response_items
 
-    async def _expression_search(
-        self, register_id: str, model_class, filter_conditions: list, current_page: int, page_size: int,
-        sort_by: Optional[str],
-    ) -> Tuple[List[DeepSearchResultData], int]:
-        """Exact-field search. Each record comes with its linked records (a person's land,
-        household, …), as an idtype-value search returns it, so one call gets the whole record."""
-        session_maker = get_async_session_maker()
-        async with session_maker() as session:
-            # Total count
-            count_query = select(func.count()).select_from(
-                select(model_class).filter(*filter_conditions).subquery()
-            )
-            total_count = (await session.execute(count_query)).scalar() or 0
-
-            # Sorting
-            order_by_clause = None
-            if sort_by:
-                column_name = sort_by.lstrip("-")
-                sort_column = getattr(model_class, column_name, None)
-                if sort_column is not None:
-                    order_by_clause = sort_column.desc() if sort_by.startswith("-") else sort_column.asc()
-
-            # Paginated query
-            offset = (current_page - 1) * page_size
-            query = select(model_class).filter(*filter_conditions)
-            if order_by_clause is not None:
-                query = query.order_by(order_by_clause)
-            query = query.offset(offset).limit(page_size)
-
-            results = (await session.execute(query)).scalars().all()
-
-            definition = await self.register_service.validate_register_definition(register_id, session)
-            hierarchy = G2PRegisterHierarchicalService.get_component() or G2PRegisterHierarchicalService()
-            search_results = []
-            for record in results:
-                record_dict = await hierarchy.enrich_record_hierarchy(definition, record, session)
-                search_results.append(DeepSearchResultData(**record_dict))
-
-            return search_results, total_count
+    async def _register_search(self, search_criteria: DciSearchCriteria):
+        allowed = AllowedSearchFields(_config.dci_allowed_search_fields)
+        search = decode_dci_search(search_criteria, allowed, _config.dci_id_type_columns)
+        try:
+            return (await PartnerRegisterSearch(allowed.as_set()).search_batch([search]))[0]
+        except G2PRegistryException as exc:
+            if exc.code == G2PRegistryErrorCodes.INVALID_REQUEST.value[1]:
+                raise G2PRegistryException(
+                    code=DciSearchStatusReasonCode.SEARCH_CRITERIA_INVALID.value,
+                    message=exc.message,
+                ) from exc
+            raise
 
     async def _is_activity_register(self, register_mnemonic: str) -> bool:
         session_maker = get_async_session_maker()
@@ -560,6 +529,8 @@ class G2PDciService(BaseService):
         self,
         deep_search_result_data: DeepSearchResultData
     ) -> Dict[str, Any]:
+        if isinstance(deep_search_result_data, dict):
+            return deep_search_result_data
         if hasattr(deep_search_result_data, "model_dump"):
             data_dict = deep_search_result_data.model_dump(exclude_unset=False, by_alias=False)
         else:
@@ -679,7 +650,8 @@ def _names_subject(search_criteria: DciSearchCriteria) -> bool:
     """An expression query that names its subject (subject_id)."""
     if search_criteria.query_type != "expression":
         return False
-    query = ((search_criteria.query.value or {}).get("expression") or {}).get("query") or {}
+    value = search_criteria.query.value
+    query = ((value if isinstance(value, dict) else {}).get("expression") or {}).get("query") or {}
     return "subject_id" in query
 
 

@@ -91,18 +91,19 @@ export default function TopBar({
         <div
             className={
                 embedded
-                    ? 'flex items-center h-full'
-                    : 'w-full h-17.5 flex justify-center items-center'
+                    ? 'flex h-full w-full min-w-0 items-center justify-end'
+                    : 'flex min-h-17.5 w-full items-center justify-center py-2'
             }
         >
             <div
                 className={
                     embedded
-                        ? 'flex items-center'
-                        : 'w-full px-7.5 flex justify-between items-center'
+                        ? 'flex w-full min-w-0 items-center justify-end'
+                        : 'flex w-full flex-wrap items-start justify-between gap-3 px-3 sm:px-6 lg:px-7.5'
                 }
             >
-                <div className="flex items-center gap-4">
+                {(!embedded || (breadcrumb && breadcrumb.length > 0) || showCapsule || (showSubHeading && subHeading)) && (
+                <div className="flex min-w-0 max-w-full flex-1 items-start gap-4">
                     {breadcrumb && breadcrumb.length > 0 && (
                         <BreadcrumbBar breadcrumb={breadcrumb} />
                     )}
@@ -115,7 +116,14 @@ export default function TopBar({
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-2 sm:gap-4">
+                )}
+                <div
+                    className={
+                        embedded
+                            ? 'flex w-full min-w-0 flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-nowrap sm:justify-end sm:gap-4'
+                            : 'flex w-full flex-wrap items-center justify-end gap-2 sm:gap-4 xl:w-auto xl:shrink-0'
+                    }
+                >
                     {showSearch && onSearch && (
                         <div className="ml-auto shrink-0 border border-primary-second rounded-[10px] h-8.5 flex items-center bg-neutral-second">
                             <SearchBar
@@ -153,32 +161,42 @@ export default function TopBar({
                         </button>
                     )}
 
-                    {showAddNewButton && (
-                        <button
-                            onClick={onAddNewButton}
-                            className="h-8.5 px-6 bg-primary-first rounded-[10px] flex items-center gap-2 "
-                        >
-                            <span className="text-[16px] font-medium text-neutral-first truncate overflow-hidden whitespace-nowrap">
-                                {addNewButtonText}
-                            </span>
-                            <span className=" text-[20px] font-bold text-neutral-first leading-none ">
-                                +
-                            </span>
+                    <div
+                        className={
+                            showAddNewButton && showPagination && onPrev && onNext
+                                ? 'flex w-full min-w-0 items-center justify-between gap-2 sm:contents'
+                                : 'contents'
+                        }
+                    >
+                        {showAddNewButton && (
+                            <button
+                                onClick={onAddNewButton}
+                                title={addNewButtonText}
+                                className="flex h-8.5 min-w-0 max-w-full shrink items-center gap-2 overflow-hidden rounded-[10px] bg-primary-first px-3 sm:shrink-0 sm:px-6"
+                            >
+                                <span className="min-w-0 truncate overflow-hidden whitespace-nowrap text-[16px] font-medium text-neutral-first">
+                                    {addNewButtonText}
+                                </span>
+                                <span className="shrink-0 text-[20px] font-bold leading-none text-neutral-first">
+                                    +
+                                </span>
+                            </button>
+                        )}
 
-                        </button>
-                    )}
+                        {actions}
 
-                    {actions}
-
-                    {showPagination && onPrev && onNext && (
-                        <PaginationBar
-                            pageStart={pageStart ?? 0}
-                            pageEnd={pageEnd ?? 0}
-                            total={total ?? 0}
-                            onPrev={onPrev}
-                            onNext={onNext}
-                        />
-                    )}
+                        {showPagination && onPrev && onNext && (
+                            <div className="shrink-0">
+                                <PaginationBar
+                                    pageStart={pageStart ?? 0}
+                                    pageEnd={pageEnd ?? 0}
+                                    total={total ?? 0}
+                                    onPrev={onPrev}
+                                    onNext={onNext}
+                                />
+                            </div>
+                        )}
+                    </div>
 
                     {endActions}
                 </div>

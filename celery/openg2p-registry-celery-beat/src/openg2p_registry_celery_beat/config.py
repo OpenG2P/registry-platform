@@ -20,7 +20,7 @@ class Settings(ExtSettings):
     openapi_version: str = __version__
 
     # Registry Database
-    db_driver: str = "postgresql"
+    db_driver: str = "postgresql+psycopg2"
     db_username: str = "postgres"
     db_password: str = "password"
     db_hostname: str = "localhost"

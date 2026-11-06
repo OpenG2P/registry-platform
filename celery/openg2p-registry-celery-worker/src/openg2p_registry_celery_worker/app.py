@@ -8,7 +8,9 @@ _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
 
 from celery import Celery
+from openg2p_notification.app import Initializer as NotificationInitializer
 from openg2p_registry_core.helpers import (
+    AweHelper,
     PartnerManagementClient,
     TemplateHelper,
     WebsubHelper,
@@ -19,6 +21,9 @@ from openg2p_registry_core.cache import init_cache
 from openg2p_fastapi_common.exception import BaseExceptionHandler        
 from openg2p_registry_core.services import (
     G2PAttributeValueValidator,
+    G2PAweIntegrationService,
+    G2PAwePolicyConfigurationService,
+    G2PDocumentService,
     G2PIngestService,
     G2PIntakeFormDataService,
     G2PIntakeFormLinkService,
@@ -50,11 +55,16 @@ class Initializer(BaseInitializer):
         TemplateHelper()
         WebsubHelper()
         PartnerManagementClient()
+        AweHelper()
+        NotificationInitializer()
 
         # Services
+        G2PDocumentService()
         G2PRegisterService()
         G2PIngestService()
         G2PIntakeFormDataService()
+        G2PAwePolicyConfigurationService()
+        G2PAweIntegrationService()
         G2PIntakeFormLinkService()
         G2PRegisterChangeRequestService()
         G2PSectionDocumentReconcileService()

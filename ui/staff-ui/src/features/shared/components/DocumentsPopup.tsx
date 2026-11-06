@@ -19,7 +19,7 @@ export function DocumentsPopup({ documents, onClose }: Props) {
             onClick={onClose}
         >
             <div
-                className="relative flex max-h-[80vh] w-full max-w-[520px] flex-col rounded-[20px] border border-primary-first bg-neutral-second p-6 shadow-lg"
+                className="relative flex max-h-[min(80vh,calc(100svh-1.5rem))] w-full max-w-[min(520px,calc(100vw-1.5rem))] flex-col rounded-[10px] border border-primary-first bg-neutral-second p-4 shadow-lg sm:p-6"
                 onClick={(e) => e.stopPropagation()}
             >
                 <button
@@ -31,8 +31,8 @@ export function DocumentsPopup({ documents, onClose }: Props) {
                     <X size={22} strokeWidth={2} />
                 </button>
 
-                <div className="mb-4 flex items-center gap-2 pr-8">
-                    <h2 className="text-[20px] font-semibold text-neutral-first">
+                <div className="mb-4 flex min-w-0 items-center gap-2 pr-8">
+                    <h2 className="min-w-0 truncate text-[18px] font-semibold text-neutral-first sm:text-[20px]" title={t('attached_documents')}>
                         {t('attached_documents')}
                     </h2>
                     <Image

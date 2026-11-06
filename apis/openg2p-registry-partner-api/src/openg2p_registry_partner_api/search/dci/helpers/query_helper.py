@@ -42,8 +42,8 @@ class DciQueryHelper:
 
         query_value = search_criteria.query.value
         if query_type == "expression":
-            return cls._parse_expression_query(query_value, model_class)
-        return DciQueryResult(search_text=cls._get_idtype_value_search_text(query_value))
+            return cls._parse_expression_query(cls._as_object(query_value), model_class)
+        return DciQueryResult(search_text=cls._idtype_value_of(search_criteria.query))
 
     @classmethod
     def _parse_expression_query(cls, query_value: Dict[str, Any], model_class) -> DciQueryResult:
@@ -67,7 +67,7 @@ class DciQueryHelper:
     @classmethod
     def _translate_expression(cls, query: Dict[str, Any], model_class) -> list:
         config = Settings.get_config()
-        allowed_fields = set(config.dci_expression_allowed_fields)
+        allowed_fields = set(config.dci_allowed_search_fields)
         conditions = []
 
         for field_name, operators in query.items():
@@ -155,7 +155,8 @@ class DciQueryHelper:
         record_type = str(search_criteria.reg_record_type or "")
         if not record_type.lower().endswith("aggregate") or search_criteria.query_type != "expression":
             return False
-        query = ((search_criteria.query.value or {}).get("expression") or {}).get("query") or {}
+        value = search_criteria.query.value
+        query = ((value if isinstance(value, dict) else {}).get("expression") or {}).get("query") or {}
         return "subject_id" not in query and "search_text" not in query
 
     @classmethod
@@ -178,8 +179,8 @@ class DciQueryHelper:
             )
         query_value = search_criteria.query.value
         if query_type == "idtype-value":
-            return cls._get_idtype_value_search_text(query_value), {}
-        query = dict(query_value.get("expression", {}).get("query", {}) or {})
+            return cls._idtype_value_of(search_criteria.query), {}
+        query = dict(cls._as_object(query_value).get("expression", {}).get("query", {}) or {})
         # A subject is "missing" only when the key is absent — the same rule as
         # is_bulk_aggregate_request, which decides whether a search across
         # subjects needs the bulk allow-list instead of a person's consent. A
@@ -241,6 +242,21 @@ class DciQueryHelper:
         if parsed.tzinfo is not None:
             parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
         return parsed
+
+    @classmethod
+    def _as_object(cls, query_value: Any) -> Dict[str, Any]:
+        if not isinstance(query_value, dict):
+            cls._raise_invalid_request("query.value must be an object for this query type.")
+        return query_value
+
+    @classmethod
+    def _idtype_value_of(cls, query: Any) -> str:
+        """The ID of an idtype-value query: canonical ``{"type": "UIN", "value": "123"}``
+        or the legacy ``{"type": "idtype-value", "value": {"id_type", "id_value"}}``."""
+        value = getattr(query, "value", None)
+        if isinstance(value, dict):
+            return cls._get_idtype_value_search_text(value)
+        return cls._get_idtype_value_search_text({"id_type": getattr(query, "type", None), "id_value": value})
 
     @classmethod
     def _get_idtype_value_search_text(cls, query_value: Dict[str, Any]) -> str:

@@ -171,7 +171,7 @@ export default function RegisterTypePage() {
                     {viewQueueLabel}
                 </button>
             </div>,
-            { autoClose: 8000, style: { width: '28rem', minWidth: '28rem' } },
+            { autoClose: 8000, style: { width: 'min(28rem, calc(100vw - 2rem))' } },
         );
     };
 

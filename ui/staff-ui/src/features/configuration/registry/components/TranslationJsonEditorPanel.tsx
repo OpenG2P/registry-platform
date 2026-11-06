@@ -28,18 +28,18 @@ export default function TranslationJsonEditorPanel({
 }: TranslationJsonEditorPanelProps) {
     return (
         <>
-            <div className="flex items-center gap-3 w-full lg:w-[520px] p-3">
-                <label className="text-[16px] font-semibold text-neutral-first whitespace-nowrap">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full lg:w-[520px] p-3 min-w-0">
+                <label className="text-[16px] font-semibold text-neutral-first sm:whitespace-nowrap">
                     {searchLabel}:
                 </label>
                 <input
                     value={searchQuery}
                     onChange={event => onSearchChange(event.target.value)}
                     placeholder={searchPlaceholder}
-                    className={`${searchInputHeightClass} w-full px-3 rounded-[10px] border border-primary-second outline-none text-sm`}
+                    className={`${searchInputHeightClass} w-full min-w-0 px-3 rounded-[10px] border border-primary-second outline-none text-sm`}
                 />
             </div>
-            <div className="p-3 max-h-[560px] overflow-y-auto">
+            <div className="p-3 max-h-[560px] min-w-0 overflow-auto">
                 <JsonEditor
                     key={editorKey}
                     data={data}

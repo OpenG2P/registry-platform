@@ -82,8 +82,8 @@ export default function ImageCropper({ image, onCropComplete, onCancel, lockAspe
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-neutral-first/80 p-4">
             <div className="relative w-full max-w-175 bg-neutral-second rounded-[10px] overflow-hidden border-4 border-primary-first">
                 {/* Header */}
-                <div className="flex items-center justify-between px-8 py-6">
-                    <h2 className="text-primary-second text-2xl font-bold font-roboto">{t('edit_image')}</h2>
+                <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-8 sm:py-6">
+                    <h2 className="min-w-0 truncate text-primary-second text-xl sm:text-2xl font-bold font-roboto" title={t('edit_image')}>{t('edit_image')}</h2>
                     <button
                         onClick={onCancel}
                         className="text-secondary-third hover:text-neutral-first/70 transition-colors"
@@ -93,7 +93,7 @@ export default function ImageCropper({ image, onCropComplete, onCancel, lockAspe
                 </div>
 
                 {/* Cropper Area */}
-                <div className="relative mx-8 h-87.5 bg-neutral-first rounded-[10px] overflow-hidden">
+                <div className="relative mx-4 sm:mx-8 h-64 sm:h-87.5 bg-neutral-first rounded-[10px] overflow-hidden">
                     <Cropper
                         image={image}
                         crop={crop}
@@ -108,7 +108,7 @@ export default function ImageCropper({ image, onCropComplete, onCancel, lockAspe
                 </div>
 
                 {/* Controls */}
-                <div className="px-8 py-8 flex items-center gap-6 bg-secondary-first/50 w-full">
+                <div className="px-4 py-6 sm:px-8 sm:py-8 flex flex-wrap items-center gap-4 sm:gap-6 bg-secondary-first/50 w-full">
 
                     {/* Zoom  */}
                     <div className="flex items-center gap-3 flex-1">

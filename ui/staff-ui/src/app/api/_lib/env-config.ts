@@ -3,6 +3,7 @@ export function getServerEnv() {
     return {
         backendApiUrl: process.env.BACKEND_API_URL ?? "",
         masterdataBackendApiUrl: process.env.MASTERDATA_BACKEND_API_URL ?? "",
+        partnerAdminBackendApiUrl: process.env.PARTNER_ADMIN_BACKEND_API_URL ?? "",
         iamUrl: process.env.IAM_URL ?? "",
         loginProviderId: process.env.LOGIN_PROVIDER_ID ?? "",
         applicationMnemonic: process.env.APPLICATION_MNEMONIC ?? "openg2p-registry",
@@ -12,6 +13,14 @@ export function getServerEnv() {
 
         verifyServiceUrl: process.env.VERIFY_SERVICE_URL ?? "",
         vpClientId: process.env.VP_CLIENT_ID ?? "",
+
+        notificationProvider: process.env.NOTIFICATION_PROVIDER?.trim() ?? "",
+        notificationApplicationIdentifier:
+            process.env.NOTIFICATION_APPLICATION_IDENTIFIER?.trim() ?? "",
+        notificationBackendUrl: process.env.NOTIFICATION_BACKEND_URL?.trim() ?? "",
+        notificationWebsocketUrl: process.env.NOTIFICATION_WEBSOCKET_URL?.trim() ?? "",
+        notificationSecretKey: process.env.NOTIFICATION_SECRET_KEY?.trim() ?? "",
+
         cspHeader: process.env.CSP_HEADER?.trim() ?? "",
         cspSrcDefault: process.env.CSP_SRC_DEFAULT?.trim(),
         cspSrcScript: process.env.CSP_SRC_SCRIPT?.trim(),

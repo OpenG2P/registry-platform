@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useFetch } from '@/shared/hooks';
 import { toast } from 'react-toastify';
 import { useFileUpload, useDocuments } from '@/features/shared/hooks';
-import { BaseModal, Field, FileUploadField, CheckboxField } from '../shared/components';
+import { BaseModal, Field, FileUploadField, CheckboxField, FilePreview } from '../shared/components';
 import { TEMPLATE_ACCEPT, TEMPLATE_UPLOAD_HINT_KEY, validateTemplateUpload } from '../shared/utils/templateUpload';
 
 
@@ -126,22 +126,25 @@ export default function EditIngestionTemplateModal({
         >
             <Field label={t('register_mnemonic')} value={data.register_mnemonic} />
             <Field label={t('data_model_mnemonic')} value={data.data_model_mnemonic} />
-            <div className="flex gap-6">
-                <div className="flex-1">
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:gap-6">
+                <div className="min-w-0 flex-1">
                     <FileUploadField
                         label={t('template')}
                         fileInputRef={fileInputRef}
                         uploading={uploading}
                         fileId={formData.template_document_id}
-                        fileName={uploadedFileName}
+                        fileName={selectedFile ? uploadedFileName : undefined}
                         onFileChange={handleFileChange}
                         onRemove={handleRemoveFile}
                         accept={TEMPLATE_ACCEPT}
                         helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
                     />
+                    {!selectedFile && (
+                        <FilePreview documentId={formData.template_document_id} />
+                    )}
                 </div>
 
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                     <CheckboxField
                         label={t('jsonld_expansion')}
                         checked={formData.jsonld_expansion_required}

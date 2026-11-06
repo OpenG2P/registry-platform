@@ -1,5 +1,6 @@
 import logging
 
+from openg2p_registry_core.interfaces import G2PRegisterDomainFactory
 from openg2p_registry_core.services import G2PRegisterDomainService
 
 from .utils.validations import (
@@ -129,3 +130,14 @@ class G2PRegisterDomainServiceHousehold(G2PRegisterDomainService):
         )
 
         return " ".join(record_name).strip()
+
+    async def resolve_contact(self, session, internal_record_id):
+        household = await self.load_register_row(session, internal_record_id)
+        head_id = getattr(household, "household_head_internal_record_id", None) if household else None
+        if not head_id:
+            return None
+        factory = G2PRegisterDomainFactory.get_component()
+        individual = factory.get_domain_service("Individual") if factory else None
+        if individual is None:
+            return None
+        return await individual.resolve_contact(session, str(head_id))

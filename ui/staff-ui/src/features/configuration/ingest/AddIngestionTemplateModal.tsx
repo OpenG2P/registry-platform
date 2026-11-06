@@ -159,8 +159,8 @@ export default function AddIngestionTemplateModal({
                     }))
                 }
             />
-            <div className="flex gap-6">
-                <div className="flex-1">
+            <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:gap-6">
+                <div className="min-w-0 flex-1">
                     <FileUploadField
                         label={t('template')}
                         fileInputRef={fileInputRef}
@@ -174,7 +174,7 @@ export default function AddIngestionTemplateModal({
                     />
                 </div>
 
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                     <CheckboxField
                         label={t('jsonld_expansion')}
                         checked={formData.jsonld_expansion_required}

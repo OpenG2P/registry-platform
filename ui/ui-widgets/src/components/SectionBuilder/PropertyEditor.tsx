@@ -6,6 +6,16 @@ import { SearchableSelect } from './SearchableSelect';
 import { getWidgetCategory } from '../../registry/widgetTypes';
 import { useWidgetContext } from '../WidgetProvider';
 
+const PROPERTY_EDITOR_STYLES = `
+.owt-property-editor input,
+.owt-property-editor select,
+.owt-property-editor textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+}
+`;
+
 interface PropertyEditorProps {
   node: TreeNode | null;
   onChange: (node: TreeNode, updates: Partial<SectionConfig | PanelConfig | BaseWidgetConfig>) => void;
@@ -454,7 +464,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                       {t?.('sectionBuilder.valueLabelKeys') ||
                         'Value/Label Keys (e.g., "id"/"name")'}
                     </label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', minWidth: 0 }}>
                       <input
                         type="text"
                         value={apiSource.valueKey || ''}
@@ -462,7 +472,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                           handleNestedChange('widget-data-source', 'valueKey', e.target.value)
                         }
                         style={{
-                          flex: 1,
+                          flex: '1 1 140px',
+                          minWidth: 0,
                           padding: '6px 8px',
                           border: '1px solid var(--owt-color-border)',
                           borderRadius: '4px',
@@ -479,7 +490,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                           handleNestedChange('widget-data-source', 'labelKey', e.target.value)
                         }
                         style={{
-                          flex: 1,
+                          flex: '1 1 140px',
+                          minWidth: 0,
                           padding: '6px 8px',
                           border: '1px solid var(--owt-color-border)',
                           borderRadius: '4px',
@@ -540,8 +552,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
               {t?.('sectionBuilder.numberValidation') || 'Number Validation'}
             </label>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px', minWidth: 0 }}>
+              <div style={{ flex: '1 1 140px', minWidth: 0 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
                   {t?.('sectionBuilder.minValue') || 'Min Value'}
                 </label>
@@ -562,7 +574,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   }}
                 />
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: '1 1 140px', minWidth: 0 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
                   {t?.('sectionBuilder.maxValue') || 'Max Value'}
                 </label>
@@ -592,8 +604,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
               {t?.('sectionBuilder.dateRangeOptions') || 'Date Range Options'}
             </label>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px', minWidth: 0 }}>
+              <div style={{ flex: '1 1 140px', minWidth: 0 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
                   {t?.('sectionBuilder.minDate') || 'Min Date'}
                 </label>
@@ -614,7 +626,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   }}
                 />
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: '1 1 140px', minWidth: 0 }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontSize: '11px' }}>
                   {t?.('sectionBuilder.maxDate') || 'Max Date'}
                 </label>
@@ -739,20 +751,34 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
     }
   };
 
+  const headerLabel =
+    node.type === 'section'
+      ? t?.('sectionBuilder.headerSection', { id: (node.data as SectionConfig)['section-id'] }) ||
+        `Section: ${(node.data as SectionConfig)['section-id']}`
+      : node.type === 'panel'
+        ? t?.('sectionBuilder.headerPanel', { id: (node.data as PanelConfig)['panel-id'] }) ||
+          `Panel: ${(node.data as PanelConfig)['panel-id']}`
+        : t?.('sectionBuilder.headerWidget', { id: (node.data as BaseWidgetConfig)['widget-id'] }) ||
+          `Widget: ${(node.data as BaseWidgetConfig)['widget-id']}`;
+
   return (
     <div
+      className="owt-property-editor"
       style={{
         flex: '1 1 0%',
         minHeight: 0,
+        minWidth: 0,
         padding: '15px',
         overflowY: 'auto',
         background: 'var(--owt-color-bg-alt)',
       }}
     >
+      <style>{PROPERTY_EDITOR_STYLES}</style>
       <h3 style={{ fontSize: '14px', marginBottom: '15px', color: 'var(--owt-color-text)' }}>
         {t?.('sectionBuilder.properties') || 'Properties'}
       </h3>
       <div
+        title={headerLabel}
         style={{
           background: getHeaderColor(),
           color: 'var(--owt-color-bg)',
@@ -761,28 +787,24 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
           marginBottom: '20px',
           fontWeight: 600,
           fontSize: '13px',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
         }}
       >
-        {node.type === 'section' &&
-          (t?.('sectionBuilder.headerSection', { id: (node.data as SectionConfig)['section-id'] }) ||
-            `Section: ${(node.data as SectionConfig)['section-id']}`)}
-        {node.type === 'panel' &&
-          (t?.('sectionBuilder.headerPanel', { id: (node.data as PanelConfig)['panel-id'] }) ||
-            `Panel: ${(node.data as PanelConfig)['panel-id']}`)}
-        {node.type === 'widget' &&
-          (t?.('sectionBuilder.headerWidget', { id: (node.data as BaseWidgetConfig)['widget-id'] }) ||
-            `Widget: ${(node.data as BaseWidgetConfig)['widget-id']}`)}
+        {headerLabel}
       </div>
 
       {node.type === 'section' && renderSectionProperties()}
       {node.type === 'panel' && renderPanelProperties()}
       {node.type === 'widget' && renderWidgetProperties()}
 
-      <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '30px' }}>
         <button
           onClick={() => onDelete(node)}
           style={{
-            flex: 1,
+            flex: '1 1 120px',
+            minWidth: 0,
             padding: '10px',
             border: 'none',
             borderRadius: '10px',
@@ -798,7 +820,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         <button
           onClick={() => onDuplicate(node)}
           style={{
-            flex: 1,
+            flex: '1 1 120px',
+            minWidth: 0,
             padding: '10px',
             border: 'none',
             borderRadius: '10px',

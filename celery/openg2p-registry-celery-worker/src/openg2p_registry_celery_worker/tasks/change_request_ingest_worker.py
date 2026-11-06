@@ -19,6 +19,7 @@ from openg2p_registry_core.schemas.change_request import (
     ChangePayload,
     ChangeRequestRequestPayload,
 )
+from openg2p_registry_core.helpers.notification import NotificationHelper, NotificationWorkflow
 from openg2p_registry_core.services.g2p_change_request_worker_service import (
     G2PChangeRequestWorkerService,
 )
@@ -134,6 +135,11 @@ async def _process_change_request_ingest_async(ingest_id: str) -> None:
                 classified.ingestion_latest_error_code = None
                 classified.ingestion_date_time = datetime.now()
                 session.add(classified)
+            await NotificationHelper.dispatch_change_request_notification(
+                cr.change_request_id,
+                NotificationWorkflow.CHANGE_REQUEST_CREATED,
+                session,
+            )
     except Exception as error:
         _logger.error(
             "change_request_ingest_worker failed for ingest_id %s: %s",

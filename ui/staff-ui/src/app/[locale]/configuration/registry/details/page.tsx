@@ -141,7 +141,7 @@ const RegistryConfigurationPage = () => {
 				showAddNewButton={false}
 			/>
 
-			<div className="mx-7.5 pb-10 max-w-5xl">
+			<div className="mx-3 sm:mx-6 lg:mx-7.5 pb-10 max-w-5xl">
 				{isLoading ? (
 					<div className="bg-neutral-second rounded-[10px] p-12 flex justify-center shadow-sm border border-secondary-second/40">
 						<Image src="/images/common/loading.gif" alt="Loading" width={48} height={48} />
@@ -162,23 +162,23 @@ const RegistryConfigurationPage = () => {
 						onCancel={() => setIsEditing(false)}
 					/>
 				) : (
-					<div className="relative bg-neutral-second rounded-[10px] p-8  border border-secondary-second/40 flex flex-col gap-8">
+					<div className="relative bg-neutral-second rounded-[10px] p-4 sm:p-8 border border-secondary-second/40 flex flex-col gap-8">
 						<Can action={CONFIGURATION_REGISTRY_ACTIONS.edit}>
 							<button
 								type="button"
 								onClick={startEditing}
-								className="absolute top-6 right-6 z-10 bg-neutral-second px-4 py-2 rounded-[10px] border border-secondary-second shadow-sm flex items-center gap-2 text-sm font-semibold text-neutral-first whitespace-nowrap"
+								className="self-end md:absolute md:top-6 md:right-6 md:z-10 bg-neutral-second px-4 py-2 rounded-[10px] border border-secondary-second shadow-sm flex items-center gap-2 text-sm font-semibold text-neutral-first whitespace-nowrap"
 							>
 								<SquarePen size={18} strokeWidth={2} />
 								<span>{t('edit_registry_details')}</span>
 							</button>
 						</Can>
 
-						<div className="flex flex-col gap-6 pb-6 border-b border-secondary-second pr-4 md:pr-56">
+						<div className="flex flex-col gap-6 pb-6 border-b border-secondary-second md:pr-56">
 							<div className="flex flex-col sm:flex-row gap-8 items-start">
 								<div className="flex flex-col gap-2 min-w-0 w-full sm:w-auto sm:max-w-[min(100%,28rem)]">
 									<span className="text-sm text-neutral-first/60">{t('registry_logo')}</span>
-									<div className="h-30 min-w-30 w-full max-w-full relative rounded-[10px] overflow-hidden flex items-center justify-center border border-secondary-second/40 bg-secondary-first/30 px-3">
+									<div className="h-30 min-w-0 w-full max-w-full relative rounded-[10px] overflow-hidden flex items-center justify-center border border-secondary-second/40 bg-secondary-first/30 px-3">
 										{hasCustomLogo ? (
 											<Image
 												src={resolvedLogo}
@@ -193,7 +193,7 @@ const RegistryConfigurationPage = () => {
 												unoptimized
 											/>
 										) : (
-											<div className="w-30 h-30 flex flex-col items-center justify-center text-neutral-first/40 gap-1">
+											<div className="w-full h-full flex flex-col items-center justify-center text-neutral-first/40 gap-1">
 												<ImageIcon size={40} strokeWidth={1.5} />
 												<span className="text-xs">{t('no_file_selected')}</span>
 											</div>
@@ -224,7 +224,7 @@ const RegistryConfigurationPage = () => {
 							{!isHorizontalLogo && (
 								<div className="flex flex-col gap-2 min-w-0">
 									<span className="text-sm text-neutral-first/60">{t('registry_name')}</span>
-									<h2 className="text-[26px] font-bold text-primary-second m-0 truncate">
+									<h2 className="text-[26px] font-bold text-primary-second m-0 truncate" title={resolvedName}>
 										{resolvedName}
 									</h2>
 								</div>
@@ -239,7 +239,7 @@ const RegistryConfigurationPage = () => {
 									</div>
 									<div className="flex flex-col min-w-0">
 										<span className="text-sm text-neutral-first/60">{t('registry_theme')}</span>
-										<span className="text-base font-semibold text-neutral-first truncate">
+										<span className="text-base font-semibold text-neutral-first truncate" title={selectedTheme?.theme_mnemonic || t('no_items_found')}>
 											{selectedTheme?.theme_mnemonic || t('no_items_found')}
 										</span>
 									</div>
@@ -278,7 +278,7 @@ const RegistryConfigurationPage = () => {
 									)}
 									<div className="flex flex-col min-w-0">
 										<span className="text-sm text-neutral-first/60">{t('registry_language')}</span>
-										<span className="text-base font-semibold text-neutral-first truncate">
+										<span className="text-base font-semibold text-neutral-first truncate" title={selectedLanguage?.language_label || t('no_items_found')}>
 											{selectedLanguage?.language_label || t('no_items_found')}
 										</span>
 									</div>

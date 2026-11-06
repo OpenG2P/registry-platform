@@ -173,11 +173,11 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
             onChange(iso);
             applyConstraintError(iso);
           } else {
-            onChange('');
+            onChange(null);
             setError([]);
           }
         } else {
-          onChange('');
+          onChange(null);
           setError([]);
         }
       } else {
@@ -191,7 +191,7 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
             applyConstraintError(iso);
           }
         } else {
-          onChange('');
+          onChange(null);
           setError([]);
         }
       }
@@ -212,7 +212,7 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
         applyConstraintError(iso);
       } else {
         setManualInputValue('');
-        onChange('');
+        onChange(null);
         setError([]);
       }
     }

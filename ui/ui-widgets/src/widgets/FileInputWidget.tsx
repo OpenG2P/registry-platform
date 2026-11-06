@@ -147,17 +147,17 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
 
   if (isReadonly) {
     return (
-      <div className="mb-[10px] FileDisplayWidget flex flex-row items-start w-full">
+      <div className="mb-[10px] FileDisplayWidget flex w-full min-w-0 max-w-full flex-col items-start sm:flex-row">
         {label && (
           <div
-            className="w-1/2 min-w-0 pr-2 text-base owt-field-label font-medium truncate"
+            className="w-full min-w-0 pr-2 text-base owt-field-label font-medium sm:w-1/2"
             style={{ fontFamily: 'Roboto, sans-serif' }}
             title={label}
           >
-            {label}:
+            <span className="block min-w-0 truncate">{label}:</span>
           </div>
         )}
-        <div className="w-1/2 min-w-0 flex items-center min-h-[1.5rem]">
+        <div className="flex min-h-[1.5rem] w-full min-w-0 max-w-full items-center sm:w-1/2">
           {hasFile && file ? (
             <>
               <span
@@ -184,14 +184,14 @@ export const FileInputWidget = ({ config }: FileInputWidgetProps) => {
   }
 
   return (
-    <div className="mb-[10px]">
-      <div className="flex flex-row items-start w-full">
+    <div className="mb-[10px] min-w-0 max-w-full">
+      <div className="flex w-full min-w-0 max-w-full flex-col items-start sm:flex-row">
         <WidgetFieldLabel
-          className="w-1/2 min-w-0 pr-2 text-base font-medium owt-field-label"
+          className="w-full min-w-0 pr-2 text-base font-medium owt-field-label sm:w-1/2"
           label={label}
           required={isRequired}
         />
-        <div className="w-1/2 min-w-0 flex flex-col justify-center min-h-[1.5rem]">
+        <div className="flex min-h-[1.5rem] w-full min-w-0 max-w-full flex-col justify-center sm:w-1/2">
           {!hasFile && (
             <label
               className={`${docControlClass} cursor-pointer justify-center gap-2 border border-dashed ${

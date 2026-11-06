@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..repositories.register_repository import RegisterRecordRepository
 from iam_core.helpers.data_policy_helper import DataPolicyHelper
+from ..helpers.notification import NotificationHelper, NotificationWorkflow
 from .g2p_awe_integration_service import G2PAweIntegrationService
 from .g2p_awe_status_reconcile import (
     REGISTRY_INTAKE_FORM_ARTIFACT,
@@ -575,6 +576,11 @@ class G2PIntakeFormDataService(BaseService):
                 requester_sub=requester_sub,
             )
             await session.commit()
+            await NotificationHelper.dispatch_intake_form_notification(
+                submission.submission_id,
+                NotificationWorkflow.INTAKE_FORM_SUBMISSION_CREATED,
+                session,
+            )
             return await self.get_submission_payload(submission.submission_id)
 
     async def finalize_submission_with_session(
@@ -645,6 +651,11 @@ class G2PIntakeFormDataService(BaseService):
             submission.register_ingest_process_last_error_code = None
             session.add(submission)
             await session.commit()
+            await NotificationHelper.dispatch_intake_form_notification(
+                submission.submission_id,
+                NotificationWorkflow.INTAKE_FORM_SUBMISSION_APPROVED,
+                session,
+            )
             return await self.get_submission_payload(submission.submission_id)
 
     async def reject_submission(self, submission_id: str, rejected_by: str) -> SubmissionResponsePayload:
@@ -663,6 +674,11 @@ class G2PIntakeFormDataService(BaseService):
             submission.last_updated_at = now
             session.add(submission)
             await session.commit()
+            await NotificationHelper.dispatch_intake_form_notification(
+                submission.submission_id,
+                NotificationWorkflow.INTAKE_FORM_SUBMISSION_REJECTED,
+                session,
+            )
             return await self.get_submission_payload(submission.submission_id)
 
     async def approve_submission_with_session(

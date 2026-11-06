@@ -144,7 +144,7 @@ export default function ApprovalCard({
                         <div className="mt-1 text-left text-[12px] text-neutral-first/40">
                             {comment.length}/{MESSAGE_MAX_LENGTH}
                         </div>
-                        <div className="mt-2 flex items-center justify-end gap-2">
+                        <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
                             <button
                                 type="button"
                                 disabled={isInteractionDisabled}

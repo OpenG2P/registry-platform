@@ -48,10 +48,13 @@ class OutgestionDataSearchResultData(BaseModel):
 
 class OutgoingTopicData(BaseModel):
     topic_id: str
-    register_id: str
+    topic_type: str
+    register_id: Optional[str] = None
     register_mnemonic: Optional[str] = None
-    data_model_id: str
+    data_model_id: Optional[str] = None
     data_model_mnemonic: Optional[str] = None
+    partner_id: Optional[str] = None
+    partner_name: Optional[str] = None
     websub_topic: str
     description: Optional[str] = None
     is_active: bool
@@ -84,8 +87,10 @@ class OutgoingTemplateData(BaseModel):
 
 class OutgoingTopicPayload(BaseModel):
     topic_id: Optional[str] = None
-    register_id: str
-    data_model_id: str
+    topic_type: str = "REGISTER"
+    register_id: Optional[str] = None
+    data_model_id: Optional[str] = None
+    partner_id: Optional[str] = None
     websub_topic: str
     description: Optional[str] = None
 
@@ -102,8 +107,10 @@ class GetOutgoingTopicPayload(BaseModel):
 
 class OutgoingTopicUpdatePayload(BaseModel):
     topic_id: str
+    topic_type: Optional[str] = None
     register_id: Optional[str] = None
     data_model_id: Optional[str] = None
+    partner_id: Optional[str] = None
     description: Optional[str] = None
 
     class Config:

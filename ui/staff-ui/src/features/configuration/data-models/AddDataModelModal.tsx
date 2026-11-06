@@ -139,19 +139,17 @@ export default function AddDataModelModal({
                 rows={1}
             />
 
-            <div className="grid grid-cols-2 gap-6">
-                <FileUploadField
-                    label={t('template')}
-                    fileInputRef={fileInputRef}
-                    uploading={uploading}
-                    fileId={formData.response_template_document_id}
-                    fileName={uploadedFileName}
-                    onFileChange={handleFileChange}
-                    onRemove={handleRemoveFile}
-                    accept={TEMPLATE_ACCEPT}
-                    helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
-                />
-            </div>
+            <FileUploadField
+                label={t('template')}
+                fileInputRef={fileInputRef}
+                uploading={uploading}
+                fileId={formData.response_template_document_id}
+                fileName={uploadedFileName}
+                onFileChange={handleFileChange}
+                onRemove={handleRemoveFile}
+                accept={TEMPLATE_ACCEPT}
+                helperText={t(TEMPLATE_UPLOAD_HINT_KEY)}
+            />
         </BaseModal>
     );
 }
