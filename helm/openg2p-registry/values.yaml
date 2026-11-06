@@ -272,6 +272,9 @@ global:
   notificationEnabled: true
   notificationProvider: novu
   notificationProviderUrl: 'http://commons-novu-api:3000'
+  # Longest wait for Novu per send. Staff requests wait for the send, so a
+  # hung Novu delays them by up to this much; a failed send is only logged.
+  notificationProviderTimeoutMs: 3000
   notificationApiKeySecret: 'commons-novu'
   notificationApiKeySecretKey: 'api-key'
   # HMAC key on the same secret. Commons-base Novu secret key novu-secret-key.
@@ -1502,6 +1505,7 @@ staffApi:
     NOTIFICATION_ENABLED: '{{ .Values.global.notificationEnabled }}'
     NOTIFICATION_PROVIDER: '{{ .Values.global.notificationProvider }}'
     NOTIFICATION_PROVIDER_URL: '{{ tpl .Values.global.notificationProviderUrl $ }}'
+    NOTIFICATION_PROVIDER_TIMEOUT_MS: '{{ .Values.global.notificationProviderTimeoutMs }}'
     NOTIFICATION_WORKFLOWS: '{{ .Values.global.notificationWorkflows }}'
     NOTIFICATION_STAFF_PORTAL_BASE_URL: '{{ tpl (.Values.global.staffPortalBaseUrl | default "") $ }}'
 
@@ -2102,6 +2106,7 @@ celeryWorker:
     NOTIFICATION_ENABLED: '{{ .Values.global.notificationEnabled }}'
     NOTIFICATION_PROVIDER: '{{ .Values.global.notificationProvider }}'
     NOTIFICATION_PROVIDER_URL: '{{ tpl .Values.global.notificationProviderUrl $ }}'
+    NOTIFICATION_PROVIDER_TIMEOUT_MS: '{{ .Values.global.notificationProviderTimeoutMs }}'
     NOTIFICATION_WORKFLOWS: '{{ .Values.global.notificationWorkflows }}'
     NOTIFICATION_STAFF_PORTAL_BASE_URL: '{{ tpl (.Values.global.staffPortalBaseUrl | default "") $ }}'
 
