@@ -20,7 +20,6 @@ import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRegisterSectionsFromCR';
 import { buildSectionDataMap } from '@/features/shared/utils';
-import type { RegisterFlattenedRecord } from '@/features/register/types';
 import VersionHistoryPageSkeleton from '@/features/register/components/VersionHistoryPageSkeleton';
 
 type Change = {
@@ -284,7 +283,7 @@ export default function VersionHistoryPage() {
         }
         return buildSectionDataMap(
             sectionRegisterId,
-            records as RegisterFlattenedRecord[],
+            records,
             !!versionSectionData.is_list,
         );
     }, [versionSectionData]);

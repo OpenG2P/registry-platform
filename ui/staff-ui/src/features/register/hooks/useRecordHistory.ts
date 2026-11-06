@@ -1,4 +1,5 @@
 import { useFetch } from "@/shared/hooks/useFetch";
+import type { VersionSectionData } from "@/features/register/types";
 
 interface useRecordHistoryDatesParams {
     register_id?: string;
@@ -59,32 +60,6 @@ export const useRecordHistoryChanges = (params: useRecordHistoryChangesParams) =
         loadingChanges: !!params.truncated_created_date ? loadingChanges : false,
     };
 };
-
-interface VersionSectionRecord {
-    internal_record_id?: string;
-    documents?: unknown[];
-    [key: string]: unknown;
-}
-
-export interface VersionSectionData {
-    register_id: string;
-    internal_record_id: string;
-    tab_id: string;
-    truncated_created_date: string;
-    section_id: string;
-    section_mnemonic: string;
-    section_register_id: string;
-    is_list: boolean;
-    is_primary_section: boolean;
-    change_request_id?: string | null;
-    submission_id?: string | null;
-    created_at?: string | null;
-    created_by?: string | null;
-    approved_at?: string | null;
-    approved_by?: string | null;
-    request_id?: string | null;
-    records: VersionSectionRecord[];
-}
 
 interface useVersionSectionDataParams {
     register_id?: string;
