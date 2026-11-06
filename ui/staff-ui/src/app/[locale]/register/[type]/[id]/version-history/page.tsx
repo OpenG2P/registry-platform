@@ -15,13 +15,12 @@ import { useTranslations } from 'next-intl';
 import { useRegisterTabs } from '@/context/RegisterTabsContext';
 import { useBreadcrumb, useFetch } from '@/shared/hooks';
 import { RegistryWidgetProvider } from '@/shared/widgets';
-import { useChangeRequest } from '@/features/change-request/hooks';
-import { useIntakeFormSubmission } from '@/features/intake-form/hooks/useIntakeFormSubmission';
-import { useRecordHistoryDates, useRecordHistoryChanges } from '@/features/register/hooks/useRecordHistory';
+import { useRecordHistoryDates, useRecordHistoryChanges, useVersionSectionData } from '@/features/register/hooks/useRecordHistory';
 import { useEffect, useMemo, useReducer, useRef } from 'react';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRegisterSectionsFromCR';
-import { buildSectionDataMap, pickSubmissionSectionPayload } from '@/features/shared/utils';
+import { buildSectionDataMap } from '@/features/shared/utils';
+import type { RegisterFlattenedRecord } from '@/features/register/types';
 import VersionHistoryPageSkeleton from '@/features/register/components/VersionHistoryPageSkeleton';
 
 type Change = {
@@ -181,23 +180,17 @@ export default function VersionHistoryPage() {
         ? (selectedChange?.submission_id ?? undefined)
         : undefined;
 
-    const { details: changeRequestData, loading: loadingChangeRequestData } =
-        useChangeRequest(changeRequestId);
-    const { submission: intakeSubmission, loading: loadingIntakeSubmission } =
-        useIntakeFormSubmission(intakeSubmissionId);
+    const { versionSectionData, loadingVersionSection } = useVersionSectionData({
+        register_id: registerId,
+        internal_record_id: internalRecordId,
+        tab_id: activeTabId,
+        section_id: selectedSectionId,
+        truncated_created_date: selectedDate,
+        change_request_id: changeRequestId || null,
+        submission_id: intakeSubmissionId ?? null,
+    });
 
-    const intakeSectionPayload = useMemo(
-        () =>
-            pickSubmissionSectionPayload(
-                intakeSubmission?.section_payloads,
-                selectedSectionId || '',
-                sectionsWithChanges[selectedSectionId || '']?.section_register_id,
-            ),
-        [intakeSubmission, selectedSectionId, sectionsWithChanges],
-    );
-
-    const aweRequestId =
-        selectedChange?.request_id ?? intakeSubmission?.awe_request_id ?? null;
+    const aweRequestId = versionSectionData?.request_id ?? selectedChange?.request_id ?? null;
 
     const { tasks, loadingTasks, refetchTasks } = useApprovalTasks(aweRequestId);
     const { submitDecision } = useSubmitApprovalDecision(null, refetchTasks);
@@ -280,23 +273,21 @@ export default function VersionHistoryPage() {
     };
 
     const newSectionData = useMemo(() => {
-        if (changeRequestId && changeRequestData) {
-          return buildSectionDataMap(
-                changeRequestData.section_register_id ?? '',
-                changeRequestData.change_payload,
-                !!changeRequestData.is_list,
-            );
+        if (!versionSectionData) return undefined;
+        const records = versionSectionData.records ?? [];
+        const sectionRegisterId = versionSectionData.section_register_id;
+        // An empty list must stay empty. buildSectionDataMap drops it, which would keep the previous version on screen.
+        if (!records.length) {
+            return versionSectionData.is_list
+                ? { [sectionRegisterId]: { records: [] } }
+                : { [sectionRegisterId]: {} };
         }
-        if (intakeSectionPayload) {
-            return buildSectionDataMap(
-                intakeSectionPayload.section_register_id ?? '',
-                intakeSectionPayload.records,
-                !!intakeSectionPayload.is_list,
-                intakeSectionPayload.documents ?? undefined,
-            );
-        }
-        return undefined;
-    }, [changeRequestId, changeRequestData, intakeSectionPayload]);
+        return buildSectionDataMap(
+            sectionRegisterId,
+            records as RegisterFlattenedRecord[],
+            !!versionSectionData.is_list,
+        );
+    }, [versionSectionData]);
 
     if (newSectionData) prevSectionData.current = newSectionData;
     if (sectionUISchema) prevSectionUISchema.current = sectionUISchema;
@@ -307,8 +298,7 @@ export default function VersionHistoryPage() {
     const isLoading =
         loadingDates ||
         loadingChanges ||
-        (!!changeRequestId && loadingChangeRequestData) ||
-        (!!intakeSubmissionId && loadingIntakeSubmission) ||
+        loadingVersionSection ||
         loadingSchema ||
         (!!aweRequestId && loadingTasks);
     const hasAnythingToShow = !!stableSectionData && !!stableSectionUISchema;
@@ -392,7 +382,7 @@ export default function VersionHistoryPage() {
                                     <SectionRenderer
                                         section={stableSectionUISchema}
                                         hideEditButton
-                                        mode="CRView"
+                                        mode="RegistryView"
                                     />
                                 </RegistryWidgetProvider>
                             </div>
