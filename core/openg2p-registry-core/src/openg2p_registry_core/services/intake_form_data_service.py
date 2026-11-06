@@ -1113,11 +1113,7 @@ class G2PIntakeFormDataService(BaseService):
                 else None
             )
             submission_filters = [G2PIntakeFormSubmission.register_id == register_id]
-            if not self._has_explicit_filter_key(filter_by, "draft_status"):
-                submission_filters.append(
-                    G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value
-                )
-            if not self._has_explicit_filter_key(filter_by, "approval_status"):
+            if not self._parse_filter_by(filter_by):
                 submission_filters.append(
                     G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value
                 )
