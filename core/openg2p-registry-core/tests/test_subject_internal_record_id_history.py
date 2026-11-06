@@ -231,6 +231,47 @@ def test_live_row_drops_null_for_not_null_columns(history_service_cls):
     assert state["land_size"] == 12.0
 
 
+def test_at_version_omits_blank_delete_row(history_service_cls):
+    service = _service(history_service_cls)
+    blank = HistoryRow(
+        history_record_id="h-del",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+        change_request_id="cr-del",
+    )
+    kept = HistoryRow(
+        history_record_id="h-upd",
+        internal_record_id="land-2",
+        record_status="ACTIVE",
+        land_size=4,
+        change_request_id="cr-upd",
+    )
+
+    records = service._records_from_rows([blank, kept])
+
+    assert [record["internal_record_id"] for record in records] == ["land-2"]
+    assert records[0]["land_size"] == 4
+
+
+def test_before_approval_skips_blank_delete_row(history_service_cls):
+    service = _service(history_service_cls)
+    blank = HistoryRow(
+        history_record_id="h-del",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+    )
+    earlier = HistoryRow(
+        history_record_id="h-upd",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+        land_size=3.5,
+    )
+
+    row = service._latest_row_with_domain_values([blank, earlier])
+
+    assert row.land_size == 3.5
+
+
 def test_master_section_payload_targets_subject_record(history_service_cls):
     service = _service(history_service_cls)
     master_cr = _change_request(section_register_id="reg-farmer")

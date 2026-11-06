@@ -20,6 +20,7 @@ from openg2p_registry_core.schemas import (
     GetRecordHistoryRequest,
     GetVersionDatesRequest,
     GetChangesForDateRequest,
+    GetVersionSectionDataRequest,
     GetSubjectRecordRequest,
     GetDeduplicationRegisterResultsRequest,
     GetDeduplicationChangerequestResultsRequest,
@@ -27,6 +28,7 @@ from openg2p_registry_core.schemas import (
     RecordHistoryDataResponse, RecordHistoryListData,
     VersionDatesDataResponse, VersionDatesData,
     ChangesForDateDataResponse, VersionsForDateData,
+    VersionSectionDataResponse, VersionSectionDataData,
     RecordDataResponse, RecordData, RegisterTabRecordData,
     DeduplicationRegisterResultsDataResponse,
     DeduplicationChangerequestResultsDataResponse,
@@ -87,6 +89,13 @@ class G2PRegisterDataController(BaseController):
             "/get_versions_for_a_date",
             self.get_versions_for_a_date,
             responses={200: {"model": ChangesForDateDataResponse}},
+            methods=["POST"],
+        )
+
+        self.router.add_api_route(
+            "/get_version_section_data",
+            self.get_version_section_data,
+            responses={200: {"model": VersionSectionDataResponse}},
             methods=["POST"],
         )
 
@@ -239,6 +248,18 @@ class G2PRegisterDataController(BaseController):
             _logger.error(f"Error in get_changes_for_a_date: {str(error_exception)}")
             error_response: ChangesForDateDataResponse = self.helper.construct_error_response(error_exception, get_changes_for_date_request)
             return error_response
+
+    @require_permissions({"registerHistory:view"})
+    async def get_version_section_data(self, request: GetVersionSectionDataRequest) -> VersionSectionDataResponse:
+        """Section records stored in history for the selected version."""
+        try:
+            section_data: VersionSectionDataData = await self.g2p_register_data_controller_service.get_version_section_data(request)
+            return self.helper.construct_version_section_data_success_response(
+                version_section_data=section_data, g2p_request=request
+            )
+        except Exception as error_exception:
+            _logger.error(f"Error in get_version_section_data: {str(error_exception)}")
+            return self.helper.construct_error_response(error_exception, request)
 
     @require_permissions({"register:view"})
     @data_policy

@@ -1,6 +1,8 @@
+import enum
 import importlib
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 
 from openg2p_fastapi_common.service import BaseService
@@ -31,6 +33,18 @@ HISTORY_META_COLUMNS = frozenset({
     "approved_by",
     "approved_at",
 })
+# record_status is not nullable, so a delete row still carries the column default.
+_BLANK_IGNORED_COLUMNS = HISTORY_META_COLUMNS | {"record_status"}
+
+
+@dataclass
+class SectionHistoryRead:
+    records: list[dict]
+    found: bool = False
+    created_at: datetime | None = None
+    created_by: str | None = None
+    approved_at: datetime | None = None
+    approved_by: str | None = None
 
 
 class G2PRegisterHistoryService(BaseService):
@@ -165,6 +179,105 @@ class G2PRegisterHistoryService(BaseService):
                 continue
             state[key] = value
         return state
+
+    def _has_domain_values(self, row) -> bool:
+        """False for a delete row, which has bookkeeping columns and record_status only."""
+        for column in inspect(row.__class__).columns:
+            if column.name in _BLANK_IGNORED_COLUMNS:
+                continue
+            if getattr(row, column.name, None) is not None:
+                return True
+        return False
+
+    def _latest_row_with_domain_values(self, rows):
+        for row in rows:
+            if self._has_domain_values(row):
+                return row
+        return None
+
+    def _serialize_history_row(self, row) -> dict:
+        record = {"internal_record_id": getattr(row, "internal_record_id", None)}
+        for column in inspect(row.__class__).columns:
+            if column.name in HISTORY_META_COLUMNS:
+                continue
+            value = getattr(row, column.name, None)
+            if isinstance(value, enum.Enum):
+                value = value.value
+            elif hasattr(value, "isoformat"):
+                value = value.isoformat()
+            record[column.name] = value
+        return record
+
+    def _records_from_rows(self, rows) -> list[dict]:
+        return [self._serialize_history_row(row) for row in rows if self._has_domain_values(row)]
+
+    async def get_section_records_from_history(
+        self,
+        session,
+        *,
+        section_register_id: str,
+        section_id: str | None = None,
+        change_request_id: str | None = None,
+        submission_id: str | None = None,
+        before_approved_at=None,
+        record_ids: list[str] | None = None,
+    ) -> SectionHistoryRead:
+        """History records for one section.
+
+        ``before_approved_at`` returns the latest row with data before that time.
+        ``change_request_id`` or ``submission_id`` returns that version, without blank delete rows.
+        """
+        models = await self._models_for_section_register(section_register_id, session)
+        if models is None:
+            return SectionHistoryRead()
+        _register_class, _schema_class, history_class = models
+
+        if before_approved_at is not None:
+            records = []
+            for record_id in record_ids or []:
+                rows = (
+                    await session.execute(
+                        select(history_class).where(
+                            history_class.internal_record_id == record_id,
+                            history_class.section_id == section_id,
+                            history_class.approved_at < before_approved_at,
+                        ).order_by(history_class.approved_at.desc())
+                    )
+                ).scalars().all()
+                row = self._latest_row_with_domain_values(rows)
+                if row is None:
+                    continue
+                record = self._serialize_history_row(row)
+                approved_at = getattr(row, "approved_at", None)
+                if hasattr(approved_at, "isoformat"):
+                    approved_at = approved_at.isoformat()
+                record["last_approved_by"] = getattr(row, "approved_by", None)
+                record["last_approved_at"] = approved_at
+                records.append(record)
+            return SectionHistoryRead(records=records, found=bool(records))
+
+        filters = [history_class.section_id == section_id]
+        if change_request_id:
+            filters.append(history_class.change_request_id == change_request_id)
+        elif submission_id:
+            filters.append(history_class.submission_id == submission_id)
+        else:
+            return SectionHistoryRead()
+
+        rows = (
+            await session.execute(
+                select(history_class).where(*filters).order_by(history_class.approved_at)
+            )
+        ).scalars().all()
+        anchor = rows[0] if rows else None
+        return SectionHistoryRead(
+            records=self._records_from_rows(rows),
+            found=bool(rows),
+            created_at=getattr(anchor, "created_at", None) if anchor else None,
+            created_by=getattr(anchor, "created_by", None) if anchor else None,
+            approved_at=getattr(anchor, "approved_at", None) if anchor else None,
+            approved_by=getattr(anchor, "approved_by", None) if anchor else None,
+        )
 
     def _create_history_record(
         self,
