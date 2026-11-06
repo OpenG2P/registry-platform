@@ -404,15 +404,12 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
-        history_live_snapshots = await G2PRegisterHistoryService.get_component().capture_live_snapshots(
-            change_request, session
-        )
         if register_section.section_register_id == register_section.register_id:
             await self.approve_register(change_request, register_section, session)
         else:
             await self.approve_table(change_request, register_section, session)
 
-        await self.insert_into_register_history(change_request, session, history_live_snapshots)
+        await self.insert_into_register_history(change_request, session)
         # Promote attached docs
         await self._handle_documents_on_approval(change_request, register_section, session)
 
@@ -568,10 +565,8 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
-        # In case of approval, insert data into register_history
-        await self.insert_into_register_history(change_request, session)
-        # Upsert data into register
         subject_internal_record_id = await self.insert_primary_master_section_into_register(change_request, session)
+        await self.insert_into_register_history(change_request, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
 
         # Handle POST APPROVAL domain service operation
@@ -602,10 +597,10 @@ class G2PRegisterChangeRequestService(BaseService):
             change_request, session, skip_verification, skip_sequence_check
         )
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
-        await self.insert_into_register_history(change_request, session)
         await self.insert_non_primary_master_section_into_register(
             change_request, change_request.internal_record_id, session
         )
+        await self.insert_into_register_history(change_request, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
         await self._run_post_approve_hook(
             change_request.section_register_id, change_request, session
@@ -752,10 +747,8 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
-        # In case of approval, insert data into register_history
-        await self.insert_into_register_history(change_request, session)
-        # Upsert data into register
         subject_internal_record_id = await self.insert_child_section_into_register(change_request, subject_internal_record_id, session)
+        await self.insert_into_register_history(change_request, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
 
         # Handle POST APPROVAL domain service operation
@@ -920,14 +913,9 @@ class G2PRegisterChangeRequestService(BaseService):
                 message="There are earlier pending change requests for this record",
             )
 
-    async def insert_into_register_history(
-        self,
-        change_request: G2PRegisterChangeRequest,
-        session,
-        live_snapshots: dict[str, dict] | None = None,
-    ) -> None:
+    async def insert_into_register_history(self, change_request: G2PRegisterChangeRequest, session) -> None:
         history_service = G2PRegisterHistoryService.get_component()
-        await history_service.insert_into_register_history(change_request, session, live_snapshots)
+        await history_service.insert_into_register_history(change_request, session)
 
     def _set_change_request_approval_state(
         self,
