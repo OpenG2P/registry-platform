@@ -41,13 +41,13 @@ class G2PDciController(BaseController):
         self.router.prefix = "/dci"
 
         self.router.add_api_route(
-            "registry/sync/search",
+            "/registry/sync/search",
             self.sync_search,
             responses={200: {"model": DciSearchResponseEnvelope}},
             methods=["POST"],
         )
         self.router.add_api_route(
-            "registry/async/search",
+            "/registry/async/search",
             self.async_search,
             responses={200: {"model": DciAckEnvelope}},
             methods=["POST"],
