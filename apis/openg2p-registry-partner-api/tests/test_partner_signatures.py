@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from jwt import PyJWS
-from openg2p_fastapi_common.utils.crypto import PyJWTCryptoHelper
+from openg2p_fastapi_common.crypto import PyJWTCryptoHelper
 from openg2p_registry_core.controller_services import G2PIngestControllerService
 from openg2p_registry_core.errors import G2PRegistryErrorCodes
 from openg2p_registry_core.helpers import PatternMatcher

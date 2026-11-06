@@ -38,7 +38,6 @@ COPY reference-extension /app/reference-extension
 # image can run as worker or beat, selected at runtime via CELERY_APP.
 RUN pip install --no-cache-dir \
       "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-common" \
-      "git+https://github.com/openg2p/openg2p-fastapi-common@${FASTAPI_COMMON_REF}#subdirectory=openg2p-fastapi-auth" \
       "git+https://github.com/openg2p/iam.git@${IAM_CORE_REF}#subdirectory=iam-core" \
       "git+https://github.com/${NOTIFICATION_REPO}@${NOTIFICATION_REF}#subdirectory=connector" \
       /app/core/openg2p-registry-core \

@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 from openg2p_fastapi_common.service import BaseService
 from openg2p_registry_core.errors import G2PRegistryException, G2PRegistryErrorCodes
-from openg2p_fastapi_common.utils.crypto import build_crypto_helper
+from openg2p_fastapi_common.crypto import CryptoFactory
 
 from ....config import Settings
 from ..schemas import (
@@ -36,7 +36,7 @@ class DciKeymanagerHelper(BaseService):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.crypto_helper = build_crypto_helper(backend=_config.crypto_backend)
+        self.crypto_helper = CryptoFactory.build(backend=_config.crypto_backend)
 
     async def generate_signature(
         self,

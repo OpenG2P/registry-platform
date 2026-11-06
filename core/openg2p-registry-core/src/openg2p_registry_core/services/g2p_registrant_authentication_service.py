@@ -10,7 +10,7 @@ from sqlalchemy import desc, or_, select
 from openg2p_fastapi_common.models import BaseORMModel
 from openg2p_fastapi_common.service import BaseService
 from openg2p_fastapi_common.context import get_async_session_maker
-from openg2p_fastapi_common.utils.crypto import KeymanagerCryptoHelper
+from openg2p_fastapi_common.crypto import KeymanagerCryptoHelper
 
 from iam_core.models import LoginProvider
 from iam_core.schemas import TokenEndpointAuthMethod
