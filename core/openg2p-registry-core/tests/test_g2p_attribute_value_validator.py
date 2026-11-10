@@ -115,9 +115,10 @@ def test_field_map_comes_from_attribute_widget_schema(validator_module):
     }
 
 
-def test_delete_rows_are_not_validated(validator_module):
+def test_delete_and_no_change_rows_are_not_validated(validator_module):
     records = [
         {"edit_action": "DELETE", "commodity": "OLD"},
+        {"edit_action": "NO_CHANGE", "commodity": "MAIZE"},
         {"edit_action": "ADD", "commodity": "WHEAT"},
     ]
     assert validator_module.G2PAttributeValueValidator.records_for_validation(

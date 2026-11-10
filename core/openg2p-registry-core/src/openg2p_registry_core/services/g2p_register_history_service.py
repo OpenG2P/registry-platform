@@ -9,7 +9,13 @@ from openg2p_fastapi_common.service import BaseService
 from sqlalchemy import Date as SQLDate, inspect, select
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..models import G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload, G2PRegisterDefinition, RegisterPurposeEnum
+from ..models import (
+    G2PRegisterChangeRequest,
+    G2PRegisterChangeRequestPayload,
+    G2PRegisterDefinition,
+    G2PRegisterSection,
+    RegisterPurposeEnum,
+)
 from ..schemas.change_request import ChangeActionEnum, ChangePayload
 
 _logger = logging.getLogger("g2p-register-history-service")
@@ -61,10 +67,13 @@ class G2PRegisterHistoryService(BaseService):
 
         change_payloads = await self._get_change_payloads(change_request, session)
         live_rows = await self._load_live_rows(register_class, change_request, change_payloads, session)
+        section_is_list = await self._section_is_list(change_request.section_id, session)
 
         for change_payload in change_payloads:
             action = change_payload.get("edit_action")
-            if action == ChangeActionEnum.NO_CHANGE.value:
+            # Form sections stay one history row. A list section snapshots every
+            # unchanged row from the live table under this same change request.
+            if action == ChangeActionEnum.NO_CHANGE.value and not section_is_list:
                 continue
             record_id = self._payload_record_id(change_request, change_payload)
             if not record_id:
@@ -126,6 +135,18 @@ class G2PRegisterHistoryService(BaseService):
             getattr(schema_module, f"G2PRegisterSchema{register_mnemonic}"),
             getattr(model_module, f"G2PRegisterHistory{register_mnemonic}"),
         )
+
+    async def _section_is_list(self, section_id: str | None, session) -> bool:
+        if not section_id:
+            return False
+        is_list = (
+            await session.execute(
+                select(G2PRegisterSection.is_list).where(
+                    G2PRegisterSection.section_id == section_id
+                )
+            )
+        ).scalar()
+        return bool(is_list)
 
     async def _get_change_payloads(self, change_request: G2PRegisterChangeRequest, session) -> list[dict]:
         payload = (

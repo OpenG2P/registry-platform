@@ -102,10 +102,14 @@ class G2PChangeRequestSectionPayloadService(BaseService):
             session,
             require_document_intent=not allowed_fields,
         )
-        meaningful_payloads: list[ChangePayload] = []
+        returned_payloads: list[ChangePayload] = []
+        has_meaningful_change = False
         for row_index, change_payload in enumerate(sanitized_payloads):
             action = change_payload.edit_action
             if action == "NO_CHANGE":
+                # Keep unchanged list rows so approval can snapshot them.
+                # A payload that is only NO_CHANGE is still rejected below.
+                returned_payloads.append(change_payload)
                 continue
 
             fields_set = getattr(change_payload, "model_fields_set", set())
@@ -123,13 +127,14 @@ class G2PChangeRequestSectionPayloadService(BaseService):
                     f"Change payload row {row_index} contains no editable "
                     "fields or document changes after removing non-ORM fields"
                 )
-            meaningful_payloads.append(change_payload)
+            returned_payloads.append(change_payload)
+            has_meaningful_change = True
 
-        if not meaningful_payloads:
+        if not has_meaningful_change:
             self._raise_request_validation_error(
                 "Change payload contains no meaningful changes"
             )
-        return meaningful_payloads
+        return returned_payloads
 
     def _strip_non_orm_fields(
         self,

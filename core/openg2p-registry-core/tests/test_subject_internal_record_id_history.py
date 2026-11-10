@@ -51,6 +51,7 @@ def _load_history_service_module():
     models.G2PRegisterChangeRequest = object
     models.G2PRegisterChangeRequestPayload = object
     models.G2PRegisterDefinition = object
+    models.G2PRegisterSection = object
 
     class RegisterPurposeEnum:
         PROGRAM_REGISTER = SimpleNamespace(value="PROGRAM_REGISTER")
@@ -219,6 +220,53 @@ def test_delete_history_row_keeps_bookkeeping_only(history_service_cls):
     assert row.latitude is None
     assert row.internal_record_id == "land-1"
     assert row.change_request_id == "cr-1"
+
+
+@pytest.mark.asyncio
+async def test_list_section_snapshots_no_change_rows(history_service_cls):
+    service = _service(history_service_cls)
+    session = MagicMock()
+    change_request = _change_request()
+    payloads = [
+        {"edit_action": "ADD", "internal_record_id": "crop-new", "commodity": "teff"},
+        {"edit_action": "NO_CHANGE", "internal_record_id": "crop-old"},
+    ]
+    service._resolve_history_models = AsyncMock(return_value=(object, object, HistoryRow))
+    service._get_change_payloads = AsyncMock(return_value=payloads)
+    service._load_live_rows = AsyncMock(
+        return_value={
+            "crop-new": {**_LIVE_LAND, "internal_record_id": "crop-new", "land_size": 1},
+            "crop-old": {**_LIVE_LAND, "internal_record_id": "crop-old", "land_size": 2},
+        }
+    )
+    service._section_is_list = AsyncMock(return_value=True)
+
+    await service.insert_into_register_history(change_request, session)
+
+    written = [call.args[0].internal_record_id for call in session.add.call_args_list]
+    assert written == ["crop-new", "crop-old"]
+    assert session.add.call_args_list[1].args[0].land_size == 2
+
+
+@pytest.mark.asyncio
+async def test_form_section_skips_no_change_history_rows(history_service_cls):
+    service = _service(history_service_cls)
+    session = MagicMock()
+    payloads = [
+        {"edit_action": "UPDATE", "internal_record_id": "farmer-1"},
+        {"edit_action": "NO_CHANGE", "internal_record_id": "farmer-1"},
+    ]
+    service._resolve_history_models = AsyncMock(return_value=(object, object, HistoryRow))
+    service._get_change_payloads = AsyncMock(return_value=payloads)
+    service._load_live_rows = AsyncMock(
+        return_value={"farmer-1": {**_LIVE_LAND, "internal_record_id": "farmer-1"}}
+    )
+    service._section_is_list = AsyncMock(return_value=False)
+
+    await service.insert_into_register_history(_change_request(), session)
+
+    assert session.add.call_count == 1
+    assert session.add.call_args.args[0].internal_record_id == "farmer-1"
 
 
 def test_live_row_drops_null_for_not_null_columns(history_service_cls):

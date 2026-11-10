@@ -86,10 +86,13 @@ class G2PAttributeValueValidator(BaseService):
 
     @staticmethod
     def records_for_validation(records: list[dict]) -> list[dict]:
+        # DELETE has no new values. NO_CHANGE is an unchanged list row and is
+        # checked by domain rules that need the whole section, not here.
+        skipped = {"DELETE", "NO_CHANGE"}
         return [
             record
             for record in records
-            if not isinstance(record, dict) or record.get("edit_action") != "DELETE"
+            if not isinstance(record, dict) or record.get("edit_action") not in skipped
         ]
 
     async def validate_records(
