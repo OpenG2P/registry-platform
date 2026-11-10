@@ -421,7 +421,7 @@ async def test_lookup_update_allows_schema_bound_parent_link(service):
 
 
 @pytest.mark.asyncio
-async def test_delete_is_meaningful_and_no_change_row_is_removed(service):
+async def test_delete_is_meaningful_and_no_change_row_is_retained(service):
     service._resolve_orm_fields = AsyncMock(return_value={"name"})
     section = _section(
         _schema({"widget": "text", "widget-data-path": "register-1.name"})
@@ -436,7 +436,8 @@ async def test_delete_is_meaningful_and_no_change_row_is_removed(service):
         _definition("TABLE"),
         AsyncMock(),
     )
-    assert [payload.edit_action for payload in sanitized] == ["DELETE"]
+    assert [payload.edit_action for payload in sanitized] == ["DELETE", "NO_CHANGE"]
+    assert sanitized[1].internal_record_id == "record-2"
 
 
 @pytest.mark.asyncio
