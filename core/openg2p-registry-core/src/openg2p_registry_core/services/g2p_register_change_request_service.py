@@ -2446,9 +2446,16 @@ class G2PRegisterChangeRequestService(BaseService):
             field_map=field_map,
         )
 
+        # Domain checks see unchanged list rows so cross-row rules can use the
+        # whole submitted section. Coded-value checks above skip those rows.
+        domain_records = [
+            record
+            for record in records
+            if not isinstance(record, dict) or record.get("edit_action") != "DELETE"
+        ]
         domain_service = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)
         if domain_service:
-            await domain_service.validate_domain_attributes(records_for_validation)
+            await domain_service.validate_domain_attributes(domain_records)
 
     def _get_required_domain_service(self, register_mnemonic: str) -> G2PRegisterDomainService:
         domain_service = self._get_domain_service_by_register_mnemonic(register_mnemonic)
