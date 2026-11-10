@@ -205,7 +205,7 @@ export const BooleanWidget = ({ config }: BooleanWidgetProps) => {
                   checked={currentValue === false || choseNo}
                   onChange={() => {
                     setChoseNo(true);
-                    handleRadioChange(null);
+                    handleRadioChange(false);
                   }}
                   disabled={radioDisabled}
                   className="relative top-[0.2em] h-4 w-4 shrink-0 owt-field-check"
