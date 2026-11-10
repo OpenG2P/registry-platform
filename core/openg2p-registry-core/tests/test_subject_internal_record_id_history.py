@@ -127,18 +127,6 @@ class HistoryRow(Base):
     address_line_1 = Column(String)
 
 
-class RegisterSchema:
-    """Stand-in for the domain register schema: coerces land_size like pydantic would."""
-
-    def __init__(self, **kwargs):
-        self._data = {k: v for k, v in kwargs.items() if k != "edit_action"}
-        if self._data.get("land_size") is not None:
-            self._data["land_size"] = float(self._data["land_size"])
-
-    def dict(self):
-        return dict(self._data)
-
-
 @pytest.fixture(scope="module")
 def history_service_cls():
     return _load_history_service_module().G2PRegisterHistoryService
@@ -181,17 +169,19 @@ _LIVE_LAND = {
 }
 
 
-def test_history_row_keeps_fields_outside_the_changed_section(history_service_cls):
+def test_history_row_copies_the_updated_live_record(history_service_cls):
     service = _service(history_service_cls)
     session = MagicMock()
+    live = dict(_LIVE_LAND)
+    live["land_size"] = 4.0
 
     service._create_history_record(
-        change_payload={"edit_action": "UPDATE", "internal_record_id": "land-1", "land_size": "4.0"},
+        change_payload={"edit_action": "UPDATE", "internal_record_id": "land-1"},
         change_request=_change_request(),
-        register_schema_class=RegisterSchema,
         history_class=HistoryRow,
-        live_snapshot=dict(_LIVE_LAND),
         session=session,
+        state=service._state_from_live_row(live, HistoryRow),
+        record_id="land-1",
     )
 
     row = session.add.call_args[0][0]
@@ -202,46 +192,84 @@ def test_history_row_keeps_fields_outside_the_changed_section(history_service_cl
     assert row.change_request_id == "cr-1"
 
 
-def test_update_payload_null_clears_snapshot_value(history_service_cls):
+def test_cleared_live_field_stays_cleared(history_service_cls):
     service = _service(history_service_cls)
-    state = service.build_record_state(
-        {"edit_action": "UPDATE", "internal_record_id": "land-1", "soil_fertility": None},
-        RegisterSchema,
-        HistoryRow,
-        dict(_LIVE_LAND),
-    )
+    live = dict(_LIVE_LAND)
+    live["soil_fertility"] = None
+    state = service._state_from_live_row(live, HistoryRow)
     assert state["soil_fertility"] is None
     assert state["land_size"] == 3.5
 
 
-def test_delete_history_row_is_the_pre_delete_record(history_service_cls):
+def test_delete_history_row_keeps_bookkeeping_only(history_service_cls):
     service = _service(history_service_cls)
     session = MagicMock()
 
     service._create_history_record(
         change_payload={"edit_action": "DELETE", "internal_record_id": "land-1", "land_size": "99"},
         change_request=_change_request(),
-        register_schema_class=RegisterSchema,
         history_class=HistoryRow,
-        live_snapshot=dict(_LIVE_LAND),
         session=session,
+        state={},
+        record_id="land-1",
     )
 
     row = session.add.call_args[0][0]
-    assert row.land_size == 3.5
-    assert row.latitude == -13.79
+    assert row.land_size is None
+    assert row.latitude is None
+    assert row.internal_record_id == "land-1"
+    assert row.change_request_id == "cr-1"
 
 
-def test_add_without_snapshot_drops_null_for_not_null_columns(history_service_cls):
+def test_live_row_drops_null_for_not_null_columns(history_service_cls):
     service = _service(history_service_cls)
-    state = service.build_record_state(
-        {"edit_action": "ADD", "internal_record_id": "land-2", "record_status": None, "land_size": 12},
-        RegisterSchema,
+    state = service._state_from_live_row(
+        {"internal_record_id": "land-2", "record_status": None, "land_size": 12},
         HistoryRow,
-        None,
     )
     assert "record_status" not in state
     assert state["land_size"] == 12.0
+
+
+def test_at_version_omits_blank_delete_row(history_service_cls):
+    service = _service(history_service_cls)
+    blank = HistoryRow(
+        history_record_id="h-del",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+        change_request_id="cr-del",
+    )
+    kept = HistoryRow(
+        history_record_id="h-upd",
+        internal_record_id="land-2",
+        record_status="ACTIVE",
+        land_size=4,
+        change_request_id="cr-upd",
+    )
+
+    records = service._records_from_rows([blank, kept])
+
+    assert [record["internal_record_id"] for record in records] == ["land-2"]
+    assert records[0]["land_size"] == 4
+
+
+def test_before_approval_skips_blank_delete_row(history_service_cls):
+    service = _service(history_service_cls)
+    blank = HistoryRow(
+        history_record_id="h-del",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+    )
+    earlier = HistoryRow(
+        history_record_id="h-upd",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+        land_size=3.5,
+    )
+
+    row = service._latest_row_with_domain_values([blank, earlier])
+
+    assert row.land_size == 3.5
 
 
 def test_master_section_payload_targets_subject_record(history_service_cls):
@@ -279,10 +307,10 @@ def test_create_history_record_stamps_subject_from_change_request(history_servic
     service._create_history_record(
         change_payload=change_payload,
         change_request=change_request,
-        register_schema_class=RegisterSchema,
         history_class=HistoryRow,
-        live_snapshot=None,
         session=session,
+        state={},
+        record_id="shock-2",
     )
 
     assert session.add.called

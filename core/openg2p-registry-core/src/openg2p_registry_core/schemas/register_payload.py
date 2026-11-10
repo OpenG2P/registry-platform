@@ -520,7 +520,8 @@ class RecordHistoryData(BaseModel):
 
     history_record_id: str
     internal_record_id: str
-    change_request_id: str
+    # Null on intake history rows, which are keyed by submission_id.
+    change_request_id: Optional[str] = None
     tab_id: str
     section_id: str
     is_primary_section: bool = False
@@ -570,6 +571,31 @@ class VersionsForDateData(BaseModel):
     section_mnemonic: str
     section_register_id: Optional[str] = None
     changes: List[VersionForDateData] = []
+
+
+class VersionSectionDataData(BaseModel):
+    """Section records as stored in history for one version.
+
+    Blank delete rows are not included. A version that only deleted table rows
+    has an empty ``records`` list.
+    """
+    register_id: str
+    internal_record_id: str
+    tab_id: str
+    truncated_created_date: str
+    section_id: str
+    section_mnemonic: str
+    section_register_id: str
+    is_list: bool = False
+    is_primary_section: bool = False
+    change_request_id: Optional[str] = None
+    submission_id: Optional[str] = None
+    created_at: Optional[str] = None
+    created_by: Optional[str] = None
+    approved_at: Optional[str] = None
+    approved_by: Optional[str] = None
+    request_id: Optional[str] = None
+    records: List[dict] = []
 
 
 # =============================================================================
@@ -956,6 +982,16 @@ class GetChangesForDateRequestPayload(BaseModel):
     internal_record_id: str
     tab_id: str
     truncated_created_date: str
+
+
+class GetVersionSectionDataRequestPayload(BaseModel):
+    register_id: str
+    internal_record_id: str
+    tab_id: str
+    section_id: str
+    truncated_created_date: str
+    change_request_id: Optional[str] = None
+    submission_id: Optional[str] = None
 
 
 class GetNumberOfPendingChangeRequestsRequestPayload(BaseModel):

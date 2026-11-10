@@ -1,3 +1,4 @@
+import enum
 import logging
 import uuid
 import importlib
@@ -41,12 +42,14 @@ from ..models import (
     G2PRegisterUITab, G2PRegisterUITabSection, RegisterPurposeEnum, ChangeRequestSourceEnum,
     G2PRegistryConfiguration, G2PRegistryTheme, G2PRegistryThemeValue, RegistryThemeAttributeNameEnum,
     G2PRegistryLanguage,
-    G2PFunctionalIdGenerationQueue, RecordStatusEnum
+    G2PFunctionalIdGenerationQueue, RecordStatusEnum,
+    G2PIntakeFormSubmission,
 )
 from ..schemas import (
     ChangeRequestRequestPayload, RegisterSummaryData, ChangeRequestSummaryData, RegisterData, AllRegistersRegisterData, ChildRegisterData,
     RegisterUITabData, SearchResultData, ChangeRequestSearchResultData, NumberOfVersionsData,
     RecordHistoryData, RecordHistoryListData, VersionDatesData, VersionForDateData, VersionsForDateData,
+    VersionSectionDataData,
     NumberOfPendingChangeRequestsData, NumberOfCrossRegisterChangesData,
     CrossRegisterChangeRequestData, CrossRegisterChangesData, DeepSearchResultData,
     ChangeRequestData, ChangeRequestsData, ChangeRequestFlattenedData, RecordData,
@@ -61,6 +64,7 @@ from ..schemas import (
     RegisterRelationEnum
 )
 from .g2p_register_domain_service import G2PRegisterDomainService
+from .g2p_register_history_service import G2PRegisterHistoryService
 from .g2p_score_compute_service import G2PScoreComputeService
 from .change_request_payload_utils import domain_fields_from_change_payload
 from ..config import Settings
@@ -1490,15 +1494,19 @@ class G2PRegisterService(BaseService):
             history_data_list: list[RecordHistoryData] = []
             for history_record in history_records:
                 # Build base record data dict
+                source = history_record.change_request_source
+                if isinstance(source, enum.Enum):
+                    source = source.value
                 record_data_dict = {
                     'history_record_id': history_record.history_record_id,
                     'internal_record_id': history_record.internal_record_id,
+                    # Intake rows have no change request id.
                     'change_request_id': history_record.change_request_id,
                     'tab_id': history_record.tab_id,
                     'section_id': history_record.section_id,
                     'is_primary_section': history_record.is_primary_section,
                     'submission_id': history_record.submission_id,
-                    'change_request_source': history_record.change_request_source.value if history_record.change_request_source else None,
+                    'change_request_source': source,
                     'created_by': history_record.created_by,
                     'created_at': history_record.created_at.isoformat() if history_record.created_at else None,
                     'approved_by': history_record.approved_by,
@@ -1508,8 +1516,9 @@ class G2PRegisterService(BaseService):
                 # Add additional domain-specific fields
                 for col in additional_columns:
                     value = getattr(history_record, col, None)
-                    # Handle datetime serialization
-                    if hasattr(value, 'isoformat'):
+                    if isinstance(value, enum.Enum):
+                        value = value.value
+                    elif hasattr(value, 'isoformat'):
                         value = value.isoformat()
                     record_data_dict[col] = value
 
@@ -1686,6 +1695,144 @@ class G2PRegisterService(BaseService):
 
             return results
 
+    async def get_version_section_data(
+        self,
+        register_id: str,
+        internal_record_id: str,
+        tab_id: str,
+        section_id: str,
+        truncated_created_date: str,
+        change_request_id: str | None = None,
+        submission_id: str | None = None,
+    ) -> VersionSectionDataData:
+        """Section records stored in history for one change request or intake submission."""
+        if bool(change_request_id) == bool(submission_id):
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                message="Provide exactly one of change_request_id or submission_id",
+            )
+
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
+            register_definition = (
+                await session.execute(
+                    select(G2PRegisterDefinition).where(G2PRegisterDefinition.register_id == register_id)
+                )
+            ).scalar()
+            if not register_definition:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0],
+                )
+
+            section = (
+                await session.execute(
+                    select(G2PRegisterSection).where(
+                        G2PRegisterSection.section_id == section_id,
+                        G2PRegisterSection.register_id == register_id,
+                    )
+                )
+            ).scalar()
+            on_tab = (
+                await session.execute(
+                    select(G2PRegisterUITabSection).where(
+                        G2PRegisterUITabSection.register_id == register_id,
+                        G2PRegisterUITabSection.tab_id == tab_id,
+                        G2PRegisterUITabSection.section_id == section_id,
+                    )
+                )
+            ).scalar()
+            if not section or not on_tab:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[0],
+                )
+
+            history_read = await G2PRegisterHistoryService.get_component().get_section_records_from_history(
+                session,
+                section_register_id=section.section_register_id,
+                section_id=section_id,
+                change_request_id=change_request_id,
+                submission_id=submission_id,
+            )
+            if not history_read.found:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[0],
+                )
+
+            created_at = history_read.created_at
+            created_day = created_at.date().isoformat() if hasattr(created_at, "date") else str(created_at)[:10]
+            if created_day != truncated_created_date:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                    message="Version date does not match truncated_created_date",
+                )
+
+            records = history_read.records
+            from .g2p_document_service import G2PDocumentService
+            document_service = G2PDocumentService.get_component()
+            for record in records:
+                record_id = record.get("internal_record_id")
+                if not record_id or not history_read.approved_at:
+                    record["documents"] = []
+                    continue
+                record["documents"] = [
+                    document.model_dump()
+                    for document in await document_service.get_section_documents_as_of(
+                        session,
+                        internal_record_id=record_id,
+                        section_id=section_id,
+                        before=history_read.approved_at,
+                        change_request_id=change_request_id,
+                        submission_id=submission_id,
+                    )
+                ]
+
+            request_id = None
+            if change_request_id:
+                change_request = (
+                    await session.execute(
+                        select(G2PRegisterChangeRequest).where(
+                            G2PRegisterChangeRequest.change_request_id == change_request_id
+                        )
+                    )
+                ).scalar()
+                request_id = change_request.awe_request_id if change_request else None
+            else:
+                submission = (
+                    await session.execute(
+                        select(G2PIntakeFormSubmission).where(
+                            G2PIntakeFormSubmission.submission_id == submission_id
+                        )
+                    )
+                ).scalar()
+                request_id = submission.awe_request_id if submission else None
+
+            def _iso(value):
+                if value is None:
+                    return None
+                return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+            return VersionSectionDataData(
+                register_id=register_id,
+                internal_record_id=internal_record_id,
+                tab_id=tab_id,
+                truncated_created_date=truncated_created_date,
+                section_id=section_id,
+                section_mnemonic=section.section_mnemonic,
+                section_register_id=section.section_register_id,
+                is_list=section.is_list,
+                is_primary_section=section.section_register_id == register_id,
+                change_request_id=change_request_id,
+                submission_id=submission_id,
+                created_at=_iso(history_read.created_at),
+                created_by=history_read.created_by,
+                approved_at=_iso(history_read.approved_at),
+                approved_by=history_read.approved_by,
+                request_id=request_id,
+                records=records,
+            )
 
     async def get_record(
         self,

@@ -1,6 +1,8 @@
+import enum
 import importlib
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 
 from openg2p_fastapi_common.service import BaseService
@@ -9,7 +11,6 @@ from sqlalchemy import Date as SQLDate, inspect, select
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
 from ..models import G2PRegisterChangeRequest, G2PRegisterChangeRequestPayload, G2PRegisterDefinition, RegisterPurposeEnum
 from ..schemas.change_request import ChangeActionEnum, ChangePayload
-from .change_request_payload_utils import domain_fields_from_change_payload
 
 _logger = logging.getLogger("g2p-register-history-service")
 
@@ -32,64 +33,83 @@ HISTORY_META_COLUMNS = frozenset({
     "approved_by",
     "approved_at",
 })
-_PAYLOAD_SKIPPED_KEYS = frozenset({"internal_record_id", "edit_action"})
+# record_status is not nullable, so a delete row still carries the column default.
+_BLANK_IGNORED_COLUMNS = HISTORY_META_COLUMNS | {"record_status"}
+
+
+@dataclass
+class SectionHistoryRead:
+    records: list[dict]
+    found: bool = False
+    created_at: datetime | None = None
+    created_by: str | None = None
+    approved_at: datetime | None = None
+    approved_by: str | None = None
 
 
 class G2PRegisterHistoryService(BaseService):
-    async def capture_live_snapshots(self, change_request: G2PRegisterChangeRequest, session) -> dict[str, dict]:
-        """Live column values of the records a change request touches.
+    async def insert_into_register_history(self, change_request: G2PRegisterChangeRequest, session) -> None:
+        """Copy the live record into history after the change has been applied.
 
-        Must be called before the change is applied to the register when the
-        history entry is written afterwards, so DELETEs still have the record.
-        """
-        models = await self._resolve_history_models(change_request, session)
-        if models is None:
-            return {}
-        register_class, _register_schema_class, _history_class = models
-        change_payloads = await self._get_change_payloads(change_request, session)
-        return await self._load_live_snapshots(register_class, change_request, change_payloads, session)
-
-    async def insert_into_register_history(
-        self,
-        change_request: G2PRegisterChangeRequest,
-        session,
-        live_snapshots: dict[str, dict] | None = None,
-    ) -> None:
-        """Write one full-state history row per changed record.
-
-        ``live_snapshots`` must hold the pre-change register state; when omitted
-        the register is read now, so callers must not have applied the change yet.
+        A delete leaves no live row, so that history row keeps bookkeeping columns only.
+        The row still exists so the version stays in the date list.
         """
         models = await self._resolve_history_models(change_request, session)
         if models is None:
             return
-        register_class, register_schema_class, history_class = models
+        register_class, _register_schema_class, history_class = models
 
         change_payloads = await self._get_change_payloads(change_request, session)
-        if live_snapshots is None:
-            live_snapshots = await self._load_live_snapshots(register_class, change_request, change_payloads, session)
+        live_rows = await self._load_live_rows(register_class, change_request, change_payloads, session)
 
         for change_payload in change_payloads:
-            if change_payload.get("edit_action") == ChangeActionEnum.NO_CHANGE.value:
+            action = change_payload.get("edit_action")
+            if action == ChangeActionEnum.NO_CHANGE.value:
                 continue
+            record_id = self._payload_record_id(change_request, change_payload)
+            if not record_id:
+                _logger.warning(
+                    "No record id to copy into history for change request %s",
+                    change_request.change_request_id,
+                )
+                continue
+            if action == ChangeActionEnum.DELETE.value:
+                state = {}
+            else:
+                live_row = live_rows.get(record_id)
+                if live_row is None:
+                    _logger.warning(
+                        "No live record %s to copy into history for change request %s",
+                        record_id,
+                        change_request.change_request_id,
+                    )
+                    continue
+                state = self._state_from_live_row(live_row, history_class)
             self._create_history_record(
                 change_payload=change_payload,
                 change_request=change_request,
-                register_schema_class=register_schema_class,
                 history_class=history_class,
-                live_snapshot=live_snapshots.get(self._payload_record_id(change_request, change_payload)),
                 session=session,
+                state=state,
+                record_id=record_id,
             )
 
     async def _resolve_history_models(self, change_request: G2PRegisterChangeRequest, session):
+        return await self._models_for_section_register(
+            change_request.section_register_id, session, required=True
+        )
+
+    async def _models_for_section_register(self, section_register_id: str, session, *, required: bool = False):
         register_definition: G2PRegisterDefinition = (
             await session.execute(
                 select(G2PRegisterDefinition).where(
-                    G2PRegisterDefinition.register_id == change_request.section_register_id
+                    G2PRegisterDefinition.register_id == section_register_id
                 )
             )
         ).scalar()
         if not register_definition:
+            if not required:
+                return None
             raise G2PRegistryException(
                 code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
                 message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0],
@@ -123,7 +143,7 @@ class G2PRegisterHistoryService(BaseService):
             return change_request.internal_record_id
         return change_payload.get("internal_record_id")
 
-    async def _load_live_snapshots(
+    async def _load_live_rows(
         self,
         register_class,
         change_request: G2PRegisterChangeRequest,
@@ -148,48 +168,132 @@ class G2PRegisterHistoryService(BaseService):
     def _row_to_dict(row) -> dict:
         return {column.name: getattr(row, column.name, None) for column in inspect(row.__class__).columns}
 
-    def build_record_state(
-        self,
-        change_payload: ChangePayload,
-        register_schema_class,
-        history_class,
-        base_state: dict | None,
-    ) -> dict:
-        """Record state after ``change_payload`` is applied on top of ``base_state``."""
+    def _state_from_live_row(self, live_row: dict, history_class) -> dict:
+        """Domain columns from the live record, after the change has been applied."""
         history_columns = inspect(history_class).columns
-        state = {
-            key: value
-            for key, value in (base_state or {}).items()
-            if key in history_columns and key not in HISTORY_META_COLUMNS
-        }
-        if base_state and change_payload.get("edit_action") == ChangeActionEnum.DELETE.value:
-            return state
-
-        schema_data = register_schema_class(**domain_fields_from_change_payload(change_payload)).dict()
-        for key, value in change_payload.items():
-            if key in _PAYLOAD_SKIPPED_KEYS or key in HISTORY_META_COLUMNS or key not in history_columns:
+        state = {}
+        for key, value in live_row.items():
+            if key not in history_columns or key in HISTORY_META_COLUMNS:
                 continue
-            state[key] = schema_data.get(key, value)
-        # Let column defaults apply instead of violating NOT NULL constraints.
-        return {
-            key: value
-            for key, value in state.items()
-            if value is not None or history_columns[key].nullable
-        }
+            if value is None and not history_columns[key].nullable:
+                continue
+            state[key] = value
+        return state
+
+    def _has_domain_values(self, row) -> bool:
+        """False for a delete row, which has bookkeeping columns and record_status only."""
+        for column in inspect(row.__class__).columns:
+            if column.name in _BLANK_IGNORED_COLUMNS:
+                continue
+            if getattr(row, column.name, None) is not None:
+                return True
+        return False
+
+    def _latest_row_with_domain_values(self, rows):
+        for row in rows:
+            if self._has_domain_values(row):
+                return row
+        return None
+
+    def _serialize_history_row(self, row) -> dict:
+        record = {"internal_record_id": getattr(row, "internal_record_id", None)}
+        for column in inspect(row.__class__).columns:
+            if column.name in HISTORY_META_COLUMNS:
+                continue
+            value = getattr(row, column.name, None)
+            if isinstance(value, enum.Enum):
+                value = value.value
+            elif hasattr(value, "isoformat"):
+                value = value.isoformat()
+            record[column.name] = value
+        return record
+
+    def _records_from_rows(self, rows) -> list[dict]:
+        return [self._serialize_history_row(row) for row in rows if self._has_domain_values(row)]
+
+    async def get_section_records_from_history(
+        self,
+        session,
+        *,
+        section_register_id: str,
+        section_id: str | None = None,
+        change_request_id: str | None = None,
+        submission_id: str | None = None,
+        before_approved_at=None,
+        record_ids: list[str] | None = None,
+    ) -> SectionHistoryRead:
+        """History records for one section.
+
+        ``before_approved_at`` returns the latest row with data before that time.
+        ``change_request_id`` or ``submission_id`` returns that version, without blank delete rows.
+        """
+        models = await self._models_for_section_register(section_register_id, session)
+        if models is None:
+            return SectionHistoryRead()
+        _register_class, _schema_class, history_class = models
+
+        if before_approved_at is not None:
+            records = []
+            for record_id in record_ids or []:
+                rows = (
+                    await session.execute(
+                        select(history_class).where(
+                            history_class.internal_record_id == record_id,
+                            history_class.section_id == section_id,
+                            history_class.approved_at < before_approved_at,
+                        ).order_by(history_class.approved_at.desc())
+                    )
+                ).scalars().all()
+                row = self._latest_row_with_domain_values(rows)
+                if row is None:
+                    continue
+                record = self._serialize_history_row(row)
+                approved_at = getattr(row, "approved_at", None)
+                if hasattr(approved_at, "isoformat"):
+                    approved_at = approved_at.isoformat()
+                record["last_approved_by"] = getattr(row, "approved_by", None)
+                record["last_approved_at"] = approved_at
+                records.append(record)
+            return SectionHistoryRead(records=records, found=bool(records))
+
+        filters = [history_class.section_id == section_id]
+        if change_request_id:
+            filters.append(history_class.change_request_id == change_request_id)
+        elif submission_id:
+            filters.append(history_class.submission_id == submission_id)
+        else:
+            return SectionHistoryRead()
+
+        rows = (
+            await session.execute(
+                select(history_class).where(*filters).order_by(history_class.approved_at)
+            )
+        ).scalars().all()
+        anchor = rows[0] if rows else None
+        return SectionHistoryRead(
+            records=self._records_from_rows(rows),
+            found=bool(rows),
+            created_at=getattr(anchor, "created_at", None) if anchor else None,
+            created_by=getattr(anchor, "created_by", None) if anchor else None,
+            approved_at=getattr(anchor, "approved_at", None) if anchor else None,
+            approved_by=getattr(anchor, "approved_by", None) if anchor else None,
+        )
 
     def _create_history_record(
         self,
         change_payload: ChangePayload,
         change_request: G2PRegisterChangeRequest,
-        register_schema_class,
         history_class,
-        live_snapshot: dict | None,
         session,
+        state: dict | None = None,
+        record_id: str | None = None,
     ) -> None:
-        history_dict = self.build_record_state(change_payload, register_schema_class, history_class, live_snapshot)
+        history_dict = dict(state or {})
         history_dict["history_record_id"] = str(uuid.uuid4())
         history_dict["internal_record_id"] = (
-            change_payload.get("internal_record_id") or self._payload_record_id(change_request, change_payload)
+            record_id
+            or change_payload.get("internal_record_id")
+            or self._payload_record_id(change_request, change_payload)
         )
         # Master subject for version-history discovery.
         if "subject_internal_record_id" in history_class.__table__.columns:
