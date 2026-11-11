@@ -20,3 +20,4 @@ export { RegisterLookupWidget } from './RegisterLookupWidget';
 export { ParentLookupWidget } from './ParentLookupWidget';
 export { MultiSelectWidget } from './MultiSelectWidget';
 export { GeoHierarchyWidget } from './GeoHierarchyWidget';
+export { FinancialAddressDetailsWidget, BankBranchWidget } from './FinancialAddressDetailsWidget';

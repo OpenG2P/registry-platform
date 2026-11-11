@@ -51,6 +51,9 @@ const validateTableLikeWidget = (
   activeRows.forEach((row, rowIndex) => {
     columns.forEach((col) => {
       if (col['widget-readonly']) return;
+      if (!shouldShowWidget(col['widget-data-options'] as BaseWidgetConfig['widget-data-options'], row)) {
+        return;
+      }
 
       const key = col['column-key'] as string | undefined;
       if (!key) return;

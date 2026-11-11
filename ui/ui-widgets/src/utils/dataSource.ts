@@ -23,7 +23,17 @@ function buildApiRequestContext(
   }
 
   const method = dataSource.method || 'GET';
-  const staticParams: Record<string, any> = { ...dataSource.params };
+  const rowValues = (dataSource as { rowValues?: Record<string, any> }).rowValues || {};
+  const resolvedParams: Record<string, any> = {};
+  for (const [key, value] of Object.entries(dataSource.params || {})) {
+    if (value && typeof value === 'object' && '$field' in value) {
+      const field = String((value as { $field: string }).$field);
+      resolvedParams[key] = rowValues[field] ?? allValues[field] ?? getValueByPath(allValues, field);
+    } else {
+      resolvedParams[key] = value;
+    }
+  }
+  const staticParams: Record<string, any> = { ...resolvedParams };
   const standardFields = ['type', 'service', 'endpoint', 'url', 'method', 'dependsOn', 'valueKey', 'labelKey', 'headers', 'body', 'params', 'level_id'];
   for (const [key, value] of Object.entries(dataSource)) {
     if (!standardFields.includes(key) && value !== undefined && value !== null) {

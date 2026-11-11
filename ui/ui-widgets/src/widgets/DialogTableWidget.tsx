@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { tSchema, toTitleCase } from '../utils/tSchema';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { useOwtThemeRootProps } from '../hooks/useWidgetTheme';
@@ -8,7 +8,7 @@ import { BaseWidgetConfig } from '../types';
 import { WidgetRenderer } from '../components/WidgetRenderer';
 import { formatValue } from '../utils/formatting';
 import { WidgetRootState } from '../store';
-import { resetWidget, setError, setTouched, setValues } from '../store/widgetSlice';
+import { resetWidget, setError, setTouched, setValue, setValues } from '../store/widgetSlice';
 import { validateWidget } from '../utils/validation';
 import { shouldRequireWidget, shouldShowWidget } from '../utils/conditions';
 import { setValueByPath } from '../utils/pathUtils';
@@ -22,6 +22,28 @@ type DialogMode = 'add' | 'edit';
 
 const isUnsetRowValue = (value: unknown): boolean =>
   value === null || value === undefined || value === '';
+
+const isBlankObject = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value as Record<string, unknown>).every(
+    (entry) => entry === null || entry === undefined || entry === '',
+  );
+};
+
+const priorityAlreadyUsed = (
+  payload: Record<string, any>,
+  rows: Record<string, any>[],
+  mode: DialogMode,
+  activeRowIndex: number | null,
+): boolean => {
+  const priority = payload.priority;
+  if (priority === null || priority === undefined || priority === '') return false;
+  return rows.some((row, index) => {
+    if (row?.edit_action === 'DELETE') return false;
+    if (mode === 'edit' && index === activeRowIndex) return false;
+    return String(row?.priority) === String(priority);
+  });
+};
 
 const buildDialogConditionValues = (
   row: Record<string, any>,
@@ -108,6 +130,8 @@ interface DialogTableFieldProps {
   cellWidgetId: string;
   isRequired: boolean;
   isReadonly: boolean;
+  rowValues: Record<string, any>;
+  onRowValueChange: (columnKey: string, value: unknown) => void;
 }
 
 /** Isolated dialog field — avoids re-running data-source effects when sibling fields update. */
@@ -116,6 +140,8 @@ const DialogTableField = memo(function DialogTableField({
   cellWidgetId,
   isRequired,
   isReadonly,
+  rowValues,
+  onRowValueChange,
 }: DialogTableFieldProps) {
   const widgetType = col.widget || 'text';
 
@@ -131,8 +157,10 @@ const DialogTableField = memo(function DialogTableField({
       'widget-data-default': col['widget-data-default'],
       'widget-data-options': undefined,
       'widget-required': isRequired,
+      'widget-row-values': rowValues,
+      'widget-set-row-value': onRowValueChange,
     };
-  }, [col, cellWidgetId, isRequired, isReadonly, widgetType]);
+  }, [col, cellWidgetId, isRequired, isReadonly, widgetType, rowValues, onRowValueChange]);
 
   return (
     <div className="dialog-table-field min-w-0 max-w-full">
@@ -308,6 +336,46 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
     [dialogRowValues, columns],
   );
 
+  const resetBaselineRef = useRef<Record<string, unknown>>({});
+  useEffect(() => {
+    if (!dialogOpen || dialogSessionId <= 0) {
+      resetBaselineRef.current = {};
+      return;
+    }
+    const watched = new Set<string>();
+    columns.forEach((col) => {
+      const conditionField = col['widget-data-options']?.condition?.field;
+      if (typeof conditionField === 'string') watched.add(conditionField);
+      if (typeof col['widget-reset-when'] === 'string') watched.add(col['widget-reset-when']);
+    });
+    watched.forEach((field) => {
+      const current = dialogRowValues[field];
+      if (!Object.prototype.hasOwnProperty.call(resetBaselineRef.current, field)) {
+        resetBaselineRef.current[field] = current;
+        return;
+      }
+      const previous = resetBaselineRef.current[field];
+      resetBaselineRef.current[field] = current;
+      const previousSet = previous !== undefined && previous !== null && previous !== '';
+      if (!previousSet || previous === current) return;
+      const keysToClear = new Set<string>();
+      columns.forEach((col) => {
+        const key = col['column-key'];
+        if (!key || key === field) return;
+        const depends =
+          col['widget-data-options']?.condition?.field === field
+          || col['widget-reset-when'] === field;
+        if (depends) keysToClear.add(key);
+      });
+      keysToClear.forEach((key) => {
+        dispatch(setValue({
+          widgetId: dialogFieldWidgetId(dialogSessionId, key),
+          value: null,
+        }));
+      });
+    });
+  }, [dialogOpen, dialogSessionId, dialogRowValues, columns, dialogFieldWidgetId, dispatch]);
+
   const collectMergedRowPayload = useCallback(
     () => dialogStoreValues,
     [dialogStoreValues],
@@ -324,6 +392,13 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
         }
         const val = raw[key];
         result[key] = isUnsetRowValue(val) ? null : val;
+      });
+      columns.forEach((col) => {
+        const key = col['column-key'];
+        if (!key || key in result || isUnsetRowValue(raw[key])) return;
+        if (!shouldShowWidget(col['widget-data-options'], conditionValues)) {
+          result[key] = raw[key];
+        }
       });
       return result;
     },
@@ -349,8 +424,9 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
         conditionValues,
         !!(col['widget-required'] || col['widget-data-validation']?.required),
       );
+      const valueToCheck = isBlankObject(cellValue) ? null : cellValue;
       const validationErrors = validateWidget(
-        cellValue,
+        valueToCheck,
         col['widget-data-validation'],
         isRequired
       );
@@ -364,7 +440,17 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
       }
     });
 
-    if (hasErrors) {
+    if (hasErrors || priorityAlreadyUsed(payload, rows, dialogMode, activeRowIndex)) {
+      if (!hasErrors) {
+        const priorityColumn = columns.find((col) => col['column-key'] === 'priority');
+        if (priorityColumn) {
+          dispatch(setError({
+            widgetId: dialogFieldWidgetId(dialogSessionId, 'priority'),
+            errors: [t?.('priority_already_used') || 'This priority is already used by another financial address'],
+          }));
+          dispatch(setTouched({ widgetId: dialogFieldWidgetId(dialogSessionId, 'priority'), touched: true }));
+        }
+      }
       return;
     }
 
@@ -407,6 +493,7 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
     dialogFieldWidgetId,
     isReadonly,
     dispatch,
+    t,
   ]);
 
   const deleteRow = useCallback(
@@ -439,6 +526,11 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
     if (widgetType === 'select') return null;
     if (widgetType === 'parent-lookup') return null;
     if (column['widget-data-format']) return formatValue(cellValue, column['widget-data-format'], column.widget);
+    if (typeof cellValue === 'object') {
+      return Object.entries(cellValue)
+        .map(([keyName, item]) => `${keyName}: ${item ?? ''}`)
+        .join(', ');
+    }
     return String(cellValue);
   }, [rows]);
 
@@ -466,6 +558,9 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
   const renderDialogField = (col: any) => {
     const key = col['column-key'];
     const cellWidgetId = dialogFieldWidgetId(dialogSessionId, key);
+    const staticOptions = col['widget-data-source']?.type === 'static'
+      ? (col['widget-data-source'].options || []).map((option: { value?: string }) => option.value).join('|')
+      : '';
     const isRequired = shouldRequireWidget(
       col['widget-data-options'],
       dialogConditionValues,
@@ -473,11 +568,18 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
     );
     return (
       <DialogTableField
-        key={`${dialogSessionId}-${key}`}
+        key={`${dialogSessionId}-${key}-${staticOptions}`}
         col={col}
         cellWidgetId={cellWidgetId}
         isRequired={isRequired}
         isReadonly={isReadonly}
+        rowValues={dialogRowValues}
+        onRowValueChange={(columnKey, value) => {
+          dispatch(setValue({
+            widgetId: dialogFieldWidgetId(dialogSessionId, columnKey),
+            value,
+          }));
+        }}
       />
     );
   };
@@ -513,6 +615,26 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
             width: 100%;
             flex: 1 1 100%;
           }
+        }
+
+        .dialog-table-modal .dialog-table-field > * > .flex.fa-details-stack {
+          flex-direction: column !important;
+          align-items: stretch !important;
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+
+        .dialog-table-modal .dialog-table-field .fa-details-stack > * {
+          width: 100% !important;
+          max-width: 100% !important;
+          flex: 0 0 100% !important;
+        }
+
+        .dialog-table-modal .dialog-table-field .fa-details-stack > * > .flex {
+          flex-direction: row !important;
+          align-items: flex-start !important;
+          width: 100% !important;
+          max-width: 100% !important;
         }
 
         .dialog-table-modal .dialog-table-field > * > .flex {
