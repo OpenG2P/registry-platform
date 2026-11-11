@@ -16,7 +16,7 @@ import { useRegisterTabs } from '@/context/RegisterTabsContext';
 import { useBreadcrumb, useFetch } from '@/shared/hooks';
 import { RegistryWidgetProvider } from '@/shared/widgets';
 import { useRecordHistoryDates, useRecordHistoryChanges, useVersionSectionData } from '@/features/register/hooks/useRecordHistory';
-import { useEffect, useMemo, useReducer, useRef } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useRegister } from '@/context/RegisterContext';
 import { useRegisterSectionsFromCR } from '@/features/change-request/hooks/useRegisterSectionsFromCR';
 import { buildSectionDataMap } from '@/features/shared/utils';
@@ -129,8 +129,17 @@ export default function VersionHistoryPage() {
         setActiveTabByIndex,
     } = useRegisterTabs();
 
+    const [filterTabId, setFilterTabId] = useState(activeTabId);
+    if (filterTabId !== activeTabId) {
+        setFilterTabId(activeTabId);
+        dispatch({ type: 'RESET' });
+        prevSectionData.current = undefined;
+        prevSectionUISchema.current = undefined;
+    }
+
     const { sectionUISchema, loadingSchema } = useRegisterSectionsFromCR({
         sectionId: selectedSectionId || '',
+        keepPreviousData: false,
     });
 
     const {
@@ -140,6 +149,7 @@ export default function VersionHistoryPage() {
         register_id: registerId,
         internal_record_id: internalRecordId || '',
         tab_id: activeTabId,
+        keepPreviousData: false,
     });
 
     const {
@@ -150,6 +160,7 @@ export default function VersionHistoryPage() {
         internal_record_id: internalRecordId || '',
         tab_id: activeTabId,
         truncated_created_date: selectedDate,
+        keepPreviousData: false,
     });
 
     const { data: versionHistory, loading } = useFetch<any>({
@@ -187,6 +198,7 @@ export default function VersionHistoryPage() {
         truncated_created_date: selectedDate,
         change_request_id: changeRequestId || null,
         submission_id: intakeSubmissionId ?? null,
+        keepPreviousData: false,
     });
 
     const aweRequestId = versionSectionData?.request_id ?? selectedChange?.request_id ?? null;
@@ -267,8 +279,6 @@ export default function VersionHistoryPage() {
 
     const handleTabChange = (index: number) => {
         setActiveTabByIndex(index);
-        prevSectionData.current = undefined;
-        prevSectionUISchema.current = undefined;
     };
 
     const newSectionData = useMemo(() => {
@@ -288,11 +298,14 @@ export default function VersionHistoryPage() {
         );
     }, [versionSectionData]);
 
-    if (newSectionData) prevSectionData.current = newSectionData;
-    if (sectionUISchema) prevSectionUISchema.current = sectionUISchema;
+    const hasFreshSection = !!newSectionData && !!sectionUISchema;
+    if (hasFreshSection) {
+        prevSectionData.current = newSectionData;
+        prevSectionUISchema.current = sectionUISchema;
+    }
 
-    const stableSectionData = newSectionData ?? prevSectionData.current;
-    const stableSectionUISchema = sectionUISchema ?? prevSectionUISchema.current;
+    const stableSectionData = hasFreshSection ? newSectionData : prevSectionData.current;
+    const stableSectionUISchema = hasFreshSection ? sectionUISchema : prevSectionUISchema.current;
 
     const isLoading =
         loadingDates ||
