@@ -148,7 +148,7 @@ export const matchUploadedDocuments = (
 
 /**
  * Section Change edit_action values:
- * - NO_CHANGE: No changes made (omitted from payload)
+ * - NO_CHANGE: Existing record was not edited (included in the payload)
  * - ADD: New record added (handled at widget level;
  *   only additional info such as IDs and required fields are added)
  * - DELETE: Record deleted (handled at registry widget level)
@@ -161,27 +161,25 @@ export function normalizeEditActions(
 ) {
     if (!Array.isArray(records)) return [];
 
-    return records
-        .map((record) => {
-            const result = { ...record };
+    return records.map((record) => {
+        const result = { ...record };
 
-            if (result.edit_action === undefined) {
-                result.edit_action = "NO_CHANGE";
-            }
+        if (result.edit_action === undefined) {
+            result.edit_action = "NO_CHANGE";
+        }
 
-            if (result.edit_action === "ADD") {
-                result.link_internal_record_id =
-                    result.link_internal_record_id || linkInternalRecordId;
-                result.internal_record_id = "";
-            }
-            
-            if (document_id) {
-                result.record_image_document_id = document_id;
-            }
+        if (result.edit_action === "ADD") {
+            result.link_internal_record_id =
+                result.link_internal_record_id || linkInternalRecordId;
+            result.internal_record_id = "";
+        }
 
-            return result;
-        })
-        .filter((record) => record.edit_action !== "NO_CHANGE");
+        if (document_id) {
+            result.record_image_document_id = document_id;
+        }
+
+        return result;
+    });
 }
 
 
