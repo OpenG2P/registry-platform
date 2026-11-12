@@ -30,21 +30,6 @@ const isBlankObject = (value: unknown): boolean => {
   );
 };
 
-const priorityAlreadyUsed = (
-  payload: Record<string, any>,
-  rows: Record<string, any>[],
-  mode: DialogMode,
-  activeRowIndex: number | null,
-): boolean => {
-  const priority = payload.priority;
-  if (priority === null || priority === undefined || priority === '') return false;
-  return rows.some((row, index) => {
-    if (row?.edit_action === 'DELETE') return false;
-    if (mode === 'edit' && index === activeRowIndex) return false;
-    return String(row?.priority) === String(priority);
-  });
-};
-
 const buildDialogConditionValues = (
   row: Record<string, any>,
   columns: any[],
@@ -440,22 +425,8 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
       }
     });
 
-    if (hasErrors || priorityAlreadyUsed(payload, rows, dialogMode, activeRowIndex)) {
-      if (!hasErrors) {
-        const priorityColumn = columns.find((col) => col['column-key'] === 'priority');
-        if (priorityColumn) {
-          dispatch(setError({
-            widgetId: dialogFieldWidgetId(dialogSessionId, 'priority'),
-            errors: [t?.('priority_already_used') || 'This priority is already used by another financial address'],
-          }));
-          dispatch(setTouched({ widgetId: dialogFieldWidgetId(dialogSessionId, 'priority'), touched: true }));
-        }
-      }
+    if (hasErrors) {
       return;
-    }
-
-    if (String(payload.record_status || '').toUpperCase() === 'INACTIVE') {
-      payload.priority = null;
     }
 
     const cleaned = finalizeDialogRowPayload(payload);

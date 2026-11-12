@@ -325,7 +325,6 @@ const baseWidgetSchema = {
         add: { type: 'boolean' as const },
         remove: { type: 'boolean' as const },
         edit: { type: 'boolean' as const },
-        toggleActive: { type: 'boolean' as const },
       },
       description: 'Array operations configuration',
     },

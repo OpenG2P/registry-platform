@@ -589,11 +589,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
 
   const isSectionEditMode = !isReadonly && operations.edit;
   const isAnyRowEditing = editingState !== null || isAdding;
-  const showRowActions = ((operations.edit || operations.remove || operations.toggleActive) && !isReadonly) || isAnyRowEditing || isSectionEditMode;
-  const activePriorities = rows
-    .filter((row) => (row?.record_status || 'ACTIVE') === 'ACTIVE' && row?.priority != null)
-    .map((row) => String(row.priority));
-  const duplicatePriority = activePriorities.length !== new Set(activePriorities).size;
+  const showRowActions = ((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode;
 
   const resolveEditingRowData = useCallback(() => {
     if (!editingState) return null;
@@ -1296,11 +1292,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         </div>
       )}
 
-        {duplicatePriority && (
-          <p className="owt-field-error text-sm mb-2">
-            {t?.('table.duplicateActivePriority') || t?.('duplicate_active_priority')}
-          </p>
-        )}
         <div className="max-w-full min-w-0 overflow-x-auto border" style={{ borderRadius: 'var(--owt-widget-table-border-radius)', borderColor: 'var(--owt-widget-table-border-color)' }}>
           <table className="w-max min-w-full [&_th]:min-w-[8rem] [&_td]:min-w-[8rem]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead style={{ backgroundColor: 'var(--owt-widget-table-header-bg)' }}>
@@ -1423,29 +1414,6 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                                 }}
                               >
                                 {t?.('common.edit') || 'Edit'}
-                              </button>
-                            )}
-                            {operations.toggleActive && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const active = (row.record_status || 'ACTIVE') !== 'INACTIVE';
-                                  const nextRows = rows.map((item, index) =>
-                                    index === rowIndex
-                                      ? {
-                                          ...item,
-                                          record_status: active ? 'INACTIVE' : 'ACTIVE',
-                                          priority: active ? null : item.priority,
-                                        }
-                                      : item,
-                                  );
-                                  onChange(nextRows);
-                                }}
-                                className="px-3 py-1 text-xs"
-                              >
-                                {(row.record_status || 'ACTIVE') === 'INACTIVE'
-                                  ? (t?.('inactive') || t?.('common.inactive'))
-                                  : (t?.('active') || t?.('common.active'))}
                               </button>
                             )}
                             {operations.remove && (

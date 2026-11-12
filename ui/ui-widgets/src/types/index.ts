@@ -298,7 +298,6 @@ export interface BaseWidgetConfig {
     add?: boolean;
     remove?: boolean;
     edit?: boolean;
-    toggleActive?: boolean;
   };
   'widget-data-add-label'?: string;
   'widget-data-collapsed'?: boolean;
