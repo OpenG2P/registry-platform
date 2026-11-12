@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
 			},
 			request_payload: {
 				attribute_id: body.attribute_id,
+				parent_value_id: body.parent_value_id,
+				q: body.q,
 			}
 		}),
 		transformResponse: (responseBody) =>

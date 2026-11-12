@@ -22,16 +22,25 @@ export const dataSourceRequestHandler: DataSourceRequestHandler = async (
         // UI schemas often use backend-style underscores; Next.js API routes are kebab-case.
         const routeEndpoint = String(endpoint || '').replaceAll('_', '-');
         const url = `/api/${service}/${routeEndpoint}`;
-        const requestMethod = method || 'POST';
+        const requestMethod = (method || 'POST').toUpperCase();
+        const sendBody = requestMethod !== 'GET' && requestMethod !== 'HEAD';
+        const query = !sendBody && params && Object.keys(params).length
+            ? `?${new URLSearchParams(
+                Object.entries(params).reduce<Record<string, string>>((acc, [key, value]) => {
+                    if (value !== undefined && value !== null) acc[key] = String(value);
+                    return acc;
+                }, {})
+            ).toString()}`
+            : '';
 
-        const response = await fetch(url, {
+        const response = await fetch(`${url}${query}`, {
             method: requestMethod,
             credentials: 'include',
             headers: withCsrfHeaders(requestMethod, {
-                'Content-Type': 'application/json',
+                ...(sendBody ? { 'Content-Type': 'application/json' } : {}),
                 ...options?.headers,
             }),
-            body: JSON.stringify(params),
+            ...(sendBody ? { body: JSON.stringify(params ?? {}) } : {}),
         });
 
         const data = await response.json().catch(() => null);
