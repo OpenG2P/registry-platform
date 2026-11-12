@@ -87,7 +87,10 @@ function DetailsJsonField({
       <div className="flex flex-col sm:flex-row sm:items-start">
         <span className="text-base font-medium owt-field-label md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0">{label}</span>
         <textarea
-          className="min-h-[72px] w-full flex-1 border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900"
+          className={owtFieldInputClass({
+            error: invalid,
+            className: 'min-h-[72px] w-full sm:w-[180px] max-w-full px-3 py-2 text-sm',
+          })}
           style={{ borderRadius: '10px', fontFamily: 'Roboto, monospace' }}
           rows={3}
           value={text}
@@ -197,8 +200,9 @@ const IfscBranchPicker = ({
   }, []);
 
   const hydratedKey = useRef('');
+  const bankChosenByUser = useRef(false);
   useEffect(() => {
-    if (banks.length === 0) return;
+    if (bankChosenByUser.current || banks.length === 0) return;
     const code = (initialProvider || initialIfsc.slice(0, 4)).toUpperCase();
     if (!code) return;
     const match = banks.find((item) => (item.value_code || '').toUpperCase() === code);
@@ -209,7 +213,7 @@ const IfscBranchPicker = ({
     setBank(match.value_id);
     writeProvider(match.value_code || code);
     if (initialIfsc) setBranchLabel(initialIfsc);
-    fetchValues(match.value_id, initialIfsc).then((rows) => {
+    fetchValues(match.value_id, '').then((rows) => {
       const branch = rows.find((item) => (item.value_code || '').toUpperCase() === initialIfsc.toUpperCase());
       setBranches(rows);
       if (branch) setBranchLabel(branch.value_display || initialIfsc);
@@ -228,7 +232,7 @@ const IfscBranchPicker = ({
   };
 
   return (
-    <div className="fa-details-stack flex w-full flex-col" style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+    <div className="fa-details-stack flex w-full flex-col gap-4" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '1rem' }}>
       <SearchChoice
         label={t?.('bank') || 'Bank'}
         required
@@ -238,8 +242,10 @@ const IfscBranchPicker = ({
         disabled={loadingBanks}
         onSelect={async (row) => {
           const next = row.value_id || '';
+          bankChosenByUser.current = true;
           setBank(next);
           setBranchLabel('');
+          onDetails?.('');
           setBranches(next ? await fetchValues(next, '') : []);
           writeProvider(row.value_code || '');
         }}
@@ -276,9 +282,19 @@ function SearchChoice({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [typing, setTyping] = useState(false);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [menuBox, setMenuBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const placeMenu = () => {
+    const rect = anchorRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuBox({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  };
   const filtered = options.filter((row) => {
+    const needle = query.trim().toLowerCase();
+    if (!typing || !needle) return true;
     const haystack = `${row.value_display || ''} ${row.value_code || ''}`.toLowerCase();
-    return haystack.includes(query.trim().toLowerCase());
+    return haystack.includes(needle);
   });
 
   return (
@@ -289,32 +305,49 @@ function SearchChoice({
           label={label}
           required={required}
         />
-        <div className="relative w-full min-w-0 sm:w-[180px]">
+        <div className="relative w-full min-w-0 sm:w-[180px]" ref={anchorRef}>
         <input
           className={owtFieldInputClass({
             disabled,
             className: 'w-full sm:w-[180px] max-w-full h-[30px] px-3 owt-shadow-sm',
           })}
           style={{ borderRadius: '10px' }}
-          placeholder={placeholder}
+          placeholder={selectedLabel ? undefined : placeholder}
+          title={selectedLabel || undefined}
           disabled={disabled}
-          value={open ? query : selectedLabel}
+          value={typing ? query : selectedLabel}
           onFocus={() => {
+            setTyping(false);
             setQuery('');
+            placeMenu();
             setOpen(true);
           }}
           onChange={(event) => {
+            setTyping(true);
             setQuery(event.target.value);
+            placeMenu();
             setOpen(true);
           }}
           onBlur={() => {
-            window.setTimeout(() => setOpen(false), 150);
+            window.setTimeout(() => {
+              setOpen(false);
+              setTyping(false);
+              setQuery('');
+            }, 150);
           }}
         />
-        {open && !disabled && (
+        {open && !disabled && menuBox && (
           <div
-            className="owt-field-input absolute left-0 z-20 mt-1 max-h-40 w-full overflow-auto sm:w-[180px]"
-            style={{ borderRadius: '10px' }}
+            className="owt-field-input overflow-y-auto"
+            style={{
+              position: 'fixed',
+              top: menuBox.top,
+              left: menuBox.left,
+              width: menuBox.width,
+              zIndex: 80,
+              maxHeight: '20rem',
+              borderRadius: '10px',
+            }}
           >
             {filtered.length === 0 ? (
               <div className="px-3 py-2 text-sm text-neutral-500">—</div>
@@ -324,6 +357,7 @@ function SearchChoice({
                   key={row.value_id || row.value_code}
                   type="button"
                   className="block w-full px-3 py-2 text-left text-sm text-neutral-900 hover:bg-neutral-100"
+                  title={row.value_display || row.value_code}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
                     onSelect(row);

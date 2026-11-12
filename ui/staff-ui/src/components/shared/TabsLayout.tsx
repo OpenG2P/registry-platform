@@ -84,6 +84,10 @@ export default function TabsLayout({
             ? allTabs[activeTab]
             : undefined;
 
+    const moreLabel = activeMoreTab
+        ? t(activeMoreTab.tab_label) || activeMoreTab.tab_label
+        : t("more") || "More";
+
     return (
         <div className="min-h-screen bg-secondary-first">
             <div className="px-3 pt-5 sm:px-6 lg:px-7.5">
@@ -97,10 +101,12 @@ export default function TabsLayout({
                             {visibleTabs.map((tab, index) => {
                                 const tabIndex = index;
                                 const isActive = activeTab === tabIndex;
+                                const label = t(tab.tab_label) || tab.tab_label;
 
                                 return (
                                     <button
                                         key={tab.tab_id}
+                                        title={label}
                                         onClick={() => onTabChange(tabIndex)}
                                         className={`min-w-0 max-w-full px-3 py-2 text-base font-medium text-neutral-first rounded-t-[10px] transition-all sm:min-w-30 sm:max-w-45 sm:px-4 sm:text-[18px] ${
                                             isActive
@@ -109,7 +115,7 @@ export default function TabsLayout({
                                         }`}
                                     >
                                         <span className="block w-full truncate text-center">
-                                            {t(tab.tab_label) || tab.tab_label}
+                                            {label}
                                         </span>
                                     </button>
                                 );
@@ -119,6 +125,7 @@ export default function TabsLayout({
                                 <div className="relative" ref={moreMenuRef}>
                                     <button
                                         type="button"
+                                        title={moreLabel}
                                         onClick={() =>
                                             setIsMoreOpen((prev) => !prev)
                                         }
@@ -129,10 +136,7 @@ export default function TabsLayout({
                                         }`}
                                     >
                                         <span className="truncate">
-                                            {activeMoreTab
-                                                ? t(activeMoreTab.tab_label) ||
-                                                  activeMoreTab.tab_label
-                                                : t("more") || "More"}
+                                            {moreLabel}
                                         </span>
                                         <ChevronDown
                                             className={`ml-1 h-4 w-4 shrink-0 transition-transform sm:h-5 sm:w-5 ${

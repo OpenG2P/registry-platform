@@ -10,15 +10,6 @@ import { getValueByPath, getWidgetValue } from './pathUtils';
 import { validateWidget } from './validation';
 import { isTableLikeWidget } from './extractTableRecordsFromSnapshot';
 
-const isColumnRequired = (
-  column: Record<string, unknown>,
-  skipRequired: boolean,
-): boolean => {
-  if (skipRequired) return false;
-  const validation = column['widget-data-validation'] as { required?: boolean } | undefined;
-  return !!(column['widget-required'] || validation?.required);
-};
-
 const validateTableLikeWidget = (
   widget: BaseWidgetConfig,
   currentSchemaData: Record<string, any>,
@@ -58,7 +49,12 @@ const validateTableLikeWidget = (
       const key = col['column-key'] as string | undefined;
       if (!key) return;
 
-      const required = isColumnRequired(col, skipRequired);
+      const validation = col['widget-data-validation'] as { required?: boolean } | undefined;
+      const required = shouldRequireWidget(
+        col['widget-data-options'] as BaseWidgetConfig['widget-data-options'],
+        row,
+        !!(col['widget-required'] || validation?.required),
+      );
       const cellValue = row[key];
       const errors = validateWidget(
         cellValue,

@@ -454,6 +454,10 @@ export const DialogTableWidget = ({ config }: DialogTableWidgetProps) => {
       return;
     }
 
+    if (String(payload.record_status || '').toUpperCase() === 'INACTIVE') {
+      payload.priority = null;
+    }
+
     const cleaned = finalizeDialogRowPayload(payload);
 
     if (dialogMode === 'add') {
