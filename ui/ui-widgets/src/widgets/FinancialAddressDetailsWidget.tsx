@@ -8,13 +8,23 @@ import { owtFieldInputClass } from '../theme';
 import { BaseWidgetConfig } from '../types';
 import { tSchema } from '../utils/tSchema';
 
-const IFSC_TYPE = 'IFSC-BANK-ACCOUNT';
+type DetailsMode = 'none' | 'ifsc' | 'json';
 
-const NO_DETAILS = new Set([
-  'MSISDN-WALLET',
-  'UPI-VPA-BANK-ACCOUNT',
-  'IBAN-BANK-ACCOUNT',
-]);
+type TypeMeta = { schema: unknown; kind: string; providerRequired: boolean };
+type ProviderOption = { code: string; label: string; services: string[] };
+
+let typeMeta: Record<string, TypeMeta> | null = null;
+let typeMetaPromise: Promise<void> | null = null;
+let providerOptions: ProviderOption[] | null = null;
+let providerOptionsPromise: Promise<void> | null = null;
+
+function modeFromSchema(schema: unknown): DetailsMode {
+  if (!schema || typeof schema !== 'object') return 'none';
+  const properties = (schema as { properties?: Record<string, unknown> }).properties;
+  if (!properties || !Object.keys(properties).length) return 'none';
+  if (properties.ifsc) return 'ifsc';
+  return 'json';
+}
 
 interface WidgetProps {
   config: BaseWidgetConfig;
@@ -30,25 +40,97 @@ function typeCodeFrom(widgetConfig: BaseWidgetConfig): string {
 
 export const FinancialAddressDetailsWidget = ({ config }: WidgetProps) => {
   const { value, onChange, config: widgetConfig } = useBaseWidget({ config });
-  const { t } = useWidgetContext();
+  const { dataSourceRequestHandler, t } = useWidgetContext();
   const typeCode = typeCodeFrom(widgetConfig);
   const details = (value && typeof value === 'object' ? value : {}) as Record<string, string>;
+  const [mode, setMode] = useState<DetailsMode>('none');
+  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [providerRequired, setProviderRequired] = useState(false);
+  const [providerKind, setProviderKind] = useState('');
 
-  if (!typeCode || NO_DETAILS.has(typeCode)) {
-    const note = !typeCode
-      ? t?.('choose_financial_address_type')
-      : t?.('financial_address_no_details');
-    return <span className="text-sm owt-text-muted">{note}</span>;
-  }
+  useEffect(() => {
+    if (!typeCode || !dataSourceRequestHandler) {
+      setMode('none');
+      setProviderRequired(false);
+      return;
+    }
+    let cancelled = false;
+    const loadTypes = typeMeta
+      ? Promise.resolve()
+      : (typeMetaPromise ??= dataSourceRequestHandler(
+          'attributes',
+          'values',
+          'POST',
+          { attribute_id: 'FINANCIAL_ADDRESS_TYPE' },
+        ).then((rows) => {
+          const next: Record<string, TypeMeta> = {};
+          for (const row of Array.isArray(rows) ? rows : []) {
+            if (!row?.value_code) continue;
+            next[row.value_code] = {
+              schema: row.attributes?.details_schema ?? null,
+              kind: String(row.attributes?.kind || ''),
+              providerRequired: Boolean(row.attributes?.provider_required),
+            };
+          }
+          typeMeta = next;
+        }).catch(() => {
+          typeMeta = {};
+        }));
+    const loadProviders = providerOptions
+      ? Promise.resolve()
+      : (providerOptionsPromise ??= dataSourceRequestHandler(
+          'attributes',
+          'values',
+          'POST',
+          { attribute_id: 'FINANCIAL_SERVICE_PROVIDER' },
+        ).then((rows) => {
+          providerOptions = (Array.isArray(rows) ? rows : []).flatMap((row) => {
+            const code = String(row?.value_code || '');
+            if (!code) return [];
+            const services = Array.isArray(row.attributes?.services) ? row.attributes.services.map(String) : [];
+            return [{ code, label: String(row.value_display || code), services }];
+          });
+        }).catch(() => {
+          providerOptions = [];
+        }));
+    Promise.all([loadTypes, loadProviders]).then(() => {
+      if (cancelled) return;
+      const meta = typeMeta?.[typeCode];
+      const nextMode = modeFromSchema(meta?.schema);
+      setMode(nextMode);
+      setProviderKind(meta?.kind || '');
+      setProviderRequired(Boolean(meta?.providerRequired) && nextMode !== 'ifsc');
+      setProviders(providerOptions || []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [typeCode, dataSourceRequestHandler]);
 
   const rowValues = (widgetConfig as { 'widget-row-values'?: Record<string, unknown> })['widget-row-values'] || {};
+  const setRowValue = (widgetConfig as { 'widget-set-row-value'?: (columnKey: string, value: unknown) => void })['widget-set-row-value'];
+  const matchingProviders = providers.filter((provider) => providerKind && provider.services.includes(providerKind));
+
+  if (!typeCode || (!providerRequired && mode === 'none')) {
+    return null;
+  }
+
   const rowDetails = rowValues.details;
   const savedDetails = rowDetails && typeof rowDetails === 'object' && !Array.isArray(rowDetails)
     ? rowDetails as Record<string, string>
     : {};
   const shownDetails = Object.keys(details).length ? details : savedDetails;
 
-  if (typeCode === IFSC_TYPE) {
+  const providerField = providerRequired ? (
+    <ProviderChoice
+      label={tSchema(t, 'provider_code')}
+      options={matchingProviders}
+      value={String(rowValues.provider_code || '')}
+      onChange={(code) => setRowValue?.('provider_code', code)}
+    />
+  ) : null;
+
+  if (mode === 'ifsc') {
     const rowIfsc = String(shownDetails.ifsc || '');
     return (
       <IfscBranchPicker
@@ -60,7 +142,53 @@ export const FinancialAddressDetailsWidget = ({ config }: WidgetProps) => {
     );
   }
 
-  return <DetailsJsonField value={shownDetails} onChange={onChange} label={tSchema(t, widgetConfig['widget-label'] || 'details')} />;
+  return (
+    <>
+      {providerField}
+      {mode === 'json' && (
+        <DetailsJsonField value={shownDetails} onChange={onChange} label={tSchema(t, widgetConfig['widget-label'] || 'details')} />
+      )}
+    </>
+  );
+}
+
+function ProviderChoice({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: ProviderOption[];
+  value: string;
+  onChange: (code: string) => void;
+}) {
+  const { t } = useWidgetContext();
+  const known = options.some((option) => option.code === value);
+  return (
+    <div className="mb-[10px]">
+      <div className="flex flex-col sm:flex-row sm:items-start">
+        <WidgetFieldLabel
+          className="text-base font-medium owt-field-label md:min-w-[120px] sm:pr-4 sm:pt-1 mb-1 sm:mb-0"
+          label={label}
+          required
+        />
+        <select
+          className={owtFieldInputClass({
+            className: 'w-full sm:w-[180px] max-w-full h-[30px] px-3 owt-shadow-sm',
+          })}
+          style={{ borderRadius: '10px' }}
+          value={known ? value : ''}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          <option value="">{options.length === 0 ? (t?.('loading') || 'Loading') : (t?.('select') || 'Select')}</option>
+          {options.map((option) => (
+            <option key={option.code} value={option.code}>{option.label}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
 }
 
 function DetailsJsonField({
@@ -117,15 +245,10 @@ function DetailsJsonField({
 };
 
 function DetailsSummary({
-  typeCode,
   details,
 }: {
-  typeCode: string;
   details: Record<string, string>;
 }) {
-  if (NO_DETAILS.has(typeCode)) {
-    return <span className="text-sm owt-text-muted">—</span>;
-  }
   const text = Object.entries(details)
     .filter(([, entry]) => entry)
     .map(([key, entry]) => `${key}: ${entry}`)
@@ -157,7 +280,24 @@ const IfscBranchPicker = ({
   const [banks, setBanks] = useState<DirectoryRow[]>([]);
   const [branches, setBranches] = useState<DirectoryRow[]>([]);
   const [bank, setBank] = useState('');
+  const [bankLabel, setBankLabel] = useState('');
   const [branchLabel, setBranchLabel] = useState(initialIfsc);
+  const selectedBank = useRef<DirectoryRow | null>(null);
+  const bankSearch = useRef(0);
+  const branchSearch = useRef(0);
+  const searchBanks = (q: string) => {
+    const request = ++bankSearch.current;
+    fetchValues('', q).then((rows) => {
+      if (bankSearch.current === request) setBanks(rows);
+    });
+  };
+  const searchBranches = (q: string) => {
+    const parent = bank;
+    const request = ++branchSearch.current;
+    fetchValues(parent, q).then((rows) => {
+      if (branchSearch.current === request) setBranches(rows);
+    });
+  };
   const [loadingBanks, setLoadingBanks] = useState(false);
   const service = (widgetConfig as { 'widget-service'?: string })['widget-service'] || 'attributes';
   const attributeId = (widgetConfig as { 'widget-attribute-id'?: string })['widget-attribute-id'] || 'IFSC_DIRECTORY';
@@ -210,7 +350,9 @@ const IfscBranchPicker = ({
     const key = `${match.value_id}:${initialIfsc.toUpperCase()}`;
     if (hydratedKey.current === key) return;
     hydratedKey.current = key;
+    selectedBank.current = match;
     setBank(match.value_id);
+    setBankLabel(match.value_display || match.value_code || code);
     writeProvider(match.value_code || code);
     if (initialIfsc) setBranchLabel(initialIfsc);
     fetchValues(match.value_id, '').then((rows) => {
@@ -222,8 +364,7 @@ const IfscBranchPicker = ({
   }, [banks, initialProvider, initialIfsc]);
 
   const chooseBranch = (row: DirectoryRow) => {
-    const selectedBank = banks.find((item) => item.value_id === bank);
-    const provider = selectedBank?.value_code || '';
+    const provider = selectedBank.current?.value_code || '';
     const ifsc = row.value_code || '';
     dispatch(setValue({ widgetId: ifscPath, value: ifsc }));
     writeProvider(provider);
@@ -238,12 +379,15 @@ const IfscBranchPicker = ({
         required
         placeholder={loadingBanks ? (t?.('loading') || 'Loading') : (t?.('select') || 'Select')}
         options={banks}
-        selectedLabel={banks.find((item) => item.value_id === bank)?.value_display || ''}
+        selectedLabel={bankLabel}
         disabled={loadingBanks}
+        onQuery={searchBanks}
         onSelect={async (row) => {
           const next = row.value_id || '';
           bankChosenByUser.current = true;
+          selectedBank.current = row;
           setBank(next);
+          setBankLabel(row.value_display || row.value_code || '');
           setBranchLabel('');
           onDetails?.('');
           setBranches(next ? await fetchValues(next, '') : []);
@@ -257,6 +401,7 @@ const IfscBranchPicker = ({
         options={branches}
         selectedLabel={branchLabel}
         disabled={!bank}
+        onQuery={searchBranches}
         onSelect={chooseBranch}
       />
     </div>
@@ -270,6 +415,7 @@ function SearchChoice({
   selectedLabel,
   disabled,
   required,
+  onQuery,
   onSelect,
 }: {
   label: string;
@@ -278,6 +424,7 @@ function SearchChoice({
   selectedLabel: string;
   disabled?: boolean;
   required?: boolean;
+  onQuery?: (query: string) => void;
   onSelect: (row: DirectoryRow) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -285,17 +432,16 @@ function SearchChoice({
   const [typing, setTyping] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
   const [menuBox, setMenuBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const queryTimer = useRef<number | undefined>(undefined);
   const placeMenu = () => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (!rect) return;
     setMenuBox({ top: rect.bottom + 4, left: rect.left, width: rect.width });
   };
-  const filtered = options.filter((row) => {
-    const needle = query.trim().toLowerCase();
-    if (!typing || !needle) return true;
-    const haystack = `${row.value_display || ''} ${row.value_code || ''}`.toLowerCase();
-    return haystack.includes(needle);
-  });
+  const search = (next: string) => {
+    window.clearTimeout(queryTimer.current);
+    queryTimer.current = window.setTimeout(() => onQuery?.(next.trim()), 300);
+  };
 
   return (
     <div className="mb-[10px] w-full">
@@ -323,8 +469,10 @@ function SearchChoice({
             setOpen(true);
           }}
           onChange={(event) => {
+            const next = event.target.value;
             setTyping(true);
-            setQuery(event.target.value);
+            setQuery(next);
+            search(next);
             placeMenu();
             setOpen(true);
           }}
@@ -349,10 +497,10 @@ function SearchChoice({
               borderRadius: '10px',
             }}
           >
-            {filtered.length === 0 ? (
+            {options.length === 0 ? (
               <div className="px-3 py-2 text-sm text-neutral-500">—</div>
             ) : (
-              filtered.map((row) => (
+              options.map((row) => (
                 <button
                   key={row.value_id || row.value_code}
                   type="button"
@@ -360,7 +508,9 @@ function SearchChoice({
                   title={row.value_display || row.value_code}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => {
+                    window.clearTimeout(queryTimer.current);
                     onSelect(row);
+                    setTyping(false);
                     setQuery('');
                     setOpen(false);
                   }}
@@ -378,12 +528,7 @@ function SearchChoice({
   );
 }
 
-/** Bank and branch picker. Only for IFSC accounts; other types use financial-address-details. */
+/** Bank and branch picker when the selected type's details schema includes ifsc. */
 export const BankBranchWidget = ({ config }: WidgetProps) => {
-  const { config: widgetConfig } = useBaseWidget({ config });
-  const typeCode = typeCodeFrom(widgetConfig);
-  if (typeCode && typeCode !== IFSC_TYPE) {
-    return <FinancialAddressDetailsWidget config={config} />;
-  }
-  return <IfscBranchPicker config={config} />;
+  return <FinancialAddressDetailsWidget config={config} />;
 };

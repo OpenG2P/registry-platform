@@ -34,7 +34,7 @@ function buildApiRequestContext(
     }
   }
   const staticParams: Record<string, any> = { ...resolvedParams };
-  const standardFields = ['type', 'service', 'endpoint', 'url', 'method', 'dependsOn', 'valueKey', 'labelKey', 'headers', 'body', 'params', 'level_id'];
+  const standardFields = ['type', 'service', 'endpoint', 'url', 'method', 'dependsOn', 'valueKey', 'labelKey', 'headers', 'body', 'params', 'level_id', 'rowValues'];
   for (const [key, value] of Object.entries(dataSource)) {
     if (!standardFields.includes(key) && value !== undefined && value !== null) {
       staticParams[key] = value;
