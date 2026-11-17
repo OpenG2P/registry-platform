@@ -892,6 +892,7 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_AUTH_VERIFY_SSL: '{{ .Values.global.authVerifySsl }}'
     REGISTRY_STAFF_PORTAL_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
     REGISTRY_STAFF_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
+    REGISTRY_STAFF_PORTAL_API_AUTH_OIDC_CLIENT_ID: staff-portal
     REGISTRY_STAFF_PORTAL_API_MINIO_ENDPOINT: '{{ tpl .Values.global.minioHost $ }}'
     REGISTRY_STAFF_PORTAL_API_MINIO_SECURE: '{{ .Values.global.minioSecure }}'
     # Record images (incl. db-seed uploads) live in documentsBucketName; this must
@@ -932,6 +933,13 @@ staffApi:
       secretKeyRef:
         name: '{{ tpl .Values.global.registryDBSecret $ }}'
         key: '{{ tpl .Values.global.registryDBUserPasswordKey $ }}'
+    # staff-portal client secret (Keycloak-init Secret name = client id).
+    # Used by iam-core refresh when the provider API omits client_secret.
+    REGISTRY_STAFF_PORTAL_API_AUTH_OIDC_CLIENT_SECRET:
+      secretKeyRef:
+        name: staff-portal
+        key: client_secret
+        optional: true
     REGISTRY_STAFF_PORTAL_API_MINIO_ACCESS_KEY:
       secretKeyRef:
         name: '{{ tpl .Values.global.minioSecret $ }}'
