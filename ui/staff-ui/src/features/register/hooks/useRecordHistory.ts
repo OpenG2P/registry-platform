@@ -5,6 +5,7 @@ interface useRecordHistoryDatesParams {
     register_id?: string;
     internal_record_id?: string;
     tab_id?: string;
+    keepPreviousData?: boolean;
 }
 
 export const useRecordHistoryDates = (params: useRecordHistoryDatesParams) => {
@@ -13,6 +14,7 @@ export const useRecordHistoryDates = (params: useRecordHistoryDatesParams) => {
         loading: loadingDates,
     } = useFetch<{ dates: string[] }>({
         url: "/api/register/get-version-dates",
+        keepPreviousData: params.keepPreviousData ?? true,
         enabled: !!params.register_id && !!params.internal_record_id && !!params.tab_id,
         options: {
             method: "POST",
@@ -35,6 +37,7 @@ interface useRecordHistoryChangesParams {
     internal_record_id?: string;
     tab_id?: string;
     truncated_created_date?: string | null;
+    keepPreviousData?: boolean;
 }
 
 export const useRecordHistoryChanges = (params: useRecordHistoryChangesParams) => {
@@ -43,6 +46,7 @@ export const useRecordHistoryChanges = (params: useRecordHistoryChangesParams) =
         loading: loadingChanges,
     } = useFetch<any>({
         url: "/api/register/get-versions-for-date",
+        keepPreviousData: params.keepPreviousData ?? true,
         enabled: !!params.register_id && !!params.internal_record_id && !!params.tab_id && !!params.truncated_created_date,
         options: {
             method: "POST",
@@ -69,6 +73,7 @@ interface useVersionSectionDataParams {
     truncated_created_date?: string | null;
     change_request_id?: string | null;
     submission_id?: string | null;
+    keepPreviousData?: boolean;
 }
 
 export const useVersionSectionData = (params: useVersionSectionDataParams) => {
@@ -78,6 +83,7 @@ export const useVersionSectionData = (params: useVersionSectionDataParams) => {
         loading: loadingVersionSection,
     } = useFetch<VersionSectionData>({
         url: "/api/register/get-version-section-data",
+        keepPreviousData: params.keepPreviousData ?? true,
         enabled: !!params.register_id && !!params.internal_record_id && !!params.tab_id
             && !!params.section_id && !!params.truncated_created_date && !!versionId,
         options: {

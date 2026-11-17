@@ -5,6 +5,7 @@ import {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
     useCallback,
     ReactNode,
@@ -64,9 +65,15 @@ export function RegisterTabsProvider({ children }: { children: ReactNode }) {
     const tabs = data ?? [];
 
     const [activeTabIndex, setActiveTabIndex] = useState(0);
+    const pendingTabIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!tabs.length || !tabFromUrl) return;
+
+        if (pendingTabIdRef.current) {
+            if (tabFromUrl !== pendingTabIdRef.current) return;
+            pendingTabIdRef.current = null;
+        }
 
         const index = tabs.findIndex(tab => tab.tab_id === tabFromUrl);
         if (index >= 0) {
@@ -112,6 +119,7 @@ export function RegisterTabsProvider({ children }: { children: ReactNode }) {
             const tab = tabs[index];
             if (!tab) return;
 
+            pendingTabIdRef.current = tab.tab_id === tabFromUrl ? null : tab.tab_id;
             setActiveTabIndex(index);
             updateUrl(tab.tab_id);
         },
@@ -123,6 +131,7 @@ export function RegisterTabsProvider({ children }: { children: ReactNode }) {
             const index = tabs.findIndex(tab => tab.tab_id === tabId);
             if (index < 0) return;
 
+            pendingTabIdRef.current = tabId === tabFromUrl ? null : tabId;
             setActiveTabIndex(index);
             updateUrl(tabId);
         },
