@@ -66,6 +66,8 @@ class MasterDataClient(BaseService):
         self._access_token_expires_at: float = 0.0
         self._codes: Optional[dict[str, set[str]]] = None
         self._codes_expires_at: float = 0.0
+        self._value_rows: Optional[dict[str, list[dict[str, Any]]]] = None
+        self._value_rows_expires_at: float = 0.0
         self._geo_index: Optional[dict[str, dict[str, Any]]] = None
         self._geo_index_expires_at: float = 0.0
 
@@ -112,6 +114,8 @@ class MasterDataClient(BaseService):
     def invalidate(self) -> None:
         self._codes = None
         self._codes_expires_at = 0.0
+        self._value_rows = None
+        self._value_rows_expires_at = 0.0
         self._geo_index = None
         self._geo_index_expires_at = 0.0
 
@@ -278,6 +282,54 @@ class MasterDataClient(BaseService):
         self._codes = codes
         self._codes_expires_at = now + ttl if ttl > 0 else 0.0
         return codes
+
+    async def get_attribute_value_rows(self, attribute_id: str) -> list[dict[str, Any]]:
+        """Published values for one list, including each value's attributes object."""
+        cfg = self._settings()
+        now = time.monotonic()
+        ttl = self._cache_ttl(cfg)
+        if ttl > 0 and self._value_rows is not None and now < self._value_rows_expires_at:
+            return list(self._value_rows.get(attribute_id) or [])
+
+        if not self.is_configured(cfg):
+            self._not_configured()
+
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        total: Optional[int] = None
+        for page in range(1, _ATTRIBUTE_MAX_PAGES + 1):
+            payload = await self._post(
+                "/attributes/get_attribute_values",
+                payload={"attribute_id": None},
+                pagination={"current_page": page, "page_size": _ATTRIBUTE_PAGE_SIZE},
+            )
+            if isinstance(payload, dict):
+                rows = payload.get("attribute_values") or []
+                if total is None:
+                    raw_total = payload.get("total")
+                    try:
+                        total = int(raw_total) if raw_total is not None else None
+                    except (TypeError, ValueError):
+                        total = None
+            elif isinstance(payload, list):
+                rows = payload
+            else:
+                rows = []
+
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                key = row.get("attribute_id")
+                if key:
+                    grouped.setdefault(key, []).append(row)
+
+            if len(rows) < _ATTRIBUTE_PAGE_SIZE:
+                break
+            if total is not None and page * _ATTRIBUTE_PAGE_SIZE >= total:
+                break
+
+        self._value_rows = grouped
+        self._value_rows_expires_at = now + ttl if ttl > 0 else 0.0
+        return list(grouped.get(attribute_id) or [])
 
     async def _load_geo_index(self) -> dict[str, dict[str, Any]]:
         cfg = self._settings()

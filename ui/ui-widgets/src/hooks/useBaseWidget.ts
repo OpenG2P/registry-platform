@@ -331,7 +331,10 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
 
   const apiService = dataSource?.type === 'api' ? (dataSource as any).service : '';
   const apiEndpoint = dataSource?.type === 'api' ? (dataSource as any).endpoint : '';
-  const configKey = `${widgetId}-${isReadonly}-${dataSource?.type || 'none'}-${apiService}-${apiEndpoint}`;
+  const rowValues = (config as any)['widget-row-values'] as Record<string, any> | undefined;
+  const rowValuesKey = rowValues ? JSON.stringify(rowValues) : '';
+  const staticOptionsKey = dataSource?.type === 'static' ? JSON.stringify(dataSource.options ?? []) : '';
+  const configKey = `${widgetId}-${isReadonly}-${dataSource?.type || 'none'}-${apiService}-${apiEndpoint}-${staticOptionsKey}-${rowValuesKey}`;
 
   const schemaDataKey = useMemo(
     () => (schemaData ? JSON.stringify(schemaData) : ''),
@@ -406,7 +409,8 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         };
 
         if (dataSource.type === 'api') {
-          const cached = getCachedApiDataSource(dataSource, valuesRef.current);
+          const sourceForCache = rowValues ? { ...dataSource, rowValues } : dataSource;
+          const cached = getCachedApiDataSource(sourceForCache, valuesRef.current);
           if (cached) {
             const { valueKey, labelKey } = resolveOptionKeys();
             dispatch(setDataSource({
@@ -429,7 +433,8 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
             dispatch(setDataSource({ widgetId, data: [] }));
             return;
           }
-          data = await getApiDataSource(dataSource, valuesRef.current, currentHandler);
+          const sourceForRow = rowValues ? { ...dataSource, rowValues } : dataSource;
+          data = await getApiDataSource(sourceForRow, valuesRef.current, currentHandler);
         } else if (dataSource.type === 'schema') {
           data = getSchemaDataSource(dataSource, schemaData || {});
         }
