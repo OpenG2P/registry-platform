@@ -106,6 +106,18 @@ const getDateColumnConstraintError = (
   );
 };
 
+const dependentColumnKeys = (columns: any[], changedKey: string): string[] =>
+  columns
+    .filter((col) => {
+      const params = col['widget-data-source']?.params;
+      if (!params || typeof params !== 'object') return false;
+      return Object.values(params).some(
+        (value) => value && typeof value === 'object' && (value as { $field?: string }).$field === changedKey,
+      );
+    })
+    .map((col) => col['column-key'])
+    .filter(Boolean);
+
 const getTableRowCellErrors = (
   rowData: Record<string, any>,
   columns: any[],
@@ -576,8 +588,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   const [originalRows, setOriginalRows] = useState<any[] | null>(null);
 
   const isSectionEditMode = !isReadonly && operations.edit;
-  
   const isAnyRowEditing = editingState !== null || isAdding;
+  const showRowActions = ((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode;
 
   const resolveEditingRowData = useCallback(() => {
     if (!editingState) return null;
@@ -704,13 +716,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     if (editingState && rowIndex !== undefined) {
       setEditingState((prev) => {
         if (!prev || prev.rowIndex !== rowIndex) return prev;
-        return {
-          ...prev,
-          currentValue: {
-            ...prev.currentValue,
-            [columnKey]: newValue,
-          },
-        };
+        const next = { ...prev.currentValue, [columnKey]: newValue };
+        for (const key of dependentColumnKeys(columns, columnKey)) {
+          next[key] = null;
+        }
+        return { ...prev, currentValue: next };
       });
 
       const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
@@ -718,10 +728,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } else if (isAdding) {
       setNewRowData((prev: Record<string, any> | null) => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          [columnKey]: newValue,
-        };
+        const next = { ...prev, [columnKey]: newValue };
+        for (const key of dependentColumnKeys(columns, columnKey)) {
+          next[key] = null;
+        }
+        return next;
       });
 
       if (rowIndex !== undefined) {
@@ -729,7 +740,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         dispatch(setValue({ widgetId: cellWidgetId, value: newValue }));
       }
     }
-  }, [editingState, isAdding, widgetConfig, dispatch]);
+  }, [editingState, isAdding, widgetConfig, dispatch, columns]);
 
   const saveEdit = useCallback(async () => {
     const rowData = resolveEditingRowData();
@@ -941,7 +952,9 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       );
     }
 
-    return cellValue?.toString() || '-';
+    return cellValue?.toString && typeof cellValue === 'object'
+      ? Object.entries(cellValue).map(([keyName, item]) => `${keyName}: ${item ?? ''}`).join(', ') || '-'
+      : (cellValue?.toString() || '-');
   }, [getCellValue]);
 
   const isRowEditing = useCallback((rowIndex: number) => {
@@ -1014,6 +1027,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       'widget-label': '', // No label in table cells
       'widget-readonly': isReadonly,
       'widget-data-path': undefined,
+      'widget-row-values': rowValues,
       'widget-data-default': cellValue !== undefined ? cellValue : (column['widget-data-default'] ?? ''),
       widget: widgetType,
       'widget-type': column['widget-type'] || 'input',
@@ -1297,7 +1311,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     </th>
                   );
                 })}
-                {((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode ? (
+                {showRowActions ? (
                   <th
                     className="px-4 py-3 text-left text-sm font-medium max-w-[12rem]"
                     style={{ color: 'var(--owt-widget-table-header-color)' }}
@@ -1312,7 +1326,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
               {rows.length === 0 && !isAdding && (
                 <tr>
                   <td
-                    colSpan={columns.length + (((operations.edit || operations.remove) && !isReadonly) || isSectionEditMode ? 1 : 0)}
+                    colSpan={columns.length + (showRowActions ? 1 : 0)}
                     className="px-4 py-6 text-center text-sm"
                     style={{ color: 'var(--owt-widget-table-empty-color)' }}
                   >
@@ -1347,7 +1361,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                         </td>
                       );
                     })}
-                    {((operations.edit || operations.remove) && !isReadonly) || isEditing || isSectionEditMode ? (
+                    {showRowActions ? (
                       <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>
                         {isEditing ? (
                           <div className="table-cell-actions" style={{ width: '100%' }}>

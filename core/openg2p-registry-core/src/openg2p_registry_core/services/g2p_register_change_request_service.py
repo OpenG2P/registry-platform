@@ -565,10 +565,8 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
-        # In case of approval, insert data into register_history
-        await self.insert_into_register_history(change_request, session)
-        # Upsert data into register
         subject_internal_record_id = await self.insert_primary_master_section_into_register(change_request, session)
+        await self.insert_into_register_history(change_request, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
 
         # Handle POST APPROVAL domain service operation
@@ -599,10 +597,10 @@ class G2PRegisterChangeRequestService(BaseService):
             change_request, session, skip_verification, skip_sequence_check
         )
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
-        await self.insert_into_register_history(change_request, session)
         await self.insert_non_primary_master_section_into_register(
             change_request, change_request.internal_record_id, session
         )
+        await self.insert_into_register_history(change_request, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
         await self._run_post_approve_hook(
             change_request.section_register_id, change_request, session
@@ -749,10 +747,8 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
-        # In case of approval, insert data into register_history
-        await self.insert_into_register_history(change_request, session)
-        # Upsert data into register
         subject_internal_record_id = await self.insert_child_section_into_register(change_request, subject_internal_record_id, session)
+        await self.insert_into_register_history(change_request, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
 
         # Handle POST APPROVAL domain service operation
@@ -2097,59 +2093,22 @@ class G2PRegisterChangeRequestService(BaseService):
                 try:
                     module = importlib.import_module(_DOMAIN_MODELS_MODULE)
 
-                    # If approval_status is APPROVED, fetch previous history (before this change was applied)
                     if change_request.approval_status == ApprovalStatusEnum.APPROVED.value:
-                        # Fetch from history table - get the previous record before this change request
-                        history_class_name: str = f"{_REGISTER_HISTORY_CLASS_PREFIX}{register_definition.register_mnemonic}"
-                        history_class = getattr(module, history_class_name)
-
-                        # Get internal_record_ids from change_payloads
-                        internal_record_ids = [
-                            cp.get("internal_record_id") for cp in change_payloads
-                            if cp.get("internal_record_id")
-                        ]
-                        # Base fields to exclude from current_register_data
-                        history_base_fields: set = {
-                            'history_record_id', 'change_request_id', 'tab_id', 'section_id',
-                            'submission_id', 'change_request_source', 'is_primary_section',
-                            'approved_by', 'approved_at', 'search_text'
-                        }
-
-                        # For each internal_record_id, fetch the previous history record
-                        for internal_record_id in internal_record_ids:
-                            previous_history = (
-                                await session.execute(
-                                    select(history_class).where(
-                                        history_class.internal_record_id == internal_record_id,
-                                        history_class.approved_at < change_request.approved_at
-                                    ).order_by(history_class.approved_at.desc()).limit(1)
-                                )
-                            ).scalar()
-
-                            if previous_history:
-                                # Convert ORM object to dict for current_register_data
-                                mapper = inspect(previous_history.__class__)
-                                current_register_data = {}
-
-                                for column in mapper.columns:
-                                    column_name: str = column.name
-                                    if column_name not in history_base_fields:
-                                        value = getattr(previous_history, column_name, None)
-
-                                        # Convert datetime objects to strings
-                                        if value is not None and hasattr(value, 'isoformat'):
-                                            value = value.isoformat()
-
-                                        current_register_data[column_name] = value
-
-                                approved_by = getattr(previous_history, "approved_by", None)
-                                approved_at = getattr(previous_history, "approved_at", None)
-                                if approved_at is not None and hasattr(approved_at, "isoformat"):
-                                    approved_at = approved_at.isoformat()
-                                current_register_data["last_approved_by"] = approved_by
-                                current_register_data["last_approved_at"] = approved_at
-
-                                current_register_data_list.append(current_register_data)
+                        # Live data has moved on, so old values come from history before this approval.
+                        history_service = G2PRegisterHistoryService.get_component()
+                        record_ids = []
+                        for change_payload in change_payloads:
+                            record_id = history_service._payload_record_id(change_request, change_payload)
+                            if record_id and record_id not in record_ids:
+                                record_ids.append(record_id)
+                        history_read = await history_service.get_section_records_from_history(
+                            session,
+                            section_register_id=change_request.section_register_id,
+                            section_id=change_request.section_id,
+                            before_approved_at=change_request.approved_at,
+                            record_ids=record_ids,
+                        )
+                        current_register_data_list = history_read.records
                     else:
                         # For PENDING/REJECTED, fetch from live register table
                         implementation_class_name: str = f"{_REGISTER_CLASS_PREFIX}{register_definition.register_mnemonic}"
@@ -2487,9 +2446,16 @@ class G2PRegisterChangeRequestService(BaseService):
             field_map=field_map,
         )
 
+        # Domain checks see unchanged list rows so cross-row rules can use the
+        # whole submitted section. Coded-value checks above skip those rows.
+        domain_records = [
+            record
+            for record in records
+            if not isinstance(record, dict) or record.get("edit_action") != "DELETE"
+        ]
         domain_service = self._get_domain_service_by_register_mnemonic(section_register_mnemonic)
         if domain_service:
-            await domain_service.validate_domain_attributes(records_for_validation)
+            await domain_service.validate_domain_attributes(domain_records)
 
     def _get_required_domain_service(self, register_mnemonic: str) -> G2PRegisterDomainService:
         domain_service = self._get_domain_service_by_register_mnemonic(register_mnemonic)

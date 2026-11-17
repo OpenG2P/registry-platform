@@ -22,6 +22,8 @@ import {
   ParentLookupWidget,
   MultiSelectWidget,
   GeoHierarchyWidget,
+  FinancialAddressDetailsWidget,
+  BankBranchWidget,
 } from '../widgets';
 
 export const registerDefaultWidgets = () => {
@@ -47,6 +49,8 @@ export const registerDefaultWidgets = () => {
   widgetRegistry.register({ widget: 'parent-lookup', component: ParentLookupWidget });
   widgetRegistry.register({ widget: 'multi-select', component: MultiSelectWidget });
   widgetRegistry.register({ widget: 'geo-hierarchy', component: GeoHierarchyWidget });
+  widgetRegistry.register({ widget: 'financial-address-details', component: FinancialAddressDetailsWidget });
+  widgetRegistry.register({ widget: 'bank-branch', component: BankBranchWidget });
 };
 
 registerDefaultWidgets();

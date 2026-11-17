@@ -71,8 +71,9 @@ global:
   # and enforces consent by calling the Consent Manager /validate before
   # returning data — clamping the response to the effective data scopes.
   #
-  # Two INDEPENDENT kill-switches over real PII egress, defaulted ON to FAIL
-  # CLOSED — matching the registry platform's own defaults.
+  # Two INDEPENDENT kill-switches over real PII egress, defaulted OFF so
+  # partners such as PBMS can search without signing or consent. Turn both ON
+  # for production, once Partner Management and the Consent Manager are wired.
   #
   #   partnerSignatureValidationEnabled -> verify the DCI envelope signature
   #                                        against the partner's key in Partner
@@ -81,7 +82,7 @@ global:
   #                                        the request's consent object, and clamp
   #                                        returned fields to the consented scopes.
   #
-  # Turning either OFF is a deliberate, auditable choice, not a default:
+  # While either is OFF:
   #   * with signature validation off, the `signature` field is still required
   #     but NEVER inspected — any string passes;
   #   * with consent enforcement off, the Consent Manager is never called and
@@ -96,8 +97,8 @@ global:
   # requests until it is. Note the sanity e2e cannot meaningfully test data
   # sharing with these off (it skips those assertions), but the e2e is itself
   # off by default (sanity.runE2e), so a disabled install is unaffected.
-  partnerSignatureValidationEnabled: true
-  consentEnforcementEnabled: true
+  partnerSignatureValidationEnabled: false
+  consentEnforcementEnabled: false
   # Partner-key crypto backend: partner-mgmt | keymanager | local
   registryCryptoBackend: partner-mgmt
   # Partner Management partner-api — source of partner public keys. PM is now

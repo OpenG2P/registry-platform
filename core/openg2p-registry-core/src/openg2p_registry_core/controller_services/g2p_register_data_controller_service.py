@@ -4,10 +4,11 @@ from openg2p_fastapi_common.service import BaseService
 from ..services import G2PRegisterService, G2PRegisterHierarchicalService
 from ..schemas import (
     NumberOfVersionsData, RecordData, RegisterTabRecordData,
-    RecordHistoryListData, VersionDatesData, VersionsForDateData,
+    RecordHistoryListData, VersionDatesData, VersionsForDateData, VersionSectionDataData,
     DeduplicationRegisterResultData, DeduplicationChangerequestResultData,
     GetNumberOfVersionsRequest, GetSubjectRecordRequest,
     GetRecordHistoryRequest, GetVersionDatesRequest, GetChangesForDateRequest,
+    GetVersionSectionDataRequest,
     GetDeduplicationRegisterResultsRequest,
     GetDeduplicationChangerequestResultsRequest,
     GetRegisterSectionRequest, RegisterSectionData,
@@ -67,6 +68,25 @@ class G2PRegisterDataControllerService(BaseService):
         g2p_register_service = G2PRegisterService.get_component()
         changes_for_date_data: list[VersionsForDateData] = await g2p_register_service.get_versions_for_a_date(register_id, internal_record_id, tab_id, truncated_created_date)
         return changes_for_date_data
+
+    async def get_version_section_data(self, request: GetVersionSectionDataRequest) -> VersionSectionDataData:
+        """Section records stored in history for one version."""
+        payload = request.request_body.request_payload
+        _logger.info(
+            "Getting version section data for register_id: %s, section_id: %s",
+            payload.register_id,
+            payload.section_id,
+        )
+        g2p_register_service = G2PRegisterService.get_component()
+        return await g2p_register_service.get_version_section_data(
+            payload.register_id,
+            payload.internal_record_id,
+            payload.tab_id,
+            payload.section_id,
+            payload.truncated_created_date,
+            payload.change_request_id,
+            payload.submission_id,
+        )
 
     async def get_subject_record(
         self,

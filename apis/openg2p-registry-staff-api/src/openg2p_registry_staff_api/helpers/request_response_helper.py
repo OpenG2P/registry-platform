@@ -21,6 +21,7 @@ from openg2p_registry_core.schemas import (
     RecordHistoryListData, RecordHistoryDataResponse, RecordHistoryDataResponseBody,
     VersionDatesData, VersionDatesDataResponse, VersionDatesDataResponseBody,
     VersionsForDateData, ChangesForDateDataResponse, ChangesForDateDataResponseBody,
+    VersionSectionDataData, VersionSectionDataResponse, VersionSectionDataResponseBody,
     NumberOfPendingChangeRequestsData, NumberOfPendingChangeRequestsResponse, NumberOfPendingChangeRequestsResponseBody,
     NumberOfPendingChangeRequestsForSubmissionData, NumberOfPendingChangeRequestsForSubmissionResponse, NumberOfPendingChangeRequestsForSubmissionResponseBody,
     NumberOfCrossRegisterChangesData, NumberOfCrossRegisterChangesResponse, NumberOfCrossRegisterChangesResponseBody,
@@ -792,6 +793,22 @@ class RequestResponseHelper(BaseService):
             response_body=response_body
         )
         return changes_for_date_response
+
+    def construct_version_section_data_success_response(self, version_section_data: VersionSectionDataData, g2p_request: G2PRequest = None) -> VersionSectionDataResponse:
+        g2p_response_header: G2PResponseHeader = G2PResponseHeader(
+            request_id=g2p_request.request_header.request_id if g2p_request else "",
+            response_status=G2PResponseStatus.SUCCESS,
+            response_error_code="",
+            response_error_message="",
+            response_timestamp=datetime.now()
+        )
+        response_body: VersionSectionDataResponseBody = VersionSectionDataResponseBody(
+            response_payload=version_section_data
+        )
+        return VersionSectionDataResponse(
+            response_header=g2p_response_header,
+            response_body=response_body
+        )
 
     def construct_number_of_pending_change_requests_success_response(self, number_of_pending_change_requests_data: NumberOfPendingChangeRequestsData, g2p_request: G2PRequest = None) -> NumberOfPendingChangeRequestsResponse:
         g2p_response_header: G2PResponseHeader = G2PResponseHeader(

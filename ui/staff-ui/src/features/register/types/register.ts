@@ -40,6 +40,26 @@ export interface TabSectionData {
 
 }
 
+export interface VersionSectionData {
+    register_id: string;
+    internal_record_id: string;
+    tab_id: string;
+    truncated_created_date: string;
+    section_id: string;
+    section_mnemonic: string;
+    section_register_id: string;
+    is_list: boolean;
+    is_primary_section: boolean;
+    change_request_id?: string | null;
+    submission_id?: string | null;
+    created_at?: string | null;
+    created_by?: string | null;
+    approved_at?: string | null;
+    approved_by?: string | null;
+    request_id?: string | null;
+    records: RegisterFlattenedRecord[];
+}
+
 export interface TabSectionNestedData {
     register_id: string;
     section_id: string;

@@ -207,7 +207,7 @@ class DciAckError(BaseModel):
 
 
 class DciAckMessage(BaseModel):
-    """Immediate body for POST /dci/async/search. Not the search records."""
+    """Immediate body for POST /dci/registry/async/search. Not the search records."""
 
     ack_status: str
     timestamp: str
