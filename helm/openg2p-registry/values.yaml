@@ -314,7 +314,7 @@ dbSeed:
   loadTemplates: true
   image:
     repository: openg2p/openg2p-registry-db-seed
-    tag: "1.2.1"
+    tag: "1.2.2"
     pullPolicy: Always
 
   # DB Seed runs as a one-shot Helm post-install/post-upgrade hook Job.
@@ -439,7 +439,7 @@ partnerApi:
     name: ""
   image:
     repository: openg2p/openg2p-registry-partner-api
-    tag: "1.2.1"
+    tag: "1.2.2"
     pullPolicy: Always
   podSecurityContext:
     enabled: false
@@ -663,7 +663,7 @@ beneApi:
     name: ""
   image:
     repository: openg2p/openg2p-registry-bene-api
-    tag: "1.2.1"
+    tag: "1.2.2"
     pullPolicy: Always
   podSecurityContext:
     enabled: false
@@ -822,7 +822,7 @@ staffApi:
     name: ""
   image:
     repository: openg2p/openg2p-registry-staff-api
-    tag: "1.2.1"
+    tag: "1.2.2"
     pullPolicy: Always
   podSecurityContext:
     enabled: false
@@ -1059,7 +1059,7 @@ staffUi:
     name: ""
   image:
     repository: openg2p/openg2p-registry-staff-ui
-    tag: "1.2.1"
+    tag: "1.2.2"
     pullPolicy: Always
   podSecurityContext:
     enabled: false
@@ -1198,7 +1198,7 @@ celeryBeat:
   replicaCount: 1
   image:
     repository: openg2p/openg2p-registry-celery
-    tag: "1.2.1"
+    tag: "1.2.2"
     pullPolicy: Always
 
   # Celery Beat Producer claims rows and enqueues one task per row.
@@ -1355,7 +1355,7 @@ celeryWorker:
   replicaCount: 1
   image:
     repository: openg2p/openg2p-registry-celery
-    tag: "1.2.1"
+    tag: "1.2.2"
     pullPolicy: Always
 
   # Celery Worker is the largest variable-load component in the chart. It
@@ -1799,7 +1799,7 @@ sanity:
   enabled: true
   image:
     repository: openg2p/openg2p-registry-sanity-tests
-    tag: 1.2.1
+    tag: 1.2.2
     pullPolicy: Always
   # In-cluster partner-api Service URL (no ingress path prefix), :80.
   partnerBaseUrl: 'http://{{ .Release.Name }}-partner-api'
