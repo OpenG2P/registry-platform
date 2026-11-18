@@ -36,7 +36,7 @@ global:
   # OPERATORS MUST override this in `questions.yaml` / Rancher UI / values
   # file to match their actual base domain. NOTE: `minio.<basedomain>` is
   # the *Console* UI — do NOT point S3 clients at it.
-  minioHost: 'minio-api.{{ .Release.Namespace }}.openg2p.org'
+  minioHost: 'commons-garage:3900'
   # MinIO buckets — hard-set to match DocumentBucket enum values used by
   # the platform document handler (physical bucket name == enum value).
   # Catalog rows store bucket as 'templates' / 'documents' / 'default'.
@@ -47,7 +47,7 @@ global:
   # is variant-specific (upload_images.py ships in a variant's db-seed image, not
   # this one) because the images belong to that variant's sample records.
   documentsBucketName: 'documents'
-  minioSecure: true
+  minioSecure: false
 
   # Security & Authentication
   keymanagerInstallationName: commons-services-keymanager
