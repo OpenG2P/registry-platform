@@ -59,6 +59,9 @@ class VcVerificationController(BaseController):
         self.router.add_api_route(
             "/verify_vc",
             self.verify,
+            # Explicit: the handler keeps its name, which the audit event type
+            # is derived from.
+            summary="Verify VC",
             responses={200: {"model": VerifyCredentialResponse}},
             methods=["POST"],
         )

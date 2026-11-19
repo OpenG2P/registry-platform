@@ -5,6 +5,7 @@ Usage: python scripts/generate_openapi.py [output_dir]
 Default output_dir: docs/openapi
 """
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,9 @@ def generate_openapi(module_name: str, app_attr: str, out_path: Path) -> None:
         json.dump(schema, f, indent=2)
 
 
-def generate_openapi_in_subprocess(module_name: str, app_attr: str, out_path: Path) -> None:
+def generate_openapi_in_subprocess(
+    module_name: str, app_attr: str, out_path: Path, env: dict[str, str] | None = None
+) -> None:
     result = subprocess.run(
         [
             sys.executable,
@@ -31,6 +34,7 @@ def generate_openapi_in_subprocess(module_name: str, app_attr: str, out_path: Pa
         ],
         capture_output=True,
         text=True,
+        env={**os.environ, **(env or {})},
     )
     if result.returncode != 0:
         if result.stdout:
@@ -50,10 +54,24 @@ def main() -> None:
         ("openg2p_registry_bene_api.main", "app", "openapi-bene-portal.json"),
         ("openg2p_registry_staff_api.main", "app", "openapi-staff-portal.json"),
         ("openg2p_registry_partner_api.main", "app", "openapi-partner.json"),
+        # The agent portal mounts its optional routes only when they are switched
+        # on, so a spec built with the defaults would silently leave out
+        # /vc-issuance/create_wallet_offer and /vc-verification/verify_vc. The
+        # reference documents every route, so switch everything on.
+        (
+            "openg2p_registry_agent_portal_api.main",
+            "app",
+            "openapi-agent-portal.json",
+            {
+                "REGISTRY_AGENT_PORTAL_API_VC_ISSUANCE_ENABLED": "true",
+                "REGISTRY_AGENT_PORTAL_API_WALLET_ISSUANCE_ENABLED": "true",
+                "REGISTRY_AGENT_PORTAL_API_VC_VERIFICATION_ENABLED": "true",
+            },
+        ),
     ]
-    for module_name, app_attr, filename in apis:
+    for module_name, app_attr, filename, *env in apis:
         out_path = out_dir / filename
-        generate_openapi_in_subprocess(module_name, app_attr, out_path)
+        generate_openapi_in_subprocess(module_name, app_attr, out_path, *env)
         print(f"Wrote {out_path}")
 
 

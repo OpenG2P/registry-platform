@@ -102,9 +102,13 @@ class VcIssuanceController(BaseController):
             responses={200: {"model": StartAuthenticationResponse}},
             methods=["POST"],
         )
+        # An explicit summary where the path and the handler name differ. The
+        # handler keeps its name: the audit event type is derived from it, and
+        # renaming it would split one action across two event types.
         self.router.add_api_route(
             "/get_authentication_status",
             self.authentication_status,
+            summary="Get Authentication Status",
             responses={200: {"model": AuthenticationStatusResponse}},
             methods=["POST"],
         )
@@ -114,6 +118,7 @@ class VcIssuanceController(BaseController):
             self.router.add_api_route(
                 "/create_wallet_offer",
                 self.wallet_offer,
+                summary="Create Wallet Offer",
                 responses={200: {"model": WalletOfferResponse}},
                 methods=["POST"],
             )
@@ -121,6 +126,7 @@ class VcIssuanceController(BaseController):
         self.router.add_api_route(
             "/issue_vc",
             self.issue,
+            summary="Issue VC",
             responses={
                 200: {
                     "content": {"application/pdf": {}},
