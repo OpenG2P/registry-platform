@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '../_lib/requireAuth';
 import { getBackendConfig } from '../_lib/backend-config';
+import { AGENT_API } from '../_lib/agent-proxy';
 
 /**
  * Which credential features this deployment actually has.
@@ -30,12 +31,13 @@ export async function GET(req: NextRequest) {
         if (!res.ok) return NextResponse.json(empty);
 
         const paths = Object.keys(((await res.json())?.paths ?? {}) as Record<string, unknown>);
-        const has = (suffix: string) => paths.some((p) => p.endsWith(suffix));
+        // Suffix match so a root_path the server may be mounted under still matches.
+        const has = (path: string) => paths.some((p) => p.endsWith(path));
 
         return NextResponse.json({
-            issuance: has('/vc/issue'),
-            walletIssuance: has('/vc/wallet_offer'),
-            verification: has('/vc/verify'),
+            issuance: has(AGENT_API.issueVc),
+            walletIssuance: has(AGENT_API.createWalletOffer),
+            verification: has(AGENT_API.verifyVc),
         });
     } catch {
         // Never block the portal on this: an unreachable backend means the cards

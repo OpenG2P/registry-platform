@@ -24,7 +24,7 @@ import pytest
 
 from sanity import db
 
-VC_PREFIX = "/agent_portal/vc"
+VC_PREFIX = "/vc-issuance"
 
 
 def _payload(body: dict) -> dict:
@@ -42,7 +42,7 @@ def _payload(body: dict) -> dict:
 
 def _enabled(client) -> bool:
     paths = client.get("/openapi.json").json().get("paths", {})
-    return f"{VC_PREFIX}/issue" in paths
+    return f"{VC_PREFIX}/issue_vc" in paths
 
 
 @pytest.fixture(scope="module")
@@ -118,7 +118,7 @@ def test_issue_is_refused_without_beneficiary_authentication(
     """
     step("attempting issuance for a record that has not authenticated")
     r = agent_authed_client.post(
-        f"{VC_PREFIX}/issue",
+        f"{VC_PREFIX}/issue_vc",
         json=_payload(
             {
                 "internal_record_id": "TEST_SANITY_NO_SUCH_RECORD",
@@ -176,7 +176,7 @@ def test_issue_end_to_end_with_seeded_authentication(
 
     step("issuing")
     r = agent_authed_client.post(
-        f"{VC_PREFIX}/issue",
+        f"{VC_PREFIX}/issue_vc",
         json=_payload({"internal_record_id": record_id, "authentication_id": auth_id}),
     )
     assert r.status_code == 200, f"issuance failed: {r.status_code} {r.text[:500]}"

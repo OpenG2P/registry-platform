@@ -5,10 +5,11 @@ to record that a call happened and whether it was allowed, and it is what the
 audit store held until now: every event read `action=unknown`, with no resource
 type and no resource id.
 
-It is not enough to investigate anything. "The agent called /vc/issue and got a
-200" does not say which beneficiary was given a credential; "the agent called
-/vc/verify and got a 200" does not say whether the card they were shown was
-genuine -- a forged credential is a perfectly successful HTTP call. Both
+It is not enough to investigate anything. "The agent called
+/vc-issuance/issue_vc and got a 200" does not say which beneficiary was given a
+credential; "the agent called /vc-verification/verify_vc and got a 200" does
+not say whether the card they were shown was genuine -- a forged credential is
+a perfectly successful HTTP call. Both
 questions are the reason the trail exists.
 
 Only the handler knows those answers, so it says so:

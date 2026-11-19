@@ -51,13 +51,13 @@ class VcVerificationController(BaseController):
         super().__init__(**kwargs)
 
         self.router.tags += ["Agent Portal - VC Verification"]
-        self.router.prefix += "/agent_portal/vc"
+        self.router.prefix += "/vc-verification"
 
         self.verification_service = CredentialVerificationService.get_component()
         self.helper = RequestResponseHelper.get_component()
 
         self.router.add_api_route(
-            "/verify",
+            "/verify_vc",
             self.verify,
             responses={200: {"model": VerifyCredentialResponse}},
             methods=["POST"],

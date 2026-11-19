@@ -25,7 +25,8 @@ def test_openapi_has_dci_search(partner_client):
 # deployed, so a registry that has not enabled VC issuance still runs green.
 # Nothing here creates data.
 
-ISSUE_ROUTE = "/agent_portal/vc/issue"
+ISSUANCE_PREFIX = "/vc-issuance"
+ISSUE_ROUTE = f"{ISSUANCE_PREFIX}/issue_vc"
 
 
 @pytest.mark.smoke
@@ -50,14 +51,14 @@ def test_agent_portal_issuance_routes_match_feature_flag(agent_client):
     surface would mean the switch is not doing what it claims.
     """
     paths = agent_client.get("/openapi.json").json().get("paths", {})
-    vc_paths = {p for p in paths if p.startswith("/agent_portal/vc/")}
+    vc_paths = {p for p in paths if p.startswith(f"{ISSUANCE_PREFIX}/")}
     if not vc_paths:
         pytest.skip("VC issuance is disabled on this install — no issuance routes mounted")
     expected = {
-        "/agent_portal/vc/get_vc_types",
-        "/agent_portal/vc/lookup_beneficiary",
-        "/agent_portal/vc/start_authentication",
-        "/agent_portal/vc/authentication_status",
+        f"{ISSUANCE_PREFIX}/get_vc_types",
+        f"{ISSUANCE_PREFIX}/lookup_beneficiary",
+        f"{ISSUANCE_PREFIX}/start_authentication",
+        f"{ISSUANCE_PREFIX}/get_authentication_status",
         ISSUE_ROUTE,
     }
     missing = expected - vc_paths

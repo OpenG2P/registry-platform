@@ -73,7 +73,9 @@ class VcIssuanceController(BaseController):
         super().__init__(**kwargs)
 
         self.router.tags += ["Agent Portal - VC Issuance"]
-        self.router.prefix += "/agent_portal/vc"
+        # Resource-first paths, as in the staff API (/vc-config/...): the
+        # service's own host already says which portal this is.
+        self.router.prefix += "/vc-issuance"
 
         self.registry_lookup_service = RegistryLookupService.get_component()
         self.beneficiary_auth_service = BeneficiaryAuthService.get_component()
@@ -101,7 +103,7 @@ class VcIssuanceController(BaseController):
             methods=["POST"],
         )
         self.router.add_api_route(
-            "/authentication_status",
+            "/get_authentication_status",
             self.authentication_status,
             responses={200: {"model": AuthenticationStatusResponse}},
             methods=["POST"],
@@ -110,14 +112,14 @@ class VcIssuanceController(BaseController):
         # issues paper alone exposes no wallet surface at all.
         if _config.wallet_issuance_enabled:
             self.router.add_api_route(
-                "/wallet_offer",
+                "/create_wallet_offer",
                 self.wallet_offer,
                 responses={200: {"model": WalletOfferResponse}},
                 methods=["POST"],
             )
 
         self.router.add_api_route(
-            "/issue",
+            "/issue_vc",
             self.issue,
             responses={
                 200: {

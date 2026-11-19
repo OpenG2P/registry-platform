@@ -37,7 +37,7 @@ import pytest
 
 from sanity import db
 
-VC_PREFIX = "/agent_portal/vc"
+VC_PREFIX = "/vc-issuance"
 
 
 def _payload(body: dict) -> dict:
@@ -90,7 +90,7 @@ def _proof_jwt(key, jwk, padding, hashes, audience: str, nonce: str) -> str:
 def _wallet_enabled(client) -> bool:
     """The route only exists when walletIssuance is on."""
     spec = client.get("/openapi.json").json()
-    return f"{VC_PREFIX}/wallet_offer" in spec.get("paths", {})
+    return f"{VC_PREFIX}/create_wallet_offer" in spec.get("paths", {})
 
 
 @pytest.fixture(scope="module")
@@ -107,8 +107,8 @@ def test_wallet_route_absent_when_disabled(agent_authed_client):
     exposes nothing extra.
     """
     spec = agent_authed_client.get("/openapi.json").json()
-    has_route = f"{VC_PREFIX}/wallet_offer" in spec.get("paths", {})
-    has_issuance = f"{VC_PREFIX}/issue" in spec.get("paths", {})
+    has_route = f"{VC_PREFIX}/create_wallet_offer" in spec.get("paths", {})
+    has_issuance = f"{VC_PREFIX}/issue_vc" in spec.get("paths", {})
     if not has_route:
         assert True  # disabled: nothing mounted, which is the contract
     else:
@@ -134,7 +134,7 @@ def test_offer_is_refused_without_beneficiary_authentication(
 
     step("requesting an offer with no completed authentication")
     r = agent_authed_client.post(
-        f"{VC_PREFIX}/wallet_offer",
+        f"{VC_PREFIX}/create_wallet_offer",
         json=_payload({"internal_record_id": payload["internal_record_id"]}),
     )
     header = (r.json() or {}).get("response_header") or {}
@@ -179,7 +179,7 @@ def test_wallet_downloads_the_credential(cfg, agent_authed_client, wallet_ready,
 
     step("agent requests a credential offer for the citizen's wallet")
     r = agent_authed_client.post(
-        f"{VC_PREFIX}/wallet_offer",
+        f"{VC_PREFIX}/create_wallet_offer",
         json=_payload({"internal_record_id": record_id, "authentication_id": auth_id}),
     )
     assert r.status_code == 200, f"offer failed: {r.status_code} {r.text[:400]}"
@@ -289,7 +289,7 @@ def test_offer_cannot_be_redeemed_twice(cfg, agent_authed_client, wallet_ready, 
 
     auth_id = f"TEST_SANITY_WALLET_{record_id}"[:64]
     r = agent_authed_client.post(
-        f"{VC_PREFIX}/wallet_offer",
+        f"{VC_PREFIX}/create_wallet_offer",
         json=_payload({"internal_record_id": record_id, "authentication_id": auth_id}),
     )
     if r.status_code != 200:
@@ -342,7 +342,7 @@ def test_each_offer_gets_its_own_tx_code(cfg, agent_authed_client, wallet_ready,
     for n in range(2):
         step(f"requesting offer {n + 1}")
         r = agent_authed_client.post(
-            f"{VC_PREFIX}/wallet_offer",
+            f"{VC_PREFIX}/create_wallet_offer",
             json=_payload({"internal_record_id": record_id, "authentication_id": auth_id}),
         )
         if r.status_code != 200:
