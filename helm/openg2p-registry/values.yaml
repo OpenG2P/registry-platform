@@ -889,6 +889,8 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_AUTH_PROVIDER_API_URL: '{{ .Values.global.iamServiceUrl }}'
     REGISTRY_STAFF_PORTAL_API_AUTH_REDIS_URL: 'redis://{{ tpl .Values.global.authRedisInstallationName $ }}-master:6379/0'
     REGISTRY_STAFF_PORTAL_API_AUTH_REFRESH_TOKEN_TTL_SECONDS: '{{ .Values.global.authRefreshTokenTtlSeconds }}'
+    REGISTRY_STAFF_PORTAL_API_AUTH_COOKIE_MAX_AGE: '{{ .Values.global.authRefreshTokenTtlSeconds }}'
+    REGISTRY_STAFF_PORTAL_API_AUTH_COOKIE_SET_EXPIRES: true
     REGISTRY_STAFF_PORTAL_API_AUTH_VERIFY_SSL: '{{ .Values.global.authVerifySsl }}'
     REGISTRY_STAFF_PORTAL_API_CSRF_ENABLED: '{{ .Values.global.csrfEnabled }}'
     REGISTRY_STAFF_PORTAL_API_KEYCLOAK_CLIENT_ID: '{{ tpl .Values.global.authClientId $ }}'
