@@ -7,14 +7,17 @@ interface UseFetchConfig {
     url?: string | null;
     options?: RequestInit;
     enabled?: boolean;
+    keepPreviousData?: boolean;
 }
 
 export function useFetch<T = any>({
     url = null,
     options,
     enabled = true,
+    keepPreviousData = true,
 }: UseFetchConfig = {}) {
     const [data, setData] = useState<T | null>(null);
+    const dataKeyRef = useRef<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
@@ -30,6 +33,7 @@ export function useFetch<T = any>({
             controllerRef.current.abort();
             controllerRef.current = null;
         }
+        dataKeyRef.current = null;
         setData(null);
         setError(null);
         setLoading(false);
@@ -72,12 +76,17 @@ export function useFetch<T = any>({
                 signal: controller.signal,
             });
 
+            if (controller.signal.aborted) return null;
+
             if (res.status === 401) {
                 handleUnauthorized();
                 return null;
             }
 
             const result = await res.json();
+            // Aborting after the body has been read does not reject, so a superseded response would still land here.
+            if (controller.signal.aborted) return null;
+
             if (!res.ok) {
                 const errorMessage =
                     (typeof result?.statusText === "string" && result.statusText) ||
@@ -92,10 +101,11 @@ export function useFetch<T = any>({
                 return null;
             }
 
+            dataKeyRef.current = `${finalUrl}|${JSON.stringify(finalOptions)}`;
             setData(result);
             return result;
         } catch (e) {
-            if (e instanceof DOMException && e.name === "AbortError") {
+            if (controller.signal.aborted || (e instanceof DOMException && e.name === "AbortError")) {
                 return null;
             }
             const errorMessage = e instanceof Error ? e.message : "Something went wrong";
@@ -123,5 +133,13 @@ export function useFetch<T = any>({
         };
     }, [url, enabled, optionsString]);
 
-    return { data, error, loading, reset, execute };
+    const isCurrentData = enabled && !!url && dataKeyRef.current === `${url}|${optionsString}`;
+
+    return {
+        data: keepPreviousData || isCurrentData ? data : null,
+        error,
+        loading,
+        reset,
+        execute,
+    };
 }

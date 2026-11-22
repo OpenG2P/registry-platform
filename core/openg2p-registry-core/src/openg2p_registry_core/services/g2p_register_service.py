@@ -1,7 +1,9 @@
+import enum
 import logging
 import uuid
 import importlib
-from datetime import datetime, date
+from datetime import datetime, date, time, timedelta
+from fastapi_cache.coder import PickleCoder
 from fastapi_cache.decorator import cache
 
 from openg2p_fastapi_common.service import BaseService
@@ -23,6 +25,13 @@ from ..helpers.register_export import (
 )
 from ..helpers.file_validation import validate_base64_file
 from ..helpers.file_validation_profiles import DASHBOARD_IMAGE_PROFILE, IMAGE_ICON_PROFILE
+from ..helpers.orm_cache import (
+    data_policies_key_builder,
+    dict_to_orm,
+    orm_row_to_dict,
+    pair_id_key_builder,
+    single_id_key_builder,
+)
 
 from ..cache import metadata_key_builder
 
@@ -33,12 +42,14 @@ from ..models import (
     G2PRegisterUITab, G2PRegisterUITabSection, RegisterPurposeEnum, ChangeRequestSourceEnum,
     G2PRegistryConfiguration, G2PRegistryTheme, G2PRegistryThemeValue, RegistryThemeAttributeNameEnum,
     G2PRegistryLanguage,
-    G2PFunctionalIdGenerationQueue, RecordStatusEnum
+    G2PFunctionalIdGenerationQueue, RecordStatusEnum,
+    G2PIntakeFormSubmission,
 )
 from ..schemas import (
     ChangeRequestRequestPayload, RegisterSummaryData, ChangeRequestSummaryData, RegisterData, AllRegistersRegisterData, ChildRegisterData,
     RegisterUITabData, SearchResultData, ChangeRequestSearchResultData, NumberOfVersionsData,
     RecordHistoryData, RecordHistoryListData, VersionDatesData, VersionForDateData, VersionsForDateData,
+    VersionSectionDataData,
     NumberOfPendingChangeRequestsData, NumberOfCrossRegisterChangesData,
     CrossRegisterChangeRequestData, CrossRegisterChangesData, DeepSearchResultData,
     ChangeRequestData, ChangeRequestsData, ChangeRequestFlattenedData, RecordData,
@@ -53,6 +64,7 @@ from ..schemas import (
     RegisterRelationEnum
 )
 from .g2p_register_domain_service import G2PRegisterDomainService
+from .g2p_register_history_service import G2PRegisterHistoryService
 from .g2p_score_compute_service import G2PScoreComputeService
 from .change_request_payload_utils import domain_fields_from_change_payload
 from ..config import Settings
@@ -65,6 +77,86 @@ _config = Settings.get_config(strict=False)
 
 class G2PRegisterService(BaseService):
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_register_definition(self, register_id: str, session):
+        """Cached register metadata (column dict). Use for read/existence paths."""
+        register = await session.get(G2PRegisterDefinition, register_id)
+        return orm_row_to_dict(register) if register else None
+
+    def _coerce_register_definition(self, register_metadata) -> G2PRegisterDefinition | None:
+        if register_metadata is None:
+            return None
+        if isinstance(register_metadata, dict):
+            return dict_to_orm(G2PRegisterDefinition, register_metadata)
+        return dict_to_orm(G2PRegisterDefinition, orm_row_to_dict(register_metadata))
+
+    async def _require_register_definition(self, register_id: str, session) -> G2PRegisterDefinition:
+        """Cached lookup that raises REGISTER_NOT_FOUND when missing."""
+        register_definition = self._coerce_register_definition(
+            await self._get_register_definition(register_id, session)
+        )
+        if not register_definition:
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
+            )
+        return register_definition
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_tab_sections(self, register_id: str, tab_id: str, session) -> list[dict]:
+        """Cached tab→section metadata (static schema config)."""
+        result = await session.execute(
+            select(G2PRegisterSection)
+            .join(
+                G2PRegisterUITabSection,
+                G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
+            )
+            .where(
+                G2PRegisterSection.register_id == register_id,
+                G2PRegisterUITabSection.register_id == register_id,
+                G2PRegisterUITabSection.tab_id == tab_id,
+            )
+            .order_by(G2PRegisterUITabSection.section_order)
+        )
+        return [orm_row_to_dict(section) for section in result.scalars().all()]
+
+    def _coerce_section(self, section_metadata) -> G2PRegisterSection | None:
+        if section_metadata is None:
+            return None
+        if isinstance(section_metadata, dict):
+            return dict_to_orm(G2PRegisterSection, section_metadata)
+        return dict_to_orm(G2PRegisterSection, orm_row_to_dict(section_metadata))
+
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=single_id_key_builder,
+        coder=PickleCoder,
+    )
+    async def _get_register_schema(self, register_id: str, session) -> dict | None:
+        """Cached register schema config (column dict). Use for read paths."""
+        register_schema = await session.get(G2PRegisterSchema, register_id)
+        return orm_row_to_dict(register_schema) if register_schema else None
+
+    def _coerce_register_schema(self, schema_metadata) -> G2PRegisterSchema | None:
+        if schema_metadata is None:
+            return None
+        if isinstance(schema_metadata, dict):
+            return dict_to_orm(G2PRegisterSchema, schema_metadata)
+        return dict_to_orm(G2PRegisterSchema, orm_row_to_dict(schema_metadata))
+
+    @cache(
+        expire=_config.cache_summary_expires_in_seconds,
+        key_builder=data_policies_key_builder,
+        coder=PickleCoder,
+    )
     async def get_register_summary_data(self, data_policies: list[dict] | None = None) -> list[RegisterSummaryData]:
         """Dashboard summary; short TTL shared across users with the same data policies."""
         session_maker = get_async_session_maker()
@@ -500,11 +592,14 @@ class G2PRegisterService(BaseService):
         section_data: RegisterSectionData = await self._build_register_section_data(section, session)
         return section_data
 
-    async def search_in_a_register(self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
+    async def search_in_a_register(self, register_id: str, search_text: str, current_page: int = 1, page_size: int = 10, sort_by: str = None, filter_by: dict = None, data_policies: list[dict] | None = None, internal_record_id: str | None = None) -> tuple[list[SearchResultData], int]:
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            await self.validate_register_definition(register_id, session)
-            search_results_list, total_items = await self._search_in_register(register_id, search_text, current_page, page_size, sort_by, filter_by, session, data_policies)
+            await self._require_register_definition(register_id, session)
+            search_results_list, total_items = await self._search_in_register(
+                register_id, search_text, current_page, page_size, sort_by, filter_by, session, data_policies,
+                internal_record_id=internal_record_id,
+            )
             return search_results_list, total_items
     
     async def deep_search_in_a_register(
@@ -1030,11 +1125,14 @@ class G2PRegisterService(BaseService):
                 message=f"Register implementation not found for {g2p_register_definition.register_mnemonic}"
             )
         
-        # Build search query
-        search_query: str = f"%{search_text}%"
-
-        # Base filter: search_text applied on implementation_class.search_text
-        filter_conditions: list = [implementation_class.search_text.ilike(search_query)]
+        # Empty/whitespace search lists all rows; ILIKE '%%' still hits the
+        # trigram GIN and excludes NULL search_text.
+        filter_conditions: list = []
+        search_needle = (search_text or "").strip()
+        if search_needle:
+            filter_conditions.append(
+                implementation_class.search_text.ilike(f"%{search_needle}%")
+            )
 
         # Additional filters if provided
         if filter_by:
@@ -1128,8 +1226,8 @@ class G2PRegisterService(BaseService):
             message=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[0],
         )
 
-    async def _search_in_register(self, register_id: str, search_text: str, current_page: int, page_size: int, sort_by: str, filter_by: dict, session, data_policies: list[dict] | None = None) -> tuple[list[SearchResultData], int]:
-        g2p_register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
+    async def _search_in_register(self, register_id: str, search_text: str, current_page: int, page_size: int, sort_by: str, filter_by: dict, session, data_policies: list[dict] | None = None, internal_record_id: str | None = None) -> tuple[list[SearchResultData], int]:
+        g2p_register_definition: G2PRegisterDefinition = await self._require_register_definition(register_id, session)
 
         # Get the implementation class for this register
         try:
@@ -1144,11 +1242,10 @@ class G2PRegisterService(BaseService):
                 message=f"Register implementation not found for {g2p_register_definition.register_mnemonic}"
             )
 
-        # Fetch register schema for display fields and filter configuration
-        schema_result = await session.execute(
-            select(G2PRegisterSchema).where(G2PRegisterSchema.register_id == register_id)
+        # Fetch register schema for display fields and filter configuration (cached)
+        register_schema = self._coerce_register_schema(
+            await self._get_register_schema(register_id, session)
         )
-        register_schema: G2PRegisterSchema = schema_result.scalar()
         search_result_schema: list = register_schema.search_result_schema if register_schema and register_schema.search_result_schema else []
         filter_schema: list = register_schema.filter_schema if register_schema and register_schema.filter_schema else []
 
@@ -1156,11 +1253,31 @@ class G2PRegisterService(BaseService):
         display_fields_sorted: list = sorted(search_result_schema, key=lambda x: x.get("order", 999)) if search_result_schema else []
         display_field_names: set = {f["field_name"] for f in display_fields_sorted} if display_fields_sorted else set()
 
-        # Search using LIKE with trigram index optimization
-        search_query: str = f"%{search_text}%"
+        record_id = (internal_record_id or "").strip()
+        if record_id:
+            id_filters = [implementation_class.internal_record_id == record_id]
+            policy_condition = self._build_register_policy_condition(
+                register_id, implementation_class, data_policies, session
+            )
+            if policy_condition is not None:
+                id_filters.append(policy_condition)
+            row = (
+                await session.execute(
+                    select(implementation_class).where(*id_filters).limit(1)
+                )
+            ).scalars().first()
+            if row is None:
+                return [], 0
+            return await self._build_search_result_list([row], display_fields_sorted, session), 1
 
-        # Build base filter condition (search text)
-        filter_conditions: list = [implementation_class.search_text.ilike(search_query)]
+        # Empty/whitespace search lists all rows (plus status/policy/filters).
+        # ILIKE '%%' still hits the trigram GIN and excludes NULL search_text.
+        filter_conditions: list = []
+        search_needle = (search_text or "").strip()
+        if search_needle:
+            filter_conditions.append(
+                implementation_class.search_text.ilike(f"%{search_needle}%")
+            )
 
         # Default to ACTIVE records unless the caller explicitly filters on record_status.
         if not self._has_explicit_record_status_filter(filter_by):
@@ -1207,20 +1324,23 @@ class G2PRegisterService(BaseService):
             await session.execute(query)
         ).scalars().all()
 
-        search_results_list: list[SearchResultData] = []
+        return await self._build_search_result_list(search_results, display_fields_sorted, session), total_items
 
-        # Batch-resolve presigned URLs for record images through the document catalog
+    async def _build_search_result_list(self, search_results, display_fields_sorted: list, session) -> list[SearchResultData]:
         from .g2p_document_service import G2PDocumentService
         document_service: G2PDocumentService = G2PDocumentService.get_component()
-        record_image_urls = await document_service.get_document_urls(
-            session,
-            [
-                getattr(result, 'record_image_document_id', None)
-                for result in search_results
-            ],
+        image_ids = [
+            image_id
+            for image_id in (
+                getattr(result, "record_image_document_id", None) for result in search_results
+            )
+            if image_id
+        ]
+        record_image_urls = (
+            await document_service.get_document_urls(session, image_ids) if image_ids else {}
         )
 
-        # Convert ORM objects to SearchResultData while still in session context
+        search_results_list: list[SearchResultData] = []
         for result in search_results:
             # Build display_fields list from schema with actual values
             display_fields_list: list[DisplayField] = []
@@ -1262,7 +1382,7 @@ class G2PRegisterService(BaseService):
             )
             search_results_list.append(search_result_data)
 
-        return search_results_list, total_items
+        return search_results_list
 
     def _apply_register_record_sort(self, query, implementation_class, sort_by: str | None):
         """Sort register records; newest first when no sort is specified."""
@@ -1278,34 +1398,16 @@ class G2PRegisterService(BaseService):
         """Get the number of versions (unique change requests) for a given register, internal_record_id and tab_id across all sections"""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            # Validate register exists
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == register_id
-                    )
-                )
-            ).scalar()
-            if not register_definition:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
-                )
-
-            # Fetch all sections for the given tab_id via tab-section mapping.
-            sections_result = await session.execute(
-                select(G2PRegisterSection)
-                .join(
-                    G2PRegisterUITabSection,
-                    G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-                )
-                .where(
-                    G2PRegisterSection.register_id == register_id,
-                    G2PRegisterUITabSection.register_id == register_id,
-                    G2PRegisterUITabSection.tab_id == tab_id,
-                )
+            # Validate register exists (cached metadata)
+            register_definition: G2PRegisterDefinition = await self._require_register_definition(
+                register_id, session
             )
-            sections = sections_result.scalars().all()
+
+            # Fetch all sections for the given tab_id via tab-section mapping (cached).
+            sections = [
+                self._coerce_section(section_data)
+                for section_data in await self._get_tab_sections(register_id, tab_id, session)
+            ]
 
             # Collect unique section_register_ids
             unique_section_register_ids = set()
@@ -1319,17 +1421,13 @@ class G2PRegisterService(BaseService):
             # Collect unique staff CRs and intake submissions; track latest history across sections
             unique_version_ids: set[str] = set()
             latest_approved_at: datetime = None
-            latest_history_record = None
+            latest_approved_by: str = None
+            legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
 
             for section_register_id in unique_section_register_ids:
-                # Get register definition for this section
-                section_register_def = (
-                    await session.execute(
-                        select(G2PRegisterDefinition).where(
-                            G2PRegisterDefinition.register_id == section_register_id
-                        )
-                    )
-                ).scalar()
+                section_register_def = self._coerce_register_definition(
+                    await self._get_register_definition(section_register_id, session)
+                )
                 
                 if not section_register_def:
                     continue
@@ -1348,16 +1446,25 @@ class G2PRegisterService(BaseService):
                     section_register_id=section_register_id,
                     tab_id=tab_id,
                     session=session,
+                    legacy_ids_cache=legacy_ids_cache,
+                    # submission_id is required: intake history has a null
+                    # change_request_id, and _history_version_key falls back to it.
+                    columns=(
+                        history_class.change_request_id,
+                        history_class.submission_id,
+                        history_class.approved_at,
+                        history_class.approved_by,
+                    ),
                 )
 
                 for history_record in history_records:
                     version_key = self._history_version_key(history_record)
                     if version_key:
                         unique_version_ids.add(version_key)
-                    if history_record.approved_at:
-                        if latest_approved_at is None or history_record.approved_at > latest_approved_at:
-                            latest_approved_at = history_record.approved_at
-                            latest_history_record = history_record
+                    approved_at = getattr(history_record, "approved_at", None)
+                    if approved_at and (latest_approved_at is None or approved_at > latest_approved_at):
+                        latest_approved_at = approved_at
+                        latest_approved_by = getattr(history_record, "approved_by", None)
 
             number_of_versions = len(unique_version_ids)
 
@@ -1379,11 +1486,8 @@ class G2PRegisterService(BaseService):
                 last_updated_at = register_record.last_approved_at
 
             # Get last_approved_by and last_approved_at from the latest history record across all sections
-            last_approved_by: str = None
-            last_approved_at: datetime = None
-            if latest_history_record:
-                last_approved_by = latest_history_record.approved_by
-                last_approved_at = latest_history_record.approved_at
+            last_approved_by: str = latest_approved_by
+            last_approved_at: datetime = latest_approved_at
 
             return NumberOfVersionsData(
                 register_id=register_id,
@@ -1471,15 +1575,19 @@ class G2PRegisterService(BaseService):
             history_data_list: list[RecordHistoryData] = []
             for history_record in history_records:
                 # Build base record data dict
+                source = history_record.change_request_source
+                if isinstance(source, enum.Enum):
+                    source = source.value
                 record_data_dict = {
                     'history_record_id': history_record.history_record_id,
                     'internal_record_id': history_record.internal_record_id,
+                    # Intake rows have no change request id.
                     'change_request_id': history_record.change_request_id,
                     'tab_id': history_record.tab_id,
                     'section_id': history_record.section_id,
                     'is_primary_section': history_record.is_primary_section,
                     'submission_id': history_record.submission_id,
-                    'change_request_source': history_record.change_request_source.value if history_record.change_request_source else None,
+                    'change_request_source': source,
                     'created_by': history_record.created_by,
                     'created_at': history_record.created_at.isoformat() if history_record.created_at else None,
                     'approved_by': history_record.approved_by,
@@ -1489,8 +1597,9 @@ class G2PRegisterService(BaseService):
                 # Add additional domain-specific fields
                 for col in additional_columns:
                     value = getattr(history_record, col, None)
-                    # Handle datetime serialization
-                    if hasattr(value, 'isoformat'):
+                    if isinstance(value, enum.Enum):
+                        value = value.value
+                    elif hasattr(value, 'isoformat'):
                         value = value.isoformat()
                     record_data_dict[col] = value
 
@@ -1508,54 +1617,30 @@ class G2PRegisterService(BaseService):
         """Get unique truncated dates from history records for a given register, internal_record_id and tab_id"""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            # Validate register exists
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == register_id
-                    )
-                )
-            ).scalar()
-            if not register_definition:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
-                )
+            # Validate register exists (cached metadata)
+            await self._require_register_definition(register_id, session)
 
-            # Fetch all sections for the given tab_id via tab-section mapping.
-            sections_result = await session.execute(
-                select(G2PRegisterSection)
-                .join(
-                    G2PRegisterUITabSection,
-                    G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-                )
-                .where(
-                    G2PRegisterSection.register_id == register_id,
-                    G2PRegisterUITabSection.register_id == register_id,
-                    G2PRegisterUITabSection.tab_id == tab_id,
-                )
-            )
-            sections = sections_result.scalars().all()
+            # Fetch all sections for the given tab_id via tab-section mapping (cached).
+            sections = [
+                self._coerce_section(section_data)
+                for section_data in await self._get_tab_sections(register_id, tab_id, session)
+            ]
 
             # Collect unique section_register_ids
             unique_section_register_ids = set()
             for section in sections:
                 unique_section_register_ids.add(section.section_register_id)
 
-            # Collect unique dates from all history classes
+            # Collect unique dates from all history classes in SQL (no full-row fetch)
             unique_dates = set()
             module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
             history_class_prefix = "G2PRegisterHistory"
+            legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
 
             for section_register_id in unique_section_register_ids:
-                # Get register definition for this section
-                section_register_def = (
-                    await session.execute(
-                        select(G2PRegisterDefinition).where(
-                            G2PRegisterDefinition.register_id == section_register_id
-                        )
-                    )
-                ).scalar()
+                section_register_def = self._coerce_register_definition(
+                    await self._get_register_definition(section_register_id, session)
+                )
                 
                 if not section_register_def:
                     continue
@@ -1567,20 +1652,16 @@ class G2PRegisterService(BaseService):
                 except AttributeError:
                     continue
 
-                history_records = await self._query_history_records_for_subject(
+                section_dates = await self._query_history_distinct_dates_for_subject(
                     history_class=history_class,
                     subject_internal_record_id=internal_record_id,
                     subject_register_id=register_id,
                     section_register_id=section_register_id,
                     tab_id=tab_id,
                     session=session,
+                    legacy_ids_cache=legacy_ids_cache,
                 )
-
-                # Extract dates from this history class
-                for history_record in history_records:
-                    if history_record.created_at:
-                        truncated_date = history_record.created_at.date().isoformat()
-                        unique_dates.add(truncated_date)
+                unique_dates.update(section_dates)
 
             # Sort dates in descending order (most recent first)
             sorted_dates = sorted(list(unique_dates), reverse=True)
@@ -1596,48 +1677,27 @@ class G2PRegisterService(BaseService):
         """Get changes from history records for a given register, internal_record_id, tab_id and specific date, grouped by section"""
         session_maker = get_async_session_maker()
         async with session_maker() as session:
-            # Validate register exists
-            register_definition: G2PRegisterDefinition = (
-                await session.execute(
-                    select(G2PRegisterDefinition).where(
-                        G2PRegisterDefinition.register_id == register_id
-                    )
-                )
-            ).scalar()
-            if not register_definition:
-                raise G2PRegistryException(
-                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
-                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0]
-                )
+            # Validate register exists (cached metadata)
+            await self._require_register_definition(register_id, session)
 
-            # Fetch all sections for the given tab_id via tab-section mapping.
-            sections_result = await session.execute(
-                select(G2PRegisterSection)
-                .join(
-                    G2PRegisterUITabSection,
-                    G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-                )
-                .where(
-                    G2PRegisterSection.register_id == register_id,
-                    G2PRegisterUITabSection.register_id == register_id,
-                    G2PRegisterUITabSection.tab_id == tab_id,
-                )
-            )
-            sections = sections_result.scalars().all()
+            # Fetch all sections for the given tab_id via tab-section mapping (cached).
+            sections = [
+                self._coerce_section(section_data)
+                for section_data in await self._get_tab_sections(register_id, tab_id, session)
+            ]
 
             module = importlib.import_module("openg2p_registry_extensions.register_domain.models")
             history_class_prefix = "G2PRegisterHistory"
+            legacy_ids_cache: dict[tuple[str, str, str], list[str]] = {}
+            day = date.fromisoformat(truncated_created_date)
+            day_start = datetime.combine(day, time.min)
+            day_end = day_start + timedelta(days=1)
 
             results = []
             for section in sections:
-                # Get register definition for this section
-                section_register_def = (
-                    await session.execute(
-                        select(G2PRegisterDefinition).where(
-                            G2PRegisterDefinition.register_id == section.section_register_id
-                        )
-                    )
-                ).scalar()
+                section_register_def = self._coerce_register_definition(
+                    await self._get_register_definition(section.section_register_id, session)
+                )
                 
                 if not section_register_def:
                     continue
@@ -1657,10 +1717,12 @@ class G2PRegisterService(BaseService):
                     tab_id=tab_id,
                     session=session,
                     extra_filters=[
-                        func.date(history_class.created_at) == date.fromisoformat(truncated_created_date),
+                        history_class.created_at >= day_start,
+                        history_class.created_at < day_end,
                         history_class.section_id == section.section_id,
                     ],
                     order_by=history_class.created_at.desc(),
+                    legacy_ids_cache=legacy_ids_cache,
                 )
 
                 # Deduplicate by staff CR id or intake submission id, not by null CR.
@@ -1714,6 +1776,144 @@ class G2PRegisterService(BaseService):
 
             return results
 
+    async def get_version_section_data(
+        self,
+        register_id: str,
+        internal_record_id: str,
+        tab_id: str,
+        section_id: str,
+        truncated_created_date: str,
+        change_request_id: str | None = None,
+        submission_id: str | None = None,
+    ) -> VersionSectionDataData:
+        """Section records stored in history for one change request or intake submission."""
+        if bool(change_request_id) == bool(submission_id):
+            raise G2PRegistryException(
+                code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                message="Provide exactly one of change_request_id or submission_id",
+            )
+
+        session_maker = get_async_session_maker()
+        async with session_maker() as session:
+            register_definition = (
+                await session.execute(
+                    select(G2PRegisterDefinition).where(G2PRegisterDefinition.register_id == register_id)
+                )
+            ).scalar()
+            if not register_definition:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_NOT_FOUND.value[0],
+                )
+
+            section = (
+                await session.execute(
+                    select(G2PRegisterSection).where(
+                        G2PRegisterSection.section_id == section_id,
+                        G2PRegisterSection.register_id == register_id,
+                    )
+                )
+            ).scalar()
+            on_tab = (
+                await session.execute(
+                    select(G2PRegisterUITabSection).where(
+                        G2PRegisterUITabSection.register_id == register_id,
+                        G2PRegisterUITabSection.tab_id == tab_id,
+                        G2PRegisterUITabSection.section_id == section_id,
+                    )
+                )
+            ).scalar()
+            if not section or not on_tab:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.SECTION_NOT_FOUND.value[0],
+                )
+
+            history_read = await G2PRegisterHistoryService.get_component().get_section_records_from_history(
+                session,
+                section_register_id=section.section_register_id,
+                section_id=section_id,
+                change_request_id=change_request_id,
+                submission_id=submission_id,
+            )
+            if not history_read.found:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[1],
+                    message=G2PRegistryErrorCodes.REGISTER_DATA_NOT_FOUND.value[0],
+                )
+
+            created_at = history_read.created_at
+            created_day = created_at.date().isoformat() if hasattr(created_at, "date") else str(created_at)[:10]
+            if created_day != truncated_created_date:
+                raise G2PRegistryException(
+                    code=G2PRegistryErrorCodes.INVALID_REQUEST.value[1],
+                    message="Version date does not match truncated_created_date",
+                )
+
+            records = history_read.records
+            from .g2p_document_service import G2PDocumentService
+            document_service = G2PDocumentService.get_component()
+            for record in records:
+                record_id = record.get("internal_record_id")
+                if not record_id or not history_read.approved_at:
+                    record["documents"] = []
+                    continue
+                record["documents"] = [
+                    document.model_dump()
+                    for document in await document_service.get_section_documents_as_of(
+                        session,
+                        internal_record_id=record_id,
+                        section_id=section_id,
+                        before=history_read.approved_at,
+                        change_request_id=change_request_id,
+                        submission_id=submission_id,
+                    )
+                ]
+
+            request_id = None
+            if change_request_id:
+                change_request = (
+                    await session.execute(
+                        select(G2PRegisterChangeRequest).where(
+                            G2PRegisterChangeRequest.change_request_id == change_request_id
+                        )
+                    )
+                ).scalar()
+                request_id = change_request.awe_request_id if change_request else None
+            else:
+                submission = (
+                    await session.execute(
+                        select(G2PIntakeFormSubmission).where(
+                            G2PIntakeFormSubmission.submission_id == submission_id
+                        )
+                    )
+                ).scalar()
+                request_id = submission.awe_request_id if submission else None
+
+            def _iso(value):
+                if value is None:
+                    return None
+                return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+            return VersionSectionDataData(
+                register_id=register_id,
+                internal_record_id=internal_record_id,
+                tab_id=tab_id,
+                truncated_created_date=truncated_created_date,
+                section_id=section_id,
+                section_mnemonic=section.section_mnemonic,
+                section_register_id=section.section_register_id,
+                is_list=section.is_list,
+                is_primary_section=section.section_register_id == register_id,
+                change_request_id=change_request_id,
+                submission_id=submission_id,
+                created_at=_iso(history_read.created_at),
+                created_by=history_read.created_by,
+                approved_at=_iso(history_read.approved_at),
+                approved_by=history_read.approved_by,
+                request_id=request_id,
+                records=records,
+            )
 
     async def get_record(
         self,
@@ -1725,8 +1925,10 @@ class G2PRegisterService(BaseService):
         session_maker = get_async_session_maker()
         async with session_maker() as session:
 
-            # Validate register exists
-            g2p_register_definition: G2PRegisterDefinition = await self.validate_register_definition(register_id, session)
+            # Validate register exists (cached metadata)
+            g2p_register_definition: G2PRegisterDefinition = await self._require_register_definition(
+                register_id, session
+            )
 
             # Get the implementation class for this register
             try:
@@ -2186,29 +2388,15 @@ class G2PRegisterService(BaseService):
 
     async def _fetch_register_tab_sections(self, register_id: str, tab_id: str, session) -> list[RegisterSectionData]:
         """Fetch register sections from g2p_register_sections table filtered by tab_id."""
-        result = await session.execute(
-            select(G2PRegisterSection)
-            .join(
-                G2PRegisterUITabSection,
-                G2PRegisterUITabSection.section_id == G2PRegisterSection.section_id,
-            )
-            .where(
-                G2PRegisterSection.register_id == register_id,
-                G2PRegisterUITabSection.register_id == register_id,
-                G2PRegisterUITabSection.tab_id == tab_id,
-            )
-            .order_by(G2PRegisterUITabSection.section_order)
-        )
-        sections = result.scalars().all()
+        sections = [
+            self._coerce_section(section_data)
+            for section_data in await self._get_tab_sections(register_id, tab_id, session)
+        ]
 
         # Fetch the main register definition once (for register_relation computation)
-        register_definition: G2PRegisterDefinition = (
-            await session.execute(
-                select(G2PRegisterDefinition).where(
-                    G2PRegisterDefinition.register_id == register_id
-                )
-            )
-        ).scalar()
+        register_definition = self._coerce_register_definition(
+            await self._get_register_definition(register_id, session)
+        )
 
         sections_list: list[RegisterSectionData] = []
         for section in sections:
@@ -3468,6 +3656,11 @@ class G2PRegisterService(BaseService):
                 change_payload=payload.change_payload if payload else None
             )
 
+    @cache(
+        expire=_config.cache_expires_in_seconds,
+        key_builder=pair_id_key_builder,
+        coder=PickleCoder,
+    )
     async def _find_path_to_ancestor(
         self,
         start_register_id: str,
@@ -3575,24 +3768,22 @@ class G2PRegisterService(BaseService):
             return f"sub:{submission_id}"
         return None
 
-    async def _query_history_records_for_subject(
+    async def _build_history_subject_match_condition(
         self,
         history_class,
         subject_internal_record_id: str,
         subject_register_id: str,
         section_register_id: str,
-        tab_id: str,
         session,
-        extra_filters: list | None = None,
-        order_by=None,
-    ) -> list:
+        legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
+    ):
         """
-        Load history rows for a subject under a tab.
+        Build the subject/legacy OR predicate used by history queries for a tab section.
 
         Prefer denormalized subject_internal_record_id. If unbackfilled nulls remain,
         also include legacy hierarchy-walk matches for rows missing the stamp.
+        Returns None when nothing can match.
         """
-        extra_filters = list(extra_filters or [])
         has_subject_column = hasattr(history_class, "subject_internal_record_id")
 
         subject_condition = None
@@ -3604,6 +3795,7 @@ class G2PRegisterService(BaseService):
             subject_internal_record_id=subject_internal_record_id,
             subject_register_id=subject_register_id,
             session=session,
+            legacy_ids_cache=legacy_ids_cache,
         )
         legacy_condition = None
         if legacy_ids:
@@ -3622,30 +3814,109 @@ class G2PRegisterService(BaseService):
             )
 
         if subject_condition is not None and legacy_condition is not None:
-            match_condition = or_(subject_condition, legacy_condition)
-        elif subject_condition is not None:
-            match_condition = subject_condition
-        elif legacy_condition is not None:
-            match_condition = legacy_condition
-        else:
+            return or_(subject_condition, legacy_condition)
+        if subject_condition is not None:
+            return subject_condition
+        if legacy_condition is not None:
+            return legacy_condition
+        return None
+
+    async def _query_history_records_for_subject(
+        self,
+        history_class,
+        subject_internal_record_id: str,
+        subject_register_id: str,
+        section_register_id: str,
+        tab_id: str,
+        session,
+        extra_filters: list | None = None,
+        order_by=None,
+        legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
+        columns: tuple | None = None,
+    ) -> list:
+        """
+        Load history rows for a subject under a tab.
+
+        Prefer denormalized subject_internal_record_id. If unbackfilled nulls remain,
+        also include legacy hierarchy-walk matches for rows missing the stamp.
+
+        When ``columns`` is set, only those columns are selected (Row tuples).
+        Otherwise full ORM entities are returned.
+        """
+        extra_filters = list(extra_filters or [])
+        match_condition = await self._build_history_subject_match_condition(
+            history_class=history_class,
+            subject_internal_record_id=subject_internal_record_id,
+            subject_register_id=subject_register_id,
+            section_register_id=section_register_id,
+            session=session,
+            legacy_ids_cache=legacy_ids_cache,
+        )
+        if match_condition is None:
             return []
 
-        query = select(history_class).where(
+        if columns is None:
+            query = select(history_class).where(
+                history_class.tab_id == tab_id,
+                match_condition,
+                *extra_filters,
+            )
+            if order_by is not None:
+                query = query.order_by(order_by)
+            return (await session.execute(query)).scalars().all()
+
+        query = select(*columns).where(
             history_class.tab_id == tab_id,
             match_condition,
             *extra_filters,
         )
         if order_by is not None:
             query = query.order_by(order_by)
+        return (await session.execute(query)).all()
 
-        return (await session.execute(query)).scalars().all()
+    async def _query_history_distinct_dates_for_subject(
+        self,
+        history_class,
+        subject_internal_record_id: str,
+        subject_register_id: str,
+        section_register_id: str,
+        tab_id: str,
+        session,
+        legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
+    ) -> list[str]:
+        """Return distinct created_at calendar dates (ISO) for a subject under a tab."""
+        match_condition = await self._build_history_subject_match_condition(
+            history_class=history_class,
+            subject_internal_record_id=subject_internal_record_id,
+            subject_register_id=subject_register_id,
+            section_register_id=section_register_id,
+            session=session,
+            legacy_ids_cache=legacy_ids_cache,
+        )
+        if match_condition is None:
+            return []
+
+        result = await session.execute(
+            select(func.distinct(func.date(history_class.created_at))).where(
+                history_class.tab_id == tab_id,
+                match_condition,
+                history_class.created_at.is_not(None),
+            )
+        )
+        dates: list[str] = []
+        for (day_value,) in result.all():
+            if day_value is None:
+                continue
+            dates.append(day_value.isoformat() if hasattr(day_value, "isoformat") else str(day_value))
+        return dates
 
     async def _get_history_internal_record_ids(
         self,
         section_register_id: str,
         subject_internal_record_id: str,
         subject_register_id: str,
-        session
+        session,
+        legacy_ids_cache: dict[tuple[str, str, str], list[str]] | None = None,
     ) -> list[str]:
         """
         Get the internal_record_ids to query for history records by traversing 
@@ -3663,19 +3934,33 @@ class G2PRegisterService(BaseService):
             subject_internal_record_id: The subject record's internal_record_id (e.g., the individual's ID)
             subject_register_id: The subject register ID (e.g., Individual register)
             session: Database session
+            legacy_ids_cache: Optional request-scoped memo so multiple sections on the
+                same section_register reuse one live hierarchy walk.
             
         Returns:
             List of internal_record_ids to query in history table
         """
+        cache_key = (section_register_id, subject_internal_record_id, subject_register_id)
+        if legacy_ids_cache is not None and cache_key in legacy_ids_cache:
+            return legacy_ids_cache[cache_key]
+
         # Get section register definition to check if it's CORE_TABLE
-        section_register = await session.get(G2PRegisterDefinition, section_register_id)
+        section_register = self._coerce_register_definition(
+            await self._get_register_definition(section_register_id, session)
+        )
         if not section_register:
             _logger.warning(f"Section register {section_register_id} not found")
-            return [subject_internal_record_id]
+            result_ids = [subject_internal_record_id]
+            if legacy_ids_cache is not None:
+                legacy_ids_cache[cache_key] = result_ids
+            return result_ids
         
         # If same register, no traversal needed
         if section_register_id == subject_register_id:
-            return [subject_internal_record_id]
+            result_ids = [subject_internal_record_id]
+            if legacy_ids_cache is not None:
+                legacy_ids_cache[cache_key] = result_ids
+            return result_ids
         
         # Build path from section to subject (section is child, subject is ancestor)
         path: list[G2PRegisterDefinition] | None = await self._find_path_to_ancestor(
@@ -3687,7 +3972,10 @@ class G2PRegisterService(BaseService):
             _logger.warning(
                 f"No hierarchy path found from section {section_register_id} to subject {subject_register_id}"
             )
-            return [subject_internal_record_id]
+            result_ids = [subject_internal_record_id]
+            if legacy_ids_cache is not None:
+                legacy_ids_cache[cache_key] = result_ids
+            return result_ids
         
         # Reverse path to traverse from subject (top) to section (bottom)
         # path is [section, ..., subject], we need [subject, ..., section]
@@ -3711,10 +3999,14 @@ class G2PRegisterService(BaseService):
             
             if not child_ids:
                 # No records found at this level
+                if legacy_ids_cache is not None:
+                    legacy_ids_cache[cache_key] = []
                 return []
             
             current_ids = child_ids
         
+        if legacy_ids_cache is not None:
+            legacy_ids_cache[cache_key] = current_ids
         return current_ids
 
 

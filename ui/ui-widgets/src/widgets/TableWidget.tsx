@@ -16,6 +16,8 @@ import {
   mergeMinDateBounds,
   mergeMaxDateBounds,
 } from '../utils/dateInput';
+import { isGregorianCalendar, resolveCalendar } from '../utils/calendarDates';
+import { MultiCalendarDatePicker } from '../components/MultiCalendarDatePicker';
 import { setValue, setError, setTouched, resetWidget } from '../store/widgetSlice';
 import { WidgetRootState } from '../store';
 import { validateWidget } from '../utils/validation';
@@ -104,6 +106,18 @@ const getDateColumnConstraintError = (
   );
 };
 
+const dependentColumnKeys = (columns: any[], changedKey: string): string[] =>
+  columns
+    .filter((col) => {
+      const params = col['widget-data-source']?.params;
+      if (!params || typeof params !== 'object') return false;
+      return Object.values(params).some(
+        (value) => value && typeof value === 'object' && (value as { $field?: string }).$field === changedKey,
+      );
+    })
+    .map((col) => col['column-key'])
+    .filter(Boolean);
+
 const getTableRowCellErrors = (
   rowData: Record<string, any>,
   columns: any[],
@@ -178,7 +192,7 @@ const TableCellSelect = ({ config, value, onValueChange }: TableCellSelectProps)
           onValueChange(selectedOption ? selectedOption.value : rawValue);
         }}
         disabled={isReadonly || loading}
-        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+        className={`box-border h-[30px] w-full min-w-0 max-w-full px-2 text-sm border focus:outline-none ${
           isReadonly || loading ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
@@ -248,12 +262,13 @@ const TableCellText = ({ config, value, onValueChange }: TableCellTextProps) => 
     <div className="table-cell-field w-full">
       <input
         type="text"
+        size={1}
         value={displayValue}
         onChange={(e) => onValueChange(e.target.value === '' ? null : e.target.value)}
         disabled={isReadonly}
         placeholder={placeholder}
         maxLength={maxLength}
-        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+        className={`box-border h-[30px] w-full min-w-0 max-w-full px-2 text-sm border focus:outline-none ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
@@ -352,6 +367,7 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
     <div className="table-cell-field w-full">
       <input
         type="text"
+        size={1}
         inputMode="decimal"
         value={displayValue}
         onChange={handleChange}
@@ -359,7 +375,7 @@ const TableCellNumber = ({ config, value, onValueChange }: TableCellNumberProps)
         onKeyDown={handleKeyDown}
         disabled={isReadonly}
         placeholder={placeholder}
-        className={`w-full h-[28px] px-2 text-sm border focus:outline-none text-right ${
+        className={`box-border h-[30px] w-full min-w-0 max-w-full px-2 text-sm border focus:outline-none text-right ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
@@ -436,6 +452,9 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
   );
 
   const displayValue = value && typeof value === 'string' ? value.split('T')[0] : '';
+  const calendar = resolveCalendar(formatConfig?.calendar);
+  const useMultiCalendar = !isGregorianCalendar(calendar);
+  const locale = formatConfig?.locale || 'en';
 
   useEffect(() => {
     if (!displayValue) {
@@ -452,8 +471,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
     setConstraintError(error);
   }, [displayValue, effectiveMinDate, effectiveMaxDate, dateConstraint, constraintMessages]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nextValue = e.target.value;
+  const applyValue = (nextValue: string) => {
     onValueChange(nextValue === '' ? null : nextValue);
     if (!nextValue) {
       setConstraintError(null);
@@ -469,10 +487,29 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
     setConstraintError(error);
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    applyValue(e.target.value);
+  };
+
   const errorMessage = constraintError || requiredError;
 
   return (
     <div className="table-cell-field w-full">
+      {useMultiCalendar ? (
+        <MultiCalendarDatePicker
+          value={displayValue}
+          calendar={calendar}
+          locale={locale}
+          minDate={effectiveMinDate}
+          maxDate={effectiveMaxDate}
+          disabled={isReadonly}
+          placeholder={placeholder}
+          hasError={Boolean(errorMessage)}
+          title={errorMessage || tSchema(t, config['widget-data-tooltip'])}
+          className="w-full sm:w-full"
+          onChange={applyValue}
+        />
+      ) : (
       <input
         type="date"
         value={displayValue}
@@ -482,7 +519,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
         min={effectiveMinDate}
         max={effectiveMaxDate}
         title={errorMessage || tSchema(t, config['widget-data-tooltip'])}
-        className={`w-full h-[28px] px-2 text-sm border focus:outline-none ${
+        className={`box-border h-[30px] w-full min-w-0 max-w-full px-2 text-sm border focus:outline-none ${
           isReadonly ? 'cursor-not-allowed' : ''
         } table-cell-input`}
         style={{
@@ -493,6 +530,7 @@ const TableCellDate = ({ config, value, rowValues, onValueChange }: TableCellDat
           backgroundColor: isReadonly ? 'var(--owt-color-bg-alt)' : 'var(--owt-color-bg)',
         }}
       />
+      )}
       <TableCellErrorText message={errorMessage} />
     </div>
   );
@@ -550,8 +588,8 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
   const [originalRows, setOriginalRows] = useState<any[] | null>(null);
 
   const isSectionEditMode = !isReadonly && operations.edit;
-  
   const isAnyRowEditing = editingState !== null || isAdding;
+  const showRowActions = ((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode;
 
   const resolveEditingRowData = useCallback(() => {
     if (!editingState) return null;
@@ -678,13 +716,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     if (editingState && rowIndex !== undefined) {
       setEditingState((prev) => {
         if (!prev || prev.rowIndex !== rowIndex) return prev;
-        return {
-          ...prev,
-          currentValue: {
-            ...prev.currentValue,
-            [columnKey]: newValue,
-          },
-        };
+        const next = { ...prev.currentValue, [columnKey]: newValue };
+        for (const key of dependentColumnKeys(columns, columnKey)) {
+          next[key] = null;
+        }
+        return { ...prev, currentValue: next };
       });
 
       const cellWidgetId = `${widgetConfig['widget-id']}-row-${rowIndex}-col-${columnKey}`;
@@ -692,10 +728,11 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
     } else if (isAdding) {
       setNewRowData((prev: Record<string, any> | null) => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          [columnKey]: newValue,
-        };
+        const next = { ...prev, [columnKey]: newValue };
+        for (const key of dependentColumnKeys(columns, columnKey)) {
+          next[key] = null;
+        }
+        return next;
       });
 
       if (rowIndex !== undefined) {
@@ -703,7 +740,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
         dispatch(setValue({ widgetId: cellWidgetId, value: newValue }));
       }
     }
-  }, [editingState, isAdding, widgetConfig, dispatch]);
+  }, [editingState, isAdding, widgetConfig, dispatch, columns]);
 
   const saveEdit = useCallback(async () => {
     const rowData = resolveEditingRowData();
@@ -907,11 +944,17 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       return null;
     }
 
-    if (column['widget-data-format']) {
-      return formatValue(cellValue, column['widget-data-format'], column.widget);
+    if (widgetType === 'date' || column['widget-data-format']) {
+      return formatValue(
+        cellValue,
+        column['widget-data-format'] || {},
+        column.widget
+      );
     }
 
-    return cellValue?.toString() || '-';
+    return cellValue?.toString && typeof cellValue === 'object'
+      ? Object.entries(cellValue).map(([keyName, item]) => `${keyName}: ${item ?? ''}`).join(', ') || '-'
+      : (cellValue?.toString() || '-');
   }, [getCellValue]);
 
   const isRowEditing = useCallback((rowIndex: number) => {
@@ -984,6 +1027,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       'widget-label': '', // No label in table cells
       'widget-readonly': isReadonly,
       'widget-data-path': undefined,
+      'widget-row-values': rowValues,
       'widget-data-default': cellValue !== undefined ? cellValue : (column['widget-data-default'] ?? ''),
       widget: widgetType,
       'widget-type': column['widget-type'] || 'input',
@@ -1249,7 +1293,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
       )}
 
         <div className="max-w-full min-w-0 overflow-x-auto border" style={{ borderRadius: 'var(--owt-widget-table-border-radius)', borderColor: 'var(--owt-widget-table-border-color)' }}>
-          <table className="min-w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+          <table className="w-max min-w-full [&_th]:min-w-[8rem] [&_td]:min-w-[8rem]" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
             <thead style={{ backgroundColor: 'var(--owt-widget-table-header-bg)' }}>
               <tr style={{ borderBottom: '1px solid var(--owt-widget-table-row-divider)' }}>
                 {columns.map((col) => {
@@ -1267,7 +1311,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                     </th>
                   );
                 })}
-                {((operations.edit || operations.remove) && !isReadonly) || isAnyRowEditing || isSectionEditMode ? (
+                {showRowActions ? (
                   <th
                     className="px-4 py-3 text-left text-sm font-medium max-w-[12rem]"
                     style={{ color: 'var(--owt-widget-table-header-color)' }}
@@ -1282,7 +1326,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
               {rows.length === 0 && !isAdding && (
                 <tr>
                   <td
-                    colSpan={columns.length + (((operations.edit || operations.remove) && !isReadonly) || isSectionEditMode ? 1 : 0)}
+                    colSpan={columns.length + (showRowActions ? 1 : 0)}
                     className="px-4 py-6 text-center text-sm"
                     style={{ color: 'var(--owt-widget-table-empty-color)' }}
                   >
@@ -1317,7 +1361,7 @@ export const TableWidget = ({ config }: TableWidgetProps) => {
                         </td>
                       );
                     })}
-                    {((operations.edit || operations.remove) && !isReadonly) || isEditing || isSectionEditMode ? (
+                    {showRowActions ? (
                       <td className="px-4 py-3 whitespace-nowrap" style={{ minWidth: '120px' }}>
                         {isEditing ? (
                           <div className="table-cell-actions" style={{ width: '100%' }}>

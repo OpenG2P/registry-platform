@@ -50,6 +50,8 @@ export default [
       'lodash.get',
       'lodash.set',
       'json-edit-react',
+      '@dhis2/multi-calendar-dates',
+      '@js-temporal/polyfill',
     ],
   },
   {
@@ -66,6 +68,8 @@ export default [
       '@reduxjs/toolkit',
       'react-redux',
       'zod',
+      '@dhis2/multi-calendar-dates',
+      '@js-temporal/polyfill',
     ],
   },
 ];

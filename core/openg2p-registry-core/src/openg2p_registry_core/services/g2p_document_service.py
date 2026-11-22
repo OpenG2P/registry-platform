@@ -6,7 +6,7 @@ from typing import Iterable, List, Optional
 from fastapi import UploadFile
 from openg2p_fastapi_common.context import get_async_session_maker
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
@@ -355,8 +355,21 @@ class G2PDocumentService(BaseService):
         internal_record_id: str,
         section_id: str,
         before: datetime,
+        change_request_id: str | None = None,
+        submission_id: str | None = None,
     ) -> list[DocumentData]:
-        """Reconstruct the section-document set immediately before a version."""
+        """Document set before ``before``, plus this version's own events when given."""
+        version_match = G2PRegisterDocumentHistory.approved_at < before
+        if change_request_id:
+            version_match = or_(
+                version_match,
+                G2PRegisterDocumentHistory.change_request_id == change_request_id,
+            )
+        if submission_id:
+            version_match = or_(
+                version_match,
+                G2PRegisterDocumentHistory.submission_id == submission_id,
+            )
         events = (
             await session.execute(
                 select(G2PRegisterDocumentHistory)
@@ -364,7 +377,7 @@ class G2PDocumentService(BaseService):
                     G2PRegisterDocumentHistory.internal_record_id
                     == internal_record_id,
                     G2PRegisterDocumentHistory.section_id == section_id,
-                    G2PRegisterDocumentHistory.approved_at < before,
+                    version_match,
                 )
                 .order_by(
                     G2PRegisterDocumentHistory.approved_at,

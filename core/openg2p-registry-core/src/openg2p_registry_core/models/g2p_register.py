@@ -33,7 +33,7 @@ class G2PRegister(BaseORMModel):
     record_image_document_id: Mapped[str] = mapped_column(Text, nullable=True)
     created_by: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[str] = mapped_column(DateTime, nullable=False)
-    last_approved_at: Mapped[str] = mapped_column(DateTime, nullable=False)
+    last_approved_at: Mapped[str] = mapped_column(DateTime, nullable=False, index=True)
     last_approved_by: Mapped[str] = mapped_column(String, nullable=False)
     search_text: Mapped[str] = mapped_column(Text, nullable=True)
 

@@ -16,8 +16,7 @@ classifiers = [
 ]
 dependencies = [
   "openg2p-fastapi-common",
-  "celery",
-  "redis",
+  "celery[redis]",
   "psycopg2"
 ]
 dynamic = ["version"]

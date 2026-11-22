@@ -95,7 +95,7 @@ class RequestResponseHelper(BaseService):
 
         template_helper = TemplateHelper.get_component()
 
-        response_data = response.model_dump()
+        response_data = response.model_dump(mode="json")
         response_data = template_helper.render_with_template(
             document_store_id=response_template_store_id,
             data=response_data,

@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Date as SQLDate, inspect, select
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from openg2p_registry_core.interfaces import G2PRegisterDomainFactory
 from openg2p_registry_core.models import (
@@ -24,6 +23,9 @@ from openg2p_registry_core.models import (
     ProcessStatusEnum,
     RegisterPurposeEnum,
 )
+from openg2p_registry_core.services.g2p_intake_form_link_service import (
+    G2PIntakeFormLinkService,
+)
 from openg2p_registry_core.services.g2p_intake_register_section_map_service import (
     G2PIntakeRegisterSectionMapService,
 )
@@ -35,6 +37,7 @@ from openg2p_registry_core.services.g2p_register_hierarchical_service import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 try:
     from openg2p_registry_core.services.g2p_score_compute_service import G2PScoreComputeService
@@ -57,6 +60,9 @@ asyncio.set_event_loop(_loop)
 
 @celery_app.task(name="intake_form_register_ingest_worker")
 def intake_form_register_ingest_worker(submission_id: str) -> None:
+    if not task_enabled():
+        _logger.info("%s is disabled", "intake_form_register_ingest_worker")
+        return
     _loop.run_until_complete(_process_submission_async(submission_id))
 
 
@@ -65,7 +71,9 @@ async def _process_submission_async(submission_id: str) -> None:
     try:
         async with session_maker() as session:
             async with session.begin():
-                await _mark_processing(submission_id, session)
+                submission = await _mark_processing(submission_id, session)
+                if submission is None:
+                    return
 
         async with session_maker() as session:
             async with session.begin():
@@ -150,7 +158,10 @@ async def _process_submission_async(submission_id: str) -> None:
 
 async def _mark_processing(submission_id: str, session) -> G2PIntakeFormSubmission:
     submission = await _get_submission(submission_id, session)
-    if submission.register_ingest_process_status != ProcessStatusEnum.PENDING.value:
+    status = submission.register_ingest_process_status
+    if status == ProcessStatusEnum.PROCESSED.value:
+        return None
+    if status not in (ProcessStatusEnum.PENDING.value, ProcessStatusEnum.PROCESSING.value):
         raise ValueError(f"Submission '{submission_id}' is not pending ingest")
     if submission.draft_status != IntakeFormStatusEnum.FINAL.value:
         raise ValueError(f"Submission '{submission_id}' must be FINAL before ingest")
@@ -327,6 +338,14 @@ async def _insert_register_row(
     session,
 ):
     record_data = _build_register_row_data(submission, intake_row, register_class)
+    if "link_internal_record_id" in inspect(register_class).columns and record_data.get("link_internal_record_id"):
+        link_service = G2PIntakeFormLinkService.get_component() or G2PIntakeFormLinkService()
+        record_data["link_internal_record_id"] = await link_service.sanitize_link_for_live_ingest(
+            submission.submission_id,
+            register_definition,
+            record_data.get("link_internal_record_id"),
+            session,
+        )
     existing = await session.get(register_class, record_data["internal_record_id"])
     if existing:
         raise ValueError(

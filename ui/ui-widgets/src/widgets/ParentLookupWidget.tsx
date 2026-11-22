@@ -34,6 +34,102 @@ const parsePagination = (
   return { totalItems, totalPages, currentPage: pagination.current_page ?? fallbackPage };
 };
 
+const PaginationFooter = ({
+  currentPage,
+  totalPages,
+  totalCount,
+  pageSize,
+  onPageChange,
+  onPrev,
+  onNext,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) => {
+  const { t } = useWidgetContext();
+  const [pageInput, setPageInput] = useState(String(currentPage));
+
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
+
+  const pageStart = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const pageEnd = totalCount === 0 ? 0 : Math.min(currentPage * pageSize, totalCount);
+
+  const commitPage = () => {
+    const parsed = parseInt(pageInput, 10);
+    if (!Number.isFinite(parsed)) {
+      setPageInput(String(currentPage));
+      return;
+    }
+    const page = Math.min(Math.max(1, parsed), totalPages);
+    setPageInput(String(page));
+    if (page !== currentPage) onPageChange(page);
+  };
+
+  const navButtonClass =
+    'inline-flex h-7 shrink-0 items-center justify-center rounded-[8px] px-2 text-xs font-medium owt-bg-alt owt-text disabled:cursor-not-allowed disabled:opacity-40';
+
+  return (
+    <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto whitespace-nowrap text-xs owt-text-muted">
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onPrev}
+          disabled={currentPage <= 1}
+          className={navButtonClass}
+          aria-label={t?.('common.previous', { defaultValue: 'Previous' })}
+        >
+          {t?.('common.previous', { defaultValue: 'Prev' })}
+        </button>
+        <div className="flex items-center gap-1">
+          <span>{t?.('common.page', { defaultValue: 'Page' })}</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={pageInput}
+            onChange={(e) => setPageInput(e.target.value.replace(/\D/g, ''))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitPage();
+              }
+            }}
+            onBlur={commitPage}
+            className={owtFieldInputClass({
+              className: 'h-7 w-8 rounded-[8px] px-0 text-center text-xs outline-none',
+            })}
+            aria-label={t?.('common.pageNumber', { defaultValue: 'Page number' })}
+          />
+          <span>
+            {t?.('common.ofPages', { total: totalPages, defaultValue: `of ${totalPages}` })}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={currentPage >= totalPages}
+          className={navButtonClass}
+          aria-label={t?.('common.next', { defaultValue: 'Next' })}
+        >
+          {t?.('common.next', { defaultValue: 'Next' })}
+        </button>
+      </div>
+      <span className="shrink-0 pl-1">
+        {totalCount === 1
+          ? t?.('common.record', { count: totalCount, defaultValue: `${totalCount} record` })
+          : t?.('common.records', { count: totalCount, defaultValue: `${totalCount} records` })}
+        {totalCount > 0 && ` · ${pageStart}-${pageEnd}`}
+      </span>
+    </div>
+  );
+};
+
 const parentLabel = (row: Record<string, any> | null | undefined) => {
   if (!row) return '';
   if (row.record_name != null && String(row.record_name).trim() !== '') {
@@ -481,7 +577,7 @@ export const ParentLookupWidget = ({
             </div>
 
             <div className="shrink-0 border-b owt-border px-3 py-3 sm:px-5">
-              <div className={owtFieldInputClass({ className: 'flex items-center gap-2 px-3 h-[30px] rounded-[10px]' })}>
+              <div className={owtFieldInputClass({ className: 'flex h-[30px] w-full items-center gap-2 rounded-[10px] px-3' })}>
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -574,48 +670,19 @@ export const ParentLookupWidget = ({
               )}
             </div>
 
-            <div className="flex shrink-0 flex-col gap-3 border-t owt-border px-3 py-3 sm:px-5">
+            <div className="flex shrink-0 flex-col gap-3 border-t owt-border px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               {totalCount !== null && (
-                <span className="min-w-0 text-sm owt-text-muted">
-                  {totalCount === 1
-                    ? t?.('common.record', {
-                        count: totalCount,
-                        defaultValue: `${totalCount} record`,
-                      })
-                    : t?.('common.records', {
-                        count: totalCount,
-                        defaultValue: `${totalCount} records`,
-                      })}
-                  {totalCount > 0 &&
-                    ` · ${(currentPage - 1) * pageSize + 1}-${Math.min(
-                      currentPage * pageSize,
-                      totalCount,
-                    )}`}
-                </span>
+                <PaginationFooter
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalCount={totalCount}
+                  pageSize={pageSize}
+                  onPageChange={(page) => runSearch(searchText, page)}
+                  onPrev={() => currentPage > 1 && runSearch(searchText, currentPage - 1)}
+                  onNext={() => currentPage < totalPages && runSearch(searchText, currentPage + 1)}
+                />
               )}
-              {totalCount !== null && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => currentPage > 1 && runSearch(searchText, currentPage - 1)}
-                    disabled={currentPage <= 1}
-                    className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {t?.('common.previous', { defaultValue: 'Prev' })}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      currentPage < totalPages && runSearch(searchText, currentPage + 1)
-                    }
-                    disabled={currentPage >= totalPages}
-                    className="px-3 h-8 text-sm font-medium rounded-[10px] owt-bg-alt owt-text disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {t?.('common.next', { defaultValue: 'Next' })}
-                  </button>
-                </div>
-              )}
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="flex shrink-0 items-center justify-end gap-2 sm:ml-auto">
                 {hasValue && (
                   <button
                     type="button"
@@ -624,7 +691,7 @@ export const ParentLookupWidget = ({
                       setIsOpen(false);
                       onBlur();
                     }}
-                    className="px-4 h-9 text-sm font-medium rounded-[10px] owt-bg-alt owt-text flex-shrink-0"
+                    className="h-9 shrink-0 rounded-[10px] px-4 text-sm font-medium owt-bg-alt owt-text"
                   >
                     {t?.('common.remove', { defaultValue: 'Clear' })}
                   </button>
@@ -633,7 +700,7 @@ export const ParentLookupWidget = ({
                   type="button"
                   onClick={() => pendingRow && applySelection(pendingRow)}
                   disabled={!pendingRow}
-                  className="px-4 h-9 text-sm font-medium rounded-[10px] disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+                  className="h-9 shrink-0 rounded-[10px] px-4 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40"
                   style={{ backgroundColor: 'var(--owt-color-info)', color: 'var(--owt-color-bg)' }}
                 >
                   {selectRecordLabel}

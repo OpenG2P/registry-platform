@@ -2,12 +2,22 @@ import importlib
 import logging
 
 from openg2p_fastapi_common.service import BaseService
-from sqlalchemy import inspect as sa_inspect, select, update
+from sqlalchemy import func, inspect as sa_inspect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..errors import G2PRegistryErrorCodes, G2PRegistryException
-from ..models import G2PRegisterDefinition, RegisterPurposeEnum
-from ..schemas import AllowedParentRecordData, IntakeAllowedParentsData
+from ..models import (
+    ApprovalStatusEnum,
+    G2PIntakeFormSubmission,
+    G2PRegisterDefinition,
+    IntakeFormStatusEnum,
+    RegisterPurposeEnum,
+)
+from ..schemas import (
+    AllowedParentRecordData,
+    IntakeAllowedParentsData,
+    IntakeSubmissionValidationIssue,
+)
 
 _logger = logging.getLogger("g2p-intake-form-link-service")
 
@@ -22,14 +32,17 @@ class G2PIntakeFormLinkService(BaseService):
     Linking rules (immediate parent resolved via
     ``G2PRegisterDefinition.master_register_id``):
 
-    - 0 parent intake rows: required child -> error; optional subject register
-      -> null allowed (validate a supplied link against live register).
-    - 1 parent intake row: auto-set link (payload may override).
-    - 2+ parent intake rows: require payload ``link_internal_record_id`` and
-      validate it against the allowed parents.
+    - 0 same-submission parent rows: required child -> error; optional subject
+      register -> null allowed (a supplied link is validated against selectable
+      intake parents or the live register).
+    - 1 same-submission parent row: auto-set link (an explicit payload link
+      may override).
+    - 2+ same-submission parent rows: require payload ``link_internal_record_id``.
 
-    On update, an existing link is preserved unless the payload explicitly
-    includes ``link_internal_record_id``.
+    Selectable parents on ``get_intake_allowed_parents`` are same-submission rows.
+    Finalized, not-yet-approved REGISTER parents are listed by
+    ``list_inflight_register_parents``. A blank or omitted link keeps an
+    existing link.
     """
 
     def get_intake_model_class(self, register_mnemonic: str):
@@ -96,28 +109,52 @@ class G2PIntakeFormLinkService(BaseService):
             and section_register.master_register_id is not None
         )
 
-    async def list_intake_parent_candidates(
+    @staticmethod
+    def _is_register_purpose(register_purpose) -> bool:
+        return register_purpose == RegisterPurposeEnum.REGISTER.value or (
+            register_purpose == RegisterPurposeEnum.REGISTER
+        )
+
+    @staticmethod
+    def _to_allowed_parents(rows) -> list[AllowedParentRecordData]:
+        seen: set[str] = set()
+        allowed: list[AllowedParentRecordData] = []
+        for row in rows:
+            record_id = getattr(row, "internal_record_id", None)
+            if not record_id or record_id in seen:
+                continue
+            seen.add(record_id)
+            allowed.append(
+                AllowedParentRecordData(
+                    internal_record_id=record_id,
+                    record_name=getattr(row, "record_name", None),
+                )
+            )
+        return allowed
+
+    async def _parent_intake_target(self, section_register_id: str, session: AsyncSession):
+        """Return (parent register, intake model) or (None, None) when the section has no master."""
+        section_register = await self._get_register_definition(section_register_id, session)
+        if not section_register.master_register_id:
+            return None, None
+        parent_register = await self._get_register_definition(
+            section_register.master_register_id, session
+        )
+        parent_intake_class = self.get_intake_model_class(parent_register.register_mnemonic)
+        return parent_register, parent_intake_class
+
+    async def list_same_submission_parents(
         self,
         submission_id: str,
         section_register_id: str,
         session: AsyncSession,
-    ) -> IntakeAllowedParentsData:
-        section_register = await self._get_register_definition(section_register_id, session)
-        parent_register_id = section_register.master_register_id
-
-        # Root register: no parent metadata, so there are no candidates to list.
-        if not parent_register_id:
-            return IntakeAllowedParentsData(
-                parent_register_id=None,
-                parent_register_mnemonic=None,
-                requires_selection=False,
-                allowed_parents=[],
-            )
-
-        parent_register = await self._get_register_definition(parent_register_id, session)
-        parent_intake_class = self.get_intake_model_class(parent_register.register_mnemonic)
-
-        # Parent candidates are sibling intake rows already saved in this submission.
+    ) -> list[AllowedParentRecordData]:
+        """Parent intake rows saved on this submission, any draft status."""
+        parent_register, parent_intake_class = await self._parent_intake_target(
+            section_register_id, session
+        )
+        if parent_register is None:
+            return []
         rows = (
             await session.execute(
                 select(parent_intake_class).where(
@@ -125,22 +162,182 @@ class G2PIntakeFormLinkService(BaseService):
                 )
             )
         ).scalars().all()
+        return self._to_allowed_parents(rows)
 
-        allowed_parents = [
-            AllowedParentRecordData(
-                internal_record_id=row.internal_record_id,
-                record_name=getattr(row, "record_name", None),
+    async def list_intake_parent_candidates(
+        self,
+        submission_id: str,
+        section_register_id: str,
+        session: AsyncSession,
+    ) -> IntakeAllowedParentsData:
+        parent_register, parent_intake_class = await self._parent_intake_target(
+            section_register_id, session
+        )
+        # Root register: no parent metadata, so there are no candidates to list.
+        if parent_register is None:
+            return IntakeAllowedParentsData(
+                parent_register_id=None,
+                parent_register_mnemonic=None,
+                requires_selection=False,
+                allowed_parents=[],
             )
-            for row in rows
-            if getattr(row, "internal_record_id", None)
-        ]
 
+        # Same submission only. Crops still see lands saved on this form.
+        # Finalized, not-yet-approved master rows are listed by
+        # list_inflight_register_parents.
+        same_rows = (
+            await session.execute(
+                select(parent_intake_class).where(
+                    parent_intake_class.submission_id == submission_id
+                )
+            )
+        ).scalars().all()
+        allowed_parents = self._to_allowed_parents(same_rows)
         return IntakeAllowedParentsData(
             parent_register_id=parent_register.register_id,
             parent_register_mnemonic=parent_register.register_mnemonic,
-            requires_selection=len(allowed_parents) > 1,  # UI must pick when 2+ parents exist.
+            requires_selection=len(allowed_parents) > 1,
             allowed_parents=allowed_parents,
         )
+
+    async def list_inflight_register_parents(
+        self,
+        register_id: str,
+        session: AsyncSession,
+    ) -> IntakeAllowedParentsData:
+        """Finalized, not-yet-approved intake rows for a REGISTER parent.
+
+        The household lookup calls this beside the live register search.
+        TABLE registers return an empty list so a crop cannot see another
+        form's land. A draft form's own rows are already excluded by the
+        FINAL filter.
+        """
+        register = await self._get_register_definition(register_id, session)
+        if not self._is_register_purpose(register.register_purpose):
+            return IntakeAllowedParentsData(
+                parent_register_id=register.register_id,
+                parent_register_mnemonic=register.register_mnemonic,
+                requires_selection=False,
+                allowed_parents=[],
+            )
+
+        intake_class = self.get_intake_model_class(register.register_mnemonic)
+        rows = (
+            await session.execute(
+                select(intake_class)
+                .join(
+                    G2PIntakeFormSubmission,
+                    G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+                )
+                .where(
+                    G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value,
+                    G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value,
+                )
+            )
+        ).scalars().all()
+        allowed_parents = self._to_allowed_parents(rows)
+        return IntakeAllowedParentsData(
+            parent_register_id=register.register_id,
+            parent_register_mnemonic=register.register_mnemonic,
+            requires_selection=len(allowed_parents) > 1,
+            allowed_parents=allowed_parents,
+        )
+
+    async def search_inflight_register_records(
+        self,
+        register_id: str,
+        session: AsyncSession,
+        search_text: str | None = None,
+        current_page: int = 1,
+        page_size: int = 10,
+        internal_record_id: str | None = None,
+    ) -> tuple[list, int]:
+        """Page of FINAL, not-yet-approved intake rows for a REGISTER parent.
+
+        When internal_record_id is set, load that one row and skip the text search.
+        """
+        register = await self._get_register_definition(register_id, session)
+        if not self._is_register_purpose(register.register_purpose):
+            return [], 0
+
+        intake_class = self.get_intake_model_class(register.register_mnemonic)
+        filters = [
+            G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value,
+            G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value,
+        ]
+        record_id = (internal_record_id or "").strip()
+        if record_id:
+            filters.append(intake_class.internal_record_id == record_id)
+            row = (
+                await session.execute(
+                    select(intake_class)
+                    .join(
+                        G2PIntakeFormSubmission,
+                        G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+                    )
+                    .where(*filters)
+                    .limit(1)
+                )
+            ).scalars().first()
+            return ([row] if row is not None else []), (1 if row is not None else 0)
+
+        if search_text:
+            filters.append(intake_class.search_text.ilike(f"%{search_text}%"))
+
+        joined_from = intake_class
+        count_query = (
+            select(func.count())
+            .select_from(joined_from)
+            .join(
+                G2PIntakeFormSubmission,
+                G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+            )
+            .where(*filters)
+        )
+        total_items = (await session.execute(count_query)).scalar_one()
+        offset = max(current_page - 1, 0) * page_size
+        rows = (
+            await session.execute(
+                select(intake_class)
+                .join(
+                    G2PIntakeFormSubmission,
+                    G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+                )
+                .where(*filters)
+                .order_by(intake_class.created_at.desc())
+                .offset(offset)
+                .limit(page_size)
+            )
+        ).scalars().all()
+        return list(rows), total_items
+
+    async def inflight_register_parent_exists(
+        self,
+        register_id: str,
+        internal_record_id: str,
+        session: AsyncSession,
+    ) -> bool:
+        """True when this id is one FINAL, not-yet-approved intake row. One indexed lookup."""
+        register = await self._get_register_definition(register_id, session)
+        if not self._is_register_purpose(register.register_purpose):
+            return False
+        intake_class = self.get_intake_model_class(register.register_mnemonic)
+        found = (
+            await session.execute(
+                select(intake_class.internal_record_id)
+                .join(
+                    G2PIntakeFormSubmission,
+                    G2PIntakeFormSubmission.submission_id == intake_class.submission_id,
+                )
+                .where(
+                    intake_class.internal_record_id == internal_record_id,
+                    G2PIntakeFormSubmission.draft_status == IntakeFormStatusEnum.FINAL.value,
+                    G2PIntakeFormSubmission.approval_status == ApprovalStatusEnum.PENDING.value,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        return found is not None
 
     async def validate_live_parent_link(
         self,
@@ -172,7 +369,7 @@ class G2PIntakeFormLinkService(BaseService):
         allow_live_parent: bool,
         session: AsyncSession,
     ) -> None:
-        # Accept links that match an intake parent row in this submission.
+        # Accept a same-submission parent or a finalized, not-yet-approved REGISTER parent.
         if link_internal_record_id in candidate_ids:
             return
         # Subject sections may instead reference a live register record.
@@ -213,10 +410,6 @@ class G2PIntakeFormLinkService(BaseService):
             section_register, form_register_id, section_register_id
         )
 
-        # On update, preserve the existing link unless the payload changes it.
-        if not payload_specifies_link and existing_link is not None:
-            return existing_link
-
         # Only read link_internal_record_id from the payload when the caller sent it.
         payload_link = (
             self._normalize_link_value(record.get("link_internal_record_id"))
@@ -224,17 +417,30 @@ class G2PIntakeFormLinkService(BaseService):
             else None
         )
 
-        # Load parent intake rows saved so far in this submission.
-        candidates_data = await self.list_intake_parent_candidates(
-            submission_id, section_register_id, session
-        )
-        candidate_ids = {
-            parent.internal_record_id for parent in candidates_data.allowed_parents
-        }
-        parent_count = len(candidate_ids)
+        # A blank or omitted link keeps a link the user already chose.
+        if existing_link is not None and not payload_link:
+            return existing_link
 
-        # Explicit payload link wins after validation against candidates or live register.
+        # Explicit payload link wins after validation against this submission,
+        # finalized-not-approved REGISTER parents, or the live register.
         if payload_link:
+            candidates_data = await self.list_intake_parent_candidates(
+                submission_id, section_register_id, session
+            )
+            candidate_ids = {
+                parent.internal_record_id for parent in candidates_data.allowed_parents
+            }
+            parent_register = await self._get_register_definition(
+                section_register.master_register_id, session
+            )
+            if (
+                payload_link not in candidate_ids
+                and self._is_register_purpose(parent_register.register_purpose)
+                and await self.inflight_register_parent_exists(
+                    parent_register.register_id, payload_link, session
+                )
+            ):
+                candidate_ids.add(payload_link)
             await self._validate_resolved_link(
                 payload_link,
                 section_register.master_register_id,
@@ -244,9 +450,15 @@ class G2PIntakeFormLinkService(BaseService):
             )
             return payload_link
 
-        # Exactly one parent in the submission: auto-link without user input.
+        # Auto-link only from this submission. Another form's finalized household
+        # must be chosen explicitly.
+        same_submission_parents = await self.list_same_submission_parents(
+            submission_id, section_register_id, session
+        )
+        parent_count = len(same_submission_parents)
+
         if parent_count == 1:
-            return next(iter(candidate_ids))
+            return same_submission_parents[0].internal_record_id
 
         # No parents yet: required child sections fail; optional subject sections stay unlinked.
         if parent_count == 0:
@@ -270,6 +482,58 @@ class G2PIntakeFormLinkService(BaseService):
                 ),
             )
         return None
+
+    async def backfill_null_child_links_for_same_submission_parent(
+        self,
+        submission_id: str,
+        saved_section_register_id: str,
+        session: AsyncSession,
+    ) -> None:
+        """Point unlinked children at the one parent created in this submission.
+
+        Runs after a REGISTER section save (a household on a farmer form).
+        An existing child link is left as it is. More than one parent row
+        means the user must choose.
+        """
+        saved_register = await self._get_register_definition(saved_section_register_id, session)
+        if not self._is_register_purpose(saved_register.register_purpose):
+            return
+
+        intake_class = self.get_intake_model_class(saved_register.register_mnemonic)
+        rows = (
+            await session.execute(
+                select(intake_class).where(intake_class.submission_id == submission_id)
+            )
+        ).scalars().all()
+        parent_ids = [
+            row.internal_record_id
+            for row in rows
+            if getattr(row, "internal_record_id", None)
+        ]
+        if len(parent_ids) != 1:
+            return
+        parent_id = parent_ids[0]
+
+        register_definitions = (
+            await session.execute(select(G2PRegisterDefinition))
+        ).scalars().all()
+        for register_def in register_definitions:
+            if register_def.master_register_id != saved_section_register_id:
+                continue
+            try:
+                child_class = self.get_intake_model_class(register_def.register_mnemonic)
+            except (AttributeError, ModuleNotFoundError):
+                continue
+            if not self.intake_model_has_link_column(child_class):
+                continue
+            await session.execute(
+                update(child_class)
+                .where(
+                    child_class.submission_id == submission_id,
+                    child_class.link_internal_record_id.is_(None),
+                )
+                .values(link_internal_record_id=parent_id)
+            )
 
     async def null_child_links_for_deleted_parents(
         self,
@@ -303,3 +567,216 @@ class G2PIntakeFormLinkService(BaseService):
                 )
                 .values(link_internal_record_id=None)
             )
+
+    async def check_submission_parent_links_readiness(
+        self,
+        submission: G2PIntakeFormSubmission,
+        sections: list,
+        session: AsyncSession,
+    ) -> list[IntakeSubmissionValidationIssue]:
+        """Validate every parent link on a submission before approval.
+
+        A linked parent is valid when it exists in the same submission (so both
+        ingest together) or already exists in the live parent register. Links
+        pointing at another submission's intake row are reported as pending or
+        rejected based on that upstream submission's status.
+        """
+        issues: list[IntakeSubmissionValidationIssue] = []
+        seen_registers: set[str] = set()
+
+        for section in sections or []:
+            section_register_id = getattr(section, "section_register_id", None)
+            if not section_register_id or section_register_id in seen_registers:
+                continue
+            seen_registers.add(section_register_id)
+
+            section_register = await self._get_register_definition(section_register_id, session)
+            if section_register.master_register_id is None:
+                continue
+
+            try:
+                intake_class = self.get_intake_model_class(section_register.register_mnemonic)
+            except (AttributeError, ModuleNotFoundError):
+                continue
+            if not self.intake_model_has_link_column(intake_class):
+                continue
+
+            rows = (
+                await session.execute(
+                    select(intake_class).where(
+                        intake_class.submission_id == submission.submission_id
+                    )
+                )
+            ).scalars().all()
+            if not rows:
+                continue
+
+            parent_register = await self._get_register_definition(
+                section_register.master_register_id, session
+            )
+            parent_intake_class = self.get_intake_model_class(parent_register.register_mnemonic)
+            parent_register_class = self.get_register_model_class(
+                parent_register.register_mnemonic,
+                parent_register.register_purpose,
+            )
+            link_required = self.is_parent_link_required(
+                section_register, submission.register_id, section_register_id
+            )
+
+            same_parent_rows = (
+                await session.execute(
+                    select(parent_intake_class.internal_record_id).where(
+                        parent_intake_class.submission_id == submission.submission_id
+                    )
+                )
+            ).scalars().all()
+            same_parent_ids = {str(pid) for pid in same_parent_rows if pid}
+
+            section_id = getattr(section, "section_id", None)
+            for row in rows:
+                record_id = getattr(row, "internal_record_id", None)
+                link_id = self._normalize_link_value(
+                    getattr(row, "link_internal_record_id", None)
+                )
+                if not link_id:
+                    if link_required:
+                        issues.append(
+                            IntakeSubmissionValidationIssue(
+                                code="PARENT_LINK_REQUIRED",
+                                section_id=section_id,
+                                section_register_id=section_register_id,
+                                internal_record_id=record_id,
+                                message=(
+                                    f"Record in '{section_register.register_mnemonic}' is missing "
+                                    f"a required parent link to '{parent_register.register_mnemonic}'"
+                                ),
+                            )
+                        )
+                    continue
+
+                if link_id in same_parent_ids:
+                    continue
+
+                live_parent = await session.get(parent_register_class, link_id)
+                if live_parent is not None:
+                    continue
+
+                upstream = (
+                    await session.execute(
+                        select(
+                            G2PIntakeFormSubmission.submission_id,
+                            G2PIntakeFormSubmission.application_reference,
+                            G2PIntakeFormSubmission.approval_status,
+                        )
+                        .join(
+                            parent_intake_class,
+                            parent_intake_class.submission_id
+                            == G2PIntakeFormSubmission.submission_id,
+                        )
+                        .where(parent_intake_class.internal_record_id == link_id)
+                        .limit(1)
+                    )
+                ).first()
+
+                if upstream is not None:
+                    up_sub_id, up_app_ref, up_approval = upstream
+                    ref_label = up_app_ref or up_sub_id
+                    rejected_statuses = {
+                        ApprovalStatusEnum.REJECTED.value,
+                        getattr(ApprovalStatusEnum, "CANCELLED", ApprovalStatusEnum.REJECTED).value,
+                    }
+                    if up_approval in rejected_statuses:
+                        issues.append(
+                            IntakeSubmissionValidationIssue(
+                                code="PARENT_SUBMISSION_REJECTED",
+                                section_id=section_id,
+                                section_register_id=section_register_id,
+                                internal_record_id=record_id,
+                                link_internal_record_id=link_id,
+                                upstream_submission_id=up_sub_id,
+                                upstream_application_reference=up_app_ref,
+                                upstream_approval_status=up_approval,
+                                message=(
+                                    f"Linked {parent_register.register_mnemonic} record '{link_id}' "
+                                    f"belongs to submission '{ref_label}' which was {str(up_approval).lower()}; "
+                                    f"the parent link will be removed if this submission is approved"
+                                ),
+                            )
+                        )
+                    else:
+                        issues.append(
+                            IntakeSubmissionValidationIssue(
+                                code="PARENT_SUBMISSION_PENDING",
+                                section_id=section_id,
+                                section_register_id=section_register_id,
+                                internal_record_id=record_id,
+                                link_internal_record_id=link_id,
+                                upstream_submission_id=up_sub_id,
+                                upstream_application_reference=up_app_ref,
+                                upstream_approval_status=up_approval,
+                                message=(
+                                    f"Linked {parent_register.register_mnemonic} record '{link_id}' "
+                                    f"in submission '{ref_label}' is not yet approved and ingested "
+                                    f"into the live register; the parent link will be removed if this submission is approved now"
+                                ),
+                            )
+                        )
+                else:
+                    issues.append(
+                        IntakeSubmissionValidationIssue(
+                            code="PARENT_NOT_IN_LIVE_REGISTER",
+                            section_id=section_id,
+                            section_register_id=section_register_id,
+                            internal_record_id=record_id,
+                            link_internal_record_id=link_id,
+                            message=(
+                                f"Linked {parent_register.register_mnemonic} record '{link_id}' "
+                                f"does not exist in the live register; the parent link will be removed if this submission is approved"
+                            ),
+                        )
+                    )
+
+        return issues
+
+    async def sanitize_link_for_live_ingest(
+        self,
+        submission_id: str,
+        register_definition: G2PRegisterDefinition,
+        link_internal_record_id: str | None,
+        session: AsyncSession,
+    ) -> str | None:
+        """Keep link_internal_record_id on ingest only when the parent is in this
+        submission or already in the live parent register. Pending or rejected
+        cross-submission parent links become None on the live row."""
+        link_id = self._normalize_link_value(link_internal_record_id)
+        if not link_id or register_definition.master_register_id is None:
+            return None
+
+        parent_register = await self._get_register_definition(
+            register_definition.master_register_id, session
+        )
+        parent_intake_class = self.get_intake_model_class(parent_register.register_mnemonic)
+        same_submission_parent = (
+            await session.execute(
+                select(parent_intake_class.internal_record_id)
+                .where(
+                    parent_intake_class.submission_id == submission_id,
+                    parent_intake_class.internal_record_id == link_id,
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if same_submission_parent is not None:
+            return link_id
+
+        parent_register_class = self.get_register_model_class(
+            parent_register.register_mnemonic,
+            parent_register.register_purpose,
+        )
+        live_parent = await session.get(parent_register_class, link_id)
+        if live_parent is not None:
+            return link_id
+
+        return None
+
+

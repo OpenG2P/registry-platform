@@ -87,7 +87,12 @@ export const SelectWidget = ({ config }: SelectWidgetProps) => {
               className: 'w-full sm:w-[180px] max-w-full h-[30px] px-3 owt-shadow-sm',
             })}
             style={{ borderRadius: '10px' }}
-            title={tSchema(t, widgetConfig['widget-data-tooltip'])}
+            title={
+              tSchema(
+                t,
+                dataSourceOptions.find((option) => String(option.value) === String(value ?? ''))?.label,
+              ) || tSchema(t, widgetConfig['widget-data-tooltip'])
+            }
           >
             <option value="">{t?.('common.select')}</option>
             {dataSourceOptions.map((option) => (

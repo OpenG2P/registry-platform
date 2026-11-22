@@ -17,6 +17,7 @@ from .register_payload import (
     RegistryThemeData, RegistryThemeValueData, ThemeOperationData,
     RegistryLanguageData, LanguageOperationData,
     RecordHistoryData, RecordHistoryListData, VersionDatesData, VersionForDateData, VersionsForDateData,
+    VersionSectionDataData,
     AllowedParentsData,
     SubmissionResponsePayload, IntakeFormSubmissionsSummaryData, NumberOfPendingChangeRequestsForSubmissionData
 )
@@ -216,6 +217,14 @@ class ChangesForDateDataResponseBody(G2PResponseBody):
 
 class ChangesForDateDataResponse(G2PResponse):
     response_body: Optional[ChangesForDateDataResponseBody] = None
+
+
+class VersionSectionDataResponseBody(G2PResponseBody):
+    response_payload: Optional["VersionSectionDataData"] = None
+
+
+class VersionSectionDataResponse(G2PResponse):
+    response_body: Optional[VersionSectionDataResponseBody] = None
 
 
 # =============================================================================
