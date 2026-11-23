@@ -68,21 +68,29 @@ questions:
   type: boolean
   default: true
   label: Verify Partner Signature
-  group: Consent & Partner API
+  group: Partner API
 
 - variable: global.partnerDataScopesPublicGetEnabled
   description: "On by default: anyone who can reach the partner API can read the list of data scopes (scope IDs, labels and field names, never data), and Partner Management can offer them as a checklist when policies are written. Turn off to keep field names private: partners then read the catalogue with a signed request, and Partner Management falls back to free text."
   type: boolean
   default: true
   label: Allow Unsigned Read of Data Scope Catalogue
-  group: Consent & Partner API
+  group: Partner API
 
 - variable: global.consentEnforcementEnabled
   description: Ask the Consent Manager before the Partner API returns data, and return only the fields the consent covers. The Consent Manager checks the consent and the partner's access policy in Partner Management. Needs a reachable Consent Manager. On by default. If off, records are returned in full, with no consent check. Turn off only for testing, or before the Consent Manager is set up.
   type: boolean
   default: true
   label: Enforce Consent
-  group: Consent & Partner API
+  group: Consent
+
+- variable: global.consentManagerUrl
+  description: "The Consent Manager the Partner API asks before returning data: the registry's own (commons-services) by default. Used only when Enforce Consent is on."
+  type: string
+  default: 'http://commons-services-cm-partner-api'
+  label: Consent Manager URL
+  group: Consent
+  show_if: "global.consentEnforcementEnabled=true"
 
 - variable: beneApi.enabled
   description: "Install the Beneficiary Portal API. Off by default."
