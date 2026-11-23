@@ -17,6 +17,7 @@ Audit policy (v2):
   Anonymous + outcome 2xx (legitimate public endpoint)      | NO
   Anonymous + outcome non-2xx, audit_anonymous_failures=true| YES (anon)
   Health probes / OpenAPI surfaces / OPTIONS preflight      | NO
+  Paths in `skip_paths` (the portal's per-page config loads)| NO
   Service caller (request.state.audit_actor set), any outcome| YES
 
 Server-to-server endpoints that authenticate without a JWT (e.g. the AWE
@@ -142,6 +143,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
         client_id: str | None = None,
         state_key: str = "auth",
         audit_anonymous_failures: bool = True,
+        skip_paths: list[str] | tuple[str, ...] = (),
     ):
         super().__init__(app)
         self._url = (audit_manager_url or "").rstrip("/")
@@ -152,6 +154,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
         self._client_id = client_id
         self._state_key = state_key
         self._audit_anonymous_failures = audit_anonymous_failures
+        self._skip_paths = _SKIP_PATHS | frozenset(skip_paths or ())
         self._client: httpx.AsyncClient | None = None
         # Strong references to in-flight emissions: the event loop keeps only
         # weak references to tasks, so an unreferenced task can be collected
@@ -219,7 +222,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
         # Skip-list checks apply to both success and failure paths.
         if self._enabled \
                 and request.method != "OPTIONS" \
-                and request.url.path not in _SKIP_PATHS:
+                and request.url.path not in self._skip_paths:
             self._maybe_emit(request, response, raised)
 
         if raised is not None:

@@ -47,3 +47,13 @@ class Settings(ExtSettings):
     # unauthorized access (401) and JWT-with-missing-roles (403). Set to
     # false to revert to the original "audit only authenticated users" rule.
     audit_anonymous_failures: bool = True
+
+    # Paths never audited, besides health probes and the OpenAPI pages. The
+    # defaults are the staff portal's own loads on every page (configuration,
+    # theme, language): they read no record and would otherwise be most of the
+    # audit log. Set to [] to audit them too.
+    audit_skip_paths: list[str] = [
+        "/registry-config/get_registry_configuration",
+        "/registry-theme/get_theme_values",
+        "/registry-language/get_language",
+    ]

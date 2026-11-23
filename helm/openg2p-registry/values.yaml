@@ -351,6 +351,10 @@ global:
   # lack AuditMiddleware simply ignore the env vars — no error.
   auditEnabled: true
   auditManagerUrl: 'http://commons-services-auditmanager:80'
+  # Each API sends its events with the source /openg2p/<release>-<api>, e.g.
+  # /openg2p/fr-staff-portal-api and /openg2p/agents-staff-portal-api, so the
+  # registries sharing one Audit Manager are told apart. (The images' default,
+  # /openg2p/registry-staff-portal-api, is the same for every registry.)
   # Set to false to skip auditing of rejected anonymous calls (401/403
   # without a populated principal). Default true captures attempted
   # unauthorized access for security review.
@@ -700,6 +704,8 @@ partnerApi:
     REGISTRY_PARTNER_API_AUDIT_ENABLED: '{{ .Values.global.auditEnabled }}'
     REGISTRY_PARTNER_API_AUDIT_MANAGER_URL: '{{ .Values.global.auditManagerUrl }}'
     REGISTRY_PARTNER_API_AUDIT_ANONYMOUS_FAILURES: '{{ .Values.global.auditAnonymousFailures }}'
+    # Per release, so each registry's events are told apart (see global.auditEnabled).
+    REGISTRY_PARTNER_API_AUDIT_SOURCE: '/openg2p/{{ .Release.Name }}-partner-api'
   envVarsFrom:
     REGISTRY_PARTNER_API_DB_PASSWORD:
       secretKeyRef:
@@ -1279,6 +1285,8 @@ agentPortalApi:
     REGISTRY_AGENT_PORTAL_API_AUDIT_ENABLED: '{{ .Values.global.auditEnabled }}'
     REGISTRY_AGENT_PORTAL_API_AUDIT_MANAGER_URL: '{{ tpl .Values.global.auditManagerUrl $ }}'
     REGISTRY_AGENT_PORTAL_API_AUDIT_ANONYMOUS_FAILURES: '{{ .Values.global.auditAnonymousFailures }}'
+    # Per release, so each registry's events are told apart (see global.auditEnabled).
+    REGISTRY_AGENT_PORTAL_API_AUDIT_SOURCE: '/openg2p/{{ .Release.Name }}-agent-portal-api'
     # ── Registrant-authentication session store ───────────────────────────
     # The eSignet transaction (state/nonce/PKCE verifier + the record context)
     # is created when authentication STARTS and read back when eSignet
@@ -1498,6 +1506,8 @@ staffApi:
     REGISTRY_STAFF_PORTAL_API_AUDIT_ENABLED: '{{ .Values.global.auditEnabled }}'
     REGISTRY_STAFF_PORTAL_API_AUDIT_MANAGER_URL: '{{ .Values.global.auditManagerUrl }}'
     REGISTRY_STAFF_PORTAL_API_AUDIT_ANONYMOUS_FAILURES: '{{ .Values.global.auditAnonymousFailures }}'
+    # Per release, so each registry's events are told apart (see global.auditEnabled).
+    REGISTRY_STAFF_PORTAL_API_AUDIT_SOURCE: '/openg2p/{{ .Release.Name }}-staff-portal-api'
 
     REGISTRY_STAFF_PORTAL_API_AWE_ENABLED: '{{ .Values.global.aweEnabled }}'
     REGISTRY_STAFF_PORTAL_API_AWE_BASE_URL: '{{ tpl .Values.global.aweBaseUrl $ }}'
