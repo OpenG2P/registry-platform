@@ -185,6 +185,18 @@ spec:
               HAVE=${HAVE:-0}
               if [ "$HAVE" -gt 0 ]; then
                 echo "provider '$PROVIDER_ID' already holds a key — not rotating it."
+                # The callback URL is not part of the key: keep it current, so an
+                # upgrade that moves the staff API's hostname does not leave eSignet
+                # redirecting to a host that no longer exists.
+                eq -qc "UPDATE esignet.client_detail
+                           SET redirect_uris = '[\"$CALLBACK_URL\"]', upd_dtimes = now()
+                         WHERE id = '$CLIENT_ID'
+                           AND redirect_uris IS DISTINCT FROM '[\"$CALLBACK_URL\"]';"
+                rq -qc "UPDATE g2p_registrant_authentication_providers
+                           SET oauth_callback_url = '$CALLBACK_URL', updated_at = now()
+                         WHERE provider_id = '$PROVIDER_ID'
+                           AND oauth_callback_url IS DISTINCT FROM '$CALLBACK_URL';"
+                echo "callback URL: $CALLBACK_URL"
               else
                 MOD=$(cat /keys/modulus.hex)
                 # base64url of the modulus, computed in SQL: hex -> bytea -> base64,
@@ -240,7 +252,9 @@ spec:
                                            "id_token":{}}}}')::jsonb,
                           1, true, now(), now())
                   ON CONFLICT (provider_id) DO UPDATE
-                    SET provider_config=EXCLUDED.provider_config, is_active=true, updated_at=now();
+                    SET provider_config=EXCLUDED.provider_config,
+                        client_private_key=EXCLUDED.client_private_key,
+                        oauth_callback_url=EXCLUDED.oauth_callback_url, is_active=true, updated_at=now();
               SQL
                 echo "registered eSignet client '$CLIENT_ID' and provider '$PROVIDER_ID'."
               fi

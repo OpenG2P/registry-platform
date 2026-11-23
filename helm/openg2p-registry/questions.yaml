@@ -14,7 +14,11 @@ questions:
   group: General
 
 - variable: global.registryHostname
-  description: "Hostname of the registry's staff portal and APIs. Defaults to <release>.<Base Domain>."
+  description: >-
+    Hostname of the registry's staff portal. Defaults to <release>.<Base Domain>.
+    Each API's hostname derives from it, with "-<api>-api" after its first label:
+    for agents.trial.openg2p.org the staff API is agents-staff-api.trial.openg2p.org
+    and the partner API agents-partner-api.trial.openg2p.org.
   type: string
   label: Registry Hostname
   group: General

@@ -553,3 +553,19 @@ entry (and any other entry whose secretKeyRef names that Secret) is removed.
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Public hostname of one of this registry's APIs: the registry hostname with
+"-<name>-api" after its first label, so a person-facing host has a plain name
+and a headless one ends in "-api" (one DNS label, so a *.<Base Domain> wildcard
+certificate covers it).
+  agents.trial.openg2p.org + "staff" -> agents-staff-api.trial.openg2p.org
+Called from tpl-rendered values, with the root context:
+  {{ include "openg2p-registry.apiHostname" (dict "name" "staff" "context" $) }}
+Only .Values.global is read: it stays un-boxed in the component templates'
+rebound context (see the note under partnerApi.istio in values.yaml).
+*/}}
+{{- define "openg2p-registry.apiHostname" -}}
+{{- $registryHostname := tpl .context.Values.global.registryHostname .context -}}
+{{- regexReplaceAll "^([^.]+)" $registryHostname (printf "${1}-%s-api" .name) -}}
+{{- end -}}
