@@ -23,5 +23,17 @@ PingInitializer()
 app = initializer.return_app()
 celery_app = celery_app
 
+def _register_extension_tasks(celery_app, role: str) -> None:
+    import importlib
+    try:
+        module = importlib.import_module("openg2p_registry_extensions.celery")
+    except ImportError:
+        return
+    register = getattr(module, "register_celery", None)
+    if register is not None:
+        register(celery_app, role)
+
+_register_extension_tasks(celery_app, "worker")
+
 if __name__ == "__main__":
     initializer.main()

@@ -161,7 +161,7 @@ export default function StatsCardsCarousel<T extends string>({
     }, [maxOffset]);
 
     const arrowButtonClass =
-        'relative z-10 shrink-0 self-center flex h-[30px] w-[30px] items-center justify-center rounded-[30px] bg-transparent cursor-pointer disabled:cursor-default';
+        'relative z-10 shrink-0 self-center flex h-[30px] w-[30px] items-center justify-center rounded-[30px] bg-transparent cursor-pointer transition-opacity duration-200 disabled:cursor-default disabled:opacity-40';
 
     return (
         <div

@@ -13,6 +13,7 @@ from openg2p_registry_core.models.g2p_functional_id_generation_queue import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -21,6 +22,9 @@ _engine = Engine.get_engine()
 
 @celery_app.task(name="functional_id_updation_worker")
 def functional_id_updation_worker(queue_id: str):
+    if not task_enabled():
+        _logger.info("%s is disabled", "functional_id_updation_worker")
+        return
     _logger.info(f"Starting functional_id_updation_worker for queue_id: {queue_id}")
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
 

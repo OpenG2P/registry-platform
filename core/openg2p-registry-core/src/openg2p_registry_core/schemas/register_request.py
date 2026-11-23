@@ -25,6 +25,7 @@ from .register_payload import (
     GetRecordHistoryRequestPayload,
     GetVersionDatesRequestPayload,
     GetChangesForDateRequestPayload,
+    GetVersionSectionDataRequestPayload,
     GetNumberOfPendingChangeRequestsRequestPayload,
     GetNumberOfCrossRegisterChangesRequestPayload,
     GetCrossRegisterChangesRequestPayload,
@@ -331,6 +332,14 @@ class GetChangesForDateRequestBody(G2PRequestBody):
 
 class GetChangesForDateRequest(G2PRequest):
     request_body: GetChangesForDateRequestBody
+
+
+class GetVersionSectionDataRequestBody(G2PRequestBody):
+    request_payload: GetVersionSectionDataRequestPayload
+
+
+class GetVersionSectionDataRequest(G2PRequest):
+    request_body: GetVersionSectionDataRequestBody
 
 
 # =============================================================================

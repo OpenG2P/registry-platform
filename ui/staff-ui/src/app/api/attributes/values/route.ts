@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
 				version: body.version ?? null,
 				as_of: body.as_of ?? null,
 				release: body.release ?? null,
+				parent_value_id: body.parent_value_id,
+				q: body.q,
 			}
 		}),
 		transformResponse: (responseBody) =>

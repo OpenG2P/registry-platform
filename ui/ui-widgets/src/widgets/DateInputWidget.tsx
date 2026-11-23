@@ -6,6 +6,7 @@ import { useBaseWidget } from '../hooks/useBaseWidget';
 import { BaseWidgetConfig } from '../types';
 import { WidgetFieldLabel } from '../components/WidgetFieldLabel';
 import { owtFieldInputClass } from '../theme';
+import { MultiCalendarDatePicker } from '../components/MultiCalendarDatePicker';
 import { WidgetRootState } from '../store';
 import { getValueByPath } from '../utils/pathUtils';
 import {
@@ -20,6 +21,12 @@ import {
   mergeMinDateBounds,
   mergeMaxDateBounds,
 } from '../utils/dateInput';
+import {
+  formatInCalendar,
+  isGregorianCalendar,
+  parseCalendarInputToGregorianISO,
+  resolveCalendar,
+} from '../utils/calendarDates';
 
 interface DateInputWidgetProps {
   config: BaseWidgetConfig;
@@ -46,6 +53,9 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
   const dateFormat = formatConfig?.dateFormat || 'YYYY-MM-DD';
   const inputMethod = formatConfig?.inputMethod || 'picker';
   const dateConstraint = formatConfig?.dateConstraint || 'any';
+  const calendar = resolveCalendar(formatConfig?.calendar);
+  const useMultiCalendar = !isGregorianCalendar(calendar);
+  const locale = formatConfig?.locale || 'en';
   const minDate = optionsConfig?.minDate;
   const maxDate = optionsConfig?.maxDate;
   const minDateField = optionsConfig?.minDateField as string | undefined;
@@ -113,7 +123,6 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     }
   }, [defaultToToday, value, onChange]);
 
-  // Re-validate when a relative bound field changes (e.g. start date set after end date)
   useEffect(() => {
     if (!value) {
       return;
@@ -125,6 +134,16 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
   }, [fieldMinDate, fieldMaxDate, value, runDateConstraintValidation, setError]);
 
   const getDisplayValue = useCallback((): string => {
+    if (useMultiCalendar) {
+      if (isFocused && manualInputValue) {
+        return manualInputValue;
+      }
+      if (!value) {
+        return '';
+      }
+      return formatInCalendar(value, calendar, dateFormat, locale);
+    }
+
     if (inputMethod === 'picker') {
       if (!value) return '';
       return formatDateToISO(value);
@@ -141,17 +160,28 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     }
 
     return formatDateToString(value, dateFormat);
-  }, [value, inputMethod, dateFormat, isFocused, manualInputValue]);
+  }, [
+    value,
+    inputMethod,
+    dateFormat,
+    isFocused,
+    manualInputValue,
+    useMultiCalendar,
+    calendar,
+    locale,
+  ]);
 
   useEffect(() => {
     if (!isFocused && value) {
-      if (dateFormat === 'YYYY-MM-DD') {
+      if (useMultiCalendar) {
+        setManualInputValue(formatInCalendar(value, calendar, dateFormat, locale));
+      } else if (dateFormat === 'YYYY-MM-DD') {
         setManualInputValue(formatDateToISO(value));
       } else {
         setManualInputValue(formatDateToString(value, dateFormat));
       }
     }
-  }, [value, dateFormat, isFocused]);
+  }, [value, dateFormat, isFocused, useMultiCalendar, calendar, locale]);
 
   const applyConstraintError = useCallback(
     (dateValue: string) => {
@@ -161,9 +191,36 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     [runDateConstraintValidation, setError]
   );
 
+  const handleMultiCalendarChange = useCallback(
+    (gregorianISO: string) => {
+      onChange(gregorianISO === '' ? null : gregorianISO);
+      if (gregorianISO) {
+        applyConstraintError(gregorianISO);
+      } else {
+        setError([]);
+      }
+    },
+    [onChange, applyConstraintError, setError]
+  );
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value;
+
+      if (useMultiCalendar) {
+        setManualInputValue(inputValue);
+        if (inputValue) {
+          const iso = parseCalendarInputToGregorianISO(inputValue, calendar, dateFormat);
+          if (iso) {
+            onChange(iso);
+            applyConstraintError(iso);
+          }
+        } else {
+          onChange(null);
+          setError([]);
+        }
+        return;
+      }
 
       if (inputMethod === 'picker') {
         if (inputValue) {
@@ -196,13 +253,32 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
         }
       }
     },
-    [inputMethod, dateFormat, onChange, applyConstraintError, setError]
+    [
+      inputMethod,
+      dateFormat,
+      onChange,
+      applyConstraintError,
+      setError,
+      useMultiCalendar,
+      calendar,
+    ]
   );
 
   const handleBlur = useCallback(() => {
     setIsFocused(false);
 
-    if (inputMethod !== 'picker' && manualInputValue) {
+    if (useMultiCalendar && manualInputValue) {
+      const iso = parseCalendarInputToGregorianISO(manualInputValue, calendar, dateFormat);
+      if (iso) {
+        setManualInputValue(formatInCalendar(iso, calendar, dateFormat, locale));
+        onChange(iso);
+        applyConstraintError(iso);
+      } else {
+        setManualInputValue('');
+        onChange(null);
+        setError([]);
+      }
+    } else if (inputMethod !== 'picker' && manualInputValue) {
       const date = parseDateFromFormat(manualInputValue, dateFormat);
       if (date) {
         const formatted = formatDateToString(date, dateFormat);
@@ -235,18 +311,23 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     value,
     runDateConstraintValidation,
     setError,
+    useMultiCalendar,
+    calendar,
+    locale,
   ]);
 
   const handleFocus = useCallback(() => {
     setIsFocused(true);
     if (value) {
-      if (dateFormat === 'YYYY-MM-DD') {
+      if (useMultiCalendar) {
+        setManualInputValue(formatInCalendar(value, calendar, dateFormat, locale));
+      } else if (dateFormat === 'YYYY-MM-DD') {
         setManualInputValue(formatDateToISO(value));
       } else {
         setManualInputValue(formatDateToString(value, dateFormat));
       }
     }
-  }, [value, dateFormat]);
+  }, [value, dateFormat, useMultiCalendar, calendar, locale]);
 
   const placeholder = useMemo(() => {
     const display = getDisplayValue();
@@ -255,7 +336,8 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     return hasValue ? undefined : placeholderText || dateFormat;
   }, [getDisplayValue, widgetConfig, t, dateFormat]);
 
-  const inputType = inputMethod === 'picker' ? 'date' : 'text';
+  const inputType =
+    !useMultiCalendar && inputMethod === 'picker' ? 'date' : 'text';
 
   const showRequiredError =
     widgetConfig['widget-required'] && (!value || value === '');
@@ -266,7 +348,9 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
     let displayValue = '';
 
     if (value) {
-      if (dateFormat === 'YYYY-MM-DD') {
+      if (useMultiCalendar) {
+        displayValue = formatInCalendar(value, calendar, dateFormat, locale);
+      } else if (dateFormat === 'YYYY-MM-DD') {
         displayValue = formatDateToISO(value);
       } else {
         displayValue = formatDateToString(value, dateFormat);
@@ -290,10 +374,23 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
           <div className="text-base owt-text font-medium" title={String(displayValue ?? '')}>
             {displayValue}
           </div>
+          {useMultiCalendar && value ? (
+            <div className="text-xs text-gray-500 mt-0.5">
+              (Gregorian):{' '}
+              {typeof value === 'string' ? value.split('T')[0] : formatDateToISO(value)}
+            </div>
+          ) : null}
         </div>
       </div>
     );
   }
+
+  const showPicker =
+    useMultiCalendar && (inputMethod === 'picker' || inputMethod === 'hybrid');
+  const showManual =
+    !useMultiCalendar
+      ? true
+      : inputMethod === 'manual' || inputMethod === 'hybrid';
 
   return (
     <div className="mb-[10px]">
@@ -303,25 +400,55 @@ export const DateInputWidget = ({ config }: DateInputWidgetProps) => {
           label={tSchema(t, widgetConfig['widget-label'])}
           required={isRequired}
         />
-        <div className="flex-1 min-w-0">
-          <input
-            type={inputType}
-            value={getDisplayValue()}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            onFocus={handleFocus}
-            disabled={!isEnabled || widgetConfig['widget-readonly']}
-            placeholder={placeholder}
-            min={inputMethod === 'picker' ? effectiveMinDate : undefined}
-            max={inputMethod === 'picker' ? effectiveMaxDate : undefined}
-            className={owtFieldInputClass({
-              error: showValidationError || showRequiredError,
-              disabled: !isEnabled || widgetConfig['widget-readonly'],
-              className: 'w-full sm:w-[180px] max-w-full h-[30px] px-3 owt-shadow-sm',
-            })}
-            style={{ borderRadius: '10px' }}
-            title={tSchema(t, widgetConfig['widget-data-tooltip'])}
-          />
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          {showPicker && (
+            <MultiCalendarDatePicker
+              value={typeof value === 'string' ? value : formatDateToISO(value)}
+              calendar={calendar}
+              locale={locale}
+              minDate={effectiveMinDate}
+              maxDate={effectiveMaxDate}
+              disabled={!isEnabled || widgetConfig['widget-readonly']}
+              placeholder={placeholder}
+              hasError={showValidationError || showRequiredError}
+              title={tSchema(t, widgetConfig['widget-data-tooltip'])}
+              onChange={handleMultiCalendarChange}
+              onBlur={onBlur}
+            />
+          )}
+          {showManual && !(useMultiCalendar && inputMethod === 'picker') && (
+            <input
+              type={inputType}
+              value={getDisplayValue()}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              onFocus={handleFocus}
+              disabled={!isEnabled || widgetConfig['widget-readonly']}
+              placeholder={placeholder}
+              min={
+                !useMultiCalendar && inputMethod === 'picker'
+                  ? effectiveMinDate
+                  : undefined
+              }
+              max={
+                !useMultiCalendar && inputMethod === 'picker'
+                  ? effectiveMaxDate
+                  : undefined
+              }
+              className={owtFieldInputClass({
+                error: showValidationError || showRequiredError,
+                disabled: !isEnabled || widgetConfig['widget-readonly'],
+                className: 'w-full sm:w-[180px] max-w-full h-[30px] px-3 owt-shadow-sm',
+              })}
+              style={{ borderRadius: '10px' }}
+              title={tSchema(t, widgetConfig['widget-data-tooltip'])}
+            />
+          )}
+          {useMultiCalendar && value ? (
+            <p className="text-xs text-gray-500 mt-0.5" title="Value saved to the registry">
+              (Gregorian): {typeof value === 'string' ? value.split('T')[0] : formatDateToISO(value)}
+            </p>
+          ) : null}
           {showValidationError && <p className="owt-field-error text-sm mt-1">{error[0]}</p>}
         </div>
       </div>

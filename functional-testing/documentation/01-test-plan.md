@@ -48,7 +48,7 @@ Extension under test: `reference-extension` only (platform-owned gate).
 | **0 — Workflow gate**        | Happy-path intake → register → CR (Individual + Household), API↔DB on critical fields                               | **Always** (local compose default + GitHub)                      |
 | **1 — Staff core endpoints** | Dedicated scenarios per core controller group (register-data, intake, CR, verifications, documents, metadata reads) | **GitHub PR**; local `FUNC_RUN_STAFF_TIER1=1`                    |
 | **2 — Staff secondary**      | Scores, completion, ingestion/outgestion, AWE, themes/languages, config writes, input mechanisms                    | **GitHub PR**; local `FUNC_RUN_STAFF_TIER2=1`                    |
-| **3 — Partner**              | `/partner/ingest_data`, `/dci/sync/search` (+ DB / async settle)                                                    | **GitHub PR**; local `FUNC_RUN_PARTNER_TIER3=1`                  |
+| **3 — Partner**              | `/partner/ingest_data`, `/dci/registry/sync/search` (+ DB / async settle)                                                    | **GitHub PR**; local `FUNC_RUN_PARTNER_TIER3=1`                  |
 
 
 GitHub PR compose gate is **T0–T3 + UI**. Local `run-compose-gate.sh` stays

@@ -151,8 +151,33 @@ export type BooleanControlType =
   | 'radio'
   | 'toggle';
 
+/** Temporal calendar id (gregory, ethiopic, islamic, nepali, …). */
+export type WidgetCalendar =
+  | 'iso8601'
+  | 'hebrew'
+  | 'islamic'
+  | 'islamic-umalqura'
+  | 'islamic-tbla'
+  | 'islamic-civil'
+  | 'islamic-rgsa'
+  | 'persian'
+  | 'ethiopic'
+  | 'ethioaa'
+  | 'coptic'
+  | 'chinese'
+  | 'dangi'
+  | 'roc'
+  | 'indian'
+  | 'buddhist'
+  | 'japanese'
+  | 'gregory'
+  | 'nepali'
+  | string;
+
 export interface WidgetFormat {
   dateFormat?: string;
+  /** Non-Gregorian calendar for picker/display. Stored value stays Gregorian ISO. */
+  calendar?: WidgetCalendar;
   currency?: string;
   locale?: string;
   decimals?: number;
@@ -309,6 +334,12 @@ export interface SectionConfig {
   'section-editable'?: boolean;
   /** When true in RegistryView, hides the "Edit Details" link for this section only. */
   'section-hide-edit-button'?: boolean;
+  /**
+   * Same show/hide rules as widget-data-options.
+   * `condition.field` is a widget-id in the shared form store.
+   * Sections with no rules stay visible.
+   */
+  'section-data-options'?: WidgetOptions;
   'section-column-span'?: number;
   'section-supporting-documents'?: SupportingDocumentConfig[];
   panels: PanelConfig[];

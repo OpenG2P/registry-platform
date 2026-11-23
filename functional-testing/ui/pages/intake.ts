@@ -102,7 +102,7 @@ export async function saveAllIntakeSectionsViaNext(page: Page) {
 }
 
 /**
- * Finalize draft intake: save Modified sections → Submit → confirm modal → Close.
+ * Finalize draft intake: save Modified sections → Submit → validate → confirm modal → Close.
  */
 export async function clickIntakeSubmit(page: Page) {
   await saveAllIntakeSectionsViaNext(page);
@@ -110,7 +110,22 @@ export async function clickIntakeSubmit(page: Page) {
   const formSubmit = page.getByRole("button", { name: /^submit$/i }).first();
   await expect(formSubmit).toBeVisible({ timeout: 30_000 });
   await expect(formSubmit).toBeEnabled({ timeout: 10_000 });
+
+  // Submit posts validate-intake-form-submission before opening the confirm modal.
+  // A failed validation returns early and never renders "Are you sure".
+  const validationResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/intake-form/validate-intake-form-submission") &&
+      response.request().method() === "POST",
+    { timeout: 60_000 }
+  );
   await formSubmit.click();
+  const validation = await validationResponse;
+  const validationBody = await validation.text();
+  expect(
+    validation.ok(),
+    `validate-intake-form-submission failed (${validation.status()}): ${validationBody.slice(0, 500)}`
+  ).toBeTruthy();
 
   // Warning ActionModal: "Are you sure ?" + confirm labeled Submit.
   const confirmModal = page.locator("div.fixed.inset-0").filter({ hasText: /are you sure/i });

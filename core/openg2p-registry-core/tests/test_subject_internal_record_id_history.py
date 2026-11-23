@@ -9,7 +9,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from sqlalchemy import Column, DateTime, String
+from sqlalchemy import Column, DateTime, Float, Numeric, String
 from sqlalchemy.orm import declarative_base
 
 _CORE_SRC = Path(__file__).resolve().parents[1] / "src" / "openg2p_registry_core"
@@ -51,6 +51,7 @@ def _load_history_service_module():
     models.G2PRegisterChangeRequest = object
     models.G2PRegisterChangeRequestPayload = object
     models.G2PRegisterDefinition = object
+    models.G2PRegisterSection = object
 
     class RegisterPurposeEnum:
         PROGRAM_REGISTER = SimpleNamespace(value="PROGRAM_REGISTER")
@@ -63,6 +64,8 @@ def _load_history_service_module():
     class ChangeActionEnum:
         NO_CHANGE = SimpleNamespace(value="NO_CHANGE")
         DELETE = SimpleNamespace(value="DELETE")
+        UPDATE = SimpleNamespace(value="UPDATE")
+        ADD = SimpleNamespace(value="ADD")
 
     change_request.ChangeActionEnum = ChangeActionEnum
     change_request.ChangePayload = dict
@@ -118,19 +121,210 @@ class HistoryRow(Base):
     created_by = Column(String)
     approved_at = Column(DateTime)
     approved_by = Column(String)
-
-
-class HistorySchema:
-    def __init__(self, **kwargs):
-        self._data = {k: v for k, v in kwargs.items() if k != "edit_action"}
-
-    def dict(self):
-        return dict(self._data)
+    record_status = Column(String, nullable=False, default="ACTIVE")
+    land_size = Column(Numeric)
+    soil_fertility = Column(String)
+    latitude = Column(Float)
+    address_line_1 = Column(String)
 
 
 @pytest.fixture(scope="module")
 def history_service_cls():
     return _load_history_service_module().G2PRegisterHistoryService
+
+
+def _service(history_service_cls):
+    service = object.__new__(history_service_cls)
+    service._convert_date_strings_to_objects = lambda data, _cls: data
+    return service
+
+
+def _change_request(**overrides):
+    values = dict(
+        register_id="reg-farmer",
+        section_register_id="reg-land",
+        internal_record_id="farmer-1",
+        tab_id="farmer_land_tab",
+        section_id="farmer_farm_details_section",
+        change_request_source="STAFF_PORTAL",
+        is_primary_section=False,
+        change_request_id="cr-1",
+        created_at="2026-01-01T00:00:00",
+        created_by="staff",
+        approved_at="2026-01-02T00:00:00",
+        approved_by="approver",
+    )
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
+_LIVE_LAND = {
+    "internal_record_id": "land-1",
+    "link_internal_record_id": "farmer-1",
+    "record_status": "ACTIVE",
+    "land_size": 3.5,
+    "soil_fertility": "MEDIUM",
+    "latitude": -13.79,
+    "address_line_1": "Plot 1",
+    "last_approved_at": "2025-12-01T00:00:00",
+}
+
+
+def test_history_row_copies_the_updated_live_record(history_service_cls):
+    service = _service(history_service_cls)
+    session = MagicMock()
+    live = dict(_LIVE_LAND)
+    live["land_size"] = 4.0
+
+    service._create_history_record(
+        change_payload={"edit_action": "UPDATE", "internal_record_id": "land-1"},
+        change_request=_change_request(),
+        history_class=HistoryRow,
+        session=session,
+        state=service._state_from_live_row(live, HistoryRow),
+        record_id="land-1",
+    )
+
+    row = session.add.call_args[0][0]
+    assert row.land_size == 4.0
+    assert row.soil_fertility == "MEDIUM"
+    assert row.latitude == -13.79
+    assert row.address_line_1 == "Plot 1"
+    assert row.change_request_id == "cr-1"
+
+
+def test_cleared_live_field_stays_cleared(history_service_cls):
+    service = _service(history_service_cls)
+    live = dict(_LIVE_LAND)
+    live["soil_fertility"] = None
+    state = service._state_from_live_row(live, HistoryRow)
+    assert state["soil_fertility"] is None
+    assert state["land_size"] == 3.5
+
+
+def test_delete_history_row_keeps_bookkeeping_only(history_service_cls):
+    service = _service(history_service_cls)
+    session = MagicMock()
+
+    service._create_history_record(
+        change_payload={"edit_action": "DELETE", "internal_record_id": "land-1", "land_size": "99"},
+        change_request=_change_request(),
+        history_class=HistoryRow,
+        session=session,
+        state={},
+        record_id="land-1",
+    )
+
+    row = session.add.call_args[0][0]
+    assert row.land_size is None
+    assert row.latitude is None
+    assert row.internal_record_id == "land-1"
+    assert row.change_request_id == "cr-1"
+
+
+@pytest.mark.asyncio
+async def test_list_section_snapshots_no_change_rows(history_service_cls):
+    service = _service(history_service_cls)
+    session = MagicMock()
+    change_request = _change_request()
+    payloads = [
+        {"edit_action": "ADD", "internal_record_id": "crop-new", "commodity": "teff"},
+        {"edit_action": "NO_CHANGE", "internal_record_id": "crop-old"},
+    ]
+    service._resolve_history_models = AsyncMock(return_value=(object, object, HistoryRow))
+    service._get_change_payloads = AsyncMock(return_value=payloads)
+    service._load_live_rows = AsyncMock(
+        return_value={
+            "crop-new": {**_LIVE_LAND, "internal_record_id": "crop-new", "land_size": 1},
+            "crop-old": {**_LIVE_LAND, "internal_record_id": "crop-old", "land_size": 2},
+        }
+    )
+    service._section_is_list = AsyncMock(return_value=True)
+
+    await service.insert_into_register_history(change_request, session)
+
+    written = [call.args[0].internal_record_id for call in session.add.call_args_list]
+    assert written == ["crop-new", "crop-old"]
+    assert session.add.call_args_list[1].args[0].land_size == 2
+
+
+@pytest.mark.asyncio
+async def test_form_section_skips_no_change_history_rows(history_service_cls):
+    service = _service(history_service_cls)
+    session = MagicMock()
+    payloads = [
+        {"edit_action": "UPDATE", "internal_record_id": "farmer-1"},
+        {"edit_action": "NO_CHANGE", "internal_record_id": "farmer-1"},
+    ]
+    service._resolve_history_models = AsyncMock(return_value=(object, object, HistoryRow))
+    service._get_change_payloads = AsyncMock(return_value=payloads)
+    service._load_live_rows = AsyncMock(
+        return_value={"farmer-1": {**_LIVE_LAND, "internal_record_id": "farmer-1"}}
+    )
+    service._section_is_list = AsyncMock(return_value=False)
+
+    await service.insert_into_register_history(_change_request(), session)
+
+    assert session.add.call_count == 1
+    assert session.add.call_args.args[0].internal_record_id == "farmer-1"
+
+
+def test_live_row_drops_null_for_not_null_columns(history_service_cls):
+    service = _service(history_service_cls)
+    state = service._state_from_live_row(
+        {"internal_record_id": "land-2", "record_status": None, "land_size": 12},
+        HistoryRow,
+    )
+    assert "record_status" not in state
+    assert state["land_size"] == 12.0
+
+
+def test_at_version_omits_blank_delete_row(history_service_cls):
+    service = _service(history_service_cls)
+    blank = HistoryRow(
+        history_record_id="h-del",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+        change_request_id="cr-del",
+    )
+    kept = HistoryRow(
+        history_record_id="h-upd",
+        internal_record_id="land-2",
+        record_status="ACTIVE",
+        land_size=4,
+        change_request_id="cr-upd",
+    )
+
+    records = service._records_from_rows([blank, kept])
+
+    assert [record["internal_record_id"] for record in records] == ["land-2"]
+    assert records[0]["land_size"] == 4
+
+
+def test_before_approval_skips_blank_delete_row(history_service_cls):
+    service = _service(history_service_cls)
+    blank = HistoryRow(
+        history_record_id="h-del",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+    )
+    earlier = HistoryRow(
+        history_record_id="h-upd",
+        internal_record_id="land-1",
+        record_status="ACTIVE",
+        land_size=3.5,
+    )
+
+    row = service._latest_row_with_domain_values([blank, earlier])
+
+    assert row.land_size == 3.5
+
+
+def test_master_section_payload_targets_subject_record(history_service_cls):
+    service = _service(history_service_cls)
+    master_cr = _change_request(section_register_id="reg-farmer")
+    assert service._payload_record_id(master_cr, {"internal_record_id": "other"}) == "farmer-1"
+    assert service._payload_record_id(_change_request(), {"internal_record_id": "land-1"}) == "land-1"
 
 
 def test_create_history_record_stamps_subject_from_change_request(history_service_cls):
@@ -139,6 +333,8 @@ def test_create_history_record_stamps_subject_from_change_request(history_servic
 
     session = MagicMock()
     change_request = SimpleNamespace(
+        register_id="reg-household",
+        section_register_id="reg-shock",
         internal_record_id="household-subject-1",
         tab_id="tab-1",
         section_id="section-shocks",
@@ -159,9 +355,10 @@ def test_create_history_record_stamps_subject_from_change_request(history_servic
     service._create_history_record(
         change_payload=change_payload,
         change_request=change_request,
-        history_schema_class=HistorySchema,
         history_class=HistoryRow,
         session=session,
+        state={},
+        record_id="shock-2",
     )
 
     assert session.add.called

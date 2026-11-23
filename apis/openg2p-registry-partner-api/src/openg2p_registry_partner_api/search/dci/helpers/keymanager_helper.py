@@ -1,7 +1,8 @@
 from typing import Any, Dict, Optional
 from openg2p_fastapi_common.service import BaseService
-from openg2p_registry_core.errors import G2PRegistryException, G2PRegistryErrorCodes
 from openg2p_fastapi_common.crypto import CryptoFactory
+from openg2p_registry_core.errors import G2PRegistryException, G2PRegistryErrorCodes
+from openg2p_registry_core.helpers.partner_management import partner_reference_id
 
 from ....config import Settings
 from ..schemas import (
@@ -11,17 +12,9 @@ from ..schemas import (
 
 _config = Settings.get_config()
 
-
-def partner_reference_id(sender_id: str) -> str:
-    """Map a DCI ``header.sender_id`` to the partner reference used to look up
-    keys — ``PARTNER_<SENDER_ID>`` (upper-cased, ``-`` -> ``_``).
-
-    This is the SAME convention as openg2p-fastapi-partner-auth's
-    ``JWTValidationHelper.get_partner_id_from_payload`` and g2p-bridge, so a
-    partner's key is looked up identically across the platform (Partner
-    Management, Consent Manager, Registry).
-    """
-    return f"PARTNER_{(sender_id or '').replace('-', '_').upper()}"
+# partner_reference_id (DCI header.sender_id -> PARTNER_<SENDER_ID>) now lives in
+# openg2p_registry_core.helpers.partner_management; re-exported here.
+__all__ = ["DciKeymanagerHelper", "partner_reference_id"]
 
 
 class DciKeymanagerHelper(BaseService):

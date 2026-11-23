@@ -17,6 +17,7 @@ from openg2p_registry_core.models import (
 from ..app import celery_app
 from ..config import Settings
 from ..engine import Engine
+from ..control import task_enabled
 
 _config = Settings.get_config()
 _logger = logging.getLogger(_config.logging_default_logger_name)
@@ -25,6 +26,9 @@ _engine = Engine.get_engine()
 
 @celery_app.task(name="deduplication_intake_forms_vs_register_worker", bind=True, max_retries=3)
 def deduplication_intake_forms_vs_register_worker(self, submission_id: str):
+    if not task_enabled():
+        _logger.info("%s is disabled", "deduplication_intake_forms_vs_register_worker")
+        return
     session_maker = sessionmaker(bind=_engine, expire_on_commit=False)
 
     with session_maker() as session:
@@ -57,11 +61,17 @@ def deduplication_intake_forms_vs_register_worker(self, submission_id: str):
                 f"{[s.section_mnemonic for s in sections]}"
             )
 
-            # Keep only sections whose section_register has purpose == REGISTER
+            # Keep only sections whose section_register has purpose == REGISTER.
+            # Several sections share one section register and the same intake table.
+            # Score that table once so the same farmer match is not written again.
             register_sections = []
+            seen_section_registers = set()
             for section in sections:
                 sec_reg_def = session.get(G2PRegisterDefinition, section.section_register_id)
                 if sec_reg_def and sec_reg_def.register_purpose == RegisterPurposeEnum.REGISTER.value:
+                    if section.section_register_id in seen_section_registers:
+                        continue
+                    seen_section_registers.add(section.section_register_id)
                     register_sections.append((section, sec_reg_def))
                 else:
                     _logger.info(

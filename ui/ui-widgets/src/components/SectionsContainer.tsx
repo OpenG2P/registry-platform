@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { useStore, useDispatch } from 'react-redux';
+import { useStore, useDispatch, useSelector } from 'react-redux';
 import { SectionConfig, DataSourceRequestHandler } from '../types';
 import { UseBaseWidgetOptions } from '../hooks/useBaseWidget';
 import { SectionRenderer, SectionChanges } from './SectionRenderer';
 import { useWidgetContext } from './WidgetProvider';
 import { sectionValidate } from '../utils/sectionValidate';
 import { buildSectionChanges } from './SectionRenderer/utils/sectionSnapshot';
+import { shouldShowWidget } from '../utils/conditions';
+import { WidgetRootState } from '../store';
 
 export type SectionMode = 'RegistryView' | 'CRView' | 'IntakeForm';
 
@@ -63,7 +65,24 @@ export const SectionsContainer = ({
     setEditingSectionId(editing ? sectionId : null);
   }, []);
   const safeSections = sections ?? [];
-  const prevSectionsLengthRef = useRef(safeSections.length);
+  const widgetValues = useSelector((state: WidgetRootState) => state.widget.values);
+  const applySectionVisibility = mode === 'IntakeForm' && isDraft !== false;
+  const visibleSectionKey = (applySectionVisibility
+    ? safeSections.filter((section) => shouldShowWidget(section['section-data-options'], widgetValues))
+    : safeSections
+  ).map((section) => section['section-id']).join('\0');
+  const visibleSections = useMemo(
+    () => {
+      if (!applySectionVisibility) return safeSections;
+      return safeSections.filter((section) => shouldShowWidget(section['section-data-options'], widgetValues));
+    },
+    // Membership is fully described by visibleSectionKey. Reading widgetValues here would rebuild the list on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [safeSections, visibleSectionKey, applySectionVisibility],
+  );
+  const visibleSectionsRef = useRef(visibleSections);
+  visibleSectionsRef.current = visibleSections;
+  const prevSectionsLengthRef = useRef(visibleSections.length);
 
   const modeRef = useRef(mode);
   modeRef.current = mode;
@@ -81,12 +100,12 @@ export const SectionsContainer = ({
 
   const handleSectionSaveSuccess = useCallback((index: number) => {
     setMaxVisitedIndex(prev => Math.max(prev, index));
-    if (index + 1 < safeSections.length) {
+    if (index + 1 < visibleSectionsRef.current.length) {
       setExpandedSectionIndex(index + 1);
     } else {
       setExpandedSectionIndex(null);
     }
-  }, [safeSections.length]);
+  }, []);
 
   const handlePreviousSection = useCallback((index: number) => {
     if (index > 0) {
@@ -96,7 +115,7 @@ export const SectionsContainer = ({
 
   useEffect(() => {
     if (mode !== 'IntakeForm') return;
-    const currentLength = safeSections.length;
+    const currentLength = visibleSections.length;
     const prevLength = prevSectionsLengthRef.current;
 
     if (currentLength > 0 && expandedSectionIndex !== null && expandedSectionIndex >= currentLength) {
@@ -107,7 +126,7 @@ export const SectionsContainer = ({
     }
 
     prevSectionsLengthRef.current = currentLength;
-  }, [mode, safeSections.length, expandedSectionIndex]);
+  }, [mode, visibleSections.length, expandedSectionIndex]);
 
   const UNSAVED_CHANGES_ERROR = 'Unsaved changes detected. Please save all sections before submitting.';
 
@@ -128,8 +147,9 @@ export const SectionsContainer = ({
         const values = getValues() as Record<string, unknown>;
         let allValid = true;
         let firstInvalidIndex: number | null = null;
-        for (let i = 0; i < safeSections.length; i++) {
-          const section = safeSections[i];
+        const sectionsToValidate = visibleSectionsRef.current;
+        for (let i = 0; i < sectionsToValidate.length; i++) {
+          const section = sectionsToValidate[i];
           const valid = sectionValidate(
             section,
             values,
@@ -154,8 +174,9 @@ export const SectionsContainer = ({
         const values = getValues() as Record<string, unknown>;
         const results: SectionChanges[] = [];
         let firstInvalidIndex: number | null = null;
-        for (let i = 0; i < safeSections.length; i++) {
-          const section = safeSections[i];
+        const sectionsToValidate = visibleSectionsRef.current;
+        for (let i = 0; i < sectionsToValidate.length; i++) {
+          const section = sectionsToValidate[i];
           const valid = sectionValidate(
             section,
             values,
@@ -183,8 +204,9 @@ export const SectionsContainer = ({
         const includeSupportingDocuments = modeRef.current !== 'IntakeForm';
         const values = getValues() as Record<string, unknown>;
         const results: SectionChanges[] = [];
-        for (let i = 0; i < safeSections.length; i++) {
-          const section = safeSections[i];
+        const sectionsToRead = visibleSectionsRef.current;
+        for (let i = 0; i < sectionsToRead.length; i++) {
+          const section = sectionsToRead[i];
           results.push(
             buildSectionChanges(section, values, { includeSupportingDocuments }),
           );
@@ -193,13 +215,13 @@ export const SectionsContainer = ({
       },
       hasUnsavedChanges: () => Object.values(sectionDirtyMapRef.current).some(Boolean),
     };
-  }, [store, dispatch, safeSections]);
+  }, [store, dispatch]);
 
   useEffect(() => {
-    if (onFormReady && safeSections.length > 0) {
+    if (onFormReady && visibleSections.length > 0) {
       onFormReady(formHandle);
     }
-  }, [onFormReady, formHandle, safeSections.length]);
+  }, [onFormReady, formHandle, visibleSections.length]);
 
   useEffect(() => {
     if (!dataSourceRequestHandler) {
@@ -212,7 +234,7 @@ export const SectionsContainer = ({
   }, [dataSourceRequestHandler]);
 
   const maxVerticalPanels = Math.max(
-    ...safeSections.map(section => {
+    ...visibleSections.map(section => {
       const panelCount = countVerticalPanels(section.panels);
       const tableWidgetSpan = getTableWidgetColumnSpan(section.panels);
       return tableWidgetSpan !== null
@@ -267,14 +289,14 @@ export const SectionsContainer = ({
         id={containerId}
         className={`sections-container ${className}${mode === 'IntakeForm' ? ' sections-container-intake-form' : ''}`}
       >
-        {safeSections.map((section, index) => {
+        {visibleSections.map((section, index) => {
           const hideEditForSection =
             hideEditButton || section['section-hide-edit-button'] === true;
 
           const intakeFormProps = mode === 'IntakeForm'
             ? {
               sectionIndex: index,
-              sectionCount: safeSections.length,
+              sectionCount: visibleSections.length,
               expandedSectionIndex,
               onExpandSection: handleExpandSection,
               onSectionSaveSuccess: handleSectionSaveSuccess,

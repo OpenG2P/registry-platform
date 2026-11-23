@@ -4,6 +4,8 @@
   "widget-id": "linked_record",
   "widget-label": "Linked Record",
   "widget-data-path": "source-register-id.link_internal_record_id",
+
+  // --- Single-source form (one tab, no tab bar rendered) ---
   "widget-data-source": {
     "type": "api",
     "method": "POST",
@@ -13,6 +15,25 @@
       "register_id": "<target_register_id>"
     }
   },
+
+  // --- Multi-source form (one tab per entry; tab bar rendered) ---
+  // "widget-data-source": [
+  //   {
+  //     "type": "api",
+  //     "method": "POST",
+  //     "service": "register",
+  //     "endpoint": "records",
+  //     "params": { "register_id": "<target_register_id>" }
+  //   },
+  //   {
+  //     "type": "api",
+  //     "method": "POST",
+  //     "service": "intake-form",
+  //     "endpoint": "get-inflight-register-parents",
+  //     "params": { "register_id": "<target_register_id>" }
+  //   }
+  // ],
+
   "widget-lookup-config": {
     "page_size": 10,
     "action_label": "Click to Search Record",
@@ -24,8 +45,4 @@
   // "widget-required": true,
   // "widget-readonly": false,
 
-  // --- Notes ---
-  // Searches another register for a record and stores the selected record id.
-  // Replace "<target_register_id>" with the register being linked to, and use
-  // "source-register-id" for the current record's store namespace.
 }

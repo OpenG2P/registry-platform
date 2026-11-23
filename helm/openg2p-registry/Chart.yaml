@@ -65,7 +65,7 @@ dependencies:
     repository: https://openg2p.github.io/openg2p-helm
     condition: keycloak-init.enabled
   - name: registry-connector
-    version: 0.0.0-develop.9
+    version: 1.0.0
     repository: https://openg2p.github.io/openg2p-helm
     condition: registryConnector.enabled
     alias: registryConnector
