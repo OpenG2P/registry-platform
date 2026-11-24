@@ -5,6 +5,7 @@ import { WidgetRootState } from '../store';
 import { setValue, setValues, setError, setTouched, setLoading, setDataSource } from '../store/widgetSlice';
 import { getWidgetValue, setWidgetValue } from '../utils/pathUtils';
 import { validateWidget } from '../utils/validation';
+import { getDateWidgetConstraintError } from '../utils/dateInput';
 import { shouldShowWidget, shouldEnableWidget, evaluateWidgetConditions, hasVisibilityRules } from '../utils/conditions';
 import { formatValue } from '../utils/formatting';
 import {
@@ -178,6 +179,15 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     [config, isLayoutWidget],
   );
 
+  const withDateConstraintError = useCallback(
+    (validationErrors: string[], dateValue: any, currentValues: Record<string, any>): string[] => {
+      if (validationErrors.length > 0) return validationErrors;
+      const constraintError = getDateWidgetConstraintError(config, dateValue, currentValues, context.t);
+      return constraintError ? [constraintError] : validationErrors;
+    },
+    [config, context.t],
+  );
+
   // CRITICAL: Don't include 'values' in dependency array - it causes the callback to be recreated
   const handleChange = useCallback(
     (newValue: any, validate: boolean = true) => {
@@ -234,10 +244,14 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
       }
 
       if (validate) {
-        const validationErrors = validateWidget(
+        const validationErrors = withDateConstraintError(
+          validateWidget(
+            newValue,
+            config['widget-data-validation'],
+            resolveIsRequired(currentValues)
+          ),
           newValue,
-          config['widget-data-validation'],
-          resolveIsRequired(currentValues)
+          currentValues
         );
         dispatch(setError({ widgetId, errors: validationErrors }));
       }
@@ -255,16 +269,20 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         });
       }
     },
-    [config, widgetId, dispatch, onValueChange, eventBus, resolveIsRequired]
+    [config, widgetId, dispatch, onValueChange, eventBus, resolveIsRequired, withDateConstraintError]
   );
 
   const handleBlur = useCallback(() => {
     dispatch(setTouched({ widgetId, touched: true }));
     const latestValues = valuesRef.current;
-    const validationErrors = validateWidget(
+    const validationErrors = withDateConstraintError(
+      validateWidget(
+        currentValue,
+        config['widget-data-validation'],
+        resolveIsRequired(latestValues)
+      ),
       currentValue,
-      config['widget-data-validation'],
-      resolveIsRequired(latestValues)
+      latestValues
     );
     dispatch(setError({ widgetId, errors: validationErrors }));
 
@@ -276,7 +294,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
         timestamp: Date.now(),
       });
     }
-  }, [currentValue, config, widgetId, dispatch, eventBus, resolveIsRequired]);
+  }, [currentValue, config, widgetId, dispatch, eventBus, resolveIsRequired, withDateConstraintError]);
 
   const getFieldValue = useCallback(
     (path: string) => {
@@ -315,6 +333,11 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
   }, [currentValue, config]);
 
   const isReadonly = config['widget-readonly'] ?? false;
+
+  const setWidgetErrors = useCallback(
+    (nextErrors: string[]) => dispatch(setError({ widgetId, errors: nextErrors })),
+    [dispatch, widgetId]
+  );
 
   useEffect(() => {
     if (config['widget-readonly']) {
@@ -476,7 +499,7 @@ export const useBaseWidget = (options: UseBaseWidgetOptions) => {
     isRequired,
     onChange: handleChange,
     onBlur: handleBlur,
-    setError: (errors: string[]) => dispatch(setError({ widgetId, errors })),
+    setError: setWidgetErrors,
     getFieldValue,
     dataSourceOptions,
     config,

@@ -1,5 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useSelector } from 'react-redux';
+import { WidgetRootState } from '../../../store';
+import { collectWidgets } from '../../../utils/sectionValidate';
+import { shouldShowWidget, shouldEnableWidget } from '../../../utils/conditions';
 import type { CSSProperties } from 'react';
 import { SectionConfig, SupportingDocumentConfig } from '../../../types';
 import { UseBaseWidgetOptions } from '../../../hooks/useBaseWidget';
@@ -52,6 +56,21 @@ export const EditSectionPortal = ({
 }: EditSectionPortalProps) => {
   const { t } = useWidgetContext();
   const [isDocumentsExpanded, setIsDocumentsExpanded] = useState(true);
+  const sectionWidgets = useMemo(
+    () => collectWidgets(editableSection.panels),
+    [editableSection.panels]
+  );
+  const hasErrors = useSelector((state: WidgetRootState) => {
+    const { errors, values } = state.widget;
+    return sectionWidgets.some((widget) => {
+      const widgetId = widget['widget-id'];
+      if (!widgetId || !errors[widgetId]?.length) return false;
+      return (
+        shouldShowWidget(widget['widget-data-options'], values) &&
+        shouldEnableWidget(widget['widget-data-options'], values)
+      );
+    });
+  });
 
   if (mode === 'IntakeForm' || !isEditMode || !editSectionPosition) return null;
 
@@ -181,6 +200,7 @@ export const EditSectionPortal = ({
             onCancel={onCancel}
             onSave={onSave}
             isDirty={isDirty}
+            hasErrors={hasErrors}
           />
         </div>
       </div>

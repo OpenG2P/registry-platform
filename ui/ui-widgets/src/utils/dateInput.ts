@@ -1,3 +1,5 @@
+import { getValueByPath } from './pathUtils';
+
 export const parseDate = (dateString: string): Date | null => {
   if (!dateString) return null;
 
@@ -201,6 +203,8 @@ export const getMaxDate = (
 export interface DateConstraintMessages {
   minDateMessage?: string;
   maxDateMessage?: string;
+  pastOnlyMessage?: string;
+  futureOnlyMessage?: string;
 }
 
 export const validateDateConstraints = (
@@ -220,11 +224,11 @@ export const validateDateConstraints = (
 
   if (constraint === 'past-only') {
     if (dateISO > todayISO) {
-      return 'Date must be in the past';
+      return messages?.pastOnlyMessage ?? 'Date must be in the past';
     }
   } else if (constraint === 'future-only') {
     if (dateISO < todayISO) {
-      return 'Date must be in the future';
+      return messages?.futureOnlyMessage ?? 'Date must be in the future';
     }
   }
 
@@ -237,4 +241,55 @@ export const validateDateConstraints = (
   }
 
   return null;
+};
+
+interface DateWidgetConstraintConfig {
+  widget?: string;
+  'widget-data-format'?: { dateConstraint?: string } | null;
+  'widget-data-options'?: Record<string, unknown> | null;
+}
+
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
+/** Min/max and past/future rule check for a `date` widget, using live form values for field bounds. */
+export const getDateWidgetConstraintError = (
+  config: DateWidgetConstraintConfig,
+  value: unknown,
+  formValues: Record<string, unknown>,
+  t?: TranslateFn
+): string | null => {
+  if (config.widget !== 'date' || value == null || value === '') {
+    return null;
+  }
+  const options = config['widget-data-options'] ?? {};
+  const constraint = config['widget-data-format']?.dateConstraint || 'any';
+  const fieldBound = (path: unknown) =>
+    typeof path === 'string'
+      ? resolveDateBoundFromFieldValue(getValueByPath(formValues, path))
+      : undefined;
+  const message = (raw: unknown) =>
+    typeof raw === 'string' && raw ? (t?.(raw, { defaultValue: raw }) ?? raw) : undefined;
+
+  return validateDateConstraints(
+    value as Date | string,
+    mergeMinDateBounds(
+      getMinDate(constraint, options.minDate as string | undefined),
+      fieldBound(options.minDateField)
+    ),
+    mergeMaxDateBounds(
+      getMaxDate(constraint, options.maxDate as string | undefined),
+      fieldBound(options.maxDateField)
+    ),
+    constraint,
+    {
+      minDateMessage: message(options.minDateMessage),
+      maxDateMessage: message(options.maxDateMessage),
+      pastOnlyMessage: t?.('common.dateMustBeInPast', {
+        defaultValue: 'Date must be in the past',
+      }),
+      futureOnlyMessage: t?.('common.dateMustBeInFuture', {
+        defaultValue: 'Date must be in the future',
+      }),
+    }
+  );
 };
