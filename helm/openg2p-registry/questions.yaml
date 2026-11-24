@@ -201,7 +201,7 @@ questions:
   group: DB Seed
 
 - variable: dbSeed.loadSampleData
-  description: Also load sample/demo data into the registry (the variant's sample records and their supporting tables). Off by default.
+  description: "Load the registry's demo content: its sample records (e.g. farmers, agents) and their supporting tables, the demo staff users (alex.carter, nina.patel, ...) and the sample approval policies that name them. Off by default; keep it off in production, where the approval policies are set up in AWE and staff are created in Keycloak."
   type: boolean
   label: Load Sample Data
   group: DB Seed
@@ -266,7 +266,7 @@ questions:
   show_if: global.aweEnabled=true
 
 - variable: global.aweApproverUserPassword
-  description: "Initial Keycloak password of the approver users db-seed creates for the approval policies."
+  description: "Initial password of the demo staff users (alex.carter, nina.patel, ...), which db-seed creates with Load Sample Data, together with the sample approval policies that name them. Changed at first login."
   type: string
   label: AWE Approver User Password
   group: AWE

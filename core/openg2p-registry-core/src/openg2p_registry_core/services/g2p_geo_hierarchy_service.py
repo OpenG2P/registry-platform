@@ -164,9 +164,17 @@ class G2PGeoHierarchyService(BaseService):
                 loop = asyncio.get_running_loop()
                 # If we're already in an async context, we can't use run_until_complete
                 # Create a new thread to run the coroutine
+                # The thread runs in a copy of this context: the service's
+                # settings are registered in a context variable, and a bare
+                # thread would see none (Master Data would then be called
+                # with core's settings, without a token).
                 import concurrent.futures
+                import contextvars
+                context = contextvars.copy_context()
                 with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, self.get_geo_hierarchy(level_value_id))
+                    future = executor.submit(
+                        context.run, asyncio.run, self.get_geo_hierarchy(level_value_id)
+                    )
                     return future.result(timeout=30)
             except RuntimeError:
                 # No running loop, we can create one

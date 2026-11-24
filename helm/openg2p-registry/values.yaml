@@ -439,6 +439,83 @@ dbSeed:
   enabled: true
   # Load sample/demo data into the registry (disabled by default)
   loadSampleData: false
+  # Demo staff users, created in the staff realm by db-seed only with
+  # loadSampleData (the sample approval policies name alex.carter and
+  # nina.patel). Each gets the release's staff client roles listed, and the
+  # initial password global.aweApproverUserPassword, to be changed at first
+  # login. Users that exist already are left as they are; their roles are
+  # added. In production, staff are created in Keycloak by the country.
+  sampleStaffUsers:
+    - username: alex.carter
+      firstName: Alex
+      lastName: Carter
+      email: alex.carter@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: maya.reed
+      firstName: Maya
+      lastName: Reed
+      email: maya.reed@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: nina.patel
+      firstName: Nina
+      lastName: Patel
+      email: nina.patel@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: omar.sheikh
+      firstName: Omar
+      lastName: Sheikh
+      email: omar.sheikh@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: zara.khan
+      firstName: Zara
+      lastName: Khan
+      email: zara.khan@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: chipo.banda
+      firstName: Chipo
+      lastName: Banda
+      email: chipo.banda@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: tendai.moyo
+      firstName: Tendai
+      lastName: Moyo
+      email: tendai.moyo@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: hana.bekele
+      firstName: Hana
+      lastName: Bekele
+      email: hana.bekele@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: tesfaye.mekonnen
+      firstName: Tesfaye
+      lastName: Mekonnen
+      email: tesfaye.mekonnen@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
+    - username: mwansa.tembo
+      firstName: Mwansa
+      lastName: Tembo
+      email: mwansa.tembo@email.com
+      clientRoles:
+        - "Operations Administrator"
+        - "Technical Administrator"
   intakeSeed:
     submitUser: alex.carter
     approver1: alex.carter
@@ -2471,106 +2548,8 @@ keycloak-init:
             '{{ .Release.Name }}-staff-portal':
               - "Operations Administrator"
               - "Technical Administrator"
-        - username: alex.carter
-          firstName: Alex
-          lastName: Carter
-          email: alex.carter@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: maya.reed
-          firstName: Maya
-          lastName: Reed
-          email: maya.reed@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: nina.patel
-          firstName: Nina
-          lastName: Patel
-          email: nina.patel@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: omar.sheikh
-          firstName: Omar
-          lastName: Sheikh
-          email: omar.sheikh@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: zara.khan
-          firstName: Zara
-          lastName: Khan
-          email: zara.khan@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: chipo.banda
-          firstName: Chipo
-          lastName: Banda
-          email: chipo.banda@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: tendai.moyo
-          firstName: Tendai
-          lastName: Moyo
-          email: tendai.moyo@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: hana.bekele
-          firstName: Hana
-          lastName: Bekele
-          email: hana.bekele@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: tesfaye.mekonnen
-          firstName: Tesfaye
-          lastName: Mekonnen
-          email: tesfaye.mekonnen@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
-        - username: mwansa.tembo
-          firstName: Mwansa
-          lastName: Tembo
-          email: mwansa.tembo@email.com
-          password: '{{ .Values.global.aweApproverUserPassword }}'
-          enabled: true
-          clientRoleMappings:
-            '{{ .Release.Name }}-staff-portal':
-              - "Operations Administrator"
-              - "Technical Administrator"
+        # The demo staff users (alex.carter, nina.patel, ...) are sample data:
+        # db-seed creates them with Load Sample Data (dbSeed.sampleStaffUsers).
 
 idgenerator:
   enabled: true

@@ -71,7 +71,11 @@ def policy_key_for_register(cfg) -> str:
 def stages(cfg, policy_key):
     rows = db.query(cfg.awe_dsn, _STAGES_FOR_POLICY, (policy_key,))
     if not rows:
-        raise RuntimeError(f"policy '{policy_key}' has no active stages")
+        raise RuntimeError(
+            f"policy '{policy_key}' has no active stages: the shipped approval "
+            f"policies are loaded only with Load Sample Data "
+            f"(dbSeed.loadSampleData), which the full e2e needs"
+        )
     return rows
 
 

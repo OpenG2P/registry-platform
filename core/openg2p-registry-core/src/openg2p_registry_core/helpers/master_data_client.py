@@ -740,10 +740,27 @@ _client: Optional[MasterDataClient] = None
 _client_lock = threading.Lock()
 
 
+_service_settings: Any = None
+
+
 def _settings():
+    """The running service's settings (staff API, partner API, celery, ...).
+
+    They hold the Master Data URL, token URL and client credentials under the
+    service's own prefix (e.g. ``REGISTRY_STAFF_PORTAL_API_MASTER_DATA_*``).
+    fastapi-common registers settings in a context variable, which a context
+    that does not inherit it (a new thread) cannot see: there the lookup gives
+    core's own settings, which have no credentials. So the service's settings,
+    once seen, are kept and used there instead.
+    """
     from ..config import Settings
 
-    return Settings.get_config(strict=False)
+    global _service_settings
+    settings = Settings.get_config(strict=False)
+    if type(settings) is not Settings:
+        _service_settings = settings
+        return settings
+    return _service_settings if _service_settings is not None else settings
 
 
 def master_data_read_mode(config: Any = None) -> str:

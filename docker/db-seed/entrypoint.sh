@@ -130,6 +130,10 @@ done
 # HOOK and the ordering, not the loader. A base install has no sample data at all
 # (loadSampleData=false, no seed-data), which is deliberate.
 if [ "$LOAD_SAMPLE_DATA" = "true" ]; then
+  # The demo staff users first: the sample approval policies and the sample
+  # intake flow name them. Sample data only; a production install has none.
+  echo "[db-seed] Creating the demo staff users ..."
+  python3 /seed/create_sample_staff_users.py
   if [ -f /seed/load_sample_data.py ]; then
     echo "[db-seed] Loading sample data ..."
     python3 /seed/load_sample_data.py
@@ -164,7 +168,14 @@ fi
 #    without its template cannot be rendered. An image without templates skips.
 python3 /seed/upload_templates.py
 
-# 5. Optionally seed AWE database (policies, stages, callback_secret)
+# 5. AWE database (when AWE is on).
+#    - The callback secret, always: AWE needs it to call this release back.
+#    - The approval policies (awe_meta_data/*.sql: policies, stages, approver
+#      rules), only with sample data: they name the demo approvers. In
+#      production the policies are set up in AWE's admin portal, under the
+#      policy keys the registry's awe-integration meta-data binds its forms and
+#      change requests to; until then a submission is refused with AWE's
+#      "No active policy" error. Existing policies are never changed.
 if [ "$AWE_DB_SEED_ENABLED" = "true" ]; then
   if [ -z "$AWE_PGDATABASE" ] || [ -z "$AWE_PGHOST" ]; then
     echo "[db-seed] AWE_DB_SEED_ENABLED but AWE DB env incomplete — skipping AWE seed."
@@ -172,8 +183,13 @@ if [ "$AWE_DB_SEED_ENABLED" = "true" ]; then
     echo "---------------------------------------------"
     echo " AWE DB : ${AWE_PGDATABASE}@${AWE_PGHOST}:${AWE_PGPORT:-5432}"
     echo "---------------------------------------------"
-    run_sql_files "$AWE_META_DATA_DIR" "AWE meta_data" \
-      "$AWE_PGHOST" "${AWE_PGPORT:-5432}" "$AWE_PGDATABASE" "$AWE_PGUSER" "$AWE_PGPASSWORD"
+    if [ "$LOAD_SAMPLE_DATA" = "true" ]; then
+      run_sql_files "$AWE_META_DATA_DIR" "AWE sample approval policies" \
+        "$AWE_PGHOST" "${AWE_PGPORT:-5432}" "$AWE_PGDATABASE" "$AWE_PGUSER" "$AWE_PGPASSWORD"
+    else
+      echo "[db-seed] Skipping the sample approval policies (LOAD_SAMPLE_DATA=${LOAD_SAMPLE_DATA}):" \
+           "set the policies up in AWE's admin portal."
+    fi
     run_callback_secret
   fi
 fi

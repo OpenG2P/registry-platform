@@ -223,6 +223,19 @@ class G2PRegisterChangeRequestService(BaseService):
                 else []
             )
             await session.flush()
+            # The approval is started in AWE before the change request is
+            # committed, as for an intake submission. If AWE refuses it (no
+            # active policy for the policy key, AWE unreachable), nothing is
+            # saved and the caller gets AWE's error, rather than a change
+            # request that no approver will ever see.
+            await G2PAweIntegrationService.get_component().start_change_request_workflow(
+                session,
+                g2p_register_change_request,
+                serialized_payloads,
+                bearer_token=bearer_token,
+                requester=requester_sub or created_by,
+                skip_awe_when_token_missing=skip_awe_when_token_missing,
+            )
             await session.commit()
             await session.refresh(g2p_register_change_request)
             await NotificationHelper.dispatch_change_request_notification(
@@ -230,24 +243,6 @@ class G2PRegisterChangeRequestService(BaseService):
                 NotificationWorkflow.CHANGE_REQUEST_CREATED,
                 session,
             )
-
-            try:
-                await G2PAweIntegrationService.get_component().start_change_request_workflow(
-                    session,
-                    g2p_register_change_request,
-                    serialized_payloads,
-                    bearer_token=bearer_token,
-                    requester=requester_sub or created_by,
-                    skip_awe_when_token_missing=skip_awe_when_token_missing,
-                )
-                await session.commit()
-                await session.refresh(g2p_register_change_request)
-            except Exception:
-                _logger.exception(
-                    "AWE workflow failed after change request commit change_request_id=%s",
-                    g2p_register_change_request.change_request_id,
-                )
-                await session.rollback()
 
             return g2p_register_change_request
 

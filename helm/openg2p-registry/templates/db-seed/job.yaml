@@ -218,6 +218,13 @@ spec:
               value: "false"
             - name: KEYCLOAK_REALM
               value: {{ tpl .Values.global.keycloakRealm $ | quote }}
+            # Demo staff users (create_sample_staff_users.py), sample data only.
+            - name: SAMPLE_STAFF_USERS
+              value: {{ .Values.dbSeed.sampleStaffUsers | default list | toJson | quote }}
+            - name: SAMPLE_STAFF_PASSWORD
+              value: {{ .Values.global.aweApproverUserPassword | quote }}
+            - name: SAMPLE_STAFF_CLIENT_ID
+              value: {{ tpl .Values.global.authClientId $ | quote }}
             {{- if index .Values "keycloak-init" }}
             - name: KEYCLOAK_BASE_URL
               value: {{ tpl (index .Values "keycloak-init" "keycloak" "url") $ | quote }}

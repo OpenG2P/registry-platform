@@ -79,10 +79,12 @@ COPY reference-extension/src/openg2p_registry_reference_extension/templates/    
 # if the flag is turned on without a variant loader present.
 COPY docker/db-seed/entrypoint.sh /seed/entrypoint.sh
 COPY docker/db-seed/upload_templates.py /seed/upload_templates.py
+COPY docker/db-seed/create_sample_staff_users.py /seed/create_sample_staff_users.py
 COPY docker/db-seed/mds_client.py /seed/mds_client.py
 COPY docker/db-seed/generate_reporting_views.py /seed/generate_reporting_views.py
 RUN chmod +x /seed/entrypoint.sh \
              /seed/upload_templates.py \
+             /seed/create_sample_staff_users.py \
              /seed/mds_client.py
 
 ENTRYPOINT ["/seed/entrypoint.sh"]
