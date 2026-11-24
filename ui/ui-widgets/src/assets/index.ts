@@ -17,7 +17,7 @@ import maximizeIcon from './maximize_icon.png';
 import minimizeIcon from './minimize_icon.png';
 import attachmentIcon from './attached_doc.png';
 import remove from './remove.png';
-
+import calendarIcon from './calendar.png';
 export {
     dummyProfile,
     fileIcon,
@@ -38,4 +38,5 @@ export {
     closeIcon,
     remove,
     attachmentIcon,
+    calendarIcon,
 };

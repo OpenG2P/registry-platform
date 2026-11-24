@@ -8,6 +8,7 @@ import {
 import { shouldShowWidget, shouldEnableWidget, shouldRequireWidget } from './conditions';
 import { getValueByPath, getWidgetValue } from './pathUtils';
 import { validateWidget } from './validation';
+import { getDateWidgetConstraintError } from './dateInput';
 import { isTableLikeWidget } from './extractTableRecordsFromSnapshot';
 
 const validateTableLikeWidget = (
@@ -159,12 +160,16 @@ export const sectionValidate = (
       widget['widget-required'] ?? false,
     );
 
-    const errors = validateWidget(
+    let errors = validateWidget(
       value,
       widget['widget-data-validation'],
       isRequired,
       skipRequired,
     );
+    if (errors.length === 0) {
+      const dateError = getDateWidgetConstraintError(widget, value, currentSchemaData);
+      if (dateError) errors = [dateError];
+    }
 
     if (errors.length > 0) {
       isValid = false;
