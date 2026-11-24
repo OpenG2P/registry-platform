@@ -8,11 +8,11 @@ set -e
 #   PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD
 #   LOAD_SAMPLE_DATA — "true" to load sample data from openg2p-data (default: "false")
 #   LOAD_IMAGES      — "true" to upload sample profile images to the object store, if the registry ships any (default: "false")
-#   LOAD_TEMPLATES   — "true" to upload templates to MinIO (default: "false")
 #   OPENG2P_DATA_DIR — cloned shared seed data (default: /openg2p-data)
 #   MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY — MinIO connection
 #   MINIO_SECURE     — "true" for HTTPS (default: "false")
-#   TEMPLATE_BUCKET_NAME, TEMPLATES_DIR — default bucket "templates" (DocumentBucket.TEMPLATES)
+#   TEMPLATE_BUCKET_NAME, TEMPLATES_DIR — default bucket "templates" (DocumentBucket.TEMPLATES).
+#     The image's templates are always uploaded; an image without any skips it.
 #   IMAGE_BUCKET_NAME, IMAGES_DIR — default bucket "documents" (DocumentBucket.DOCUMENTS)
 #
 # Master Data (read only, through its API — never its database; seeding never
@@ -30,7 +30,6 @@ set -e
 PGPORT="${PGPORT:-5432}"
 LOAD_SAMPLE_DATA="${LOAD_SAMPLE_DATA:-false}"
 LOAD_IMAGES="${LOAD_IMAGES:-false}"
-LOAD_TEMPLATES="${LOAD_TEMPLATES:-false}"
 AWE_DB_SEED_ENABLED="${AWE_DB_SEED_ENABLED:-false}"
 # Optional seeds an extension ships but not every install wants, as
 # /seed/optional/<name>/*.sql — e.g. an activity register a registry offers as
@@ -107,7 +106,6 @@ echo " Master Data : ${MDS_API_URL:-unset} (API)"
 echo " AWE DB seed : ${AWE_DB_SEED_ENABLED}"
 echo " Sample data : ${LOAD_SAMPLE_DATA}"
 echo " Images      : ${LOAD_IMAGES}"
-echo " Templates   : ${LOAD_TEMPLATES}"
 echo " Optional    : ${OPTIONAL_SEEDS:-none}"
 echo "============================================="
 
@@ -161,13 +159,10 @@ else
   echo "[db-seed] Skipping image upload (LOAD_IMAGES=${LOAD_IMAGES})."
 fi
 
-# 4. Optionally upload Jinja templates to MinIO (object key = filename)
-if [ "$LOAD_TEMPLATES" = "true" ]; then
-  echo "[db-seed] Uploading templates to MinIO ..."
-  python3 /seed/upload_templates.py
-else
-  echo "[db-seed] Skipping template upload (LOAD_TEMPLATES=${LOAD_TEMPLATES})."
-fi
+# 4. Upload the image's Jinja templates to the object store (object key =
+#    filename). Always: the seeded meta-data points at them, and a record
+#    without its template cannot be rendered. An image without templates skips.
+python3 /seed/upload_templates.py
 
 # 5. Optionally seed AWE database (policies, stages, callback_secret)
 if [ "$AWE_DB_SEED_ENABLED" = "true" ]; then

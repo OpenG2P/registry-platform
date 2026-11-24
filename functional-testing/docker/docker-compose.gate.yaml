@@ -593,7 +593,6 @@ services:
       SYNC_GEO_WIDGETS: "false"
       LOAD_SAMPLE_DATA: "false"
       LOAD_IMAGES: "false"
-      LOAD_TEMPLATES: "true"
       STAFF_API_URL: http://staff-api:8000
       STAFF_TOKEN_URL: http://keycloak:8080/realms/staff/protocol/openid-connect/token
       STAFF_CLIENT_ID: registry-staff-portal

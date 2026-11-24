@@ -448,8 +448,8 @@ dbSeed:
   # and set record_image_document_id on the seeded records. Requires
   # loadSampleData=true (the records must exist first).
   loadImages: false
-  # Upload flat Jinja templates from the db-seed image to MinIO after SQL seed
-  loadTemplates: true
+  # The db-seed image's Jinja templates are always uploaded to the object store
+  # (there is no switch): the seeded meta-data points at them.
   # Optional seeds the registry's db-seed image ships under /seed/optional/<name>,
   # run after its meta_data — e.g. an activity register the registry offers but
   # not every install needs. Empty runs none.

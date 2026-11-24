@@ -22,8 +22,8 @@
 #     COPY docker/db-seed/seed-data/      /seed/seed-data/
 #
 # The entrypoint reads /seed/* at container-run time; behaviour (LOAD_SAMPLE_DATA,
-# LOAD_IMAGES, LOAD_TEMPLATES, AWE_DB_SEED_ENABLED, ...) is toggled entirely via
-# env from the Helm Job.
+# LOAD_IMAGES, AWE_DB_SEED_ENABLED, ...) is toggled entirely via env from the
+# Helm Job. Templates in /seed/templates are always uploaded.
 #
 # Seeding writes only the registry's own databases (and AWE's). It never writes
 # Master Data, and never reads MDS's database: a loader that needs geography,

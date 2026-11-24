@@ -214,13 +214,6 @@ questions:
   group: DB Seed
   show_if: dbSeed.loadSampleData=true
 
-- variable: dbSeed.loadTemplates
-  description: "Upload the registry's document templates to the object store. Leave on: without them records cannot be rendered (e.g. DCI search results)."
-  type: boolean
-  label: Load Templates to Object Store
-  group: DB Seed
-  show_if: dbSeed.enabled=true
-
 - variable: dbSeed.optionalSeeds
   description: "Optional seeds the registry's db-seed image ships (folders under /seed/optional), comma-separated, run after the registry's own seed — for example an activity register the registry offers but not every install needs. Leave empty for none."
   type: string

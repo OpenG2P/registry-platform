@@ -22,21 +22,18 @@ def env(name: str, default: str | None = None) -> str:
 
 def main() -> None:
     templates_dir = Path(os.environ.get("TEMPLATES_DIR", "/seed/templates"))
+    # A registry that shares no records ships no templates: nothing to upload.
+    template_files = sorted(templates_dir.glob("*.j2")) if templates_dir.is_dir() else []
+    if not template_files:
+        print(f"[db-seed] No templates in {templates_dir}. Skipping template upload.")
+        return
+
     # Physical bucket must match DocumentBucket.TEMPLATES ("templates")
     bucket_name = env("TEMPLATE_BUCKET_NAME", "templates")
     endpoint = env("MINIO_ENDPOINT")
     access_key = env("MINIO_ACCESS_KEY")
     secret_key = env("MINIO_SECRET_KEY")
     secure = os.environ.get("MINIO_SECURE", "false").lower() in ("1", "true", "yes")
-
-    if not templates_dir.is_dir():
-        print(f"[db-seed] Templates directory not found: {templates_dir}", file=sys.stderr)
-        sys.exit(1)
-
-    template_files = sorted(templates_dir.glob("*.j2"))
-    if not template_files:
-        print(f"[db-seed] No .j2 template files found in {templates_dir}", file=sys.stderr)
-        sys.exit(1)
 
     client = Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=secure)
 
