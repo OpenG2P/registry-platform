@@ -246,7 +246,7 @@ questions:
 
 # AWE
 - variable: global.aweEnabled
-  description: "Send change requests to the shared AWE (installed with commons-services) for approval, and seed this registry's approval policies and approver users."
+  description: "Send change requests and form submissions to the shared AWE (installed with commons-services) for approval, under the policies set up in AWE. Sample policies and their demo approvers load only with Load Sample Data."
   type: boolean
   label: Use AWE for Approvals
   group: AWE
