@@ -404,12 +404,12 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
+        await self.insert_into_register_history(change_request, session)
+
         if register_section.section_register_id == register_section.register_id:
             await self.approve_register(change_request, register_section, session)
         else:
             await self.approve_table(change_request, register_section, session)
-
-        await self.insert_into_register_history(change_request, session)
         # Promote attached docs
         await self._handle_documents_on_approval(change_request, register_section, session)
 
@@ -565,8 +565,8 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
-        subject_internal_record_id = await self.insert_primary_master_section_into_register(change_request, session)
         await self.insert_into_register_history(change_request, session)
+        subject_internal_record_id = await self.insert_primary_master_section_into_register(change_request, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
 
         # Handle POST APPROVAL domain service operation
@@ -597,10 +597,10 @@ class G2PRegisterChangeRequestService(BaseService):
             change_request, session, skip_verification, skip_sequence_check
         )
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
+        await self.insert_into_register_history(change_request, session)
         await self.insert_non_primary_master_section_into_register(
             change_request, change_request.internal_record_id, session
         )
-        await self.insert_into_register_history(change_request, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
         await self._run_post_approve_hook(
             change_request.section_register_id, change_request, session
@@ -747,8 +747,8 @@ class G2PRegisterChangeRequestService(BaseService):
 
         await self._run_pre_approve_hook(change_request.section_register_id, change_request, session)
 
-        subject_internal_record_id = await self.insert_child_section_into_register(change_request, subject_internal_record_id, session)
         await self.insert_into_register_history(change_request, session)
+        subject_internal_record_id = await self.insert_child_section_into_register(change_request, subject_internal_record_id, session)
         await self._handle_documents_on_approval(change_request, register_section, session)
 
         # Handle POST APPROVAL domain service operation
@@ -2094,7 +2094,7 @@ class G2PRegisterChangeRequestService(BaseService):
                     module = importlib.import_module(_DOMAIN_MODELS_MODULE)
 
                     if change_request.approval_status == ApprovalStatusEnum.APPROVED.value:
-                        # Live data has moved on, so old values come from history before this approval.
+                        # Pre-approval snapshot is stored under this change_request_id at approve time.
                         history_service = G2PRegisterHistoryService.get_component()
                         record_ids = []
                         for change_payload in change_payloads:
@@ -2105,10 +2105,17 @@ class G2PRegisterChangeRequestService(BaseService):
                             session,
                             section_register_id=change_request.section_register_id,
                             section_id=change_request.section_id,
-                            before_approved_at=change_request.approved_at,
-                            record_ids=record_ids,
+                            change_request_id=change_request.change_request_id,
                         )
-                        current_register_data_list = history_read.records
+                        if record_ids:
+                            record_id_set = set(record_ids)
+                            current_register_data_list = [
+                                record
+                                for record in history_read.records
+                                if record.get("internal_record_id") in record_id_set
+                            ]
+                        else:
+                            current_register_data_list = history_read.records
                     else:
                         # For PENDING/REJECTED, fetch from live register table
                         implementation_class_name: str = f"{_REGISTER_CLASS_PREFIX}{register_definition.register_mnemonic}"
@@ -2188,6 +2195,7 @@ class G2PRegisterChangeRequestService(BaseService):
                         internal_record_id=record_id,
                         section_id=change_request.section_id,
                         before=change_request.approved_at,
+                        change_request_id=change_request.change_request_id,
                     )
                 ]
         else:
