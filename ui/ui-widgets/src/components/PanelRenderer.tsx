@@ -37,16 +37,10 @@ const PANEL_LAYOUT_CSS = `
 @media (min-width: 1024px) {
   .panel-horizontal-grid {
     grid-template-columns: repeat(var(--panel-columns, 1), minmax(0, 1fr));
-    gap: 0;
+    gap: 0 80px;
   }
   .panel-horizontal-grid > .panel-nested {
     grid-column: span var(--panel-span, 1);
-  }
-  .panel-horizontal-grid > .panel-nested.panel-nested-pad-left {
-    padding-left: 40px;
-  }
-  .panel-horizontal-grid > .panel-nested.panel-nested-pad-right {
-    padding-right: 40px;
   }
   .panel-horizontal-divider {
     display: block;
@@ -103,22 +97,13 @@ export const PanelRenderer = ({
     >
       {nestedPanels.map((nestedPanel, index) => {
         const isLastPanel = index === nestedPanels.length - 1;
-        const isFirstPanel = index === 0;
         const columnSpan = nestedPanel['panel-column-span'] || 1;
 
         const nestedPanelStyle: CSSProperties = isHorizontalGrid
           ? { ['--panel-span' as string]: String(columnSpan) }
           : { width: '100%', maxWidth: '100%', minWidth: 0 };
 
-        const nestedClassName = isHorizontalGrid
-          ? [
-              'panel-nested',
-              !isFirstPanel ? 'panel-nested-pad-left' : '',
-              !isLastPanel ? 'panel-nested-pad-right' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')
-          : 'w-full min-w-0';
+        const nestedClassName = isHorizontalGrid ? 'panel-nested' : 'w-full min-w-0';
 
         return (
           <Fragment key={nestedPanel['panel-id'] || `panel-${index}`}>
@@ -139,7 +124,7 @@ export const PanelRenderer = ({
                   className="panel-horizontal-divider"
                   style={{
                     position: 'absolute',
-                    right: 0,
+                    right: -40,
                     top: 0,
                     bottom: '5px',
                     width: '1px',

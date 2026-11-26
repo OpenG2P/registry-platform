@@ -4,12 +4,14 @@ export interface SectionEditControlsProps {
   onCancel: () => void;
   onSave: () => void;
   isDirty: boolean;
+  hasErrors?: boolean;
 }
 
 export const SectionEditControls = ({
   onCancel,
   onSave,
   isDirty,
+  hasErrors = false,
 }: SectionEditControlsProps) => {
   const { t } = useWidgetContext();
 
@@ -31,7 +33,7 @@ export const SectionEditControls = ({
         </button>
         <button
           onClick={onSave}
-          disabled={!isDirty}
+          disabled={!isDirty || hasErrors}
           className="text-sm font-medium px-6 py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             fontFamily: 'Roboto, sans-serif',
