@@ -2762,6 +2762,72 @@ sanity:
       cpu: 500m
       memory: 256Mi
 
+# ---------------------------------------------------------------------------
+# Superset dashboards (templates/dashboards/). A post-install/upgrade hook Job
+# imports the registry's dashboard bundle into the namespace's shared Superset
+# (commons-services). Off here: the platform ships no dashboards. A registry
+# turns it on and supplies its bundle, a Superset dashboard export ZIP, in a
+# ConfigMap created as a hook with a weight below 50.
+#
+# Several installs can share one Superset. The Job rewrites the bundle for the
+# release: new UUIDs derived from the release name, the connection named after
+# the release, and each dashboard title prefixed "<release> · ". Give releases
+# names that say which install they are (fr-oromia, fr-amhara).
+dashboards:
+  enabled: false
+  bundle:
+    configMap: '{{ .Release.Name }}-dashboard-bundle'
+    key: dashboards.zip
+  # The same Superset version as the namespace's Superset.
+  image:
+    repository: apachesuperset.docker.scarf.sh/apache/superset
+    tag: 4.0.1
+  # Superset account that owns the imported assets. A Keycloak-only Superset has
+  # no local users, so the Job creates it. It cannot sign in through the UI, but
+  # can use the REST API with the password below.
+  supersetAdmin: svc-importer
+  # That account's password. Needed for embedding (enableEmbedding) and by G2P
+  # Insights. Generated on the first install and kept: whichever of the
+  # registries and Insights installs first creates it, the others use it, which
+  # is why all default to the same name and key. With no name, the Job uses a
+  # random password and the REST API stays closed to the account.
+  supersetAdminPasswordSecret:
+    generate: true
+    name: openg2p-insights-superset-svc
+    key: password
+  # Superset's own configuration. The Job runs Superset's CLI and ORM, so it has
+  # to reach the same metadata database Superset uses. Defaults match the
+  # commons-services Superset.
+  superset:
+    # In-cluster base URL, for the health check and the embedding calls.
+    url: http://commons-services-superset:8088
+    # Superset is another release and analytics is optional: when Superset does
+    # not answer, the Job skips the import and the install goes on. True fails
+    # the install instead.
+    required: false
+    waitAttempts: 60
+    waitSeconds: 5
+    # Secret with Superset's DB_HOST/DB_NAME/DB_USER/DB_PASS.
+    envFromSecret: commons-services-superset-env
+    # DB_PASS is empty in that Secret; the Superset chart keeps it in this one.
+    dbPasswordSecret:
+      name: superset-db-user
+      key: superset-db-user-password
+    # Secret with superset_config.py, and the bootstrap script the Superset
+    # deployment runs first (it installs authlib for AUTH_OAUTH). Empty
+    # bootstrapKey skips it.
+    configSecret: commons-services-superset-config
+    configKey: superset_config.py
+    bootstrapKey: superset_bootstrap.sh
+    # Give each imported dashboard an embedded UUID, so G2P Insights can show it.
+    enableEmbedding: true
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      memory: 2Gi
+
 # OpenG2P Registry Connector (API / worker / beat). Off by default.
 # Hostname, DB/Redis hosts and partner API service live under global: above.
 registryConnector:

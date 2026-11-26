@@ -1,0 +1,552 @@
+{{- /*
+Import this registry's Superset dashboards into the namespace's shared Superset
+(commons-services), as a post-install/post-upgrade hook.
+
+The registry supplies the bundle: a Superset dashboard export ZIP in a ConfigMap
+(dashboards.bundle). The platform ships none, so this is off by default.
+
+ONE SUPERSET, SEVERAL INSTALLS. Superset identifies imported assets by UUID, and
+a bundle's UUIDs are fixed. Imported as they are, a second install of the same
+registry in the namespace would overwrite the first one's dashboards and point
+their connection at its own database. So before importing, the bundle is
+rewritten for this release:
+  * every UUID (connection, datasets, charts, dashboards) becomes
+    uuid5(original UUID, release name): unique per release, and the same on
+    every upgrade, so each release keeps updating its own copy;
+  * the connection is named after the release;
+  * each dashboard title gets the prefix "<release> · ", and a slug, if any,
+    the suffix "-<release>".
+Release names are unique within a namespace, so nothing else has to be set.
+An export from Superset carries one release's names; turn it back into a bundle
+with scripts/dashboards-bundle-from-export.py before committing it.
+
+Weight 50: after db-seed (10), sanity (25) and a registry's own reporting views
+(below 50), which the datasets read. The registry's bundle ConfigMap must be a
+hook below 50 as well, so it exists when this Job mounts it.
+*/ -}}
+{{- if .Values.dashboards.enabled }}
+{{- $d := .Values.dashboards }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-dashboards
+  labels:
+    app.kubernetes.io/name: dashboards
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "50"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dashboards
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        {{- /* Superset belongs to another Helm release (commons-services), so
+             nothing orders it against this hook. Without a wait, a Superset that
+             is merely restarting would fail the import. */}}
+        - name: wait-for-superset
+          image: {{ $d.image.repository }}:{{ $d.image.tag }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              for i in $(seq 1 {{ $d.superset.waitAttempts }}); do
+                if python -c "import sys,urllib.request; urllib.request.urlopen('$SUPERSET_URL/health', timeout=5)" 2>/dev/null; then
+                  echo "[dashboards] Superset is up at $SUPERSET_URL"
+                  touch /gate/superset
+                  exit 0
+                fi
+                echo "[dashboards] waiting for Superset at $SUPERSET_URL ($i)"
+                sleep {{ $d.superset.waitSeconds }}
+              done
+              {{- if $d.superset.required }}
+              echo "[dashboards] Superset never became reachable at $SUPERSET_URL" >&2
+              exit 1
+              {{- else }}
+              # Analytics is optional and the registry is not: an absent Superset
+              # skips the import instead of failing the install. Set
+              # dashboards.superset.required=true where the dashboards must load.
+              echo "[dashboards] Superset is not reachable at $SUPERSET_URL — SKIPPING the"
+              echo "[dashboards] dashboard import. The registry itself is unaffected; upgrade"
+              echo "[dashboards] the release once Superset is installed to load them."
+              exit 0
+              {{- end }}
+          env:
+            - name: SUPERSET_URL
+              value: {{ tpl $d.superset.url $ | quote }}
+          volumeMounts:
+            - name: gate
+              mountPath: /gate
+      containers:
+        - name: import-dashboards
+          image: {{ $d.image.repository }}:{{ $d.image.tag }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+
+              # Set by the init container only when Superset answered. Checked here
+              # too: an init container that exits 0 does not stop the pod.
+              if [ ! -f /gate/superset ]; then
+                echo "[dashboards] no Superset — nothing to import."
+                exit 0
+              fi
+
+              if [ ! -f "/bundle/$BUNDLE_KEY" ]; then
+                echo "[dashboards] ABORT: no dashboard bundle. ConfigMap $BUNDLE_CONFIGMAP has no" \
+                     "key $BUNDLE_KEY (dashboards.bundle). The registry's chart supplies it." >&2
+                exit 1
+              fi
+
+              {{- /* Rewrite the bundle for this release (see the header). Text
+                   replacement of the UUIDs is complete: every reference between
+                   the bundle's files (database_uuid, dataset_uuid, the chart's
+                   datasource, the dashboard's position and filters) is one of the
+                   assets' own UUIDs. */}}
+              python - <<'PY'
+              import io, json, os, re, sys, uuid, zipfile, yaml
+              release = os.environ["RELEASE_NAME"]
+              KINDS = ("databases", "datasets", "charts", "dashboards")
+
+              def kind(name):
+                  parts = name.split("/")
+                  return parts[1] if len(parts) > 2 and parts[1] in KINDS else None
+
+              with zipfile.ZipFile("/bundle/" + os.environ["BUNDLE_KEY"]) as z:
+                  files = {n: z.read(n) for n in z.namelist() if not n.endswith("/")}
+
+              assets = {k: [] for k in KINDS}
+              for n, raw in files.items():
+                  k = kind(n)
+                  if k and n.endswith((".yaml", ".yml")):
+                      cfg = yaml.safe_load(raw) or {}
+                      if cfg.get("uuid"):
+                          old = str(cfg["uuid"])
+                          assets[k].append({"old": old,
+                                            "new": str(uuid.uuid5(uuid.UUID(old), release))})
+              if len(assets["databases"]) != 1:
+                  sys.exit("[dashboards] ABORT: the bundle must carry exactly one database "
+                           f"connection (the registry's database); it has {len(assets['databases'])}.")
+
+              mapping = {a["old"]: a["new"] for k in KINDS for a in assets[k]}
+              pattern = re.compile("|".join(map(re.escape, mapping)))
+              out = io.BytesIO()
+              with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+                  for n, raw in files.items():
+                      k = kind(n)
+                      if n.endswith((".yaml", ".yml")):
+                          text = pattern.sub(lambda m: mapping[m.group(0)], raw.decode("utf-8"))
+                          if k in ("databases", "dashboards"):
+                              cfg = yaml.safe_load(text)
+                              if k == "databases":
+                                  cfg["database_name"] = release
+                              else:
+                                  title = cfg.get("dashboard_title") or ""
+                                  if not title.startswith(f"{release} · "):
+                                      cfg["dashboard_title"] = f"{release} · {title}"
+                                  if cfg.get("slug"):
+                                      cfg["slug"] = f"{cfg['slug']}-{release}"
+                              text = yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True)
+                          raw = text.encode("utf-8")
+                      z.writestr(n, raw)
+              with open("/work/dashboards.zip", "wb") as f:
+                  f.write(out.getvalue())
+              with open("/work/assets.json", "w") as f:
+                  json.dump(assets, f)
+              print(f"[dashboards] bundle for release {release!r}: "
+                    + ", ".join(f"{len(assets[k])} {k}" for k in KINDS))
+              PY
+
+              {{- with $d.superset.bootstrapKey }}
+              # Same bootstrap the Superset deployment runs before starting: it
+              # installs what the mounted config needs (authlib for AUTH_OAUTH),
+              # which the stock image does not carry.
+              if [ -f "/app/pythonpath/{{ . }}" ]; then
+                echo "[dashboards] sourcing {{ . }}"
+                . "/app/pythonpath/{{ . }}"
+              else
+                echo "[dashboards] {{ . }} not mounted — continuing without it"
+              fi
+              {{- end }}
+
+              {{- /* Superset's CLI and ORM write to whatever SQLALCHEMY_DATABASE_URI
+                   resolves to. Without Superset's config that is a SQLite file in
+                   this pod: the import "succeeds" and the real Superset stays
+                   empty. Assert the config took and the database answers. */}}
+              python - <<'PY'
+              import sys
+              from superset.app import create_app
+              uri = str(create_app().config.get("SQLALCHEMY_DATABASE_URI", ""))
+              if uri.startswith("sqlite"):
+                  sys.exit(
+                      "[dashboards] ABORT: Superset resolved its metadata database to "
+                      f"{uri!r} — a throwaway file in this pod, not the Superset this "
+                      "environment runs. Set dashboards.superset.envFromSecret and "
+                      ".configSecret to the Secrets the Superset deployment uses.")
+              from sqlalchemy import create_engine
+              try:
+                  create_engine(uri).connect().close()
+              except Exception as exc:
+                  sys.exit(
+                      f"[dashboards] ABORT: cannot connect to Superset's metadata "
+                      f"database at {uri.split('@')[-1]}: {exc}\n"
+                      "[dashboards] If this is an authentication failure, check "
+                      "dashboards.superset.dbPasswordSecret: DB_PASS is empty in the "
+                      "envFrom Secret and comes from the Superset chart's password Secret.")
+              print(f"[dashboards] metadata database: {uri.split('@')[-1] or uri}")
+              PY
+
+              {{- /* The import needs a user to own the assets, and a Keycloak-only
+                   Superset has no local users until someone logs in. AUTH_OAUTH
+                   removes the login form, but /api/v1/security/login with
+                   provider=db still authenticates this account, the only way a
+                   machine client (embedding below, G2P Insights) reaches the API.
+                   So the password converges onto the Secret's value on every run. */}}
+              SVC_PW="${SUPERSET_ADMIN_PASSWORD:-}"
+              if [ -z "$SVC_PW" ]; then
+                SVC_PW="$(head -c 32 /dev/urandom | base64)"
+                echo "[dashboards] no password Secret configured — generating a" \
+                     "throwaway one. The Superset REST API will NOT be reachable" \
+                     "as $SUPERSET_ADMIN; set dashboards.supersetAdminPasswordSecret."
+              fi
+              if superset fab list-users 2>/dev/null | grep -q "$SUPERSET_ADMIN"; then
+                if [ -n "${SUPERSET_ADMIN_PASSWORD:-}" ]; then
+                  echo "[dashboards] resetting $SUPERSET_ADMIN password to the configured Secret"
+                  superset fab reset-password --username "$SUPERSET_ADMIN" \
+                    --password "$SVC_PW"
+                fi
+              else
+                superset fab create-admin \
+                  --username "$SUPERSET_ADMIN" \
+                  --firstname Service --lastname Importer \
+                  --email "$SUPERSET_ADMIN@openg2p.local" \
+                  --password "$SVC_PW"
+              fi
+
+              python - <<'PY'
+              import json, os, sys, uuid
+              from sqlalchemy.engine.url import make_url
+              from superset.app import create_app
+              with create_app().app_context():
+                  from flask import g
+                  from superset import db, security_manager
+                  from superset.connectors.sqla.models import SqlaTable
+                  from superset.models.core import Database
+                  from superset.models.dashboard import Dashboard
+                  from superset.models.slice import Slice
+                  g.user = security_manager.find_user(username=os.environ["SUPERSET_ADMIN"])
+                  release = os.environ["RELEASE_NAME"]
+                  assets = json.load(open("/work/assets.json"))
+
+                  def by_uuid(model, value):
+                      return db.session.query(model).filter_by(uuid=uuid.UUID(value)).one_or_none()
+
+                  # Assets of THIS release that carry a bundle UUID instead of the
+                  # release's: an install imported before the rewrite, or charts and
+                  # dashboards made in Superset and brought into the bundle by
+                  # dashboards-bundle-from-export.py. Move them onto the release's
+                  # UUIDs, so the import below updates them in place instead of
+                  # adding copies. Datasets and dashboards keep their ids, so charts
+                  # made by hand on these datasets and embedded links go on working.
+                  # In a shared Superset such an asset may be another release's, so
+                  # only what hangs off this release's connection moves: a connection
+                  # pointing at this release's database, its datasets, charts on
+                  # those datasets, dashboards made only of those charts.
+                  moved = 0
+                  def move(obj, a):
+                      global moved
+                      obj.uuid = uuid.UUID(a["new"])
+                      moved += 1
+
+                  db_assets = assets["databases"][0]
+                  conn = by_uuid(Database, db_assets["new"])
+                  legacy = by_uuid(Database, db_assets["old"])
+                  if conn is None and legacy is not None:
+                      url = make_url(legacy.sqlalchemy_uri)
+                      if (url.host == os.environ["PGHOST"]
+                              and str(url.port or 5432) == os.environ["PGPORT"]
+                              and url.database == os.environ["REGISTRY_DB"]):
+                          move(legacy, db_assets)
+                          conn = legacy
+                      else:
+                          print(f"[dashboards] connection {legacy.database_name!r} carries the "
+                                "bundle's own UUID but points at another database — left as it is")
+                  if conn is not None:
+                      ds_ids = {t.id for t in db.session.query(SqlaTable).filter_by(database_id=conn.id)}
+                      for a in assets["datasets"]:
+                          t = by_uuid(SqlaTable, a["old"])
+                          if t is not None and t.id in ds_ids and by_uuid(SqlaTable, a["new"]) is None:
+                              move(t, a)
+                      def ours(chart):
+                          return chart.datasource_type == "table" and chart.datasource_id in ds_ids
+                      for a in assets["charts"]:
+                          c = by_uuid(Slice, a["old"])
+                          if c is not None and ours(c) and by_uuid(Slice, a["new"]) is None:
+                              move(c, a)
+                      for a in assets["dashboards"]:
+                          dash = by_uuid(Dashboard, a["old"])
+                          if (dash is not None and dash.slices and all(ours(c) for c in dash.slices)
+                                  and by_uuid(Dashboard, a["new"]) is None):
+                              move(dash, a)
+                      db.session.commit()
+                  if moved:
+                      print(f"[dashboards] {moved} asset(s) with the bundle's own UUIDs moved "
+                            f"to release {release!r}")
+
+                  # Connection names are unique in Superset.
+                  clash = db.session.query(Database).filter_by(database_name=release).one_or_none()
+                  if clash is not None and str(clash.uuid) != db_assets["new"]:
+                      sys.exit(f"[dashboards] ABORT: Superset already has a connection named "
+                               f"{release!r} that this release did not import. Rename or delete "
+                               "it in Superset, then upgrade the release again.")
+
+                  # The dashboard importer calls import_chart(overwrite=False): only
+                  # dashboards are overwritten, so a chart fixed in the bundle would
+                  # never reach an install that has it. Delete this release's charts
+                  # (by UUID, so nothing made by hand is touched); the import
+                  # recreates them.
+                  stale = [c for c in (by_uuid(Slice, a["new"]) for a in assets["charts"]) if c]
+                  for c in stale:
+                      db.session.delete(c)
+                  db.session.commit()
+                  print(f"[dashboards] replacing {len(stale)} existing chart(s)")
+              PY
+
+              superset import-dashboards -p /work/dashboards.zip -u "$SUPERSET_ADMIN"
+
+              python - <<'PY'
+              import json, os, sys, uuid
+              from superset.app import create_app
+              with create_app().app_context():
+                  from superset import db
+                  from superset.models.core import Database
+                  from superset.models.dashboard import Dashboard
+                  release = os.environ["RELEASE_NAME"]
+                  assets = json.load(open("/work/assets.json"))
+
+                  d = (db.session.query(Database)
+                       .filter_by(uuid=uuid.UUID(assets["databases"][0]["new"])).one_or_none())
+                  if d is None:
+                      sys.exit("[dashboards] ABORT: the import did not create this release's "
+                               "database connection. See the import output above.")
+                  # Named here as well as in the bundle: the importer keeps an
+                  # existing connection as it is, name included.
+                  old_name = d.database_name
+                  d.database_name = release
+                  # The bundle carries no password; it is not a secret store.
+                  d.sqlalchemy_uri = (
+                      f"postgresql+psycopg2://{os.environ['REGISTRY_DB_USER']}"
+                      f"@{os.environ['PGHOST']}:{os.environ['PGPORT']}"
+                      f"/{os.environ['REGISTRY_DB']}")
+                  d.password = os.environ["REGISTRY_DB_PASSWORD"]
+
+                  # Publish only this release's dashboards: Superset is shared, and
+                  # publishing everything in it would expose someone else's drafts.
+                  ours = {a["new"] for a in assets["dashboards"]}
+                  published = 0
+                  for dash in db.session.query(Dashboard).all():
+                      if str(dash.uuid) in ours:
+                          dash.published = True
+                          published += 1
+                  db.session.commit()
+
+                  if old_name != release:
+                      # On a rename Superset renames the connection's and datasets'
+                      # permissions itself, but not schema permissions: its own
+                      # rename does those after listing the database's schemas. Do
+                      # it from the datasets, so a role given schema access on the
+                      # old name keeps it.
+                      from superset import security_manager
+                      from superset.connectors.sqla.models import SqlaTable
+                      from superset.models.slice import Slice
+                      VM = security_manager.viewmenu_model
+                      for vm in db.session.query(VM).all():
+                          if vm.name.startswith(f"[{old_name}].[") and "(id:" not in vm.name:
+                              new = f"[{release}]." + vm.name[len(old_name) + 3:]
+                              if security_manager.find_view_menu(new) is None:
+                                  vm.name = new
+                      for t in db.session.query(SqlaTable).filter_by(database_id=d.id).all():
+                          perm = security_manager.get_schema_perm(release, t.schema)
+                          db.session.execute(SqlaTable.__table__.update()
+                                             .where(SqlaTable.__table__.c.id == t.id)
+                                             .values(schema_perm=perm))
+                          db.session.execute(Slice.__table__.update()
+                                             .where(Slice.__table__.c.datasource_id == t.id,
+                                                    Slice.__table__.c.datasource_type == "table")
+                                             .values(schema_perm=perm))
+                      db.session.commit()
+                      print(f"[dashboards] connection renamed {old_name!r} -> {release!r}")
+
+                  print(f"[dashboards] connection {release!r} set; published {published} of "
+                        f"{len(ours)} dashboard(s)")
+              PY
+
+              {{- if $d.superset.enableEmbedding }}
+              {{- /* Imported dashboards carry no embedded UUID, so G2P Insights can
+                   list them and render none. Enabled through the REST API, not the
+                   ORM: the embedded-dashboard tables are internal and have moved
+                   between Superset versions; the endpoint has not. */}}
+              python - <<'PY'
+              import json, os, sys, requests
+              base = os.environ["SUPERSET_URL"].rstrip("/")
+              pw = os.environ.get("SUPERSET_ADMIN_PASSWORD")
+              if not pw:
+                  print("[dashboards] no service-account password configured — "
+                        "skipping embedding. Insights will list the dashboards and "
+                        "be unable to render them.")
+                  sys.exit(0)
+              s = requests.Session()
+
+              # Superset sets SESSION_COOKIE_SECURE, right for browsers on the HTTPS
+              # ingress. This Job talks to the in-cluster Service over http, where a
+              # client does not send a Secure cookie, and every call then fails with
+              # "400 The CSRF session token is missing". Superset re-issues the cookie
+              # on each response, so the flag is cleared before EVERY request.
+              def allow_session_cookie_over_http():
+                  for cookie in s.cookies:
+                      cookie.secure = False
+
+              r = s.post(f"{base}/api/v1/security/login", timeout=30, json={
+                  "username": os.environ["SUPERSET_ADMIN"], "password": pw,
+                  "provider": "db", "refresh": True})
+              r.raise_for_status()
+              s.headers["Authorization"] = f"Bearer {r.json()['access_token']}"
+              allow_session_cookie_over_http()
+              csrf = s.get(f"{base}/api/v1/security/csrf_token/", timeout=30)
+              if not csrf.ok:
+                  sys.exit(f"[dashboards] ABORT: csrf_token {csrf.status_code}: "
+                           f"{csrf.text[:200]}")
+              s.headers.update({"X-CSRFToken": csrf.json()["result"], "Referer": base})
+
+              # This release's dashboards, through the ORM: the list API does not
+              # return `uuid`. Only these: embedding another team's dashboard in a
+              # shared Superset is not this Job's business.
+              from superset.app import create_app
+              ours = {a["new"] for a in json.load(open("/work/assets.json"))["dashboards"]}
+              with create_app().app_context():
+                  from superset import db
+                  from superset.models.dashboard import Dashboard
+                  ids = [d.id for d in db.session.query(Dashboard).all()
+                         if str(d.uuid) in ours]
+
+              done = 0
+              for did in ids:
+                  allow_session_cookie_over_http()
+                  e = s.post(f"{base}/api/v1/dashboard/{did}/embedded",
+                             json={"allowed_domains": []}, timeout=30)
+                  if e.ok:
+                      done += 1
+                  else:
+                      print(f"[dashboards] embedding {did} failed "
+                            f"{e.status_code}: {e.text[:160]}")
+              if done != len(ours):
+                  print(f"[dashboards] WARNING: embedded {done} but the bundle has "
+                        f"{len(ours)} dashboard(s) — Insights will list the rest "
+                        "and be unable to render them")
+              print(f"[dashboards] embedding enabled on {done} dashboard(s)")
+              PY
+              {{- end }}
+          env:
+            - name: RELEASE_NAME
+              value: {{ .Release.Name | quote }}
+            - name: BUNDLE_CONFIGMAP
+              value: {{ tpl $d.bundle.configMap $ | quote }}
+            - name: BUNDLE_KEY
+              value: {{ $d.bundle.key | quote }}
+            - name: SUPERSET_URL
+              value: {{ tpl $d.superset.url $ | quote }}
+            {{- if $d.superset.configSecret }}
+            - name: SUPERSET_CONFIG_PATH
+              value: /app/pythonpath/{{ $d.superset.configKey }}
+            {{- end }}
+            - name: SUPERSET_ADMIN
+              value: {{ $d.supersetAdmin | quote }}
+            {{- with $d.supersetAdminPasswordSecret }}
+            {{- if .name }}
+            - name: SUPERSET_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl .name $ | quote }}
+                  key: {{ .key | default "password" | quote }}
+            {{- end }}
+            {{- end }}
+            {{- with $d.superset.dbPasswordSecret }}
+            {{- if .name }}
+            {{- /* Superset's METADATA database password, as an explicit env entry:
+                 DB_PASS is present but EMPTY in the envFrom Secret, and an explicit
+                 entry wins over envFrom. The Superset deployment does the same. */}}
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl .name $ | quote }}
+                  key: {{ .key | quote }}
+            {{- end }}
+            {{- end }}
+            - name: PGHOST
+              value: {{ tpl .Values.global.postgresqlHost $ | quote }}
+            - name: PGPORT
+              value: {{ .Values.global.registryDBPort | default 5432 | quote }}
+            - name: REGISTRY_DB
+              value: {{ tpl .Values.global.registryDB $ | quote }}
+            - name: REGISTRY_DB_USER
+              value: {{ tpl .Values.global.registryDBUser $ | quote }}
+            - name: REGISTRY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ tpl .Values.global.registryDBSecret $ | quote }}
+                  key: {{ tpl .Values.global.registryDBUserPasswordKey $ | quote }}
+          {{- with $d.superset.envFromSecret }}
+          envFrom:
+            {{- /* Superset's DB_HOST/DB_NAME/DB_USER/DB_PASS, the Secret its own
+                 deployment reads, so the CLI reaches the same metadata database. */}}
+            - secretRef:
+                name: {{ tpl . $ | quote }}
+          {{- end }}
+          volumeMounts:
+            - name: gate
+              mountPath: /gate
+            - name: work
+              mountPath: /work
+            - name: bundle
+              mountPath: /bundle
+            {{- if $d.superset.configSecret }}
+            - name: superset-config
+              mountPath: /app/pythonpath
+              readOnly: true
+            {{- end }}
+          {{- with $d.resources }}
+          resources: {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: gate
+          emptyDir: {}
+        - name: work
+          emptyDir: {}
+        - name: bundle
+          configMap:
+            name: {{ tpl $d.bundle.configMap $ | quote }}
+            # Optional so a missing bundle fails the Job with a message rather
+            # than leaving the pod waiting for the ConfigMap until the hook times out.
+            optional: true
+        {{- with $d.superset.configSecret }}
+        - name: superset-config
+          secret:
+            secretName: {{ tpl . $ | quote }}
+            items:
+              - key: {{ $d.superset.configKey }}
+                path: {{ $d.superset.configKey }}
+              {{- with $d.superset.bootstrapKey }}
+              {{- /* The Superset deployment sources this before starting; it is
+                   where AUTH_OAUTH's authlib comes from. Without it create_app
+                   fails with ModuleNotFoundError. */}}
+              - key: {{ . }}
+                path: {{ . }}
+              {{- end }}
+        {{- end }}
+{{- end }}
