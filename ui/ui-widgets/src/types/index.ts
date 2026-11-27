@@ -41,6 +41,8 @@ export interface SchemaDataSource {
   labelKey?: string;
 }
 
+export type GeoVersionRef = number | 'latest' | 'draft';
+
 export interface GeoHierarchyDataSource {
   type: 'api';
   service: string;
@@ -49,6 +51,9 @@ export interface GeoHierarchyDataSource {
   levelsEndpoint: string;
   /** e.g. geo-level-values (matches /api/master-data/...) */
   valuesEndpoint: string;
+  version?: GeoVersionRef;
+  as_of?: string;
+  release?: string;
 }
 
 export type DataSource = StaticDataSource | ApiDataSource | SchemaDataSource;

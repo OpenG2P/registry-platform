@@ -22,6 +22,9 @@ export async function POST(req: NextRequest) {
 			},
 			request_payload: {
 				attribute_id: body.attribute_id,
+				version: body.version ?? null,
+				as_of: body.as_of ?? null,
+				release: body.release ?? null,
 				parent_value_id: body.parent_value_id,
 				q: body.q,
 			}

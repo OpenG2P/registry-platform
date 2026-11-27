@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { BaseWidgetConfig, isGeoHierarchyDataSource } from '../types';
+import { BaseWidgetConfig, GeoHierarchyDataSource, isGeoHierarchyDataSource } from '../types';
 import { useBaseWidget } from './useBaseWidget';
 import { useWidgetContext } from '../components/WidgetProvider';
 import { WidgetRootState } from '../store';
@@ -35,9 +35,22 @@ interface UseGeoHierarchyOptions {
   config: BaseWidgetConfig;
 }
 
-const sharedLevelsCache: { current: GeoLevel[] | null } = { current: null };
+const sharedLevelsCache = new Map<string, GeoLevel[]>();
 const sharedValuesCache = new Map<string, GeoLevelValue[]>();
 const sharedValuesInflight = new Map<string, Promise<GeoLevelValue[]>>();
+
+function geoVersionParams(source: GeoHierarchyDataSource): Record<string, unknown> {
+  if (source.release) {
+    return { release: source.release };
+  }
+  if (source.as_of) {
+    return { as_of: source.as_of };
+  }
+  if (source.version != null) {
+    return { version: source.version };
+  }
+  return {};
+}
 
 function resolveHierarchyPath(config: BaseWidgetConfig): string | null {
   return resolveHierarchyJsonPath(
@@ -156,16 +169,20 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
     if (!geoDataSource) {
       return [];
     }
-    if (sharedLevelsCache.current) {
-      return sharedLevelsCache.current;
+    const versionParams = geoVersionParams(geoDataSource);
+    const cacheKey = JSON.stringify(versionParams);
+    const cached = sharedLevelsCache.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
     const payload = await requestApi(geoDataSource.levelsEndpoint, {
       current_page: 1,
       page_size: 100,
+      ...versionParams,
     });
     const ordered = buildOrderedLevels(payload as GeoLevel[]);
-    sharedLevelsCache.current = ordered;
+    sharedLevelsCache.set(cacheKey, ordered);
     return ordered;
   }, [geoDataSource, requestApi]);
 
@@ -175,7 +192,13 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
         return [];
       }
 
-      const cacheKey = JSON.stringify(params);
+      const requestParams = {
+        current_page: 1,
+        page_size: 5000,
+        ...geoVersionParams(geoDataSource),
+        ...params,
+      };
+      const cacheKey = JSON.stringify(requestParams);
       const cached = sharedValuesCache.get(cacheKey);
       if (cached) {
         return cached;
@@ -187,11 +210,7 @@ export function useGeoHierarchy({ config }: UseGeoHierarchyOptions) {
       }
 
       const fetchPromise = (async () => {
-        const payload = await requestApi(geoDataSource.valuesEndpoint, {
-          current_page: 1,
-          page_size: 500,
-          ...params,
-        });
+        const payload = await requestApi(geoDataSource.valuesEndpoint, requestParams);
         const nextValues = payload as GeoLevelValue[];
         sharedValuesCache.set(cacheKey, nextValues);
         return nextValues;
