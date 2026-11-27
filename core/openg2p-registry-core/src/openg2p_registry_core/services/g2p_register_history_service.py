@@ -55,10 +55,11 @@ class SectionHistoryRead:
 
 class G2PRegisterHistoryService(BaseService):
     async def insert_into_register_history(self, change_request: G2PRegisterChangeRequest, session) -> None:
-        """Copy the live record into history after the change has been applied.
+        """Copy the live record into history before the change request is applied.
 
-        A delete leaves no live row, so that history row keeps bookkeeping columns only.
-        The row still exists so the version stays in the date list.
+        The snapshot is the pre-approval state used for change-request old/new comparison.
+        DELETE actions snapshot the live row while it still exists; ADD skips when there
+        is no live row.
         """
         models = await self._resolve_history_models(change_request, session)
         if models is None:
@@ -82,17 +83,19 @@ class G2PRegisterHistoryService(BaseService):
                     change_request.change_request_id,
                 )
                 continue
-            if action == ChangeActionEnum.DELETE.value:
+            live_row = live_rows.get(record_id)
+            if live_row is None:
+                if action == ChangeActionEnum.ADD.value:
+                    continue
+                _logger.warning(
+                    "No live record %s to copy into history for change request %s",
+                    record_id,
+                    change_request.change_request_id,
+                )
+                if action != ChangeActionEnum.DELETE.value:
+                    continue
                 state = {}
             else:
-                live_row = live_rows.get(record_id)
-                if live_row is None:
-                    _logger.warning(
-                        "No live record %s to copy into history for change request %s",
-                        record_id,
-                        change_request.change_request_id,
-                    )
-                    continue
                 state = self._state_from_live_row(live_row, history_class)
             self._create_history_record(
                 change_payload=change_payload,
@@ -195,7 +198,7 @@ class G2PRegisterHistoryService(BaseService):
         return {column.name: getattr(row, column.name, None) for column in inspect(row.__class__).columns}
 
     def _state_from_live_row(self, live_row: dict, history_class) -> dict:
-        """Domain columns from the live record, after the change has been applied."""
+        """Domain columns from the live record at snapshot time (pre-approval for CR history)."""
         history_columns = inspect(history_class).columns
         state = {}
         for key, value in live_row.items():
