@@ -54,6 +54,15 @@ class Settings(ExtSettings):
         "FID": "functional_record_id",
     }
 
+    # Under a person's consent, every record an entity register returns must be
+    # that person's. By default a record is the person's when its
+    # foundational_id (the national ID) or functional_record_id is the
+    # consent's subject: right for a register of people. A register whose
+    # records belong to a person rather than being one (a Livestock Registry's
+    # animals, kept by a farmer) names the columns that hold that person,
+    # per register mnemonic, e.g. {"Animal": ["owner_national_id", "owner_farmer_id"]}.
+    dci_consent_subject_fields: dict[str, list[str]] = {}
+
     # ------------------------------------------------------------------
     # Partner signature verification (transport) + Consent enforcement
     # ------------------------------------------------------------------

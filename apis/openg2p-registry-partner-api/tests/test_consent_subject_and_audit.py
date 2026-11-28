@@ -9,7 +9,9 @@ from openg2p_registry_partner_api.audit_context import set_audit_actor, set_audi
 from openg2p_registry_partner_api.audit_middleware import AuditMiddleware
 from openg2p_registry_partner_api.search.dci.helpers.query_helper import DciQueryHelper
 from openg2p_registry_partner_api.search.dci.schemas.dci_request import DciSearchCriteria
+from openg2p_registry_partner_api.search.dci.services import g2p_dci_service
 from openg2p_registry_partner_api.search.dci.services.g2p_dci_service import (
+    G2PDciService,
     _require_consent_subject_or_bulk,
 )
 
@@ -58,6 +60,40 @@ def test_enforced_consent_without_subject_only_allows_bulk():
         _require_consent_subject_or_bulk(True, None, named, is_aggregate=True)
     with pytest.raises(G2PRegistryException):
         _require_consent_subject_or_bulk(True, None, bulk, is_aggregate=False)
+
+
+
+# --- an entity register's records belong to the consent's subject -------------
+
+def _records_check(records, subject, register, fields=None, monkeypatch=None):
+    service = G2PDciService.__new__(G2PDciService)  # the check needs no collaborators
+    if monkeypatch is not None:
+        monkeypatch.setattr(g2p_dci_service._config, "dci_consent_subject_fields", fields or {})
+    service._require_records_of_subject(records, subject, register)
+
+
+def test_a_person_record_is_the_subjects_by_its_ids(monkeypatch):
+    farmer = {"functional_record_id": "FR-0007", "foundational_id": "946053125409"}
+    _records_check([farmer], "946053125409", "Farmer", monkeypatch=monkeypatch)
+    _records_check([farmer], "FR-0007", "Farmer", monkeypatch=monkeypatch)
+    with pytest.raises(G2PRegistryException):
+        _records_check([farmer], "111111111111", "Farmer", monkeypatch=monkeypatch)
+
+
+def test_a_register_names_the_columns_that_hold_its_subject(monkeypatch):
+    """An animal is not a person: it is its owner's, by the owner's national ID or Farmer ID."""
+    owner = {"Animal": ["owner_national_id", "owner_farmer_id"]}
+    cow = {"functional_record_id": "9000000701", "owner_national_id": "946053125409", "owner_farmer_id": "FR-0007"}
+    _records_check([cow], "946053125409", "Animal", owner, monkeypatch)
+    _records_check([cow], "FR-0007", "Animal", owner, monkeypatch)
+    # The animal's own ID is not its owner, and another person's animal is refused.
+    with pytest.raises(G2PRegistryException):
+        _records_check([cow], "9000000701", "Animal", owner, monkeypatch)
+    neighbours = {**cow, "owner_national_id": "222222222222", "owner_farmer_id": "FR-0009"}
+    with pytest.raises(G2PRegistryException):
+        _records_check([cow, neighbours], "946053125409", "Animal", owner, monkeypatch)
+    # Other registers keep the default.
+    _records_check([{"foundational_id": "946053125409"}], "946053125409", "Farmer", owner, monkeypatch)
 
 
 # --- audit ---------------------------------------------------------------------

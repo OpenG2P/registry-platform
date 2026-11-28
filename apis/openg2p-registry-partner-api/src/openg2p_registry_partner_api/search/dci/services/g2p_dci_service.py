@@ -40,6 +40,10 @@ from ....config import Settings
 _logger = logging.getLogger("g2p-dci-service")
 _config = Settings.get_config()
 
+# The columns that name an entity register record's consent subject, unless the
+# register names its own (Settings.dci_consent_subject_fields).
+_SUBJECT_FIELDS = ("foundational_id", "functional_record_id")
+
 @dataclass
 class ConsentScopeGrant:
     """The data scopes one search item may return, and when the consent was issued.
@@ -182,7 +186,9 @@ class G2PDciService(BaseService):
                             message="The consent's subject is not the person searched",
                         )
                 else:
-                    self._require_records_of_subject(search_result_data or [], consent_subject)
+                    self._require_records_of_subject(
+                        search_result_data or [], consent_subject, search_criteria.reg_type
+                    )
 
             # PEP field-level enforcement: each internal record (with its linked
             # records) is filtered to the consented scopes' fields, then rendered.
@@ -423,13 +429,18 @@ class G2PDciService(BaseService):
             for row in rows
         ], total_count
 
-    def _require_records_of_subject(self, search_result_data, consent_subject: str) -> None:
-        """Entity register: every returned record must be the consented person's
-        (its foundational ID or functional ID is the consent's subject)."""
+    def _require_records_of_subject(self, search_result_data, consent_subject: str,
+                                    register_mnemonic: Optional[str] = None) -> None:
+        """Entity register: every returned record must be the consented person's.
+
+        A record is the person's when one of the register's subject fields holds
+        the consent's subject: by default its foundational ID or functional ID
+        (a register of people); a register whose records belong to a person
+        names its own (``dci_consent_subject_fields``, e.g. an animal's owner)."""
+        keys = (_config.dci_consent_subject_fields or {}).get(register_mnemonic or "") or _SUBJECT_FIELDS
         for datum in search_result_data:
             record = self._deep_search_result_data_to_dict(datum)
-            identifiers = {str(record.get(key)) for key in ("foundational_id", "functional_record_id")
-                           if record.get(key) not in (None, "")}
+            identifiers = {str(record.get(key)) for key in keys if record.get(key) not in (None, "")}
             if consent_subject not in identifiers:
                 raise G2PRegistryException(
                     code=DciSearchStatusReasonCode.SEARCH_CRITERIA_INVALID.value,
